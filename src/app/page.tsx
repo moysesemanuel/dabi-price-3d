@@ -1,0 +1,533 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { AppSidebar } from "@/components/app/app-sidebar";
+import { PricingForm } from "@/components/pricing/pricing-form";
+import { PricingResult } from "@/components/pricing/pricing-result";
+import {
+  convertFromBRL,
+  defaultExchangeRateSnapshot,
+  formatCurrency,
+  type DisplayCurrency,
+  type ExchangeRateSnapshot,
+} from "@/lib/currency/display-currency";
+import {
+  saveCalculationToHistory,
+} from "@/lib/history/calculation-history";
+import { getMercadoLivreFeePreview } from "@/lib/marketplaces/mercado-livre";
+import { calculate3DPrice } from "@/lib/pricing/calculate-3d-price";
+import { buildPricingViewModel } from "@/lib/pricing/build-pricing-view-model";
+import {
+  initialPricingForm,
+  type PricingFormState,
+} from "@/lib/pricing/initial-pricing-form";
+import {
+  findSalesChannelById,
+  salesChannels,
+} from "@/lib/pricing/sales-channels";
+
+type MercadoLivreAutomationState = {
+  feePercentage: number | null;
+  fixedFee: number | null;
+  shippingEstimate: number | null;
+  predictedCategoryName: string | null;
+  predictedCategoryId: string | null;
+};
+
+type SaveState = "idle" | "saved";
+
+export default function Home() {
+  const [form, setForm] = useState<PricingFormState>(initialPricingForm);
+  const [displayCurrency, setDisplayCurrency] =
+    useState<DisplayCurrency>("BRL");
+  const [exchangeRateSnapshot, setExchangeRateSnapshot] =
+    useState<ExchangeRateSnapshot>(defaultExchangeRateSnapshot);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+
+  const [mercadoLivreAutomation, setMercadoLivreAutomation] =
+    useState<MercadoLivreAutomationState>({
+      feePercentage: null,
+      fixedFee: null,
+      shippingEstimate: null,
+      predictedCategoryName: null,
+      predictedCategoryId: null,
+    });
+
+  const mercadoLivreFeePreview = useMemo(() => {
+    if (form.salesChannelId !== "mercado-livre") {
+      return null;
+    }
+
+    return getMercadoLivreFeePreview({
+      rootCategoryKey: form.mercadoLivreRootCategoryKey,
+      listingTypeId: form.mercadoLivreListingTypeId,
+    });
+  }, [
+    form.mercadoLivreListingTypeId,
+    form.mercadoLivreRootCategoryKey,
+    form.salesChannelId,
+  ]);
+
+  const effectiveMarketplaceFeePercentage =
+    form.salesChannelId === "mercado-livre"
+      ? mercadoLivreAutomation.feePercentage ??
+        mercadoLivreFeePreview?.appliedFeePercentage ??
+        form.marketplaceFeePercentage
+      : form.marketplaceFeePercentage;
+
+  const effectiveMarketplaceFixedFee =
+    form.salesChannelId === "mercado-livre"
+      ? mercadoLivreAutomation.fixedFee ?? form.marketplaceFixedFee
+      : form.marketplaceFixedFee;
+
+  const effectiveForm = useMemo(
+    () => ({
+      ...form,
+      marketplaceFeePercentage: effectiveMarketplaceFeePercentage,
+      marketplaceFixedFee: effectiveMarketplaceFixedFee,
+      laborCost: form.salesChannelId === "direct" ? form.laborCost : 0,
+    }),
+    [effectiveMarketplaceFeePercentage, effectiveMarketplaceFixedFee, form],
+  );
+
+  const result = useMemo(() => calculate3DPrice(effectiveForm), [effectiveForm]);
+  const viewModel = useMemo(
+    () => buildPricingViewModel(form, result),
+    [form, result],
+  );
+
+  const displayedSalePrice = useMemo(
+    () =>
+      convertFromBRL(
+        viewModel.displayedSalePrice,
+        displayCurrency,
+        exchangeRateSnapshot.rates,
+      ),
+    [displayCurrency, exchangeRateSnapshot.rates, viewModel.displayedSalePrice],
+  );
+
+  const selectedChannel = findSalesChannelById(form.salesChannelId);
+  const selectedChannelLabel = selectedChannel?.name ?? salesChannels[0].name;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadExchangeRates() {
+      try {
+        const response = await fetch("/api/exchange-rates", {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as ExchangeRateSnapshot;
+
+        if (isMounted) {
+          setExchangeRateSnapshot(payload);
+        }
+      } catch {
+        if (isMounted) {
+          setExchangeRateSnapshot(defaultExchangeRateSnapshot);
+        }
+      }
+    }
+
+    loadExchangeRates();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (form.salesChannelId !== "mercado-livre") {
+      setMercadoLivreAutomation({
+        feePercentage: null,
+        fixedFee: null,
+        shippingEstimate: null,
+        predictedCategoryName: null,
+        predictedCategoryId: null,
+      });
+
+      return;
+    }
+
+    const price = result.commercialUnitPrice;
+
+    if (price <= 0 || form.productName.trim().length < 3) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const params = new URLSearchParams({
+      rootCategoryKey: form.mercadoLivreRootCategoryKey,
+      listingTypeId: form.mercadoLivreListingTypeId,
+      price: String(price),
+      productName: form.productName,
+      packageHeightCm: String(form.mercadoLivrePackageHeightCm),
+      packageWidthCm: String(form.mercadoLivrePackageWidthCm),
+      packageLengthCm: String(form.mercadoLivrePackageLengthCm),
+      packageWeightKg: String(form.mercadoLivrePackageWeightKg),
+    });
+
+    if (form.mercadoLivreOfficialCategoryId) {
+      params.set("officialCategoryId", form.mercadoLivreOfficialCategoryId);
+    }
+
+    async function run() {
+      try {
+        const response = await fetch(
+          `/api/marketplaces/mercado-livre/fees?${params.toString()}`,
+          {
+            signal: controller.signal,
+          },
+        );
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          feePercentage?: number | null;
+          fixedFee?: number | null;
+          shippingEstimate?: number | null;
+          predictedCategory?: {
+            id?: string;
+            name?: string;
+          } | null;
+          categoryId?: string;
+        };
+
+        setMercadoLivreAutomation({
+          feePercentage:
+            typeof payload.feePercentage === "number"
+              ? payload.feePercentage
+              : null,
+          fixedFee:
+            typeof payload.fixedFee === "number" ? payload.fixedFee : null,
+          shippingEstimate:
+            typeof payload.shippingEstimate === "number"
+              ? payload.shippingEstimate
+              : null,
+          predictedCategoryName: payload.predictedCategory?.name ?? null,
+          predictedCategoryId:
+            payload.categoryId ?? payload.predictedCategory?.id ?? null,
+        });
+
+        setForm((current) => {
+          const nextCategoryId =
+            current.mercadoLivreOfficialCategoryId ||
+            payload.categoryId ||
+            payload.predictedCategory?.id ||
+            "";
+
+          const nextShippingCost =
+            typeof payload.shippingEstimate === "number"
+              ? payload.shippingEstimate
+              : current.shippingCost;
+
+          const nextFixedFee =
+            typeof payload.fixedFee === "number"
+              ? payload.fixedFee
+              : current.marketplaceFixedFee;
+
+          if (
+            nextCategoryId === current.mercadoLivreOfficialCategoryId &&
+            nextShippingCost === current.shippingCost &&
+            nextFixedFee === current.marketplaceFixedFee
+          ) {
+            return current;
+          }
+
+          return {
+            ...current,
+            mercadoLivreOfficialCategoryId: nextCategoryId,
+            shippingCost: nextShippingCost,
+            marketplaceFixedFee: nextFixedFee,
+          };
+        });
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
+          setMercadoLivreAutomation((current) => ({
+            ...current,
+            feePercentage:
+              current.feePercentage ??
+              mercadoLivreFeePreview?.appliedFeePercentage ??
+              null,
+          }));
+        }
+      }
+    }
+
+    run();
+
+    return () => controller.abort();
+  }, [
+    form.mercadoLivreListingTypeId,
+    form.mercadoLivreOfficialCategoryId,
+    form.mercadoLivrePackageHeightCm,
+    form.mercadoLivrePackageLengthCm,
+    form.mercadoLivrePackageWeightKg,
+    form.mercadoLivrePackageWidthCm,
+    form.mercadoLivreRootCategoryKey,
+    form.productName,
+    form.salesChannelId,
+    mercadoLivreFeePreview?.appliedFeePercentage,
+    result.commercialUnitPrice,
+  ]);
+
+  useEffect(() => {
+    if (saveState !== "saved") {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setSaveState("idle"), 2200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [saveState]);
+
+  function updateField(
+    field: keyof PricingFormState,
+    value: string | number | boolean,
+  ) {
+    setForm((current) => {
+      if (field === "salesChannelId") {
+        const nextChannel = findSalesChannelById(String(value));
+
+        return {
+          ...current,
+          salesChannelId: value as PricingFormState["salesChannelId"],
+          marketplaceFeePercentage:
+            nextChannel?.marketplaceFeePercentage ??
+            current.marketplaceFeePercentage,
+          marketplaceFixedFee:
+            nextChannel?.marketplaceFixedFee ?? current.marketplaceFixedFee,
+        };
+      }
+
+      if (field === "productName") {
+        return {
+          ...current,
+          productName: String(value),
+          mercadoLivreOfficialCategoryId: "",
+        };
+      }
+
+      if (field === "pricingMode") {
+        return {
+          ...current,
+          pricingMode: value as PricingFormState["pricingMode"],
+        };
+      }
+
+      if (field === "printerModel") {
+        return {
+          ...current,
+          printerModel: String(value),
+        };
+      }
+
+      if (field === "mercadoLivreRootCategoryKey") {
+        return {
+          ...current,
+          mercadoLivreRootCategoryKey:
+            value as PricingFormState["mercadoLivreRootCategoryKey"],
+          mercadoLivreOfficialCategoryId: "",
+        };
+      }
+
+      if (field === "mercadoLivreListingTypeId") {
+        return {
+          ...current,
+          mercadoLivreListingTypeId:
+            value as PricingFormState["mercadoLivreListingTypeId"],
+        };
+      }
+
+      if (field === "mercadoLivreOfficialCategoryId") {
+        return {
+          ...current,
+          mercadoLivreOfficialCategoryId: String(value),
+        };
+      }
+
+      const currentValue = current[field];
+
+      if (typeof currentValue === "boolean") {
+        return {
+          ...current,
+          [field]: Boolean(value),
+        };
+      }
+
+      if (typeof currentValue === "number") {
+        return {
+          ...current,
+          [field]: Number(String(value).replace(",", ".")) || 0,
+        };
+      }
+
+      return {
+        ...current,
+        [field]: String(value),
+      };
+    });
+  }
+
+  function handleSaveCalculation() {
+    const nextItem = {
+      id:
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `calc-${Date.now()}`,
+      savedAt: new Date().toISOString(),
+      productName: form.productName.trim() || "Sem nome",
+      salesChannelId: form.salesChannelId,
+      salesChannelLabel: selectedChannelLabel,
+      displayCurrency,
+      exchangeRateSnapshot,
+      formSnapshot: form,
+      summary: {
+        salePrice: convertFromBRL(
+          viewModel.displayedSalePrice,
+          displayCurrency,
+          exchangeRateSnapshot.rates,
+        ),
+        totalCost: convertFromBRL(
+          viewModel.unitTotalCost,
+          displayCurrency,
+          exchangeRateSnapshot.rates,
+        ),
+        profit: convertFromBRL(
+          viewModel.unitProfit,
+          displayCurrency,
+          exchangeRateSnapshot.rates,
+        ),
+        marginPercentage: viewModel.realMarginPercentage,
+        profitPerHour: convertFromBRL(
+          viewModel.profitPerHour,
+          displayCurrency,
+          exchangeRateSnapshot.rates,
+        ),
+      },
+    };
+
+    saveCalculationToHistory(nextItem);
+    setSaveState("saved");
+  }
+
+  return (
+    <main className="app-shell min-h-screen text-white">
+      <div className="min-h-screen lg:pl-[215px]">
+        <AppSidebar />
+
+        <div>
+          <div className="mx-auto max-w-[1488px] p-8">
+            <header className="mb-6 flex flex-col gap-4 border-b border-white/6 pb-6">
+              <div>
+                <h1 className="text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
+                  Precificadora
+                </h1>
+
+                <p className="mt-2 text-sm text-[var(--muted)]">
+                  Taxas reais 2026 . {selectedChannelLabel} . simulador de
+                  margem
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3 xl:max-w-[820px]">
+                <HeroStat
+                  label="Canal ativo"
+                  value={selectedChannelLabel}
+                  tone="accent"
+                />
+
+                <HeroStat
+                  label="Preço sugerido"
+                  value={formatCurrency(displayedSalePrice, displayCurrency)}
+                />
+
+                <HeroStat
+                  label="Margem real"
+                  value={`${result.realMarginPercentage
+                    .toFixed(1)
+                    .replace(".", ",")}%`}
+                  tone="success"
+                />
+              </div>
+            </header>
+
+            <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_376px]">
+              <PricingForm
+                form={form}
+                onChange={updateField}
+                suggestedPrice={result.commercialUnitPrice}
+                effectiveMarketplaceFeePercentage={
+                  effectiveMarketplaceFeePercentage
+                }
+                mercadoLivrePredictedCategoryName={
+                  mercadoLivreAutomation.predictedCategoryName
+                }
+                mercadoLivreShippingEstimate={
+                  mercadoLivreAutomation.shippingEstimate ?? form.shippingCost
+                }
+                displayCurrency={displayCurrency}
+                onDisplayCurrencyChange={setDisplayCurrency}
+                exchangeRateSnapshot={exchangeRateSnapshot}
+              />
+
+              <PricingResult
+                productName={form.productName}
+                form={form}
+                result={result}
+                selectedChannelLabel={selectedChannelLabel}
+                effectiveMarketplaceFeePercentage={
+                  effectiveMarketplaceFeePercentage
+                }
+                mercadoLivrePredictedCategoryName={
+                  mercadoLivreAutomation.predictedCategoryName
+                }
+                displayCurrency={displayCurrency}
+                exchangeRates={exchangeRateSnapshot.rates}
+                onSave={handleSaveCalculation}
+                saveButtonLabel={
+                  saveState === "saved" ? "Cálculo salvo" : "Salvar cálculo"
+                }
+              />
+            </section>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+type HeroStatProps = {
+  label: string;
+  value: string;
+  tone?: "default" | "accent" | "success";
+};
+
+function HeroStat({ label, value, tone = "default" }: HeroStatProps) {
+  const toneClassName = {
+    default: "border-white/8 bg-[var(--panel)] text-white",
+    accent:
+      "border-[var(--accent)]/30 bg-[var(--accent-soft)] text-[var(--accent)]",
+    success: "border-[#6fd3ea]/25 bg-[#6fd3ea]/10 text-[#8fe3f6]",
+  }[tone];
+
+  return (
+    <div className={`rounded-[22px] border px-4 py-4 ${toneClassName}`}>
+      <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
+        {label}
+      </p>
+
+      <strong className="mt-3 block text-xl font-semibold tracking-[-0.03em]">
+        {value}
+      </strong>
+    </div>
+  );
+}

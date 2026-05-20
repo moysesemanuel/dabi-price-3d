@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+:root {
+  --background: #08111f;
+  --foreground: #f3f4fb;
+  --panel: #0e1b31;
+  --panel-strong: #12213b;
+  --panel-soft: #0a1629;
+  --panel-border: rgba(102, 144, 212, 0.24);
+  --muted: #94a7c9;
+  --accent: #11b8f5;
+  --accent-soft: rgba(17, 184, 245, 0.12);
+  --success: #6fd3ea;
+  --font-sans-ui: "Satoshi", "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
+  --font-mono-ui: "SFMono-Regular", "Menlo", "Monaco", "Consolas", monospace;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans-ui);
+  --font-mono: var(--font-mono-ui);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background:
+    radial-gradient(circle at top right, rgba(17, 184, 245, 0.08), transparent 22%),
+    radial-gradient(circle at top left, rgba(24, 54, 108, 0.22), transparent 26%),
+    linear-gradient(180deg, #0a1221 0%, #060c17 100%);
+  color: var(--foreground);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans-ui);
+  letter-spacing: -0.01em;
+}
+
+::selection {
+  background: rgba(17, 184, 245, 0.22);
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.app-shell {
+  background:
+    radial-gradient(circle at 20% 0%, rgba(17, 184, 245, 0.06), transparent 20%),
+    radial-gradient(circle at 90% 10%, rgba(24, 54, 108, 0.22), transparent 24%),
+    linear-gradient(180deg, #09111f 0%, #060c17 100%);
+}
