@@ -388,7 +388,18 @@ export function PricingForm({
                   value={displayMoney(form.shippingCost)}
                   onChange={(value) => handleMoneyChange("shippingCost", value)}
                   prefix={currencySymbol}
-                  note="Permite ajustar manualmente se o custo real diferir da estimativa."
+                  note={
+                    form.mercadoLivreFreeShipping &&
+                    mercadoLivreOfficialLookupError
+                      ? "A cotação automática falhou neste cenário. Informe manualmente o custo que o vendedor absorve."
+                      : "Permite ajustar manualmente se o custo real diferir da estimativa."
+                  }
+                  className={
+                    form.mercadoLivreFreeShipping &&
+                    mercadoLivreOfficialLookupError
+                      ? "[&_input]:border-amber-400/30 [&_input]:bg-amber-400/5"
+                      : undefined
+                  }
                 />
               </div>
 
@@ -405,6 +416,14 @@ export function PricingForm({
                   <p className="text-xs text-[#ffb3b3]">
                     Não foi possível calcular o frete automático do Mercado
                     Livre: {mercadoLivreOfficialLookupError}
+                  </p>
+                ) : null}
+
+                {form.mercadoLivreFreeShipping &&
+                mercadoLivreOfficialLookupError ? (
+                  <p className="text-xs text-amber-300">
+                    Use o campo <strong>Frete no cálculo</strong> para informar
+                    manualmente o valor que o vendedor precisa absorver.
                   </p>
                 ) : null}
 
