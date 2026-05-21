@@ -66,6 +66,11 @@ export async function GET(request: NextRequest) {
 
   try {
     const { accessToken, userId } = await getMercadoLivreApiCredentials();
+    const shippingContext = await resolveShippingContext({
+      token: accessToken,
+      userId,
+      categoryId: resolvedCategoryId,
+    });
 
     const [listingPricePayload, shippingPayload] = await Promise.all([
       fetchListingPrices({
@@ -73,6 +78,9 @@ export async function GET(request: NextRequest) {
         price,
         categoryId: resolvedCategoryId,
         listingTypeId,
+        shippingMode: shippingContext.mode,
+        logisticType: shippingContext.logisticType,
+        billableWeightKg: packageWeightKg,
       }),
       fetchShippingEstimate({
         token: accessToken,
@@ -81,6 +89,8 @@ export async function GET(request: NextRequest) {
         price,
         listingTypeId,
         freeShipping,
+        shippingMode: shippingContext.mode,
+        logisticType: shippingContext.logisticType,
         packageHeightCm,
         packageWidthCm,
         packageLengthCm,
@@ -97,6 +107,7 @@ export async function GET(request: NextRequest) {
       feePercentage: extractFeePercentage(listingPricePayload),
       fixedFee: extractFixedFee(listingPricePayload),
       shippingEstimate: extractShippingEstimate(shippingPayload),
+      shippingContext,
       listingPricePayload,
       shippingPayload,
     });
@@ -152,11 +163,27 @@ async function fetchListingPrices(input: {
   price: string;
   categoryId: string;
   listingTypeId: MercadoLivreListingTypeId;
+  shippingMode: string | null;
+  logisticType: string | null;
+  billableWeightKg: string | null;
 }) {
   const url = new URL("https://api.mercadolibre.com/sites/MLB/listing_prices");
   url.searchParams.set("price", input.price);
   url.searchParams.set("category_id", input.categoryId);
   url.searchParams.set("listing_type_id", input.listingTypeId);
+  if (input.shippingMode) {
+    url.searchParams.set("shipping_mode", input.shippingMode);
+  }
+  if (input.logisticType) {
+    url.searchParams.set("logistic_type", input.logisticType);
+  }
+  if (input.billableWeightKg) {
+    const parsedWeightKg = Number(input.billableWeightKg.replace(",", "."));
+
+    if (Number.isFinite(parsedWeightKg) && parsedWeightKg > 0) {
+      url.searchParams.set("billable_weight", String(parsedWeightKg));
+    }
+  }
 
   const response = await fetch(url, {
     headers: {
@@ -179,6 +206,8 @@ async function fetchShippingEstimate(input: {
   price: string;
   listingTypeId: MercadoLivreListingTypeId;
   freeShipping: boolean;
+  shippingMode: string | null;
+  logisticType: string | null;
   packageHeightCm: string | null;
   packageWidthCm: string | null;
   packageLengthCm: string | null;
@@ -200,7 +229,9 @@ async function fetchShippingEstimate(input: {
     !input.packageHeightCm ||
     !input.packageWidthCm ||
     !input.packageLengthCm ||
-    !input.packageWeightKg
+    !input.packageWeightKg ||
+    !input.shippingMode ||
+    !input.logisticType
   ) {
     return null;
   }
@@ -224,9 +255,9 @@ async function fetchShippingEstimate(input: {
   url.searchParams.set("item_price", input.price);
   url.searchParams.set("category_id", input.categoryId);
   url.searchParams.set("listing_type_id", input.listingTypeId);
-  url.searchParams.set("mode", "me2");
+  url.searchParams.set("mode", input.shippingMode);
   url.searchParams.set("condition", "new");
-  url.searchParams.set("logistic_type", "drop_off");
+  url.searchParams.set("logistic_type", input.logisticType);
   url.searchParams.set("free_shipping", input.freeShipping ? "true" : "false");
   url.searchParams.set("verbose", "true");
 
@@ -238,8 +269,80 @@ async function fetchShippingEstimate(input: {
   });
 
   if (!response.ok) {
+    const errorText = await response.text();
     throw new Error(
-      `Mercado Livre shipping_options/free returned ${response.status}.`,
+      `Mercado Livre shipping_options/free returned ${response.status}: ${errorText}`,
+    );
+  }
+
+  return response.json();
+}
+
+async function resolveShippingContext(input: {
+  token: string;
+  userId: string;
+  categoryId: string;
+}) {
+  const [userPreferences, categoryPreferences] = await Promise.all([
+    fetchUserShippingPreferences(input),
+    fetchCategoryShippingPreferences(input),
+  ]);
+
+  const userModes = extractEnabledModes(userPreferences);
+  const categoryModes = extractEnabledModes(categoryPreferences);
+  const userTypes = extractEnabledLogisticTypes(userPreferences);
+  const categoryTypes = extractEnabledLogisticTypes(categoryPreferences);
+  const supportedTypes = userTypes.filter((type) => categoryTypes.includes(type));
+
+  return {
+    mode:
+      userModes.includes("me2") && categoryModes.includes("me2") ? "me2" : null,
+    logisticType: pickPreferredLogisticType(supportedTypes),
+  };
+}
+
+async function fetchUserShippingPreferences(input: {
+  token: string;
+  userId: string;
+}) {
+  const response = await fetch(
+    `https://api.mercadolibre.com/users/${input.userId}/shipping_preferences`,
+    {
+      headers: {
+        Authorization: `Bearer ${input.token}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Mercado Livre shipping_preferences(user) returned ${response.status}: ${errorText}`,
+    );
+  }
+
+  return response.json();
+}
+
+async function fetchCategoryShippingPreferences(input: {
+  token: string;
+  categoryId: string;
+}) {
+  const response = await fetch(
+    `https://api.mercadolibre.com/categories/${input.categoryId}/shipping_preferences`,
+    {
+      headers: {
+        Authorization: `Bearer ${input.token}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Mercado Livre shipping_preferences(category) returned ${response.status}: ${errorText}`,
     );
   }
 
@@ -308,4 +411,83 @@ function extractShippingEstimate(payload: unknown) {
 
   const firstOption = asRecord.options?.[0];
   return firstOption?.list_cost ?? firstOption?.cost ?? null;
+}
+
+function extractEnabledModes(payload: unknown) {
+  if (!payload || typeof payload !== "object") {
+    return [];
+  }
+
+  const directModes = (payload as { modes?: unknown }).modes;
+
+  if (Array.isArray(directModes)) {
+    return directModes.filter(isStringValue);
+  }
+
+  const logistics = (payload as { logistics?: unknown }).logistics;
+
+  if (!Array.isArray(logistics)) {
+    return [];
+  }
+
+  return logistics
+    .map((entry) => (entry as { mode?: unknown }).mode)
+    .filter(isStringValue);
+}
+
+function extractEnabledLogisticTypes(payload: unknown) {
+  if (!payload || typeof payload !== "object") {
+    return [];
+  }
+
+  const pickingType = (payload as { picking_type?: unknown }).picking_type;
+  const baseTypes = isStringValue(pickingType) ? [pickingType] : [];
+  const logistics = (payload as { logistics?: unknown }).logistics;
+
+  if (!Array.isArray(logistics)) {
+    return baseTypes;
+  }
+
+  const nestedTypes = logistics.flatMap((entry) => {
+    const types = (entry as { types?: unknown }).types;
+
+    if (!Array.isArray(types)) {
+      return [];
+    }
+
+    return types
+      .map((typeEntry) =>
+        isStringValue(typeEntry)
+          ? typeEntry
+          : isStringValue((typeEntry as { type?: unknown }).type)
+            ? (typeEntry as { type: string }).type
+            : null,
+      )
+      .filter(isStringValue);
+  });
+
+  return [...new Set([...baseTypes, ...nestedTypes])];
+}
+
+function pickPreferredLogisticType(types: string[]) {
+  const preferredOrder = [
+    "drop_off",
+    "xd_drop_off",
+    "cross_docking",
+    "self_service",
+    "fulfillment",
+    "turbo",
+  ];
+
+  for (const type of preferredOrder) {
+    if (types.includes(type)) {
+      return type;
+    }
+  }
+
+  return types[0] ?? null;
+}
+
+function isStringValue(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
 }
