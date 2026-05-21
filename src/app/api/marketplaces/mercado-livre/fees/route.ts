@@ -72,6 +72,26 @@ export async function GET(request: NextRequest) {
       categoryId: resolvedCategoryId,
     });
 
+    if (
+      freeShipping &&
+      (!shippingContext.mode || !shippingContext.logisticType)
+    ) {
+      return Response.json({
+        mode: "local-preview",
+        preview: localPreview,
+        officialLookupReady: true,
+        predictedCategory,
+        categoryId: resolvedCategoryId,
+        feePercentage:
+          localPreview.appliedFeePercentage ?? localPreview.officialRange.min,
+        fixedFee: 0,
+        shippingEstimate: null,
+        shippingContext,
+        officialLookupError:
+          "O Mercado Livre não expôs uma logística compatível para calcular o frete automático desta conta/categoria.",
+      });
+    }
+
     const [listingPricePayload, shippingPayload] = await Promise.all([
       fetchListingPrices({
         token: accessToken,
@@ -98,18 +118,24 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
+    const shippingEstimate = extractShippingEstimate(shippingPayload);
+
     return Response.json({
-      mode: "official-api",
+      mode: shippingEstimate === null ? "local-preview" : "official-api",
       preview: localPreview,
       officialLookupReady: true,
       predictedCategory,
       categoryId: resolvedCategoryId,
       feePercentage: extractFeePercentage(listingPricePayload),
       fixedFee: extractFixedFee(listingPricePayload),
-      shippingEstimate: extractShippingEstimate(shippingPayload),
+      shippingEstimate,
       shippingContext,
       listingPricePayload,
       shippingPayload,
+      officialLookupError:
+        freeShipping && shippingEstimate === null
+          ? "O Mercado Livre não retornou uma estimativa de frete para este cenário."
+          : null,
     });
   } catch (error) {
     const errorMessage =
