@@ -212,29 +212,63 @@ export default function Home() {
 
     async function run() {
       try {
-        const response = await fetch(
-          `/api/marketplaces/mercado-livre/fees?${params.toString()}`,
-          {
-            signal: controller.signal,
-          },
-        );
+        const shippingParams = new URLSearchParams({
+          height: String(form.mercadoLivrePackageHeightCm),
+          width: String(form.mercadoLivrePackageWidthCm),
+          length: String(form.mercadoLivrePackageLengthCm),
+          weight: String(Math.round(form.mercadoLivrePackageWeightKg * 1000)),
+          price: String(price),
+          listingTypeId: form.mercadoLivreListingTypeId,
+          productName: form.productName,
+          freeShipping: String(form.mercadoLivreFreeShipping),
+        });
 
-        if (!response.ok) {
+        if (form.mercadoLivreOfficialCategoryId) {
+          shippingParams.set("categoryId", form.mercadoLivreOfficialCategoryId);
+        }
+
+        const [feesResponse, shippingResponse] = await Promise.all([
+          fetch(`/api/marketplaces/mercado-livre/fees?${params.toString()}`, {
+            signal: controller.signal,
+          }),
+          fetch(`/api/meli/free-shipping-cost?${shippingParams.toString()}`, {
+            signal: controller.signal,
+          }),
+        ]);
+
+        if (!feesResponse.ok) {
           return;
         }
 
-        const payload = (await response.json()) as {
+        const payload = (await feesResponse.json()) as {
           feePercentage?: number | null;
           fixedFee?: number | null;
-          shippingEstimate?: number | null;
           predictedCategory?: {
             id?: string;
             name?: string;
           } | null;
           categoryId?: string;
-          officialLookupReady?: boolean;
-          officialLookupError?: string;
         };
+        const shippingSuccessPayload = shippingResponse.ok
+          ? ((await shippingResponse.json()) as {
+              freeShippingCost?: number | null;
+              categoryId?: string;
+            })
+          : null;
+        const shippingErrorPayload = shippingResponse.ok
+          ? null
+          : ((await shippingResponse.json().catch(() => null)) as {
+              error?: string;
+            } | null);
+        const shippingFreeCost =
+          typeof shippingSuccessPayload?.freeShippingCost === "number"
+            ? shippingSuccessPayload.freeShippingCost
+            : null;
+        const shippingCategoryId =
+          typeof shippingSuccessPayload?.categoryId === "string"
+            ? shippingSuccessPayload.categoryId
+            : null;
+        const shippingErrorMessage = shippingErrorPayload?.error ?? null;
 
         setMercadoLivreAutomation({
           feePercentage:
@@ -243,28 +277,29 @@ export default function Home() {
               : null,
           fixedFee:
             typeof payload.fixedFee === "number" ? payload.fixedFee : null,
-          shippingEstimate:
-            typeof payload.shippingEstimate === "number"
-              ? payload.shippingEstimate
-              : null,
+          shippingEstimate: shippingFreeCost,
           predictedCategoryName: payload.predictedCategory?.name ?? null,
           predictedCategoryId:
-            payload.categoryId ?? payload.predictedCategory?.id ?? null,
-          officialLookupReady: Boolean(payload.officialLookupReady),
-          officialLookupError: payload.officialLookupError ?? null,
+            payload.categoryId ??
+            shippingCategoryId ??
+            payload.predictedCategory?.id ??
+            null,
+          officialLookupReady: shippingResponse.ok,
+          officialLookupError: shippingResponse.ok
+            ? null
+            : shippingErrorMessage ??
+              "Falha ao consultar o frete grátis do Mercado Livre.",
         });
 
         setForm((current) => {
           const nextCategoryId =
             current.mercadoLivreOfficialCategoryId ||
             payload.categoryId ||
+            shippingCategoryId ||
             payload.predictedCategory?.id ||
             "";
 
-          const nextShippingCost =
-            typeof payload.shippingEstimate === "number"
-              ? payload.shippingEstimate
-              : current.shippingCost;
+          const nextShippingCost = shippingFreeCost ?? current.shippingCost;
 
           const nextFixedFee =
             typeof payload.fixedFee === "number"
