@@ -31,6 +31,8 @@ type PricingFormProps = {
   effectiveMarketplaceFeePercentage: number;
   mercadoLivrePredictedCategoryName: string | null;
   mercadoLivreShippingEstimate: number;
+  mercadoLivreOfficialLookupReady: boolean;
+  mercadoLivreOfficialLookupError: string | null;
   displayCurrency: DisplayCurrency;
   onDisplayCurrencyChange: (currency: DisplayCurrency) => void;
   exchangeRateSnapshot: ExchangeRateSnapshot;
@@ -100,6 +102,8 @@ export function PricingForm({
   effectiveMarketplaceFeePercentage,
   mercadoLivrePredictedCategoryName,
   mercadoLivreShippingEstimate,
+  mercadoLivreOfficialLookupReady,
+  mercadoLivreOfficialLookupError,
   displayCurrency,
   onDisplayCurrencyChange,
   exchangeRateSnapshot,
@@ -386,6 +390,32 @@ export function PricingForm({
                   prefix={currencySymbol}
                   note="Permite ajustar manualmente se o custo real diferir da estimativa."
                 />
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {!form.mercadoLivreFreeShipping ? (
+                  <p className="text-xs text-[var(--muted)]">
+                    Frete grátis desligado. O custo do envio no cálculo fica em{" "}
+                    {currencySymbol} 0,00 até você informar um valor manual.
+                  </p>
+                ) : null}
+
+                {form.mercadoLivreFreeShipping &&
+                mercadoLivreOfficialLookupError ? (
+                  <p className="text-xs text-[#ffb3b3]">
+                    Não foi possível calcular o frete automático do Mercado
+                    Livre: {mercadoLivreOfficialLookupError}
+                  </p>
+                ) : null}
+
+                {form.mercadoLivreFreeShipping &&
+                !mercadoLivreOfficialLookupError &&
+                !mercadoLivreOfficialLookupReady ? (
+                  <p className="text-xs text-[var(--muted)]">
+                    A estimativa automática depende da conexão com o Mercado
+                    Livre em <strong>Preferências</strong>.
+                  </p>
+                ) : null}
               </div>
 
               <ToggleRow

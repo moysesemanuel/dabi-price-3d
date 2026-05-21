@@ -35,7 +35,9 @@ npm run dev:webpack
 
 ## Mercado Livre API
 
-Para ativar a consulta oficial de comissao, taxa fixa e estimativa de envio do Mercado Livre, crie um arquivo `.env.local` na raiz do projeto com base em `.env.example`:
+### Modo rápido
+
+Para ativar a consulta oficial de comissao, taxa fixa e estimativa de envio do Mercado Livre com token manual, crie um arquivo `.env.local` na raiz do projeto com base em `.env.example`:
 
 ```bash
 cp .env.example .env.local
@@ -49,6 +51,33 @@ MELI_USER_ID=seu_user_id_do_mercado_livre
 ```
 
 Sem essas variaveis, a aplicacao continua funcionando, mas usa fallback local em vez de consulta oficial do Mercado Livre.
+
+### Modo de produção
+
+Para deixar a integracao pronta para producao, use OAuth persistente com refresh automatico. Nesse modo, o app salva o refresh token em banco e renova o access token sozinho.
+
+Variaveis necessarias:
+
+```env
+DATABASE_URL=sua_connection_string_do_neon
+MELI_CLIENT_ID=seu_app_id
+MELI_CLIENT_SECRET=sua_secret_key
+MELI_REDIRECT_URI=https://SEU-DOMINIO/api/auth/meli/callback
+```
+
+Fluxo:
+
+1. Crie um banco no Neon.
+2. Configure essas variaveis na Vercel.
+3. No DevCenter do Mercado Livre, cadastre a mesma `MELI_REDIRECT_URI`.
+4. Abra `/preferencias` no app publicado.
+5. Clique em `Conectar Mercado Livre`.
+
+Observacoes:
+
+- A tabela `meli_oauth_tokens` e criada automaticamente no primeiro uso.
+- O modo com Neon passa a ser o modo preferencial da aplicacao.
+- `MELI_ACCESS_TOKEN` e `MELI_USER_ID` ficam como fallback legado/manual.
 
 ## Deploy
 
@@ -65,20 +94,31 @@ git push -u origin main
 
 ### Vercel
 
-O projeto esta preparado para deploy na Vercel sem banco de dados.
+O projeto esta preparado para deploy na Vercel.
 
 - O historico usa `localStorage`, entao os calculos ficam salvos no navegador do usuario.
-- Neon nao e necessario neste momento.
-- So use Neon se quiser historico compartilhado, persistencia em servidor ou contas de usuarios.
+- O app nao precisa de banco para funcionar.
+- Para Mercado Livre em producao com renovacao automatica de token, use Neon.
 
 Para publicar:
 
 1. Importe o repositorio na Vercel.
-2. Se quiser usar a integracao oficial do Mercado Livre em producao, configure estas variaveis:
+2. Configure as variaveis necessarias para o ambiente desejado.
+
+Modo rapido/manual:
 
 ```text
 MELI_ACCESS_TOKEN
 MELI_USER_ID
+```
+
+Modo de producao:
+
+```text
+DATABASE_URL
+MELI_CLIENT_ID
+MELI_CLIENT_SECRET
+MELI_REDIRECT_URI
 ```
 
 3. Faça o deploy.

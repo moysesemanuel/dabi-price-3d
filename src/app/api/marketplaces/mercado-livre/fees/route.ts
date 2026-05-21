@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { getMercadoLivreApiCredentials } from "@/lib/marketplaces/mercado-livre-auth";
 import {
   getMercadoLivreFeePreview,
   type MercadoLivreListingTypeId,
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest) {
   const packageWidthCm = searchParams.get("packageWidthCm");
   const packageLengthCm = searchParams.get("packageLengthCm");
   const packageWeightKg = searchParams.get("packageWeightKg");
+  const freeShipping = searchParams.get("freeShipping") !== "false";
 
   if (!rootCategoryKey || !listingTypeId) {
     return Response.json(
@@ -49,14 +51,11 @@ export async function GET(request: NextRequest) {
       : await predictCategory(productName);
 
   const resolvedCategoryId = officialCategoryId || predictedCategory?.id || null;
-  const token = process.env.MELI_ACCESS_TOKEN;
-  const userId = process.env.MELI_USER_ID;
-
-  if (!token || !userId || !resolvedCategoryId || !price) {
+  if (!resolvedCategoryId || !price) {
     return Response.json({
       mode: "local-preview",
       preview: localPreview,
-      officialLookupReady: Boolean(token && userId),
+      officialLookupReady: false,
       predictedCategory,
       feePercentage:
         localPreview.appliedFeePercentage ?? localPreview.officialRange.min,
@@ -66,19 +65,22 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const { accessToken, userId } = await getMercadoLivreApiCredentials();
+
     const [listingPricePayload, shippingPayload] = await Promise.all([
       fetchListingPrices({
-        token,
+        token: accessToken,
         price,
         categoryId: resolvedCategoryId,
         listingTypeId,
       }),
       fetchShippingEstimate({
-        token,
+        token: accessToken,
         userId,
         categoryId: resolvedCategoryId,
         price,
         listingTypeId,
+        freeShipping,
         packageHeightCm,
         packageWidthCm,
         packageLengthCm,
@@ -99,17 +101,20 @@ export async function GET(request: NextRequest) {
       shippingPayload,
     });
   } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown Mercado Livre error.";
+    const officialLookupReady = !errorMessage.includes("não conectado");
+
     return Response.json({
       mode: "local-preview",
       preview: localPreview,
-      officialLookupReady: true,
+      officialLookupReady,
       predictedCategory,
       feePercentage:
         localPreview.appliedFeePercentage ?? localPreview.officialRange.min,
       fixedFee: 0,
       shippingEstimate: null,
-      officialLookupError:
-        error instanceof Error ? error.message : "Unknown Mercado Livre error.",
+      officialLookupError: errorMessage,
     });
   }
 }
@@ -173,11 +178,24 @@ async function fetchShippingEstimate(input: {
   categoryId: string;
   price: string;
   listingTypeId: MercadoLivreListingTypeId;
+  freeShipping: boolean;
   packageHeightCm: string | null;
   packageWidthCm: string | null;
   packageLengthCm: string | null;
   packageWeightKg: string | null;
 }) {
+  if (!input.freeShipping) {
+    return {
+      options: [],
+      coverage: {
+        all_country: {
+          cost: 0,
+          list_cost: 0,
+        },
+      },
+    };
+  }
+
   if (
     !input.packageHeightCm ||
     !input.packageWidthCm ||
@@ -209,7 +227,7 @@ async function fetchShippingEstimate(input: {
   url.searchParams.set("mode", "me2");
   url.searchParams.set("condition", "new");
   url.searchParams.set("logistic_type", "drop_off");
-  url.searchParams.set("free_shipping", "true");
+  url.searchParams.set("free_shipping", input.freeShipping ? "true" : "false");
   url.searchParams.set("verbose", "true");
 
   const response = await fetch(url, {

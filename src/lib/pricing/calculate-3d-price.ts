@@ -262,6 +262,17 @@ function roundUpToCommercialPrice(value: number) {
     return 0;
   }
 
+  // Very low ticket items need cent-level or deci-level rounding,
+  // otherwise the UI gets "stuck" on 0,90 / 1,90 and the desired
+  // contribution margin appears to not react.
+  if (value < 1) {
+    return roundUpToStep(value, 0.01);
+  }
+
+  if (value < 10) {
+    return roundUpToStep(value, 0.1);
+  }
+
   const roundedBase = Math.floor(value);
 
   if (value <= roundedBase + 0.9) {
@@ -269,6 +280,10 @@ function roundUpToCommercialPrice(value: number) {
   }
 
   return roundedBase + 1.9;
+}
+
+function roundUpToStep(value: number, step: number) {
+  return Math.ceil(value / step) * step;
 }
 
 function sanitizeNumber(value: number | undefined | null) {

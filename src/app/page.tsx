@@ -12,7 +12,10 @@ import {
   type ExchangeRateSnapshot,
 } from "@/lib/currency/display-currency";
 import {
+  consumeQueuedCalculationEditId,
+  getCalculationFromHistory,
   saveCalculationToHistory,
+  upsertCalculationInHistory,
 } from "@/lib/history/calculation-history";
 import { getMercadoLivreFeePreview } from "@/lib/marketplaces/mercado-livre";
 import { calculate3DPrice } from "@/lib/pricing/calculate-3d-price";
@@ -32,6 +35,8 @@ type MercadoLivreAutomationState = {
   shippingEstimate: number | null;
   predictedCategoryName: string | null;
   predictedCategoryId: string | null;
+  officialLookupReady: boolean;
+  officialLookupError: string | null;
 };
 
 type SaveState = "idle" | "saved";
@@ -43,6 +48,9 @@ export default function Home() {
   const [exchangeRateSnapshot, setExchangeRateSnapshot] =
     useState<ExchangeRateSnapshot>(defaultExchangeRateSnapshot);
   const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [editingCalculationId, setEditingCalculationId] = useState<
+    string | null
+  >(null);
 
   const [mercadoLivreAutomation, setMercadoLivreAutomation] =
     useState<MercadoLivreAutomationState>({
@@ -51,6 +59,8 @@ export default function Home() {
       shippingEstimate: null,
       predictedCategoryName: null,
       predictedCategoryId: null,
+      officialLookupReady: false,
+      officialLookupError: null,
     });
 
   const mercadoLivreFeePreview = useMemo(() => {
@@ -142,6 +152,26 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const queuedId = consumeQueuedCalculationEditId();
+
+    if (!queuedId) {
+      return;
+    }
+
+    const queuedCalculation = getCalculationFromHistory(queuedId);
+
+    if (!queuedCalculation) {
+      return;
+    }
+
+    setForm(queuedCalculation.formSnapshot);
+    setDisplayCurrency(queuedCalculation.displayCurrency);
+    setExchangeRateSnapshot(queuedCalculation.exchangeRateSnapshot);
+    setEditingCalculationId(queuedCalculation.id);
+    setSaveState("idle");
+  }, []);
+
+  useEffect(() => {
     if (form.salesChannelId !== "mercado-livre") {
       setMercadoLivreAutomation({
         feePercentage: null,
@@ -149,6 +179,8 @@ export default function Home() {
         shippingEstimate: null,
         predictedCategoryName: null,
         predictedCategoryId: null,
+        officialLookupReady: false,
+        officialLookupError: null,
       });
 
       return;
@@ -171,6 +203,7 @@ export default function Home() {
       packageWidthCm: String(form.mercadoLivrePackageWidthCm),
       packageLengthCm: String(form.mercadoLivrePackageLengthCm),
       packageWeightKg: String(form.mercadoLivrePackageWeightKg),
+      freeShipping: String(form.mercadoLivreFreeShipping),
     });
 
     if (form.mercadoLivreOfficialCategoryId) {
@@ -199,6 +232,8 @@ export default function Home() {
             name?: string;
           } | null;
           categoryId?: string;
+          officialLookupReady?: boolean;
+          officialLookupError?: string;
         };
 
         setMercadoLivreAutomation({
@@ -215,6 +250,8 @@ export default function Home() {
           predictedCategoryName: payload.predictedCategory?.name ?? null,
           predictedCategoryId:
             payload.categoryId ?? payload.predictedCategory?.id ?? null,
+          officialLookupReady: Boolean(payload.officialLookupReady),
+          officialLookupError: payload.officialLookupError ?? null,
         });
 
         setForm((current) => {
@@ -257,6 +294,9 @@ export default function Home() {
               current.feePercentage ??
               mercadoLivreFeePreview?.appliedFeePercentage ??
               null,
+            officialLookupError:
+              current.officialLookupError ??
+              "Falha ao consultar o Mercado Livre.",
           }));
         }
       }
@@ -272,6 +312,7 @@ export default function Home() {
     form.mercadoLivrePackageLengthCm,
     form.mercadoLivrePackageWeightKg,
     form.mercadoLivrePackageWidthCm,
+    form.mercadoLivreFreeShipping,
     form.mercadoLivreRootCategoryKey,
     form.productName,
     form.salesChannelId,
@@ -380,9 +421,10 @@ export default function Home() {
   function handleSaveCalculation() {
     const nextItem = {
       id:
-        typeof crypto !== "undefined" && "randomUUID" in crypto
+        editingCalculationId ??
+        (typeof crypto !== "undefined" && "randomUUID" in crypto
           ? crypto.randomUUID()
-          : `calc-${Date.now()}`,
+          : `calc-${Date.now()}`),
       savedAt: new Date().toISOString(),
       productName: form.productName.trim() || "Sem nome",
       salesChannelId: form.salesChannelId,
@@ -415,7 +457,13 @@ export default function Home() {
       },
     };
 
-    saveCalculationToHistory(nextItem);
+    if (editingCalculationId) {
+      upsertCalculationInHistory(nextItem);
+    } else {
+      saveCalculationToHistory(nextItem);
+      setEditingCalculationId(nextItem.id);
+    }
+
     setSaveState("saved");
   }
 
@@ -474,6 +522,12 @@ export default function Home() {
                 mercadoLivreShippingEstimate={
                   mercadoLivreAutomation.shippingEstimate ?? form.shippingCost
                 }
+                mercadoLivreOfficialLookupReady={
+                  mercadoLivreAutomation.officialLookupReady
+                }
+                mercadoLivreOfficialLookupError={
+                  mercadoLivreAutomation.officialLookupError
+                }
                 displayCurrency={displayCurrency}
                 onDisplayCurrencyChange={setDisplayCurrency}
                 exchangeRateSnapshot={exchangeRateSnapshot}
@@ -494,7 +548,13 @@ export default function Home() {
                 exchangeRates={exchangeRateSnapshot.rates}
                 onSave={handleSaveCalculation}
                 saveButtonLabel={
-                  saveState === "saved" ? "Cálculo salvo" : "Salvar cálculo"
+                  saveState === "saved"
+                    ? editingCalculationId
+                      ? "Cálculo atualizado"
+                      : "Cálculo salvo"
+                    : editingCalculationId
+                      ? "Atualizar cálculo"
+                      : "Salvar cálculo"
                 }
               />
             </section>

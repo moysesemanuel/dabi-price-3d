@@ -4,6 +4,7 @@ import {
 } from "@/lib/marketplaces/mercado-livre";
 import {
   convertFromBRL,
+  formatDecimal,
   type CurrencyRates,
   type DisplayCurrency,
 } from "@/lib/currency/display-currency";
@@ -78,6 +79,11 @@ export function PricingResult({
     unitShippingCost,
     unitTaxCost,
     unitTotalCost,
+    lotProfit,
+    lotsPerDay,
+    unitsPerDay,
+    lotsPerMonth,
+    unitsPerMonth,
   } = buildPricingViewModel(form, result);
   const marginBadge = getMarginBadge(realMarginPercentage);
 
@@ -376,8 +382,19 @@ export function PricingResult({
               muted="Base de energia e produtividade"
             />
 
+            {result.quantity > 1 ? (
+              <MetricLine
+                label="Lucro por lote"
+                value={formatCurrency(
+                  convertFromBRL(lotProfit, displayCurrency, exchangeRates),
+                  displayCurrency,
+                )}
+                muted={`${result.quantity} unidade(s) por ciclo`}
+              />
+            ) : null}
+
             <MetricLine
-              label="Potencial diário (20h)"
+              label="Lucro diário estimado (20h)"
               value={formatCurrency(
                 convertFromBRL(
                   estimatedDailyProfit,
@@ -386,10 +403,17 @@ export function PricingResult({
                 ),
                 displayCurrency,
               )}
+              muted={
+                result.quantity > 1
+                  ? `${formatDecimal(lotsPerDay)} lote(s)/dia · ${Math.round(
+                      unitsPerDay,
+                    )} un/dia`
+                  : undefined
+              }
             />
 
             <MetricLine
-              label="Potencial mensal (30d)"
+              label="Lucro mensal estimado (30d)"
               value={formatCurrency(
                 convertFromBRL(
                   estimatedMonthlyProfit,
@@ -398,6 +422,13 @@ export function PricingResult({
                 ),
                 displayCurrency,
               )}
+              muted={
+                result.quantity > 1
+                  ? `${formatDecimal(lotsPerMonth)} lote(s)/mês · ${Math.round(
+                      unitsPerMonth,
+                    )} un/mês`
+                  : undefined
+              }
               highlight
             />
           </div>

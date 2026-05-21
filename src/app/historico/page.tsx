@@ -1,15 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AppSidebar } from "@/components/app/app-sidebar";
 import { formatCurrency, formatPercent } from "@/lib/pricing/formatters";
 import {
   clearCalculationHistory,
+  deleteCalculationFromHistory,
+  queueCalculationForEditing,
   readCalculationHistory,
   type SavedCalculation,
 } from "@/lib/history/calculation-history";
 
 export default function HistoryPage() {
+  const router = useRouter();
   const [items, setItems] = useState<SavedCalculation[]>([]);
 
   useEffect(() => {
@@ -19,6 +23,15 @@ export default function HistoryPage() {
   function handleClearHistory() {
     clearCalculationHistory();
     setItems([]);
+  }
+
+  function handleDeleteItem(id: string) {
+    setItems(deleteCalculationFromHistory(id));
+  }
+
+  function handleEditItem(id: string) {
+    queueCalculationForEditing(id);
+    router.push("/");
   }
 
   return (
@@ -75,6 +88,7 @@ export default function HistoryPage() {
                         <HeaderCell>Custos</HeaderCell>
                         <HeaderCell>Lucro</HeaderCell>
                         <HeaderCell>Margem</HeaderCell>
+                        <HeaderCell>Ações</HeaderCell>
                       </tr>
                     </thead>
 
@@ -108,6 +122,25 @@ export default function HistoryPage() {
                             )}
                           </BodyCell>
                           <BodyCell>{formatPercent(item.summary.marginPercentage)}</BodyCell>
+                          <BodyCell>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleEditItem(item.id)}
+                                className="rounded-xl border border-[var(--accent)]/25 px-3 py-2 text-xs font-medium text-[var(--accent)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-soft)]"
+                              >
+                                Editar
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteItem(item.id)}
+                                className="rounded-xl border border-white/8 px-3 py-2 text-xs font-medium text-[#dc2828] transition hover:border-[#dc2828]/30 hover:bg-[#dc2828]/10"
+                              >
+                                Excluir
+                              </button>
+                            </div>
+                          </BodyCell>
                         </tr>
                       ))}
                     </tbody>

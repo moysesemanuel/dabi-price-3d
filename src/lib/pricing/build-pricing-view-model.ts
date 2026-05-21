@@ -19,9 +19,14 @@ export type PricingViewModel = {
   unitProductionCost: number;
   unitTotalCost: number;
   unitProfit: number;
+  lotProfit: number;
   realMarginPercentage: number;
   profitPerHour: number;
+  lotsPerDay: number;
+  unitsPerDay: number;
   estimatedDailyProfit: number;
+  lotsPerMonth: number;
+  unitsPerMonth: number;
   estimatedMonthlyProfit: number;
   materialGrams: number;
   safeQuantity: number;
@@ -67,6 +72,7 @@ export function buildPricingViewModel(
     unitTaxCost;
 
   const unitProfit = result.unitNetProfit;
+  const lotProfit = result.totalNetProfit;
   const realMarginPercentage =
     displayedSalePrice > 0 ? (unitProfit / displayedSalePrice) * 100 : 0;
 
@@ -75,7 +81,12 @@ export function buildPricingViewModel(
       ? result.totalNetProfit / result.printTimeTotalHours
       : result.profitPerHour;
 
+  const lotsPerDay =
+    result.printTimeTotalHours > 0 ? 20 / result.printTimeTotalHours : 0;
+  const unitsPerDay = lotsPerDay * safeQuantity;
   const estimatedDailyProfit = profitPerHour * 20;
+  const lotsPerMonth = lotsPerDay * 30;
+  const unitsPerMonth = unitsPerDay * 30;
   const estimatedMonthlyProfit = estimatedDailyProfit * 30;
 
   const materialGrams =
@@ -101,9 +112,14 @@ export function buildPricingViewModel(
     unitProductionCost,
     unitTotalCost,
     unitProfit,
+    lotProfit,
     realMarginPercentage,
     profitPerHour,
+    lotsPerDay,
+    unitsPerDay,
     estimatedDailyProfit,
+    lotsPerMonth,
+    unitsPerMonth,
     estimatedMonthlyProfit,
     materialGrams,
     safeQuantity,
