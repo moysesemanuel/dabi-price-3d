@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   convertFromBRL,
   convertToBRL,
@@ -1173,12 +1173,6 @@ function Field({
   const [draftValue, setDraftValue] = useState(stringifyFieldValue(value));
   const [isFocused, setIsFocused] = useState(false);
 
-  useEffect(() => {
-    if (!isFocused) {
-      setDraftValue(stringifyFieldValue(value));
-    }
-  }, [isFocused, value]);
-
   return (
     <label className={className}>
       <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
@@ -1196,7 +1190,10 @@ function Field({
           type="text"
           inputMode="decimal"
           value={isFocused ? draftValue : stringifyFieldValue(value)}
-          onFocus={() => setIsFocused(true)}
+          onFocus={() => {
+            setDraftValue(stringifyFieldValue(value));
+            setIsFocused(true);
+          }}
           onBlur={() => setIsFocused(false)}
           onChange={(event) => {
             setDraftValue(event.target.value);

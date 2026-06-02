@@ -125,6 +125,22 @@ MELI_REDIRECT_URI
 
 Observacao: este projeto usa `npm run build:webpack` na Vercel para evitar problemas locais observados com o build padrao via Turbopack.
 
+## Publicação no site
+
+Para usar o fluxo `Criar produto no site`, configure a API do projeto
+`e-commerce-3D` nas variáveis abaixo:
+
+```env
+ECOMMERCE_API_URL=http://127.0.0.1:4020
+ECOMMERCE_STOREFRONT_URL=http://127.0.0.1:3010
+ECOMMERCE_ADMIN_EMAIL=admin@dabitech3d.com
+ECOMMERCE_ADMIN_PASSWORD=admin123
+```
+
+- `ECOMMERCE_API_URL`: URL da API Fastify do `e-commerce-3D`
+- `ECOMMERCE_STOREFRONT_URL`: URL pública da loja para montar o link final do produto
+- `ECOMMERCE_ADMIN_EMAIL` e `ECOMMERCE_ADMIN_PASSWORD`: credenciais admin usadas pela precificadora para publicar via `POST /api/products`
+
 ## Build de produção
 
 Build padrão:

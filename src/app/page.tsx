@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AppSidebar } from "@/components/app/app-sidebar";
 import { PricingForm } from "@/components/pricing/pricing-form";
 import { PricingResult } from "@/components/pricing/pricing-result";
+import { SiteProductPublisher } from "@/components/pricing/site-product-publisher";
 import {
   convertFromBRL,
   defaultExchangeRateSnapshot,
@@ -12,6 +13,7 @@ import {
   type ExchangeRateSnapshot,
 } from "@/lib/currency/display-currency";
 import {
+  attachSiteProductToCalculation,
   consumeQueuedCalculationEditId,
   getCalculationFromHistory,
   saveCalculationToHistory,
@@ -28,6 +30,10 @@ import {
   findSalesChannelById,
   salesChannels,
 } from "@/lib/pricing/sales-channels";
+import type {
+  SiteProductPublishRequest,
+  SiteProductPublishResponse,
+} from "@/lib/site-products/types";
 
 type MercadoLivreAutomationState = {
   feePercentage: number | null;
@@ -164,25 +170,17 @@ export default function Home() {
       return;
     }
 
-    setForm(queuedCalculation.formSnapshot);
-    setDisplayCurrency(queuedCalculation.displayCurrency);
-    setExchangeRateSnapshot(queuedCalculation.exchangeRateSnapshot);
-    setEditingCalculationId(queuedCalculation.id);
-    setSaveState("idle");
+    queueMicrotask(() => {
+      setForm(queuedCalculation.formSnapshot);
+      setDisplayCurrency(queuedCalculation.displayCurrency);
+      setExchangeRateSnapshot(queuedCalculation.exchangeRateSnapshot);
+      setEditingCalculationId(queuedCalculation.id);
+      setSaveState("idle");
+    });
   }, []);
 
   useEffect(() => {
     if (form.salesChannelId !== "mercado-livre") {
-      setMercadoLivreAutomation({
-        feePercentage: null,
-        fixedFee: null,
-        shippingEstimate: null,
-        predictedCategoryName: null,
-        predictedCategoryId: null,
-        officialLookupReady: false,
-        officialLookupError: null,
-      });
-
       return;
     }
 
@@ -454,12 +452,17 @@ export default function Home() {
   }
 
   function handleSaveCalculation() {
+    persistCalculation();
+  }
+
+  function persistCalculation() {
+    const nextId =
+      editingCalculationId ??
+      (typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `calc-${Date.now()}`);
     const nextItem = {
-      id:
-        editingCalculationId ??
-        (typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : `calc-${Date.now()}`),
+      id: nextId,
       savedAt: new Date().toISOString(),
       productName: form.productName.trim() || "Sem nome",
       salesChannelId: form.salesChannelId,
@@ -496,10 +499,50 @@ export default function Home() {
       upsertCalculationInHistory(nextItem);
     } else {
       saveCalculationToHistory(nextItem);
-      setEditingCalculationId(nextItem.id);
+      setEditingCalculationId(nextId);
     }
 
     setSaveState("saved");
+
+    return nextItem;
+  }
+
+  async function handlePublishSiteProduct(
+    payload: Omit<SiteProductPublishRequest, "sourceCalculationId">,
+  ) {
+    const savedCalculation = persistCalculation();
+    const response = await fetch("/api/site-products/publish", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        ...payload,
+        sourceCalculationId: savedCalculation.id,
+      }),
+    });
+
+    const responsePayload = (await response.json().catch(() => null)) as
+      | SiteProductPublishResponse
+      | { error?: string }
+      | null;
+
+    if (!response.ok || !responsePayload || !("product" in responsePayload)) {
+      throw new Error(
+        responsePayload && "error" in responsePayload
+          ? responsePayload.error ?? "Falha ao criar produto no site."
+          : "Falha ao criar produto no site.",
+      );
+    }
+
+    attachSiteProductToCalculation(savedCalculation.id, {
+      id: responsePayload.product.id,
+      slug: responsePayload.product.slug,
+      url: responsePayload.productUrl,
+      publishedAt: new Date().toISOString(),
+    });
+
+    return responsePayload;
   }
 
   return (
@@ -544,29 +587,44 @@ export default function Home() {
             </header>
 
             <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_376px]">
-              <PricingForm
-                form={form}
-                onChange={updateField}
-                suggestedPrice={result.commercialUnitPrice}
-                effectiveMarketplaceFeePercentage={
-                  effectiveMarketplaceFeePercentage
-                }
-                mercadoLivrePredictedCategoryName={
-                  mercadoLivreAutomation.predictedCategoryName
-                }
-                mercadoLivreShippingEstimate={
-                  mercadoLivreAutomation.shippingEstimate ?? form.shippingCost
-                }
-                mercadoLivreOfficialLookupReady={
-                  mercadoLivreAutomation.officialLookupReady
-                }
-                mercadoLivreOfficialLookupError={
-                  mercadoLivreAutomation.officialLookupError
-                }
-                displayCurrency={displayCurrency}
-                onDisplayCurrencyChange={setDisplayCurrency}
-                exchangeRateSnapshot={exchangeRateSnapshot}
-              />
+              <div className="space-y-6">
+                <PricingForm
+                  form={form}
+                  onChange={updateField}
+                  suggestedPrice={result.commercialUnitPrice}
+                  effectiveMarketplaceFeePercentage={
+                    effectiveMarketplaceFeePercentage
+                  }
+                  mercadoLivrePredictedCategoryName={
+                    mercadoLivreAutomation.predictedCategoryName
+                  }
+                  mercadoLivreShippingEstimate={
+                    mercadoLivreAutomation.shippingEstimate ?? form.shippingCost
+                  }
+                  mercadoLivreOfficialLookupReady={
+                    mercadoLivreAutomation.officialLookupReady
+                  }
+                  mercadoLivreOfficialLookupError={
+                    mercadoLivreAutomation.officialLookupError
+                  }
+                  displayCurrency={displayCurrency}
+                  onDisplayCurrencyChange={setDisplayCurrency}
+                  exchangeRateSnapshot={exchangeRateSnapshot}
+                />
+
+                <SiteProductPublisher
+                  pricingContext={{
+                    productName: form.productName.trim() || "Sem nome",
+                    salePriceInCents: Math.round(
+                      viewModel.displayedSalePrice * 100,
+                    ),
+                    marginPercentage: viewModel.realMarginPercentage,
+                    salesChannelLabel: selectedChannelLabel,
+                    productType: form.productType,
+                  }}
+                  onPublish={handlePublishSiteProduct}
+                />
+              </div>
 
               <PricingResult
                 productName={form.productName}

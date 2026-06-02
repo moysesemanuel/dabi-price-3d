@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { AppSidebar } from "@/components/app/app-sidebar";
 import { formatCurrency, formatPercent } from "@/lib/pricing/formatters";
@@ -9,24 +9,23 @@ import {
   deleteCalculationFromHistory,
   queueCalculationForEditing,
   readCalculationHistory,
-  type SavedCalculation,
+  subscribeCalculationHistory,
 } from "@/lib/history/calculation-history";
 
 export default function HistoryPage() {
   const router = useRouter();
-  const [items, setItems] = useState<SavedCalculation[]>([]);
-
-  useEffect(() => {
-    setItems(readCalculationHistory());
-  }, []);
+  const items = useSyncExternalStore(
+    subscribeCalculationHistory,
+    readCalculationHistory,
+    () => [],
+  );
 
   function handleClearHistory() {
     clearCalculationHistory();
-    setItems([]);
   }
 
   function handleDeleteItem(id: string) {
-    setItems(deleteCalculationFromHistory(id));
+    deleteCalculationFromHistory(id);
   }
 
   function handleEditItem(id: string) {

@@ -66,7 +66,6 @@ export function PricingResult({
     profitPerHour,
     promotionalSalePrice,
     realMarginPercentage,
-    safeQuantity,
     unitEnergyCost,
     unitLaborCost,
     unitLossCost,
