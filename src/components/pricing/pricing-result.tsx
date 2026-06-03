@@ -94,6 +94,14 @@ export function PricingResult({
     displayCurrency,
     exchangeRates,
   }).filter((line) => !line.hideWhenZero || !isZeroValue(line.numericValue));
+  const feeLabel =
+    form.salesChannelId === "consignment"
+      ? "Comissão do parceiro"
+      : "Taxa marketplace";
+  const salePriceLabel =
+    form.salesChannelId === "consignment"
+      ? "Preço sugerido"
+      : "Preço de venda";
 
   return (
     <aside className="xl:sticky xl:top-6">
@@ -106,7 +114,7 @@ export function PricingResult({
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-sm font-semibold text-[var(--accent)]">
-                Preço de venda
+                {salePriceLabel}
               </p>
 
               <p className="mt-2 text-xs text-[var(--muted)]">
@@ -160,7 +168,7 @@ export function PricingResult({
           <div className="mt-3 space-y-1">
             {unitMarketplaceFee > 0 ? (
               <ResultLine
-                label="Taxa marketplace"
+                label={feeLabel}
                 meta={formatPercent(
                   displayedSalePrice > 0
                     ? (unitMarketplaceFee / displayedSalePrice) * 100
@@ -787,6 +795,20 @@ function buildSummaryLines({
         value: formatPercent(form.directPixDiscountPercentage),
         numericValue: form.directPixDiscountPercentage,
         hideWhenZero: true,
+      }
+    );
+  }
+
+  if (form.salesChannelId === "consignment") {
+    lines.push(
+      {
+        label: "Modelo",
+        value: "Consignado",
+      },
+      {
+        label: "Comissão do parceiro",
+        value: formatPercent(form.marketplaceFeePercentage),
+        numericValue: form.marketplaceFeePercentage,
       }
     );
   }

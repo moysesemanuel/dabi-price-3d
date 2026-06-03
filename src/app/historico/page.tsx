@@ -69,8 +69,8 @@ export default function HistoryPage() {
                 </p>
 
                 <p className="mt-2 text-sm text-[var(--muted)]">
-                  Use o botão <strong>Salvar cálculo</strong> na precificadora
-                  para começar a preencher esta tabela.
+                  Use o botão <strong>Salvar cálculo</strong> ou publique um
+                  produto no site para começar a preencher esta tabela.
                 </p>
               </div>
             ) : (
@@ -81,6 +81,7 @@ export default function HistoryPage() {
                       <tr className="border-b border-white/8 text-left">
                         <HeaderCell>Data</HeaderCell>
                         <HeaderCell>Produto</HeaderCell>
+                        <HeaderCell>Site</HeaderCell>
                         <HeaderCell>Canal</HeaderCell>
                         <HeaderCell>Moeda</HeaderCell>
                         <HeaderCell>Preço</HeaderCell>
@@ -99,6 +100,32 @@ export default function HistoryPage() {
                         >
                           <BodyCell>{formatSavedDate(item.savedAt)}</BodyCell>
                           <BodyCell>{item.productName}</BodyCell>
+                          <BodyCell>
+                            {item.siteProduct ? (
+                              <div className="space-y-1">
+                                <div className="text-xs font-medium text-[var(--accent)]">
+                                  Publicado
+                                </div>
+                                <div className="text-xs text-[var(--muted)]">
+                                  {item.siteProduct.slug}
+                                </div>
+                                {item.siteProduct.url ? (
+                                  <a
+                                    href={item.siteProduct.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-xs text-white underline"
+                                  >
+                                    Abrir produto
+                                  </a>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-[var(--muted)]">
+                                Só histórico local
+                              </span>
+                            )}
+                          </BodyCell>
                           <BodyCell>{item.salesChannelLabel}</BodyCell>
                           <BodyCell>{item.displayCurrency}</BodyCell>
                           <BodyCell>

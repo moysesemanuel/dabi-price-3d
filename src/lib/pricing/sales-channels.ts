@@ -23,6 +23,12 @@ export const salesChannels = [
     marketplaceFeePercentage: 0,
     marketplaceFixedFee: 0,
   },
+  {
+    id: "consignment",
+    name: "Consignado",
+    marketplaceFeePercentage: 30,
+    marketplaceFixedFee: 0,
+  },
 ] as const;
 
 export type SalesChannelId = (typeof salesChannels)[number]["id"];

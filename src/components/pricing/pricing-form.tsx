@@ -43,6 +43,7 @@ const channelDescriptions: Record<string, string> = {
   shopee: "Tabela oficial 2026",
   amazon: "FBA ou DBA",
   direct: "Pix, cartao, personalizado",
+  consignment: "Comissao do parceiro",
 };
 
 const paymentOptions = [
@@ -114,6 +115,7 @@ export function PricingForm({
   const isShopee = form.salesChannelId === "shopee";
   const isAmazon = form.salesChannelId === "amazon";
   const isDirect = form.salesChannelId === "direct";
+  const isConsignment = form.salesChannelId === "consignment";
 
   const pixPrice = useMemo(() => {
     return suggestedPrice * (1 - form.directPixDiscountPercentage / 100);
@@ -237,6 +239,14 @@ export function PricingForm({
                 ) : null}
 
                 {channel.id === "direct" ? (
+                  <DirectSaleIcon
+                    className={`mx-auto mb-2 size-8 ${
+                      isActive ? "text-[var(--accent)]" : "text-[#b6b2d0]"
+                    }`}
+                  />
+                ) : null}
+
+                {channel.id === "consignment" ? (
                   <DirectSaleIcon
                     className={`mx-auto mb-2 size-8 ${
                       isActive ? "text-[var(--accent)]" : "text-[#b6b2d0]"
@@ -618,6 +628,38 @@ export function PricingForm({
                 )
               }
             />
+          </div>
+        ) : null}
+
+        {isConsignment ? (
+          <div className="mt-8 space-y-6">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field
+                label="Comissão do parceiro"
+                value={form.marketplaceFeePercentage}
+                onChange={(value) =>
+                  onChange("marketplaceFeePercentage", value)
+                }
+                suffix="%"
+                note="Percentual do preço sugerido que o ponto parceiro vai reter."
+              />
+
+              <Field
+                label="Preço sugerido atual"
+                value={displayMoney(suggestedPrice)}
+                onChange={() => undefined}
+                inputKind="money"
+                prefix={currencySymbol}
+                disabled
+                note="Valor de vitrine sugerido para manter sua margem após a comissão."
+              />
+            </div>
+
+            <InfoBlock title="Como o consignado entra no cálculo:">
+              <p>O preço sugerido é o valor final ao cliente no ponto parceiro.</p>
+              <p>A comissão do parceiro entra como percentual sobre esse valor.</p>
+              <p>Seu lucro líquido já sai descontando a comissão informada.</p>
+            </InfoBlock>
           </div>
         ) : null}
       </SectionCard>

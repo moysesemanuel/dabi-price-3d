@@ -105,7 +105,10 @@ export default function Home() {
       ...form,
       marketplaceFeePercentage: effectiveMarketplaceFeePercentage,
       marketplaceFixedFee: effectiveMarketplaceFixedFee,
-      laborCost: form.salesChannelId === "direct" ? form.laborCost : 0,
+      laborCost:
+        form.salesChannelId === "direct" || form.salesChannelId === "consignment"
+          ? form.laborCost
+          : 0,
     }),
     [effectiveMarketplaceFeePercentage, effectiveMarketplaceFixedFee, form],
   );
@@ -460,6 +463,9 @@ export default function Home() {
   }
 
   function persistCalculation() {
+    const existingCalculation = editingCalculationId
+      ? getCalculationFromHistory(editingCalculationId)
+      : null;
     const nextId =
       editingCalculationId ??
       (typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -497,6 +503,7 @@ export default function Home() {
           exchangeRateSnapshot.rates,
         ),
       },
+      siteProduct: existingCalculation?.siteProduct,
     };
 
     if (editingCalculationId) {
