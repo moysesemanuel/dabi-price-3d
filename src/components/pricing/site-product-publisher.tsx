@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { type ChangeEvent, useMemo, useState } from "react";
+import type { PutBlobResult } from "@vercel/blob";
+import { upload } from "@vercel/blob/client";
 import type { ProductType } from "@/lib/pricing/initial-pricing-form";
 import { formatCurrency } from "@/lib/pricing/formatters";
 import {
@@ -43,6 +45,7 @@ type SiteProductFormState = {
 };
 
 type PublishState = "idle" | "submitting" | "success" | "error";
+type ImageUploadState = "idle" | "uploading-main" | "uploading-gallery";
 
 const categoryOptions = [
   { value: "decor", label: "Decor" },
@@ -50,6 +53,12 @@ const categoryOptions = [
   { value: "fashion", label: "Fashion" },
   { value: "workspace", label: "Workspace" },
 ];
+const ACCEPTED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+] as const;
+const ACCEPTED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"] as const;
 
 export function SiteProductPublisher({
   pricingContext,
@@ -59,6 +68,8 @@ export function SiteProductPublisher({
   const [form, setForm] = useState<SiteProductFormState | null>(null);
   const [hasTouchedSlug, setHasTouchedSlug] = useState(false);
   const [publishState, setPublishState] = useState<PublishState>("idle");
+  const [imageUploadState, setImageUploadState] =
+    useState<ImageUploadState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [publishedProductUrl, setPublishedProductUrl] = useState<string | null>(
     null,
@@ -109,57 +120,89 @@ export function SiteProductPublisher({
     });
   }
 
-  function handleMainImageUrlChange(value: string) {
-    if (!form) {
+  async function handleMainImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file || !form) {
       return;
     }
 
-    const trimmedValue = value.trim();
-    const nextForm = {
-      ...form,
-      imageUrl: trimmedValue,
-      imageFileName: trimmedValue ? getImageLabel(trimmedValue) : "",
-    };
+    if (!isAcceptedImageFile(file)) {
+      setPublishState("error");
+      setErrorMessage("Use apenas arquivos JPEG, JPG, PNG ou WEBP.");
+      event.target.value = "";
+      return;
+    }
+
+    setImageUploadState("uploading-main");
+    setPublishState("idle");
+    setErrorMessage(null);
 
     try {
+      const blob = await uploadProductImage(file, form, "main");
+      const nextForm = {
+        ...form,
+        imageUrl: blob.url,
+        imageFileName: file.name,
+      };
+
       assertPublishPayloadWithinLimit(nextForm, pricingContext.salePriceInCents);
-      setErrorMessage(null);
-      setPublishState("idle");
       setForm(nextForm);
     } catch (error) {
       setPublishState("error");
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "Falha ao atualizar a imagem principal.",
+          : "Falha ao enviar a imagem principal.",
       );
+    } finally {
+      setImageUploadState("idle");
+      event.target.value = "";
     }
   }
 
-  function handleGalleryImagesTextChange(value: string) {
-    if (!form) {
+  async function handleGalleryImagesChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+
+    if (files.length === 0 || !form) {
       return;
     }
 
-    const galleryImages = parseLinesOrCsv(value);
-    const nextForm = {
-      ...form,
-      galleryImages,
-      galleryFileNames: galleryImages.map((imageUrl) => getImageLabel(imageUrl)),
-    };
+    const invalidFile = files.find((file) => !isAcceptedImageFile(file));
+
+    if (invalidFile) {
+      setPublishState("error");
+      setErrorMessage("Use apenas arquivos JPEG, JPG, PNG ou WEBP.");
+      event.target.value = "";
+      return;
+    }
+
+    setImageUploadState("uploading-gallery");
+    setPublishState("idle");
+    setErrorMessage(null);
 
     try {
+      const blobs = await Promise.all(
+        files.map((file) => uploadProductImage(file, form, "gallery")),
+      );
+      const nextForm = {
+        ...form,
+        galleryImages: [...form.galleryImages, ...blobs.map((blob) => blob.url)],
+        galleryFileNames: [...form.galleryFileNames, ...files.map((file) => file.name)],
+      };
+
       assertPublishPayloadWithinLimit(nextForm, pricingContext.salePriceInCents);
-      setErrorMessage(null);
-      setPublishState("idle");
       setForm(nextForm);
     } catch (error) {
       setPublishState("error");
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "Falha ao atualizar a galeria.",
+          : "Falha ao enviar as imagens da galeria.",
       );
+    } finally {
+      setImageUploadState("idle");
+      event.target.value = "";
     }
   }
 
@@ -351,11 +394,16 @@ export function SiteProductPublisher({
                 />
 
                 <div className="grid gap-4 md:grid-cols-2">
-                  <Field
+                  <FileField
                     label="Imagem principal"
-                    value={form.imageUrl}
-                    onChange={handleMainImageUrlChange}
-                    note="Use uma URL publica da imagem. O endpoint do e-commerce nao recebe upload embutido."
+                    accept=".jpg,.jpeg,.png,.webp"
+                    helper={
+                      imageUploadState === "uploading-main"
+                        ? "Enviando imagem principal para o storage..."
+                        : "Arquivo enviado para storage publico e convertido em URL automaticamente."
+                    }
+                    onChange={handleMainImageChange}
+                    disabled={imageUploadState !== "idle"}
                   />
 
                   <TextArea
@@ -367,12 +415,17 @@ export function SiteProductPublisher({
                   />
                 </div>
 
-                <TextArea
+                <FileField
                   label="Galeria de imagens"
-                  value={form.galleryImages.join("\n")}
-                  onChange={handleGalleryImagesTextChange}
-                  rows={4}
-                  note="Uma URL por linha ou separadas por virgula."
+                  accept=".jpg,.jpeg,.png,.webp"
+                  helper={
+                    imageUploadState === "uploading-gallery"
+                      ? "Enviando imagens da galeria para o storage..."
+                      : "Voce pode selecionar varias imagens de uma vez."
+                  }
+                  multiple
+                  onChange={handleGalleryImagesChange}
+                  disabled={imageUploadState !== "idle"}
                 />
 
                 {form.imageUrl ? (
@@ -620,22 +673,56 @@ function assertPublishPayloadWithinLimit(
   }
 }
 
-function getImageLabel(value: string) {
-  const trimmedValue = value.trim();
-
-  if (!trimmedValue) {
-    return "";
+function isAcceptedImageFile(file: File) {
+  if (
+    ACCEPTED_IMAGE_TYPES.includes(
+      file.type as (typeof ACCEPTED_IMAGE_TYPES)[number],
+    )
+  ) {
+    return true;
   }
+
+  const lowerCaseName = file.name.toLowerCase();
+  return ACCEPTED_IMAGE_EXTENSIONS.some((extension) =>
+    lowerCaseName.endsWith(extension),
+  );
+}
+
+async function uploadProductImage(
+  file: File,
+  form: SiteProductFormState,
+  kind: "main" | "gallery",
+): Promise<PutBlobResult> {
+  const pathname = buildBlobPath(form, file.name, kind);
 
   try {
-    const url = new URL(trimmedValue);
-    const pathnameParts = url.pathname.split("/").filter(Boolean);
-    const lastPathSegment = pathnameParts.at(-1);
-
-    return decodeURIComponent(lastPathSegment ?? trimmedValue);
-  } catch {
-    return trimmedValue;
+    return await upload(pathname, file, {
+      access: "public",
+      contentType: file.type || undefined,
+      handleUploadUrl: "/api/site-products/upload",
+    });
+  } catch (error) {
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "Falha ao enviar imagem para o storage.",
+    );
   }
+}
+
+function buildBlobPath(
+  form: SiteProductFormState,
+  fileName: string,
+  kind: "main" | "gallery",
+) {
+  const safeSlug = slugify(form.slug || form.name || "produto");
+  const safeFileName = fileName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return `site-products/${safeSlug}/${kind}-${safeFileName || "image"}`;
 }
 
 function ChoiceCard({
@@ -775,6 +862,41 @@ function SelectField({
           </option>
         ))}
       </select>
+    </label>
+  );
+}
+
+function FileField({
+  label,
+  accept,
+  helper,
+  multiple = false,
+  onChange,
+  disabled = false,
+}: {
+  label: string;
+  accept: string;
+  helper: string;
+  multiple?: boolean;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
+  disabled?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
+        {label}
+      </span>
+
+      <input
+        type="file"
+        accept={accept}
+        multiple={multiple}
+        onChange={onChange}
+        disabled={disabled}
+        className="mt-2 block w-full rounded-[20px] border border-white/10 bg-[#0d182b] px-4 py-3 text-sm text-white file:mr-4 file:rounded-full file:border-0 file:bg-[var(--accent-soft)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+      />
+
+      <p className="mt-2 text-xs text-[var(--muted)]">{helper}</p>
     </label>
   );
 }

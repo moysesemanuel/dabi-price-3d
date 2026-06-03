@@ -135,11 +135,15 @@ ECOMMERCE_API_URL=http://127.0.0.1:4020
 ECOMMERCE_STOREFRONT_URL=http://127.0.0.1:3010
 ECOMMERCE_ADMIN_EMAIL=admin@dabitech3d.com
 ECOMMERCE_ADMIN_PASSWORD=admin123
+BLOB_READ_WRITE_TOKEN=seu_token_do_vercel_blob
 ```
 
 - `ECOMMERCE_API_URL`: URL da API Fastify do `e-commerce-3D`
 - `ECOMMERCE_STOREFRONT_URL`: URL pública da loja para montar o link final do produto
 - `ECOMMERCE_ADMIN_EMAIL` e `ECOMMERCE_ADMIN_PASSWORD`: credenciais admin usadas pela precificadora para publicar via `POST /api/products`
+- `BLOB_READ_WRITE_TOKEN`: token de escrita do Vercel Blob usado para subir imagens e gerar URLs públicas antes da publicação
+
+O fluxo de produto do site envia as imagens primeiro para um Blob público da Vercel e depois publica no e-commerce usando as URLs geradas. Crie um store público na Vercel Storage para o mesmo projeto antes de usar esse recurso.
 
 ## Build de produção
 
