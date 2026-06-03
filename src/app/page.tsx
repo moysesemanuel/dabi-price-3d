@@ -30,6 +30,10 @@ import {
   findSalesChannelById,
   salesChannels,
 } from "@/lib/pricing/sales-channels";
+import {
+  MAX_SITE_PRODUCT_PUBLISH_PAYLOAD_BYTES,
+  getJsonSizeInBytes,
+} from "@/lib/site-products/payload-size";
 import type {
   SiteProductPublishRequest,
   SiteProductPublishResponse,
@@ -511,15 +515,25 @@ export default function Home() {
     payload: Omit<SiteProductPublishRequest, "sourceCalculationId">,
   ) {
     const savedCalculation = persistCalculation();
+    const requestPayload = {
+      ...payload,
+      sourceCalculationId: savedCalculation.id,
+    };
+
+    if (
+      getJsonSizeInBytes(requestPayload) > MAX_SITE_PRODUCT_PUBLISH_PAYLOAD_BYTES
+    ) {
+      throw new Error(
+        "As imagens deixaram a publicacao grande demais para o deploy atual. Remova algumas imagens ou use arquivos menores.",
+      );
+    }
+
     const response = await fetch("/api/site-products/publish", {
       method: "POST",
       headers: {
         "content-type": "application/json",
       },
-      body: JSON.stringify({
-        ...payload,
-        sourceCalculationId: savedCalculation.id,
-      }),
+      body: JSON.stringify(requestPayload),
     });
 
     const responsePayload = (await response.json().catch(() => null)) as

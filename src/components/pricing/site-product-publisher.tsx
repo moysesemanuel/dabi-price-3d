@@ -4,6 +4,10 @@ import { type ChangeEvent, useMemo, useState } from "react";
 import Image from "next/image";
 import type { ProductType } from "@/lib/pricing/initial-pricing-form";
 import { formatCurrency } from "@/lib/pricing/formatters";
+import {
+  MAX_SITE_PRODUCT_PUBLISH_PAYLOAD_BYTES,
+  getJsonSizeInBytes,
+} from "@/lib/site-products/payload-size";
 import type {
   SiteProductPublishRequest,
   SiteProductPublishResponse,
@@ -53,6 +57,16 @@ const ACCEPTED_IMAGE_TYPES = [
   "image/webp",
 ] as const;
 const ACCEPTED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"] as const;
+const MAX_IMAGE_DIMENSION_PX = 1600;
+const MAX_MAIN_IMAGE_BYTES = 850 * 1024;
+const MAX_GALLERY_IMAGE_BYTES = 650 * 1024;
+const IMAGE_QUALITY_START = 0.86;
+const IMAGE_QUALITY_MIN = 0.54;
+const IMAGE_SCALE_STEP = 0.82;
+
+type OptimizedImageAsset = {
+  dataUrl: string;
+};
 
 export function SiteProductPublisher({
   pricingContext,
@@ -126,14 +140,27 @@ export function SiteProductPublisher({
       return;
     }
 
-    const dataUrl = await readFileAsDataUrl(file);
-    setErrorMessage(null);
-    setPublishState("idle");
-    setForm({
-      ...form,
-      imageUrl: dataUrl,
-      imageFileName: file.name,
-    });
+    try {
+      const asset = await optimizeImageFile(file, MAX_MAIN_IMAGE_BYTES);
+      const nextForm = {
+        ...form,
+        imageUrl: asset.dataUrl,
+        imageFileName: file.name,
+      };
+
+      assertPublishPayloadWithinLimit(nextForm, pricingContext.salePriceInCents);
+      setErrorMessage(null);
+      setPublishState("idle");
+      setForm(nextForm);
+    } catch (error) {
+      setPublishState("error");
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Falha ao processar a imagem selecionada.",
+      );
+    }
+
     event.target.value = "";
   }
 
@@ -153,14 +180,35 @@ export function SiteProductPublisher({
       return;
     }
 
-    const dataUrls = await Promise.all(files.map((file) => readFileAsDataUrl(file)));
-    setErrorMessage(null);
-    setPublishState("idle");
-    setForm({
-      ...form,
-      galleryImages: [...form.galleryImages, ...dataUrls],
-      galleryFileNames: [...form.galleryFileNames, ...files.map((file) => file.name)],
-    });
+    try {
+      const assets = await Promise.all(
+        files.map((file) => optimizeImageFile(file, MAX_GALLERY_IMAGE_BYTES)),
+      );
+      const nextForm = {
+        ...form,
+        galleryImages: [
+          ...form.galleryImages,
+          ...assets.map((asset) => asset.dataUrl),
+        ],
+        galleryFileNames: [
+          ...form.galleryFileNames,
+          ...files.map((file) => file.name),
+        ],
+      };
+
+      assertPublishPayloadWithinLimit(nextForm, pricingContext.salePriceInCents);
+      setErrorMessage(null);
+      setPublishState("idle");
+      setForm(nextForm);
+    } catch (error) {
+      setPublishState("error");
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Falha ao processar as imagens selecionadas.",
+      );
+    }
+
     event.target.value = "";
   }
 
@@ -355,7 +403,7 @@ export function SiteProductPublisher({
                   <FileField
                     label="Imagem principal"
                     accept=".jpg,.jpeg,.png,.webp"
-                    helper="Selecione um arquivo JPEG, JPG, PNG ou WEBP."
+                    helper="JPEG, JPG, PNG ou WEBP. A imagem e redimensionada antes do envio."
                     onChange={handleMainImageChange}
                   />
 
@@ -371,7 +419,7 @@ export function SiteProductPublisher({
                 <FileField
                   label="Galeria de imagens"
                   accept=".jpg,.jpeg,.png,.webp"
-                  helper="Você pode selecionar várias imagens de uma vez."
+                  helper="Voce pode selecionar varias imagens. O app reduz o tamanho para manter a publicacao abaixo do limite."
                   multiple
                   onChange={handleGalleryImagesChange}
                 />
@@ -587,8 +635,46 @@ function normalizeOptionalString(value: string) {
   return trimmedValue.length > 0 ? trimmedValue : undefined;
 }
 
+function assertPublishPayloadWithinLimit(
+  form: SiteProductFormState,
+  salePriceInCents: number,
+) {
+  const compareAtPriceInCents = parseMoneyToCents(form.compareAtPrice);
+  const payload = {
+    name: form.name.trim(),
+    slug: slugify(form.slug),
+    priceInCents: salePriceInCents,
+    category: form.category,
+    material: form.material.trim(),
+    dimensions: form.dimensions.trim(),
+    accentColor: normalizeHexColor(form.accentColor),
+    featured: form.featured,
+    description: form.description.trim(),
+    tags: parseLinesOrCsv(form.tagsText),
+    imageUrl: normalizeOptionalString(form.imageUrl),
+    galleryImages: form.galleryImages,
+    ...(compareAtPriceInCents && compareAtPriceInCents > salePriceInCents
+      ? { compareAtPriceInCents }
+      : {}),
+  };
+  const payloadSizeInBytes = getJsonSizeInBytes({
+    ...payload,
+    sourceCalculationId: "calc-size-check",
+  });
+
+  if (payloadSizeInBytes > MAX_SITE_PRODUCT_PUBLISH_PAYLOAD_BYTES) {
+    throw new Error(
+      "As imagens ainda deixaram a publicacao grande demais. Remova algumas imagens ou use arquivos menores.",
+    );
+  }
+}
+
 function isAcceptedImageFile(file: File) {
-  if (ACCEPTED_IMAGE_TYPES.includes(file.type as (typeof ACCEPTED_IMAGE_TYPES)[number])) {
+  if (
+    ACCEPTED_IMAGE_TYPES.includes(
+      file.type as (typeof ACCEPTED_IMAGE_TYPES)[number],
+    )
+  ) {
     return true;
   }
 
@@ -598,7 +684,84 @@ function isAcceptedImageFile(file: File) {
   );
 }
 
-function readFileAsDataUrl(file: File) {
+async function optimizeImageFile(
+  file: File,
+  maxBytes: number,
+): Promise<OptimizedImageAsset> {
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const image = await loadImageElement(objectUrl);
+    const originalMaxDimension = Math.max(
+      image.naturalWidth,
+      image.naturalHeight,
+    );
+    const initialScale = Math.min(1, MAX_IMAGE_DIMENSION_PX / originalMaxDimension);
+    let currentScale = initialScale;
+
+    while (currentScale > 0.2) {
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * currentScale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * currentScale));
+
+      const context = canvas.getContext("2d");
+
+      if (!context) {
+        throw new Error("Falha ao preparar a imagem para envio.");
+      }
+
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+      for (
+        let quality = IMAGE_QUALITY_START;
+        quality >= IMAGE_QUALITY_MIN;
+        quality -= 0.08
+      ) {
+        const blob = await canvasToBlob(canvas, "image/webp", quality);
+
+        if (blob.size <= maxBytes) {
+          return {
+            dataUrl: await readBlobAsDataUrl(blob),
+          };
+        }
+      }
+
+      currentScale *= IMAGE_SCALE_STEP;
+    }
+
+    throw new Error(
+      `Nao foi possivel reduzir "${file.name}" para um tamanho compativel. Use uma imagem menor.`,
+    );
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+function loadImageElement(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new window.Image();
+
+    image.onload = () => resolve(image);
+    image.onerror = () =>
+      reject(new Error("Falha ao ler a imagem selecionada."));
+    image.src = src;
+  });
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number) {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("Falha ao converter a imagem selecionada."));
+        return;
+      }
+
+      resolve(blob);
+    }, type, quality);
+  });
+}
+
+function readBlobAsDataUrl(blob: Blob) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
 
@@ -608,11 +771,12 @@ function readFileAsDataUrl(file: File) {
         return;
       }
 
-      reject(new Error("Falha ao ler a imagem selecionada."));
+      reject(new Error("Falha ao preparar a imagem selecionada."));
     };
 
-    reader.onerror = () => reject(new Error("Falha ao ler a imagem selecionada."));
-    reader.readAsDataURL(file);
+    reader.onerror = () =>
+      reject(new Error("Falha ao preparar a imagem selecionada."));
+    reader.readAsDataURL(blob);
   });
 }
 
