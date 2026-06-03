@@ -81,6 +81,7 @@ export function SiteProductPublisher({
   );
 
   const isSiteProductMode = mode === "site-product";
+  const isUploadingImages = imageUploadState !== "idle";
   const isFormValid =
     form &&
     form.name.trim().length > 0 &&
@@ -262,6 +263,15 @@ export function SiteProductPublisher({
           : {}),
       });
 
+      setForm((current) =>
+        current
+          ? {
+              ...current,
+              slug: response.product.slug,
+            }
+          : current,
+      );
+      setHasTouchedSlug(true);
       setPublishedProductUrl(response.productUrl);
       setPublishState("success");
     } catch (error) {
@@ -548,12 +558,18 @@ export function SiteProductPublisher({
               <button
                 type="button"
                 onClick={handlePublish}
-                disabled={!isFormValid || publishState === "submitting"}
+                disabled={
+                  !isFormValid ||
+                  publishState === "submitting" ||
+                  isUploadingImages
+                }
                 className="mt-6 w-full rounded-2xl bg-[var(--accent)] px-4 py-4 text-base font-semibold text-[#07110d] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {publishState === "submitting"
                   ? "Salvando no site..."
-                  : "Salvar no site"}
+                  : isUploadingImages
+                    ? "Enviando imagens..."
+                    : "Salvar no site"}
               </button>
             </section>
           </aside>

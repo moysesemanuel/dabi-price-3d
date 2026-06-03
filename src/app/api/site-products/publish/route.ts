@@ -11,8 +11,27 @@ type EcommerceCreateProductResponse = {
     slug: string;
     name: string;
   };
+  productUrl?: string | null;
   message?: string;
 };
+
+type SuccessfulEcommerceCreateProductResponse = {
+  product: {
+    id: string;
+    slug: string;
+    name: string;
+  };
+  productUrl?: string | null;
+};
+
+class PublishRouteError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
 
 export async function POST(request: Request) {
   let body: SiteProductPublishRequest;
@@ -104,17 +123,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const productId = `site-${Date.now().toString(36)}-${normalizedSlug}`;
-    const createProductResponse = await fetch(`${apiUrl}/api/products`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${authPayload.token}`,
-      },
-      body: JSON.stringify({
-        id: productId,
+    const createProductPayload = await createProductWithSlugRetry({
+      apiUrl,
+      token: authPayload.token,
+      baseSlug: normalizedSlug,
+      payload: {
+        sourceCalculationId: body.sourceCalculationId,
         name: body.name.trim(),
-        slug: normalizedSlug,
         priceInCents: normalizedPriceInCents,
         compareAtPriceInCents: normalizedCompareAtPriceInCents,
         category: body.category.trim(),
@@ -127,27 +142,23 @@ export async function POST(request: Request) {
         featured: Boolean(body.featured),
         description: body.description.trim(),
         tags: normalizedTags,
-      }),
-      cache: "no-store",
+      },
     });
-    const createProductPayload =
-      (await createProductResponse.json()) as EcommerceCreateProductResponse;
 
-    if (!createProductResponse.ok || !createProductPayload.product) {
-      throw new Error(
-        createProductPayload.message ?? "Falha ao criar produto no site.",
-      );
-    }
-
-    const productUrl = storefrontUrl
-      ? `${storefrontUrl.replace(/\/$/, "")}/produto/${createProductPayload.product.slug}`
-      : null;
+    const productUrl =
+      createProductPayload.productUrl ??
+      (storefrontUrl
+        ? `${storefrontUrl.replace(/\/$/, "")}/produto/${createProductPayload.product.slug}`
+        : null);
 
     return Response.json({
       product: createProductPayload.product,
       productUrl,
     });
   } catch (error) {
+    const status =
+      error instanceof PublishRouteError ? error.status : 500;
+
     return Response.json(
       {
         error:
@@ -155,9 +166,81 @@ export async function POST(request: Request) {
             ? error.message
             : "Falha ao criar produto no site.",
       },
-      { status: 500 },
+      { status },
     );
   }
+}
+
+async function createProductWithSlugRetry({
+  apiUrl,
+  token,
+  baseSlug,
+  payload,
+}: {
+  apiUrl: string;
+  token: string;
+  baseSlug: string;
+  payload: {
+    sourceCalculationId: string | null;
+    name: string;
+    priceInCents: number;
+    compareAtPriceInCents?: number;
+    category: string;
+    material: string;
+    dimensions: string;
+    accentColor: string;
+    imageUrl?: string;
+    galleryImages?: string[];
+    featured: boolean;
+    description: string;
+    tags: string[];
+  };
+}): Promise<SuccessfulEcommerceCreateProductResponse> {
+  const maxAttempts = 6;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const slug = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`;
+    const createProductResponse = await fetch(`${apiUrl}/api/products`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        id: `site-${Date.now().toString(36)}-${slug}`,
+        slug,
+        ...payload,
+      }),
+      cache: "no-store",
+    });
+    const createProductPayload =
+      (await createProductResponse.json()) as EcommerceCreateProductResponse;
+
+    if (createProductResponse.ok && createProductPayload.product) {
+      return {
+        product: createProductPayload.product,
+        productUrl: createProductPayload.productUrl,
+      };
+    }
+
+    if (
+      createProductResponse.status === 409 &&
+      isSlugConflictMessage(createProductPayload.message) &&
+      attempt < maxAttempts - 1
+    ) {
+      continue;
+    }
+
+    throw new PublishRouteError(
+      createProductResponse.status || 500,
+      createProductPayload.message ?? "Falha ao criar produto no site.",
+    );
+  }
+
+  throw new PublishRouteError(
+    409,
+    "Nao foi possivel gerar um slug unico para este produto.",
+  );
 }
 
 function slugify(value: string) {
@@ -182,4 +265,8 @@ function normalizeHexColor(value: string) {
 
 function isDataUrl(value: string) {
   return value.startsWith("data:");
+}
+
+function isSlugConflictMessage(message?: string) {
+  return typeof message === "string" && message.includes("slug");
 }
