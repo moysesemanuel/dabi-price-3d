@@ -32,29 +32,51 @@ const STORAGE_KEY = "dabi-price-3d:calculation-history";
 const EDITING_ID_STORAGE_KEY = "dabi-price-3d:editing-calculation-id";
 const HISTORY_EVENT = "dabi-price-3d:calculation-history-updated";
 const MAX_ITEMS = 100;
+const EMPTY_HISTORY: SavedCalculation[] = [];
+
+let cachedHistoryRawValue: string | null | undefined;
+let cachedHistorySnapshot: SavedCalculation[] = EMPTY_HISTORY;
 
 function writeCalculationHistory(items: SavedCalculation[]) {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  const serializedItems = JSON.stringify(items);
+
+  cachedHistoryRawValue = serializedItems;
+  cachedHistorySnapshot = items;
+  window.localStorage.setItem(STORAGE_KEY, serializedItems);
   window.dispatchEvent(new Event(HISTORY_EVENT));
+}
+
+function parseCalculationHistory(rawValue: string | null) {
+  if (!rawValue) {
+    return EMPTY_HISTORY;
+  }
+
+  const parsedValue = JSON.parse(rawValue) as SavedCalculation[];
+
+  return Array.isArray(parsedValue) ? parsedValue : EMPTY_HISTORY;
 }
 
 export function readCalculationHistory() {
   if (typeof window === "undefined") {
-    return [] as SavedCalculation[];
+    return EMPTY_HISTORY;
   }
 
   try {
     const rawValue = window.localStorage.getItem(STORAGE_KEY);
 
-    if (!rawValue) {
-      return [] as SavedCalculation[];
+    if (rawValue === cachedHistoryRawValue) {
+      return cachedHistorySnapshot;
     }
 
-    const parsedValue = JSON.parse(rawValue) as SavedCalculation[];
+    const parsedValue = parseCalculationHistory(rawValue);
+    cachedHistoryRawValue = rawValue;
+    cachedHistorySnapshot = parsedValue;
 
-    return Array.isArray(parsedValue) ? parsedValue : [];
+    return parsedValue;
   } catch {
-    return [] as SavedCalculation[];
+    cachedHistoryRawValue = null;
+    cachedHistorySnapshot = EMPTY_HISTORY;
+    return EMPTY_HISTORY;
   }
 }
 
@@ -103,6 +125,8 @@ export function clearCalculationHistory() {
     return;
   }
 
+  cachedHistoryRawValue = null;
+  cachedHistorySnapshot = EMPTY_HISTORY;
   window.localStorage.removeItem(STORAGE_KEY);
   window.dispatchEvent(new Event(HISTORY_EVENT));
 }
