@@ -5,16 +5,6 @@ const ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_IMAGE_SIZE_IN_BYTES = 12 * 1024 * 1024;
 
 export async function POST(request: Request): Promise<NextResponse> {
-  if (!process.env.BLOB_READ_WRITE_TOKEN?.trim()) {
-    return NextResponse.json(
-      {
-        error:
-          "Configure BLOB_READ_WRITE_TOKEN para enviar imagens ao storage público.",
-      },
-      { status: 500 },
-    );
-  }
-
   const body = (await request.json()) as HandleUploadBody;
 
   try {
