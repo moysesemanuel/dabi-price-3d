@@ -1,7 +1,6 @@
 "use client";
 
-import { type ChangeEvent, useMemo, useState } from "react";
-import Image from "next/image";
+import { useMemo, useState } from "react";
 import type { ProductType } from "@/lib/pricing/initial-pricing-form";
 import { formatCurrency } from "@/lib/pricing/formatters";
 import {
@@ -51,22 +50,6 @@ const categoryOptions = [
   { value: "fashion", label: "Fashion" },
   { value: "workspace", label: "Workspace" },
 ];
-const ACCEPTED_IMAGE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-] as const;
-const ACCEPTED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"] as const;
-const MAX_IMAGE_DIMENSION_PX = 1600;
-const MAX_MAIN_IMAGE_BYTES = 850 * 1024;
-const MAX_GALLERY_IMAGE_BYTES = 650 * 1024;
-const IMAGE_QUALITY_START = 0.86;
-const IMAGE_QUALITY_MIN = 0.54;
-const IMAGE_SCALE_STEP = 0.82;
-
-type OptimizedImageAsset = {
-  dataUrl: string;
-};
 
 export function SiteProductPublisher({
   pricingContext,
@@ -126,28 +109,19 @@ export function SiteProductPublisher({
     });
   }
 
-  async function handleMainImageChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-
-    if (!file || !form) {
+  function handleMainImageUrlChange(value: string) {
+    if (!form) {
       return;
     }
 
-    if (!isAcceptedImageFile(file)) {
-      setPublishState("error");
-      setErrorMessage("Use apenas arquivos JPEG, JPG, PNG ou WEBP.");
-      event.target.value = "";
-      return;
-    }
+    const trimmedValue = value.trim();
+    const nextForm = {
+      ...form,
+      imageUrl: trimmedValue,
+      imageFileName: trimmedValue ? getImageLabel(trimmedValue) : "",
+    };
 
     try {
-      const asset = await optimizeImageFile(file, MAX_MAIN_IMAGE_BYTES);
-      const nextForm = {
-        ...form,
-        imageUrl: asset.dataUrl,
-        imageFileName: file.name,
-      };
-
       assertPublishPayloadWithinLimit(nextForm, pricingContext.salePriceInCents);
       setErrorMessage(null);
       setPublishState("idle");
@@ -157,45 +131,24 @@ export function SiteProductPublisher({
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "Falha ao processar a imagem selecionada.",
+          : "Falha ao atualizar a imagem principal.",
       );
     }
-
-    event.target.value = "";
   }
 
-  async function handleGalleryImagesChange(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []);
-
-    if (files.length === 0 || !form) {
+  function handleGalleryImagesTextChange(value: string) {
+    if (!form) {
       return;
     }
 
-    const invalidFile = files.find((file) => !isAcceptedImageFile(file));
-
-    if (invalidFile) {
-      setPublishState("error");
-      setErrorMessage("Use apenas arquivos JPEG, JPG, PNG ou WEBP.");
-      event.target.value = "";
-      return;
-    }
+    const galleryImages = parseLinesOrCsv(value);
+    const nextForm = {
+      ...form,
+      galleryImages,
+      galleryFileNames: galleryImages.map((imageUrl) => getImageLabel(imageUrl)),
+    };
 
     try {
-      const assets = await Promise.all(
-        files.map((file) => optimizeImageFile(file, MAX_GALLERY_IMAGE_BYTES)),
-      );
-      const nextForm = {
-        ...form,
-        galleryImages: [
-          ...form.galleryImages,
-          ...assets.map((asset) => asset.dataUrl),
-        ],
-        galleryFileNames: [
-          ...form.galleryFileNames,
-          ...files.map((file) => file.name),
-        ],
-      };
-
       assertPublishPayloadWithinLimit(nextForm, pricingContext.salePriceInCents);
       setErrorMessage(null);
       setPublishState("idle");
@@ -205,11 +158,9 @@ export function SiteProductPublisher({
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "Falha ao processar as imagens selecionadas.",
+          : "Falha ao atualizar a galeria.",
       );
     }
-
-    event.target.value = "";
   }
 
   function removeMainImage() {
@@ -400,11 +351,11 @@ export function SiteProductPublisher({
                 />
 
                 <div className="grid gap-4 md:grid-cols-2">
-                  <FileField
+                  <Field
                     label="Imagem principal"
-                    accept=".jpg,.jpeg,.png,.webp"
-                    helper="JPEG, JPG, PNG ou WEBP. A imagem e redimensionada antes do envio."
-                    onChange={handleMainImageChange}
+                    value={form.imageUrl}
+                    onChange={handleMainImageUrlChange}
+                    note="Use uma URL publica da imagem. O endpoint do e-commerce nao recebe upload embutido."
                   />
 
                   <TextArea
@@ -416,17 +367,17 @@ export function SiteProductPublisher({
                   />
                 </div>
 
-                <FileField
+                <TextArea
                   label="Galeria de imagens"
-                  accept=".jpg,.jpeg,.png,.webp"
-                  helper="Voce pode selecionar varias imagens. O app reduz o tamanho para manter a publicacao abaixo do limite."
-                  multiple
-                  onChange={handleGalleryImagesChange}
+                  value={form.galleryImages.join("\n")}
+                  onChange={handleGalleryImagesTextChange}
+                  rows={4}
+                  note="Uma URL por linha ou separadas por virgula."
                 />
 
                 {form.imageUrl ? (
                   <ImagePreviewCard
-                    title="Imagem principal selecionada"
+                    title="Imagem principal"
                     imageUrl={form.imageUrl}
                     fileName={form.imageFileName}
                     onRemove={removeMainImage}
@@ -436,7 +387,7 @@ export function SiteProductPublisher({
                 {form.galleryImages.length > 0 ? (
                   <div className="rounded-[18px] border border-white/8 bg-[#0d182b] p-4">
                     <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
-                      Galeria selecionada
+                      Galeria
                     </p>
 
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -669,115 +620,22 @@ function assertPublishPayloadWithinLimit(
   }
 }
 
-function isAcceptedImageFile(file: File) {
-  if (
-    ACCEPTED_IMAGE_TYPES.includes(
-      file.type as (typeof ACCEPTED_IMAGE_TYPES)[number],
-    )
-  ) {
-    return true;
+function getImageLabel(value: string) {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return "";
   }
-
-  const lowerCaseName = file.name.toLowerCase();
-  return ACCEPTED_IMAGE_EXTENSIONS.some((extension) =>
-    lowerCaseName.endsWith(extension),
-  );
-}
-
-async function optimizeImageFile(
-  file: File,
-  maxBytes: number,
-): Promise<OptimizedImageAsset> {
-  const objectUrl = URL.createObjectURL(file);
 
   try {
-    const image = await loadImageElement(objectUrl);
-    const originalMaxDimension = Math.max(
-      image.naturalWidth,
-      image.naturalHeight,
-    );
-    const initialScale = Math.min(1, MAX_IMAGE_DIMENSION_PX / originalMaxDimension);
-    let currentScale = initialScale;
+    const url = new URL(trimmedValue);
+    const pathnameParts = url.pathname.split("/").filter(Boolean);
+    const lastPathSegment = pathnameParts.at(-1);
 
-    while (currentScale > 0.2) {
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(image.naturalWidth * currentScale));
-      canvas.height = Math.max(1, Math.round(image.naturalHeight * currentScale));
-
-      const context = canvas.getContext("2d");
-
-      if (!context) {
-        throw new Error("Falha ao preparar a imagem para envio.");
-      }
-
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-
-      for (
-        let quality = IMAGE_QUALITY_START;
-        quality >= IMAGE_QUALITY_MIN;
-        quality -= 0.08
-      ) {
-        const blob = await canvasToBlob(canvas, "image/webp", quality);
-
-        if (blob.size <= maxBytes) {
-          return {
-            dataUrl: await readBlobAsDataUrl(blob),
-          };
-        }
-      }
-
-      currentScale *= IMAGE_SCALE_STEP;
-    }
-
-    throw new Error(
-      `Nao foi possivel reduzir "${file.name}" para um tamanho compativel. Use uma imagem menor.`,
-    );
-  } finally {
-    URL.revokeObjectURL(objectUrl);
+    return decodeURIComponent(lastPathSegment ?? trimmedValue);
+  } catch {
+    return trimmedValue;
   }
-}
-
-function loadImageElement(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new window.Image();
-
-    image.onload = () => resolve(image);
-    image.onerror = () =>
-      reject(new Error("Falha ao ler a imagem selecionada."));
-    image.src = src;
-  });
-}
-
-function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number) {
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        reject(new Error("Falha ao converter a imagem selecionada."));
-        return;
-      }
-
-      resolve(blob);
-    }, type, quality);
-  });
-}
-
-function readBlobAsDataUrl(blob: Blob) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-        return;
-      }
-
-      reject(new Error("Falha ao preparar a imagem selecionada."));
-    };
-
-    reader.onerror = () =>
-      reject(new Error("Falha ao preparar a imagem selecionada."));
-    reader.readAsDataURL(blob);
-  });
 }
 
 function ChoiceCard({
@@ -930,38 +788,6 @@ function SummaryLine({ label, value }: { label: string; value: string }) {
   );
 }
 
-function FileField({
-  label,
-  accept,
-  helper,
-  multiple = false,
-  onChange,
-}: {
-  label: string;
-  accept: string;
-  helper: string;
-  multiple?: boolean;
-  onChange: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
-}) {
-  return (
-    <label className="block">
-      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
-        {label}
-      </span>
-
-      <input
-        type="file"
-        accept={accept}
-        multiple={multiple}
-        onChange={onChange}
-        className="mt-2 block w-full rounded-[20px] border border-white/10 bg-[#0d182b] px-4 py-3 text-sm text-white file:mr-4 file:rounded-full file:border-0 file:bg-[var(--accent-soft)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-[var(--accent)]"
-      />
-
-      <p className="mt-2 text-xs text-[var(--muted)]">{helper}</p>
-    </label>
-  );
-}
-
 function ImagePreviewCard({
   title,
   imageUrl,
@@ -993,12 +819,11 @@ function ImagePreviewCard({
       </div>
 
       <div className="relative mt-4 h-36 overflow-hidden rounded-[16px]">
-        <Image
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
           src={imageUrl}
           alt={fileName}
-          fill
-          unoptimized
-          className="object-cover"
+          className="size-full object-cover"
         />
       </div>
     </div>

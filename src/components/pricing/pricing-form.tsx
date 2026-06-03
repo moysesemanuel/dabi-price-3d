@@ -283,12 +283,13 @@ export function PricingForm({
               </div>
             </div>
 
-            <Field
-              label="Nome do produto"
-              value={form.productName}
-              onChange={(value) => onChange("productName", value)}
-              note="Usado para prever automaticamente a categoria real do Mercado Livre."
-            />
+              <Field
+                label="Nome do produto"
+                value={form.productName}
+                onChange={(value) => onChange("productName", value)}
+                inputKind="text"
+                note="Usado para prever automaticamente a categoria real do Mercado Livre."
+              />
 
             <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_180px]">
               <SelectField
@@ -380,6 +381,7 @@ export function PricingForm({
                   label="Custo de envio estimado"
                   value={displayMoney(mercadoLivreShippingEstimate)}
                   onChange={() => undefined}
+                  inputKind="money"
                   prefix={currencySymbol}
                   disabled
                 />
@@ -387,6 +389,7 @@ export function PricingForm({
                   label="Frete no calculo"
                   value={displayMoney(form.shippingCost)}
                   onChange={(value) => handleMoneyChange("shippingCost", value)}
+                  inputKind="money"
                   prefix={currencySymbol}
                   note={
                     form.mercadoLivreFreeShipping &&
@@ -523,6 +526,9 @@ export function PricingForm({
                         ? handleMoneyChange("shopeeCouponValue", value)
                         : onChange("shopeeCouponValue", value)
                     }
+                    inputKind={
+                      form.shopeeCouponMode === "fixed" ? "money" : "number"
+                    }
                     suffix={
                       form.shopeeCouponMode === "percent" ? "%" : undefined
                     }
@@ -644,6 +650,7 @@ export function PricingForm({
                 label="Preço de venda (R$) *"
                 value={displayMoney(form.manualSalePrice)}
                 onChange={(value) => handleMoneyChange("manualSalePrice", value)}
+                inputKind="money"
                 prefix={currencySymbol}
               />
             </div>
@@ -819,6 +826,7 @@ export function PricingForm({
             label="Valor do kWh"
             value={displayMoney(form.kwhPrice)}
             onChange={(value) => handleMoneyChange("kwhPrice", value)}
+            inputKind="money"
             prefix={currencySymbol}
             note={`Média nacional ≈ ${currencySymbol} ${displayMoney(0.85)} · verifique sua conta`}
           />
@@ -833,6 +841,7 @@ export function PricingForm({
             label="Custo do filamento"
             value={displayMoney(form.filamentSpoolPrice)}
             onChange={(value) => handleMoneyChange("filamentSpoolPrice", value)}
+            inputKind="money"
             prefix={currencySymbol}
             suffix="/kg"
             note={`Custo = (${currencySymbol}/kg / 1000) x gramas`}
@@ -866,6 +875,7 @@ export function PricingForm({
             label="Embalagem / acabamento"
             value={displayMoney(form.packagingCost)}
             onChange={(value) => handleMoneyChange("packagingCost", value)}
+            inputKind="money"
             prefix={currencySymbol}
           />
           <Field
@@ -874,6 +884,7 @@ export function PricingForm({
             onChange={(value) =>
               handleMoneyChange("maintenanceCostPerHour", value)
             }
+            inputKind="money"
             prefix={currencySymbol}
             note="Uso aqui como manutencao por hora"
             className="md:col-span-2"
@@ -883,6 +894,7 @@ export function PricingForm({
               label="Mao de obra"
               value={displayMoney(form.laborCost)}
               onChange={(value) => handleMoneyChange("laborCost", value)}
+              inputKind="money"
               prefix={currencySymbol}
               note="Custo total do lote"
             />
@@ -944,6 +956,7 @@ export function PricingForm({
               label="Preco no Pix (calculado)"
               value={displayMoney(pixPrice)}
               onChange={() => undefined}
+              inputKind="money"
               prefix={currencySymbol}
               disabled
             />
@@ -1155,6 +1168,7 @@ function Field({
   label,
   value,
   onChange,
+  inputKind = "number",
   note,
   prefix,
   suffix,
@@ -1164,6 +1178,7 @@ function Field({
   label: string;
   value: string | number;
   onChange: (value: string) => void;
+  inputKind?: "text" | "number" | "money";
   note?: string;
   prefix?: string;
   suffix?: string;
@@ -1188,18 +1203,31 @@ function Field({
 
         <input
           type="text"
-          inputMode="decimal"
+          inputMode={getInputMode(inputKind)}
           value={isFocused ? draftValue : stringifyFieldValue(value)}
           onFocus={() => {
             setDraftValue(stringifyFieldValue(value));
             setIsFocused(true);
+            if (inputKind !== "text") {
+              requestAnimationFrame(() => {
+                if (document.activeElement instanceof HTMLInputElement) {
+                  document.activeElement.select();
+                }
+              });
+            }
           }}
           onBlur={() => setIsFocused(false)}
           onChange={(event) => {
-            setDraftValue(event.target.value);
-            onChange(event.target.value);
+            const nextValue =
+              inputKind === "money"
+                ? formatMoneyInput(event.target.value)
+                : event.target.value;
+
+            setDraftValue(nextValue);
+            onChange(nextValue);
           }}
           disabled={disabled}
+          placeholder={getInputPlaceholder(inputKind)}
           className="min-w-0 flex-1 bg-transparent px-4 py-3 text-base text-white outline-none disabled:text-[var(--accent)]"
         />
 
@@ -1217,6 +1245,46 @@ function Field({
 
 function stringifyFieldValue(value: string | number) {
   return typeof value === "number" ? String(value).replace(".", ",") : value;
+}
+
+function formatMoneyInput(value: string) {
+  const digitsOnly = value.replace(/\D/g, "");
+
+  if (digitsOnly.length === 0) {
+    return "";
+  }
+
+  const normalizedDigits = digitsOnly.padStart(3, "0");
+  const integerPart = normalizedDigits
+    .slice(0, -2)
+    .replace(/^0+(?=\d)/, "");
+  const decimalPart = normalizedDigits.slice(-2);
+
+  return `${integerPart || "0"},${decimalPart}`;
+}
+
+function getInputMode(inputKind: "text" | "number" | "money") {
+  if (inputKind === "money") {
+    return "numeric";
+  }
+
+  if (inputKind === "number") {
+    return "decimal";
+  }
+
+  return undefined;
+}
+
+function getInputPlaceholder(inputKind: "text" | "number" | "money") {
+  if (inputKind === "money") {
+    return "0,00";
+  }
+
+  if (inputKind === "number") {
+    return "0";
+  }
+
+  return undefined;
 }
 
 function SelectField({

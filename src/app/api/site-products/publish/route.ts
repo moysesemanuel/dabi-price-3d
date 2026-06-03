@@ -71,6 +71,19 @@ export async function POST(request: Request) {
     );
   }
 
+  if (
+    (normalizedImageUrl && isDataUrl(normalizedImageUrl)) ||
+    normalizedGalleryImages.some(isDataUrl)
+  ) {
+    return Response.json(
+      {
+        error:
+          "Use URLs públicas para as imagens do produto. O e-commerce não aceita upload embutido em base64 neste endpoint.",
+      },
+      { status: 400 },
+    );
+  }
+
   try {
     const authResponse = await fetch(`${apiUrl}/api/auth/login`, {
       method: "POST",
@@ -165,4 +178,8 @@ function normalizeHexColor(value: string) {
   }
 
   return "#11b8f5";
+}
+
+function isDataUrl(value: string) {
+  return value.startsWith("data:");
 }
