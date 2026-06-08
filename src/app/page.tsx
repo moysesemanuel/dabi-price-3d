@@ -573,7 +573,7 @@ export default function Home() {
 
   return (
     <main className="app-shell min-h-screen text-white">
-      <div className="min-h-screen lg:pl-[215px]">
+      <div className="min-h-screen transition-[padding] duration-300 lg:pl-[var(--app-sidebar-width)]">
         <AppSidebar />
 
         <div>

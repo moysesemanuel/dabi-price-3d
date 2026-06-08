@@ -11,6 +11,7 @@
   --accent: #11b8f5;
   --accent-soft: rgba(17, 184, 245, 0.12);
   --success: #6fd3ea;
+  --app-sidebar-width: 215px;
   --font-sans-ui: "Satoshi", "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
   --font-mono-ui: "SFMono-Regular", "Menlo", "Monaco", "Consolas", monospace;
 }
