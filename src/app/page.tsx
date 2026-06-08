@@ -93,6 +93,8 @@ export default function Home() {
       ? mercadoLivreAutomation.feePercentage ??
         mercadoLivreFeePreview?.appliedFeePercentage ??
         form.marketplaceFeePercentage
+      : form.salesChannelId === "consignment"
+        ? form.consignmentCommissionPercentage
       : form.marketplaceFeePercentage;
 
   const effectiveMarketplaceFixedFee =
@@ -178,7 +180,10 @@ export default function Home() {
     }
 
     queueMicrotask(() => {
-      setForm(queuedCalculation.formSnapshot);
+      setForm({
+        ...initialPricingForm,
+        ...queuedCalculation.formSnapshot,
+      });
       setDisplayCurrency(queuedCalculation.displayCurrency);
       setExchangeRateSnapshot(queuedCalculation.exchangeRateSnapshot);
       setEditingCalculationId(queuedCalculation.id);
@@ -612,7 +617,7 @@ export default function Home() {
                 <PricingForm
                   form={form}
                   onChange={updateField}
-                  suggestedPrice={result.commercialUnitPrice}
+                  suggestedPrice={viewModel.displayedSalePrice}
                   effectiveMarketplaceFeePercentage={
                     effectiveMarketplaceFeePercentage
                   }
@@ -651,6 +656,7 @@ export default function Home() {
                 productName={form.productName}
                 form={form}
                 result={result}
+                onFieldChange={updateField}
                 selectedChannelLabel={selectedChannelLabel}
                 effectiveMarketplaceFeePercentage={
                   effectiveMarketplaceFeePercentage

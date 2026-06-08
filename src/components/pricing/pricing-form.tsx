@@ -636,9 +636,9 @@ export function PricingForm({
             <div className="grid gap-4 md:grid-cols-2">
               <Field
                 label="Comissão do parceiro"
-                value={form.marketplaceFeePercentage}
+                value={form.consignmentCommissionPercentage}
                 onChange={(value) =>
-                  onChange("marketplaceFeePercentage", value)
+                  onChange("consignmentCommissionPercentage", value)
                 }
                 suffix="%"
                 note="Percentual do preço sugerido que o ponto parceiro vai reter."

@@ -8,6 +8,11 @@ import {
   type CurrencyRates,
   type DisplayCurrency,
 } from "@/lib/currency/display-currency";
+import {
+  calculateConsignment,
+  calculateDirectSale,
+  calculateWholesale,
+} from "@/lib/pricing/calculate-sales-models";
 import type { Calculate3DPriceResult } from "@/lib/pricing/calculate-3d-price";
 import { buildPricingViewModel } from "@/lib/pricing/build-pricing-view-model";
 import { formatCurrency, formatPercent } from "@/lib/pricing/formatters";
@@ -17,6 +22,10 @@ type PricingResultProps = {
   productName: string;
   form: PricingFormState;
   result: Calculate3DPriceResult;
+  onFieldChange: (
+    field: keyof PricingFormState,
+    value: string | number | boolean,
+  ) => void;
   selectedChannelLabel: string;
   effectiveMarketplaceFeePercentage: number;
   mercadoLivrePredictedCategoryName?: string | null;
@@ -30,6 +39,7 @@ export function PricingResult({
   productName,
   form,
   result,
+  onFieldChange,
   selectedChannelLabel,
   effectiveMarketplaceFeePercentage,
   mercadoLivrePredictedCategoryName = null,
@@ -78,6 +88,7 @@ export function PricingResult({
     unitShippingCost,
     unitTaxCost,
     unitTotalCost,
+    unitProductionCost,
     lotProfit,
     lotsPerDay,
     unitsPerDay,
@@ -85,6 +96,30 @@ export function PricingResult({
     unitsPerMonth,
   } = buildPricingViewModel(form, result);
   const marginBadge = getMarginBadge(realMarginPercentage);
+  const unitCoreCost = unitProductionCost + unitTaxCost;
+  const directSale = calculateDirectSale({
+    customerPrice: displayedSalePrice,
+    costTotal: unitCoreCost,
+  });
+  const consignment = calculateConsignment({
+    customerPrice: displayedSalePrice,
+    costTotal: unitCoreCost,
+    commissionPercentage: form.consignmentCommissionPercentage,
+  });
+  const wholesale = calculateWholesale({
+    costTotal: unitCoreCost,
+  });
+  const wholesaleBaseTier = wholesale.tiers[0] ?? {
+    units: 10,
+    label: "10 unidades",
+    multiplier: 2.1,
+    unitPrice: wholesale.safeMinimumPrice,
+    totalPrice: wholesale.safeMinimumPrice * 10,
+    unitProfit: wholesale.safeMinimumPrice - wholesale.costTotal,
+    totalProfit:
+      (wholesale.safeMinimumPrice - wholesale.costTotal) * 10,
+    isCloseToCost: true,
+  };
 
   const summaryLines = buildSummaryLines({
     form,
@@ -160,6 +195,62 @@ export function PricingResult({
               />
             </div>
           ) : null}
+        </div>
+
+        <div className="mt-7">
+          <SectionTitle title="Resumo financeiro" />
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <SummaryCard
+              label="Quanto o cliente paga"
+              value={formatCurrency(
+                convertFromBRL(directSale.customerPrice, displayCurrency, exchangeRates),
+                displayCurrency,
+              )}
+              tone="accent"
+            />
+            <SummaryCard
+              label="Quanto custa para produzir"
+              value={formatCurrency(
+                convertFromBRL(directSale.costTotal, displayCurrency, exchangeRates),
+                displayCurrency,
+              )}
+            />
+            <SummaryCard
+              label="Seu lucro bruto"
+              value={formatCurrency(
+                convertFromBRL(directSale.grossProfit, displayCurrency, exchangeRates),
+                displayCurrency,
+              )}
+              tone="success"
+            />
+            <SummaryCard
+              label="Margem de lucro"
+              value={formatPercent(directSale.marginPercentage)}
+            />
+            <SummaryCard
+              label="Preço mínimo seguro"
+              value={formatCurrency(
+                convertFromBRL(
+                  directSale.safeMinimumPrice,
+                  displayCurrency,
+                  exchangeRates,
+                ),
+                displayCurrency,
+              )}
+              helper="Piso recomendado para não apertar sua margem."
+            />
+            <SummaryCard
+              label="Vale a pena?"
+              value={directSale.isWorthIt ? "Sim" : "Não"}
+              tone={directSale.isWorthIt ? "success" : "danger"}
+              helper={
+                directSale.isWorthIt
+                  ? "Venda direta saudável com o preço atual."
+                  : "O preço atual não cobre seus custos."
+              }
+            />
+          </div>
         </div>
 
         <div className="mt-7">
@@ -321,8 +412,8 @@ export function PricingResult({
 
         <div className="mt-6 border-t border-white/8 pt-5">
           <ResultLine
-            label="Total de custos"
-            meta="Marketplace + imposto + produção"
+            label="Total neste canal"
+            meta="Custos do produto + taxas do canal ativo"
             value={convertFromBRL(unitTotalCost, displayCurrency, exchangeRates)}
             currency={displayCurrency}
             negative
@@ -334,7 +425,7 @@ export function PricingResult({
           <div className="flex items-center gap-2.5">
             <span className="text-[28px] leading-none text-[var(--accent)]">↗</span>
             <p className="text-[14px] font-semibold tracking-[-0.03em] text-[var(--accent)]">
-              Lucro
+              Lucro no canal ativo
             </p>
           </div>
 
@@ -368,6 +459,220 @@ export function PricingResult({
               )}
               /hora
             </span>
+          </div>
+        </div>
+
+        <div className="mt-7 border-t border-white/8 pt-6">
+          <SectionTitle title="Consignado" />
+
+          <div className="mt-4 rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-white">
+                  Comissão do ponto de venda
+                </p>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  Ajuste quanto a loja fica em cada venda.
+                </p>
+              </div>
+
+              <strong className="text-2xl font-semibold tracking-[-0.04em] text-[var(--accent)]">
+                {formatPercent(form.consignmentCommissionPercentage)}
+              </strong>
+            </div>
+
+            <input
+              type="range"
+              min="0"
+              max="60"
+              step="1"
+              value={form.consignmentCommissionPercentage}
+              onChange={(event) =>
+                onFieldChange(
+                  "consignmentCommissionPercentage",
+                  Number(event.target.value),
+                )
+              }
+              className="mt-5 w-full accent-[var(--accent)]"
+            />
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {[25, 30].map((percentage) => (
+                <button
+                  key={percentage}
+                  type="button"
+                  onClick={() =>
+                    onFieldChange("consignmentCommissionPercentage", percentage)
+                  }
+                  className={`rounded-xl border px-3 py-2 text-sm transition ${
+                    form.consignmentCommissionPercentage === percentage
+                      ? "border-[var(--accent)]/45 bg-[var(--accent-soft)] text-[var(--accent)]"
+                      : "border-white/8 text-white hover:border-white/14 hover:bg-white/4"
+                  }`}
+                >
+                  {percentage}%
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <SummaryCard
+                label="Quanto o cliente paga"
+                value={formatCurrency(
+                  convertFromBRL(
+                    consignment.customerPrice,
+                    displayCurrency,
+                    exchangeRates,
+                  ),
+                  displayCurrency,
+                )}
+              />
+              <SummaryCard
+                label="Quanto a loja fica"
+                value={formatCurrency(
+                  convertFromBRL(
+                    consignment.storeCommissionValue,
+                    displayCurrency,
+                    exchangeRates,
+                  ),
+                  displayCurrency,
+                )}
+                helper={formatPercent(consignment.storeCommissionPercentage)}
+              />
+              <SummaryCard
+                label="Quanto volta para você"
+                value={formatCurrency(
+                  convertFromBRL(
+                    consignment.amountReturnedToYou,
+                    displayCurrency,
+                    exchangeRates,
+                  ),
+                  displayCurrency,
+                )}
+                tone="accent"
+              />
+              <SummaryCard
+                label="Seu lucro final"
+                value={formatCurrency(
+                  convertFromBRL(
+                    consignment.grossProfit,
+                    displayCurrency,
+                    exchangeRates,
+                  ),
+                  displayCurrency,
+                )}
+                tone={consignment.isWorthIt ? "success" : "danger"}
+              />
+            </div>
+
+            <RecommendationBanner
+              className="mt-5"
+              tone={consignment.tone}
+              title={consignment.isWorthIt ? "Vale a pena?" : "Atenção"}
+              message={consignment.recommendation}
+            />
+          </div>
+        </div>
+
+        <div className="mt-7 border-t border-white/8 pt-6">
+          <SectionTitle title="Revenda / atacado" />
+
+          <div className="mt-4 rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-5">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <SummaryCard
+                label="Custo total do produto"
+                value={formatCurrency(
+                  convertFromBRL(wholesale.costTotal, displayCurrency, exchangeRates),
+                  displayCurrency,
+                )}
+              />
+              <SummaryCard
+                label="Preço mínimo seguro"
+                value={formatCurrency(
+                  convertFromBRL(
+                    wholesale.safeMinimumPrice,
+                    displayCurrency,
+                    exchangeRates,
+                  ),
+                  displayCurrency,
+                )}
+                helper="Base mínima recomendada para lojistas."
+              />
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {wholesale.tiers.map((tier) => (
+                <div
+                  key={tier.units}
+                  className="rounded-[20px] border border-white/8 bg-black/10 p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-semibold text-white">
+                        {tier.label}
+                      </p>
+                      <p className="mt-1 text-xs text-[var(--muted)]">
+                        Multiplicador {tier.multiplier.toFixed(1).replace(".", ",")}x
+                      </p>
+                    </div>
+
+                    <strong className="text-xl font-semibold tracking-[-0.04em] text-[var(--accent)]">
+                      {formatCurrency(
+                        convertFromBRL(tier.unitPrice, displayCurrency, exchangeRates),
+                        displayCurrency,
+                      )}{" "}
+                      / un.
+                    </strong>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <SummaryCard
+                      label="Preço por unidade"
+                      value={formatCurrency(
+                        convertFromBRL(
+                          tier.unitPrice,
+                          displayCurrency,
+                          exchangeRates,
+                        ),
+                        displayCurrency,
+                      )}
+                    />
+                    <SummaryCard
+                      label="Lucro por unidade"
+                      value={formatCurrency(
+                        convertFromBRL(
+                          tier.unitProfit,
+                          displayCurrency,
+                          exchangeRates,
+                        ),
+                        displayCurrency,
+                      )}
+                      tone={tier.unitProfit > 0 ? "success" : "danger"}
+                    />
+                    <SummaryCard
+                      label="Lucro total estimado"
+                      value={formatCurrency(
+                        convertFromBRL(
+                          tier.totalProfit,
+                          displayCurrency,
+                          exchangeRates,
+                        ),
+                        displayCurrency,
+                      )}
+                    />
+                  </div>
+
+                  {tier.isCloseToCost ? (
+                    <RecommendationBanner
+                      className="mt-4"
+                      tone="warning"
+                      title="Margem apertada"
+                      message="Esse preço está muito perto do custo. Revise antes de fechar com a loja."
+                    />
+                  ) : null}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -454,34 +759,59 @@ export function PricingResult({
         </div>
 
         <div className="mt-7 border-t border-white/8 pt-6">
-          <SectionTitle title={`Resumo ${selectedChannelLabel}`} />
+          <SectionTitle title="Comparação dos modelos" />
 
-          <div className="mt-5 space-y-3">
-            <SimpleLine
-              label="Preço considerado"
-              value={formatCurrency(
-                convertFromBRL(displayedSalePrice, displayCurrency, exchangeRates),
-                displayCurrency,
-              )}
-            />
+          <div className="mt-4 overflow-hidden rounded-[22px] border border-white/8">
+            <div className="overflow-x-auto">
+              <table className="min-w-full bg-[var(--panel-soft)]">
+                <thead>
+                  <tr className="border-b border-white/8 text-left">
+                    <ComparisonHeader>Modelo</ComparisonHeader>
+                    <ComparisonHeader>Preço cobrado</ComparisonHeader>
+                    <ComparisonHeader>Comissão / desconto</ComparisonHeader>
+                    <ComparisonHeader>Quanto fica com você</ComparisonHeader>
+                    <ComparisonHeader>Custo</ComparisonHeader>
+                    <ComparisonHeader>Lucro final</ComparisonHeader>
+                  </tr>
+                </thead>
 
-            <SimpleLine
-              label="Custos totais"
-              value={`- ${formatCurrency(
-                convertFromBRL(unitTotalCost, displayCurrency, exchangeRates),
-                displayCurrency,
-              )}`}
-              danger
-            />
-
-            <SimpleLine
-              label="Lucro líquido"
-              value={formatCurrency(
-                convertFromBRL(unitProfit, displayCurrency, exchangeRates),
-                displayCurrency,
-              )}
-              highlight
-            />
+                <tbody>
+                  <ComparisonRow
+                    label="Venda direta"
+                    price={directSale.customerPrice}
+                    commissionOrDiscount={0}
+                    amountReturned={directSale.amountReturnedToYou}
+                    cost={directSale.costTotal}
+                    profit={directSale.grossProfit}
+                    displayCurrency={displayCurrency}
+                    exchangeRates={exchangeRates}
+                  />
+                  <ComparisonRow
+                    label="Consignado"
+                    price={consignment.customerPrice}
+                    commissionOrDiscount={consignment.storeCommissionValue}
+                    amountReturned={consignment.amountReturnedToYou}
+                    cost={consignment.costTotal}
+                    profit={consignment.grossProfit}
+                    displayCurrency={displayCurrency}
+                    exchangeRates={exchangeRates}
+                  />
+                  <ComparisonRow
+                    label="Revenda (10 un.)"
+                    price={wholesaleBaseTier.unitPrice}
+                    commissionOrDiscount={Math.max(
+                      directSale.customerPrice - wholesaleBaseTier.unitPrice,
+                      0,
+                    )}
+                    amountReturned={wholesaleBaseTier.unitPrice}
+                    cost={wholesale.costTotal}
+                    profit={wholesaleBaseTier.unitProfit}
+                    displayCurrency={displayCurrency}
+                    exchangeRates={exchangeRates}
+                  />
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -615,6 +945,129 @@ function SimpleLine({
         {value}
       </strong>
     </div>
+  );
+}
+
+function SummaryCard({
+  label,
+  value,
+  helper,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  helper?: string;
+  tone?: "default" | "accent" | "success" | "danger";
+}) {
+  const toneClassName = {
+    default: "border-white/8 bg-black/10 text-white",
+    accent: "border-[var(--accent)]/25 bg-[var(--accent-soft)] text-[var(--accent)]",
+    success: "border-[#6fd3ea]/20 bg-[#102a34] text-[#9ae7f9]",
+    danger: "border-rose-400/20 bg-[#3d1b25] text-[#ffb1c0]",
+  }[tone];
+
+  return (
+    <div className={`rounded-[18px] border p-4 ${toneClassName}`}>
+      <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+        {label}
+      </p>
+      <strong className="mt-3 block text-lg font-semibold tracking-[-0.04em]">
+        {value}
+      </strong>
+
+      {helper ? (
+        <p className="mt-2 text-xs text-[var(--muted)]">{helper}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function RecommendationBanner({
+  title,
+  message,
+  tone,
+  className = "",
+}: {
+  title: string;
+  message: string;
+  tone: "good" | "warning" | "danger";
+  className?: string;
+}) {
+  const toneClassName = {
+    good: "border-[#6fd3ea]/20 bg-[#102a34] text-[#9ae7f9]",
+    warning: "border-amber-400/20 bg-[#4f3c1e] text-[#ffcf6e]",
+    danger: "border-rose-400/20 bg-[#45202a] text-[#ffb1c0]",
+  }[tone];
+
+  return (
+    <div className={`rounded-[18px] border px-4 py-4 ${toneClassName} ${className}`}>
+      <p className="text-sm font-semibold">{title}</p>
+      <p className="mt-1 text-sm leading-6">{message}</p>
+    </div>
+  );
+}
+
+function ComparisonHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <th className="px-4 py-4 font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
+      {children}
+    </th>
+  );
+}
+
+function ComparisonRow({
+  label,
+  price,
+  commissionOrDiscount,
+  amountReturned,
+  cost,
+  profit,
+  displayCurrency,
+  exchangeRates,
+}: {
+  label: string;
+  price: number;
+  commissionOrDiscount: number;
+  amountReturned: number;
+  cost: number;
+  profit: number;
+  displayCurrency: DisplayCurrency;
+  exchangeRates: CurrencyRates;
+}) {
+  return (
+    <tr className="border-b border-white/6 last:border-b-0">
+      <td className="px-4 py-4 text-sm font-semibold text-white">{label}</td>
+      <td className="px-4 py-4 text-sm text-white">
+        {formatCurrency(
+          convertFromBRL(price, displayCurrency, exchangeRates),
+          displayCurrency,
+        )}
+      </td>
+      <td className="px-4 py-4 text-sm text-[#f5c96e]">
+        {formatCurrency(
+          convertFromBRL(commissionOrDiscount, displayCurrency, exchangeRates),
+          displayCurrency,
+        )}
+      </td>
+      <td className="px-4 py-4 text-sm text-white">
+        {formatCurrency(
+          convertFromBRL(amountReturned, displayCurrency, exchangeRates),
+          displayCurrency,
+        )}
+      </td>
+      <td className="px-4 py-4 text-sm text-[#dc2828]">
+        {formatCurrency(
+          convertFromBRL(cost, displayCurrency, exchangeRates),
+          displayCurrency,
+        )}
+      </td>
+      <td className="px-4 py-4 text-sm font-semibold text-[var(--accent)]">
+        {formatCurrency(
+          convertFromBRL(profit, displayCurrency, exchangeRates),
+          displayCurrency,
+        )}
+      </td>
+    </tr>
   );
 }
 
@@ -807,8 +1260,8 @@ function buildSummaryLines({
       },
       {
         label: "Comissão do parceiro",
-        value: formatPercent(form.marketplaceFeePercentage),
-        numericValue: form.marketplaceFeePercentage,
+        value: formatPercent(form.consignmentCommissionPercentage),
+        numericValue: form.consignmentCommissionPercentage,
       }
     );
   }

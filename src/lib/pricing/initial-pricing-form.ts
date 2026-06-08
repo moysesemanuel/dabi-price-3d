@@ -84,6 +84,7 @@ export type PricingFormState = {
   taxPercentage: number;
 
   // Marketplace
+  consignmentCommissionPercentage: number;
   marketplaceFeePercentage: number;
   marketplaceFixedFee: number;
 
@@ -154,6 +155,7 @@ export const initialPricingForm: PricingFormState = {
   taxPercentage: 0,
 
   // Marketplace
+  consignmentCommissionPercentage: 30,
   marketplaceFeePercentage: 0,
   marketplaceFixedFee: 0,
 
