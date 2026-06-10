@@ -6,6 +6,8 @@ export type PricingViewModel = {
   baseSalePrice: number;
   promotionalSalePrice: number | null;
   parsedPromoDiscount: number;
+  kitQuantity: number;
+  salePricePerKitItem: number;
   unitMarketplaceFee: number;
   unitMarketplaceFixedFee: number;
   unitTaxCost: number;
@@ -19,14 +21,18 @@ export type PricingViewModel = {
   unitProductionCost: number;
   unitTotalCost: number;
   unitProfit: number;
+  totalCostPerKitItem: number;
+  profitPerKitItem: number;
   lotProfit: number;
   realMarginPercentage: number;
   profitPerHour: number;
   lotsPerDay: number;
   unitsPerDay: number;
+  kitItemsPerDay: number;
   estimatedDailyProfit: number;
   lotsPerMonth: number;
   unitsPerMonth: number;
+  kitItemsPerMonth: number;
   estimatedMonthlyProfit: number;
   materialGrams: number;
   safeQuantity: number;
@@ -39,6 +45,7 @@ export function buildPricingViewModel(
   const safeQuantity = result.quantity > 0 ? result.quantity : 1;
   const parsedManualSalePrice = parseDecimal(form.manualSalePrice);
   const parsedPromoDiscount = parseDecimal(form.promoDiscountPercentage);
+  const kitQuantity = form.isKit ? Math.max(form.kitQuantity, 1) : 1;
 
   const baseSalePrice =
     form.pricingMode === "manual" && parsedManualSalePrice > 0
@@ -72,6 +79,9 @@ export function buildPricingViewModel(
     unitTaxCost;
 
   const unitProfit = result.unitNetProfit;
+  const salePricePerKitItem = displayedSalePrice / kitQuantity;
+  const totalCostPerKitItem = unitTotalCost / kitQuantity;
+  const profitPerKitItem = unitProfit / kitQuantity;
   const lotProfit = result.totalNetProfit;
   const realMarginPercentage =
     displayedSalePrice > 0 ? (unitProfit / displayedSalePrice) * 100 : 0;
@@ -84,9 +94,11 @@ export function buildPricingViewModel(
   const lotsPerDay =
     result.printTimeTotalHours > 0 ? 20 / result.printTimeTotalHours : 0;
   const unitsPerDay = lotsPerDay * safeQuantity;
+  const kitItemsPerDay = unitsPerDay * kitQuantity;
   const estimatedDailyProfit = profitPerHour * 20;
   const lotsPerMonth = lotsPerDay * 30;
   const unitsPerMonth = unitsPerDay * 30;
+  const kitItemsPerMonth = kitItemsPerDay * 30;
   const estimatedMonthlyProfit = estimatedDailyProfit * 30;
 
   const materialGrams =
@@ -99,6 +111,8 @@ export function buildPricingViewModel(
     baseSalePrice,
     promotionalSalePrice,
     parsedPromoDiscount,
+    kitQuantity,
+    salePricePerKitItem,
     unitMarketplaceFee,
     unitMarketplaceFixedFee,
     unitTaxCost,
@@ -112,14 +126,18 @@ export function buildPricingViewModel(
     unitProductionCost,
     unitTotalCost,
     unitProfit,
+    totalCostPerKitItem,
+    profitPerKitItem,
     lotProfit,
     realMarginPercentage,
     profitPerHour,
     lotsPerDay,
     unitsPerDay,
+    kitItemsPerDay,
     estimatedDailyProfit,
     lotsPerMonth,
     unitsPerMonth,
+    kitItemsPerMonth,
     estimatedMonthlyProfit,
     materialGrams,
     safeQuantity,

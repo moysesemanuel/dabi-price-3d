@@ -133,6 +133,7 @@ export default function Home() {
 
   const selectedChannel = findSalesChannelById(form.salesChannelId);
   const selectedChannelLabel = selectedChannel?.name ?? salesChannels[0].name;
+  const heroSalePriceLabel = form.isKit ? "Preço do kit" : "Preço sugerido";
 
   useEffect(() => {
     let isMounted = true;
@@ -598,7 +599,7 @@ export default function Home() {
                 />
 
                 <HeroStat
-                  label="Preço sugerido"
+                  label={heroSalePriceLabel}
                   value={formatCurrency(displayedSalePrice, displayCurrency)}
                 />
 

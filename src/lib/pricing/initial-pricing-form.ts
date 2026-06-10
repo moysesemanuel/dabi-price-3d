@@ -34,6 +34,8 @@ export type PricingFormState = {
   promoEnabled: boolean;
   promoDiscountPercentage: number;
   profitMarginPercentage: number;
+  isKit: boolean;
+  kitQuantity: number;
 
   // Mercado Livre
   mercadoLivreRootCategoryKey: MercadoLivreRootCategoryKey;
@@ -105,6 +107,8 @@ export const initialPricingForm: PricingFormState = {
   promoEnabled: false,
   promoDiscountPercentage: 10,
   profitMarginPercentage: 50,
+  isKit: false,
+  kitQuantity: 2,
 
   // Mercado Livre
   mercadoLivreRootCategoryKey: "casa-e-moveis",

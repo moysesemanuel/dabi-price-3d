@@ -71,11 +71,16 @@ export function PricingResult({
     displayedSalePrice,
     estimatedDailyProfit,
     estimatedMonthlyProfit,
+    kitItemsPerDay,
+    kitItemsPerMonth,
+    kitQuantity,
     materialGrams,
     parsedPromoDiscount,
     profitPerHour,
+    profitPerKitItem,
     promotionalSalePrice,
     realMarginPercentage,
+    salePricePerKitItem,
     unitEnergyCost,
     unitLaborCost,
     unitLossCost,
@@ -101,6 +106,8 @@ export function PricingResult({
     customerPrice: displayedSalePrice,
     costTotal: unitCoreCost,
   });
+  const directSaleCostPerKitItem = directSale.costTotal / kitQuantity;
+  const directSaleProfitPerKitItem = directSale.grossProfit / kitQuantity;
   const consignment = calculateConsignment({
     customerPrice: displayedSalePrice,
     costTotal: unitCoreCost,
@@ -135,8 +142,33 @@ export function PricingResult({
       : "Taxa marketplace";
   const salePriceLabel =
     form.salesChannelId === "consignment"
-      ? "Preço sugerido"
-      : "Preço de venda";
+      ? form.isKit
+        ? "Preço sugerido do kit"
+        : "Preço sugerido"
+      : form.isKit
+        ? "Preço de venda do kit"
+        : "Preço de venda";
+  const saleUnitLabel = form.isKit ? "kit" : "unidade";
+  const saleUnitLabelPlural = form.isKit ? "kits" : "unidades";
+  const kitHelperText = form.isKit
+    ? `${kitQuantity} item(ns) por kit`
+    : undefined;
+  const perKitItemSalePrice = formatCurrency(
+    convertFromBRL(salePricePerKitItem, displayCurrency, exchangeRates),
+    displayCurrency,
+  );
+  const perKitItemCost = formatCurrency(
+    convertFromBRL(directSaleCostPerKitItem, displayCurrency, exchangeRates),
+    displayCurrency,
+  );
+  const perKitItemProfit = formatCurrency(
+    convertFromBRL(directSaleProfitPerKitItem, displayCurrency, exchangeRates),
+    displayCurrency,
+  );
+  const perKitItemNetProfit = formatCurrency(
+    convertFromBRL(profitPerKitItem, displayCurrency, exchangeRates),
+    displayCurrency,
+  );
 
   return (
     <aside className="xl:sticky xl:top-6">
@@ -164,6 +196,17 @@ export function PricingResult({
               )}
             </strong>
           </div>
+
+          {form.isKit ? (
+            <div className="mt-4 rounded-2xl border border-[var(--accent)]/20 bg-black/10 p-4">
+              <SimpleLine label="Itens por kit" value={`${kitQuantity}`} muted />
+              <SimpleLine
+                label="Valor por item do kit"
+                value={perKitItemSalePrice}
+                highlight
+              />
+            </div>
+          ) : null}
 
           {form.promoEnabled && promotionalSalePrice ? (
             <div className="mt-5 rounded-2xl border border-[var(--accent)]/20 bg-black/10 p-4">
@@ -202,31 +245,41 @@ export function PricingResult({
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <SummaryCard
-              label="Quanto o cliente paga"
+              label={
+                form.isKit ? "Quanto o cliente paga no kit" : "Quanto o cliente paga"
+              }
               value={formatCurrency(
                 convertFromBRL(directSale.customerPrice, displayCurrency, exchangeRates),
                 displayCurrency,
               )}
               tone="accent"
+              helper={form.isKit ? `${perKitItemSalePrice} por item do kit` : undefined}
             />
             <SummaryCard
-              label="Quanto custa para produzir"
+              label={
+                form.isKit
+                  ? "Quanto custa para produzir o kit"
+                  : "Quanto custa para produzir"
+              }
               value={formatCurrency(
                 convertFromBRL(directSale.costTotal, displayCurrency, exchangeRates),
                 displayCurrency,
               )}
+              helper={form.isKit ? `${perKitItemCost} por item do kit` : undefined}
             />
             <SummaryCard
-              label="Seu lucro bruto"
+              label={form.isKit ? "Seu lucro bruto no kit" : "Seu lucro bruto"}
               value={formatCurrency(
                 convertFromBRL(directSale.grossProfit, displayCurrency, exchangeRates),
                 displayCurrency,
               )}
               tone="success"
+              helper={form.isKit ? `${perKitItemProfit} por item do kit` : undefined}
             />
             <SummaryCard
               label="Margem de lucro"
               value={formatPercent(directSale.marginPercentage)}
+              helper={kitHelperText}
             />
             <SummaryCard
               label="Preço mínimo seguro"
@@ -450,7 +503,7 @@ export function PricingResult({
             </div>
           </div>
 
-          <div className="mt-5 flex items-center gap-2.5 text-[14px] text-[#9fa7bc]">
+            <div className="mt-5 flex items-center gap-2.5 text-[14px] text-[#9fa7bc]">
             <span className="text-[18px] leading-none">◷</span>
             <span>
               {formatCurrency(
@@ -460,6 +513,12 @@ export function PricingResult({
               /hora
             </span>
           </div>
+
+          {form.isKit ? (
+            <p className="mt-3 text-xs text-[#9fa7bc]">
+              Lucro medio por item do kit neste canal: {perKitItemNetProfit}
+            </p>
+          ) : null}
         </div>
 
         <div className="mt-7 border-t border-white/8 pt-6">
@@ -684,9 +743,13 @@ export function PricingResult({
               label="Produto"
               value={productName || "Sem nome"}
               muted={
-                result.quantity > 1
-                  ? `${result.quantity} unidade(s) por ciclo`
-                  : "1 unidade por ciclo"
+                form.isKit
+                  ? result.quantity > 1
+                    ? `${result.quantity} ${saleUnitLabelPlural} por ciclo · ${kitQuantity} item(ns) por kit`
+                    : `1 ${saleUnitLabel} por ciclo · ${kitQuantity} item(ns) por kit`
+                  : result.quantity > 1
+                    ? `${result.quantity} ${saleUnitLabelPlural} por ciclo`
+                    : `1 ${saleUnitLabel} por ciclo`
               }
             />
 
@@ -731,10 +794,16 @@ export function PricingResult({
                 displayCurrency,
               )}
               muted={
-                result.quantity > 1
-                  ? `${formatDecimal(lotsPerDay)} ciclo(s)/dia · ${Math.round(
-                      unitsPerDay,
-                    )} un/dia`
+                result.quantity > 1 || form.isKit
+                  ? form.isKit
+                    ? `${formatDecimal(lotsPerDay)} ciclo(s)/dia · ${Math.round(
+                        unitsPerDay,
+                      )} ${saleUnitLabelPlural}/dia · ${Math.round(
+                        kitItemsPerDay,
+                      )} itens/dia`
+                    : `${formatDecimal(lotsPerDay)} ciclo(s)/dia · ${Math.round(
+                        unitsPerDay,
+                      )} un/dia`
                   : undefined
               }
             />
@@ -750,10 +819,16 @@ export function PricingResult({
                 displayCurrency,
               )}
               muted={
-                result.quantity > 1
-                  ? `${formatDecimal(lotsPerMonth)} ciclo(s)/mês · ${Math.round(
-                      unitsPerMonth,
-                    )} un/mês`
+                result.quantity > 1 || form.isKit
+                  ? form.isKit
+                    ? `${formatDecimal(lotsPerMonth)} ciclo(s)/mês · ${Math.round(
+                        unitsPerMonth,
+                      )} ${saleUnitLabelPlural}/mês · ${Math.round(
+                        kitItemsPerMonth,
+                      )} itens/mês`
+                    : `${formatDecimal(lotsPerMonth)} ciclo(s)/mês · ${Math.round(
+                        unitsPerMonth,
+                      )} un/mês`
                   : undefined
               }
               highlight
@@ -1142,6 +1217,10 @@ function buildSummaryLines({
       value: form.multiplePiecesEnabled
         ? `${form.quantity} peças`
         : "1 peça por vez",
+    },
+    {
+      label: "Venda",
+      value: form.isKit ? `Kit com ${form.kitQuantity} itens` : "Unidade avulsa",
     },
   ];
 

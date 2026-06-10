@@ -116,6 +116,7 @@ export function PricingForm({
   const isAmazon = form.salesChannelId === "amazon";
   const isDirect = form.salesChannelId === "direct";
   const isConsignment = form.salesChannelId === "consignment";
+  const kitQuantity = Math.max(form.kitQuantity, 1);
   const lotQuantity = Math.max(form.quantity, 1);
   const usesLotPrintTime =
     form.multiplePiecesEnabled && form.dividePrintTimeByPieces;
@@ -145,6 +146,16 @@ export function PricingForm({
     ? `Digite o peso total das ${lotQuantity} peça(s) juntas.`
     : form.multiplePiecesEnabled
       ? `Digite o peso de 1 peça. O total do ciclo será multiplicado por ${lotQuantity}.`
+      : undefined;
+  const salePriceFieldLabel = form.isKit
+    ? "Preço de venda do kit (R$) *"
+    : form.multiplePiecesEnabled
+      ? "Preço de venda por unidade (R$) *"
+      : "Preço de venda (R$) *";
+  const salePriceFieldNote = form.isKit
+    ? `Informe o valor total cobrado pelo kit. O resumo tambem mostra o valor por item (${kitQuantity} por kit).`
+    : form.multiplePiecesEnabled
+      ? "Esse valor continua sendo por unidade vendida, mesmo com varias pecas por ciclo."
       : undefined;
 
   const pixPrice = useMemo(() => {
@@ -223,6 +234,26 @@ export function PricingForm({
             active={form.productType === "normal"}
             onClick={() => onChange("productType", "normal")}
           />
+        </div>
+
+        <div className="mt-6 rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-5">
+          <ToggleRow
+            label="Vendido como kit?"
+            note="Usa o preco total do kit e mostra tambem o valor por item interno."
+            checked={form.isKit}
+            onToggle={() => onChange("isKit", !form.isKit)}
+          />
+
+          {form.isKit ? (
+            <div className="mt-4 max-w-[180px]">
+              <Field
+                label="Itens por kit"
+                value={form.kitQuantity}
+                onChange={(value) => onChange("kitQuantity", value)}
+                note="Usado para dividir preco, custo e lucro por item do kit."
+              />
+            </div>
+          ) : null}
         </div>
       </SectionCard>
 
@@ -719,20 +750,12 @@ export function PricingForm({
           {form.pricingMode === "manual" ? (
             <div className="mt-6">
               <Field
-                label={
-                  form.multiplePiecesEnabled
-                    ? "Preço de venda por unidade (R$) *"
-                    : "Preço de venda (R$) *"
-                }
+                label={salePriceFieldLabel}
                 value={displayMoney(form.manualSalePrice)}
                 onChange={(value) => handleMoneyChange("manualSalePrice", value)}
                 inputKind="money"
                 prefix={currencySymbol}
-                note={
-                  form.multiplePiecesEnabled
-                    ? "Esse valor continua sendo por unidade vendida, mesmo com varias pecas por ciclo."
-                    : undefined
-                }
+                note={salePriceFieldNote}
               />
             </div>
           ) : (
