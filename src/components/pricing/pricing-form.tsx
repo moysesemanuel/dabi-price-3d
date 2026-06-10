@@ -116,6 +116,36 @@ export function PricingForm({
   const isAmazon = form.salesChannelId === "amazon";
   const isDirect = form.salesChannelId === "direct";
   const isConsignment = form.salesChannelId === "consignment";
+  const lotQuantity = Math.max(form.quantity, 1);
+  const usesLotPrintTime =
+    form.multiplePiecesEnabled && form.dividePrintTimeByPieces;
+  const usesLotFilament =
+    form.multiplePiecesEnabled && form.divideFilamentByPieces;
+  const printTimeHoursLabel = usesLotPrintTime
+    ? "Horas de impressão do ciclo *"
+    : form.multiplePiecesEnabled
+      ? "Horas de impressão por peça *"
+      : "Horas de impressão *";
+  const printTimeMinutesLabel = usesLotPrintTime
+    ? "Minutos do ciclo"
+    : form.multiplePiecesEnabled
+      ? "Minutos por peça"
+      : "Minutos de impressão";
+  const printTimeNote = usesLotPrintTime
+    ? `Use o tempo total para imprimir as ${lotQuantity} peça(s) juntas.`
+    : form.multiplePiecesEnabled
+      ? `Use o tempo de 1 peça. O total do ciclo será multiplicado por ${lotQuantity}.`
+      : undefined;
+  const weightLabel = usesLotFilament
+    ? "Peso usado no ciclo"
+    : form.multiplePiecesEnabled
+      ? "Peso usado na peça"
+      : "Peso usado na peça";
+  const weightNote = usesLotFilament
+    ? `Digite o peso total das ${lotQuantity} peça(s) juntas.`
+    : form.multiplePiecesEnabled
+      ? `Digite o peso de 1 peça. O total do ciclo será multiplicado por ${lotQuantity}.`
+      : undefined;
 
   const pixPrice = useMemo(() => {
     return suggestedPrice * (1 - form.directPixDiscountPercentage / 100);
@@ -689,11 +719,20 @@ export function PricingForm({
           {form.pricingMode === "manual" ? (
             <div className="mt-6">
               <Field
-                label="Preço de venda (R$) *"
+                label={
+                  form.multiplePiecesEnabled
+                    ? "Preço de venda por unidade (R$) *"
+                    : "Preço de venda (R$) *"
+                }
                 value={displayMoney(form.manualSalePrice)}
                 onChange={(value) => handleMoneyChange("manualSalePrice", value)}
                 inputKind="money"
                 prefix={currencySymbol}
+                note={
+                  form.multiplePiecesEnabled
+                    ? "Esse valor continua sendo por unidade vendida, mesmo com varias pecas por ciclo."
+                    : undefined
+                }
               />
             </div>
           ) : (
@@ -801,21 +840,22 @@ export function PricingForm({
 
           <div className="grid gap-4 md:grid-cols-2">
             <Field
-              label="Horas de impressão *"
+              label={printTimeHoursLabel}
               value={form.printTimeHours}
               onChange={(value) => onChange("printTimeHours", value)}
+              note={printTimeNote}
             />
 
             <Field
-              label="Minutos de impressão"
+              label={printTimeMinutesLabel}
               value={form.printTimeMinutes}
               onChange={(value) => onChange("printTimeMinutes", value)}
             />
           </div>
 
           <ToggleRow
-            label="Múltiplas peças na mesa?"
-            note="Divide o custo por peça automaticamente"
+            label="Produz varias pecas no mesmo ciclo?"
+            note="Isso rateia custo e produtividade por unidade. Nao transforma o anuncio em kit."
             checked={form.multiplePiecesEnabled}
             onToggle={() =>
               onChange("multiplePiecesEnabled", !form.multiplePiecesEnabled)
@@ -833,13 +873,13 @@ export function PricingForm({
               </div>
 
               <p className="mt-5 font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
-                Dividir por peças
+                Como interpretar os campos
               </p>
 
               <div className="mt-4 space-y-4">
                 <ToggleRow
-                  label="Tempo de impressão"
-                  note=""
+                  label="Tempo informado ja e do ciclo"
+                  note={`Ative so se as ${lotQuantity} peca(s) sairem juntas nesse mesmo tempo.`}
                   checked={form.dividePrintTimeByPieces}
                   onToggle={() =>
                     onChange(
@@ -850,8 +890,8 @@ export function PricingForm({
                 />
 
                 <ToggleRow
-                  label="Filamento"
-                  note=""
+                  label="Filamento informado ja e do ciclo"
+                  note={`Ative so se o peso digitado ja somar as ${lotQuantity} peca(s).`}
                   checked={form.divideFilamentByPieces}
                   onToggle={() =>
                     onChange(
@@ -861,6 +901,11 @@ export function PricingForm({
                   }
                 />
               </div>
+
+              <p className="mt-4 text-xs leading-6 text-[var(--muted)]">
+                Se voce vende um kit como 1 produto unico, cadastre o kit inteiro
+                como 1 peca e informe o tempo e o filamento totais dele.
+              </p>
             </div>
           ) : null}
 
@@ -889,10 +934,11 @@ export function PricingForm({
             note={`Custo = (${currencySymbol}/kg / 1000) x gramas`}
           />
           <Field
-            label="Peso usado na peca"
+            label={weightLabel}
             value={form.weightGrams}
             onChange={(value) => onChange("weightGrams", value)}
             suffix="g"
+            note={weightNote}
           />
         </div>
       </SectionCard>

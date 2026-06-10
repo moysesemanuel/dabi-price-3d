@@ -137,8 +137,8 @@ export const initialPricingForm: PricingFormState = {
 
   // Múltiplas peças
   multiplePiecesEnabled: false,
-  dividePrintTimeByPieces: true,
-  divideFilamentByPieces: true,
+  dividePrintTimeByPieces: false,
+  divideFilamentByPieces: false,
   quantity: 1,
 
   // Filamento

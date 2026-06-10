@@ -683,7 +683,11 @@ export function PricingResult({
             <MetricLine
               label="Produto"
               value={productName || "Sem nome"}
-              muted={`${result.quantity} unidade(s) no lote`}
+              muted={
+                result.quantity > 1
+                  ? `${result.quantity} unidade(s) por ciclo`
+                  : "1 unidade por ciclo"
+              }
             />
 
             <MetricLine
@@ -691,17 +695,28 @@ export function PricingResult({
               value={`${result.printTimeTotalHours
                 .toFixed(2)
                 .replace(".", ",")}h`}
-              muted="Base de energia e produtividade"
+              muted={
+                result.quantity > 1
+                  ? [
+                      form.dividePrintTimeByPieces
+                        ? "tempo digitado do ciclo"
+                        : "tempo digitado por peça",
+                      form.divideFilamentByPieces
+                        ? "filamento digitado do ciclo"
+                        : "filamento digitado por peça",
+                    ].join(" · ")
+                  : "Base de energia e produtividade"
+              }
             />
 
             {result.quantity > 1 ? (
               <MetricLine
-                label="Lucro por lote"
+                label="Lucro por ciclo"
                 value={formatCurrency(
                   convertFromBRL(lotProfit, displayCurrency, exchangeRates),
                   displayCurrency,
                 )}
-                muted={`${result.quantity} unidade(s) por ciclo`}
+                muted={`${result.quantity} unidade(s) produzidas por ciclo`}
               />
             ) : null}
 
@@ -717,7 +732,7 @@ export function PricingResult({
               )}
               muted={
                 result.quantity > 1
-                  ? `${formatDecimal(lotsPerDay)} lote(s)/dia · ${Math.round(
+                  ? `${formatDecimal(lotsPerDay)} ciclo(s)/dia · ${Math.round(
                       unitsPerDay,
                     )} un/dia`
                   : undefined
@@ -736,7 +751,7 @@ export function PricingResult({
               )}
               muted={
                 result.quantity > 1
-                  ? `${formatDecimal(lotsPerMonth)} lote(s)/mês · ${Math.round(
+                  ? `${formatDecimal(lotsPerMonth)} ciclo(s)/mês · ${Math.round(
                       unitsPerMonth,
                     )} un/mês`
                   : undefined
@@ -1123,7 +1138,7 @@ function buildSummaryLines({
       value: printerLabel,
     },
     {
-      label: "Lote",
+      label: "Producao por ciclo",
       value: form.multiplePiecesEnabled
         ? `${form.quantity} peças`
         : "1 peça por vez",
@@ -1132,10 +1147,12 @@ function buildSummaryLines({
 
   if (form.multiplePiecesEnabled) {
     lines.push({
-      label: "Rateio do lote",
+      label: "Rateio do ciclo",
       value: [
-        form.dividePrintTimeByPieces ? "tempo dividido" : "tempo total",
-        form.divideFilamentByPieces ? "filamento dividido" : "filamento total",
+        form.dividePrintTimeByPieces ? "tempo do ciclo" : "tempo por peça",
+        form.divideFilamentByPieces
+          ? "filamento do ciclo"
+          : "filamento por peça",
       ].join(" · "),
     });
   }
