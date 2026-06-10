@@ -221,6 +221,16 @@ export function PricingForm({
       <SectionCard>
         <NumberEyebrow index="0" label="Tipo de produto" />
 
+        <div className="mb-6">
+          <Field
+            label="Nome do produto"
+            value={form.productName}
+            onChange={(value) => onChange("productName", value)}
+            inputKind="text"
+            note="Usado no histórico, no site e nas integrações de marketplace."
+          />
+        </div>
+
         <div className="mt-5 grid gap-3 md:grid-cols-2">
           <ChoiceCard
             title="Produto 3D"
@@ -353,14 +363,6 @@ export function PricingForm({
                 ))}
               </div>
             </div>
-
-              <Field
-                label="Nome do produto"
-                value={form.productName}
-                onChange={(value) => onChange("productName", value)}
-                inputKind="text"
-                note="Usado para prever automaticamente a categoria real do Mercado Livre."
-              />
 
             <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_180px]">
               <SelectField
