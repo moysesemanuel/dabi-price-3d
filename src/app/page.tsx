@@ -573,7 +573,7 @@ export default function Home() {
 
         <div>
           <div className="mx-auto max-w-[1720px] px-4 py-6 sm:px-6 xl:px-8">
-            <header className="mb-8 flex flex-col gap-6 border-b border-white/6 pb-6 xl:flex-row xl:items-end xl:justify-between">
+            <header className="mb-8 border-b border-white/6 pb-6">
               <div className="max-w-[720px]">
                 <h1 className="text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
                   Precificadora
@@ -585,19 +585,17 @@ export default function Home() {
                 </p>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 xl:min-w-[720px] xl:grid-cols-3">
-                <HeroStat
+              <div className="mt-5 grid gap-3 rounded-[24px] border border-white/8 bg-[var(--panel)]/72 p-4 sm:grid-cols-2 xl:grid-cols-3">
+                <HeaderMeta
                   label="Canal ativo"
                   value={selectedChannelLabel}
                   tone="accent"
                 />
-
-                <HeroStat
+                <HeaderMeta
                   label="Formato de venda"
                   value={heroSaleModeValue}
                 />
-
-                <HeroStat
+                <HeaderMeta
                   label="Produção"
                   value={heroProductionValue}
                   tone="success"
@@ -678,27 +676,27 @@ export default function Home() {
   );
 }
 
-type HeroStatProps = {
+type HeaderMetaProps = {
   label: string;
   value: string;
   tone?: "default" | "accent" | "success";
 };
 
-function HeroStat({ label, value, tone = "default" }: HeroStatProps) {
+function HeaderMeta({ label, value, tone = "default" }: HeaderMetaProps) {
   const toneClassName = {
-    default: "border-white/8 bg-[var(--panel)] text-white",
+    default: "border-white/8 bg-black/10 text-white",
     accent:
       "border-[var(--accent)]/30 bg-[var(--accent-soft)] text-[var(--accent)]",
     success: "border-[#6fd3ea]/25 bg-[#6fd3ea]/10 text-[#8fe3f6]",
   }[tone];
 
   return (
-    <div className={`rounded-[22px] border px-4 py-4 sm:px-5 ${toneClassName}`}>
+    <div className={`rounded-[20px] border px-4 py-4 sm:px-5 ${toneClassName}`}>
       <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
         {label}
       </p>
 
-      <strong className="mt-3 block text-lg font-semibold tracking-[-0.03em] sm:text-xl">
+      <strong className="mt-2 block text-base font-semibold tracking-[-0.03em] sm:text-lg">
         {value}
       </strong>
     </div>

@@ -190,86 +190,88 @@ export function PricingForm({
   }
 
   return (
-    <form className="space-y-4 2xl:grid 2xl:grid-cols-2 2xl:items-start 2xl:gap-4 2xl:space-y-0">
-      <SectionCard className="2xl:col-span-2">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-          <NumberEyebrow index="0" label="Base do produto" />
+    <form className="space-y-4">
+      <SectionCard>
+        <NumberEyebrow index="0" label="Base do produto" />
 
-          <div className="rounded-[22px] border border-white/8 bg-[var(--panel-soft)] px-4 py-4 xl:min-w-[320px]">
-            <SectionEyebrow label="Moeda de exibicao" />
+        <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div>
+            <Field
+              label="Nome do produto"
+              value={form.productName}
+              onChange={(value) => onChange("productName", value)}
+              inputKind="text"
+              note="Usado no histórico, no site e nas integrações de marketplace."
+            />
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              <MiniToggle
-                label="R$"
-                active={displayCurrency === "BRL"}
-                onClick={() => onDisplayCurrencyChange("BRL")}
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              <ChoiceCard
+                title="Produto 3D"
+                description="Impressora + filamento"
+                active={form.productType === "3d"}
+                onClick={() => onChange("productType", "3d")}
               />
-              <MiniToggle
-                label="US$"
-                active={displayCurrency === "USD"}
-                onClick={() => onDisplayCurrencyChange("USD")}
-              />
-              <MiniToggle
-                label="EUR"
-                active={displayCurrency === "EUR"}
-                onClick={() => onDisplayCurrencyChange("EUR")}
+              <ChoiceCard
+                title="Produto Normal"
+                description="Comprado de fornecedor"
+                active={form.productType === "normal"}
+                onClick={() => onChange("productType", "normal")}
               />
             </div>
-
-            <p className="mt-3 text-xs text-[var(--muted)]">
-              Cotação diária via {exchangeRateSnapshot.sourceLabel} ·{" "}
-              {exchangeRateDateLabel}
-            </p>
           </div>
-        </div>
 
-        <div className="mt-6">
-          <Field
-            label="Nome do produto"
-            value={form.productName}
-            onChange={(value) => onChange("productName", value)}
-            inputKind="text"
-            note="Usado no histórico, no site e nas integrações de marketplace."
-          />
-        </div>
+          <div className="space-y-4">
+            <div className="rounded-[22px] border border-white/8 bg-[var(--panel-soft)] px-4 py-4">
+              <SectionEyebrow label="Moeda de exibicao" />
 
-        <div className="mt-5 grid gap-3 md:grid-cols-2">
-          <ChoiceCard
-            title="Produto 3D"
-            description="Impressora + filamento"
-            active={form.productType === "3d"}
-            onClick={() => onChange("productType", "3d")}
-          />
-          <ChoiceCard
-            title="Produto Normal"
-            description="Comprado de fornecedor"
-            active={form.productType === "normal"}
-            onClick={() => onChange("productType", "normal")}
-          />
-        </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <MiniToggle
+                  label="R$"
+                  active={displayCurrency === "BRL"}
+                  onClick={() => onDisplayCurrencyChange("BRL")}
+                />
+                <MiniToggle
+                  label="US$"
+                  active={displayCurrency === "USD"}
+                  onClick={() => onDisplayCurrencyChange("USD")}
+                />
+                <MiniToggle
+                  label="EUR"
+                  active={displayCurrency === "EUR"}
+                  onClick={() => onDisplayCurrencyChange("EUR")}
+                />
+              </div>
 
-        <div className="mt-6 rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-5">
-          <ToggleRow
-            label="Vendido como kit?"
-            note="Usa o preco total do kit e mostra tambem o valor por item interno."
-            checked={form.isKit}
-            onToggle={() => onChange("isKit", !form.isKit)}
-          />
-
-          {form.isKit ? (
-            <div className="mt-4 max-w-[180px]">
-              <Field
-                label="Itens por kit"
-                value={form.kitQuantity}
-                onChange={(value) => onChange("kitQuantity", value)}
-                note="Usado para dividir preco, custo e lucro por item do kit."
-              />
+              <p className="mt-3 text-xs text-[var(--muted)]">
+                Cotação diária via {exchangeRateSnapshot.sourceLabel} ·{" "}
+                {exchangeRateDateLabel}
+              </p>
             </div>
-          ) : null}
+
+            <div className="rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-5">
+              <ToggleRow
+                label="Vendido como kit?"
+                note="Usa o preco total do kit e mostra tambem o valor por item interno."
+                checked={form.isKit}
+                onToggle={() => onChange("isKit", !form.isKit)}
+              />
+
+              {form.isKit ? (
+                <div className="mt-4 max-w-[180px]">
+                  <Field
+                    label="Itens por kit"
+                    value={form.kitQuantity}
+                    onChange={(value) => onChange("kitQuantity", value)}
+                    note="Usado para dividir preco, custo e lucro por item do kit."
+                  />
+                </div>
+              ) : null}
+            </div>
+          </div>
         </div>
       </SectionCard>
 
-      <SectionCard className="2xl:col-span-2">
+      <SectionCard>
         <NumberEyebrow index="1" label="Marketplace" />
 
         <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
@@ -1025,7 +1027,7 @@ export function PricingForm({
       </SectionCard>
 
       {isDirect ? (
-        <SectionCard className="2xl:col-span-2">
+        <SectionCard>
           <NumberEyebrow index="6" label="Forma de pagamento" />
 
           <p className="mt-5 text-sm text-[var(--muted)]">
