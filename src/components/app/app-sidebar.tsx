@@ -30,8 +30,8 @@ export function AppSidebar() {
         <div className="flex items-center justify-between gap-3">
           <div
             className={`min-w-0 transition-all duration-300 ${
-              isExpanded ? "text-4xl" : "text-2xl"
-            } font-semibold tracking-[-0.08em] text-white`}
+              isExpanded ? "text-3xl" : "text-2xl"
+            } whitespace-nowrap font-semibold leading-none tracking-[-0.08em] text-white`}
           >
             {isExpanded ? (
               <>
