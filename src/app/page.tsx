@@ -6,6 +6,7 @@ import { PricingForm } from "@/components/pricing/pricing-form";
 import { PricingResult } from "@/components/pricing/pricing-result";
 import { SiteProductPublisher } from "@/components/pricing/site-product-publisher";
 import {
+  convertFromBRL,
   defaultExchangeRateSnapshot,
   type DisplayCurrency,
   type ExchangeRateSnapshot,
