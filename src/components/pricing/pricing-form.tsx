@@ -190,38 +190,40 @@ export function PricingForm({
   }
 
   return (
-    <form className="space-y-4">
-      <SectionCard>
-        <SectionEyebrow label="Moeda de exibicao" />
+    <form className="space-y-4 2xl:grid 2xl:grid-cols-2 2xl:items-start 2xl:gap-4 2xl:space-y-0">
+      <SectionCard className="2xl:col-span-2">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <NumberEyebrow index="0" label="Base do produto" />
 
-        <div className="mt-5 flex flex-wrap gap-2">
-          <MiniToggle
-            label="R$"
-            active={displayCurrency === "BRL"}
-            onClick={() => onDisplayCurrencyChange("BRL")}
-          />
-          <MiniToggle
-            label="US$"
-            active={displayCurrency === "USD"}
-            onClick={() => onDisplayCurrencyChange("USD")}
-          />
-          <MiniToggle
-            label="EUR"
-            active={displayCurrency === "EUR"}
-            onClick={() => onDisplayCurrencyChange("EUR")}
-          />
+          <div className="rounded-[22px] border border-white/8 bg-[var(--panel-soft)] px-4 py-4 xl:min-w-[320px]">
+            <SectionEyebrow label="Moeda de exibicao" />
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <MiniToggle
+                label="R$"
+                active={displayCurrency === "BRL"}
+                onClick={() => onDisplayCurrencyChange("BRL")}
+              />
+              <MiniToggle
+                label="US$"
+                active={displayCurrency === "USD"}
+                onClick={() => onDisplayCurrencyChange("USD")}
+              />
+              <MiniToggle
+                label="EUR"
+                active={displayCurrency === "EUR"}
+                onClick={() => onDisplayCurrencyChange("EUR")}
+              />
+            </div>
+
+            <p className="mt-3 text-xs text-[var(--muted)]">
+              Cotação diária via {exchangeRateSnapshot.sourceLabel} ·{" "}
+              {exchangeRateDateLabel}
+            </p>
+          </div>
         </div>
 
-        <p className="mt-3 text-xs text-[var(--muted)]">
-          Cotação diária via {exchangeRateSnapshot.sourceLabel} ·{" "}
-          {exchangeRateDateLabel}
-        </p>
-      </SectionCard>
-
-      <SectionCard>
-        <NumberEyebrow index="0" label="Tipo de produto" />
-
-        <div className="mb-6">
+        <div className="mt-6">
           <Field
             label="Nome do produto"
             value={form.productName}
@@ -267,10 +269,10 @@ export function PricingForm({
         </div>
       </SectionCard>
 
-      <SectionCard>
+      <SectionCard className="2xl:col-span-2">
         <NumberEyebrow index="1" label="Marketplace" />
 
-        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
           {salesChannels.map((channel) => {
             const isActive = channel.id === form.salesChannelId;
 
@@ -1023,7 +1025,7 @@ export function PricingForm({
       </SectionCard>
 
       {isDirect ? (
-        <SectionCard>
+        <SectionCard className="2xl:col-span-2">
           <NumberEyebrow index="6" label="Forma de pagamento" />
 
           <p className="mt-5 text-sm text-[var(--muted)]">
@@ -1080,9 +1082,17 @@ export function PricingForm({
   );
 }
 
-function SectionCard({ children }: { children: React.ReactNode }) {
+function SectionCard({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <section className="rounded-[26px] border border-[var(--panel-border)] bg-[var(--panel)] p-5 shadow-[0_16px_40px_rgba(0,0,0,0.22)] sm:p-6">
+    <section
+      className={`rounded-[26px] border border-[var(--panel-border)] bg-[var(--panel)] p-5 shadow-[0_16px_40px_rgba(0,0,0,0.22)] sm:p-6 ${className}`}
+    >
       {children}
     </section>
   );

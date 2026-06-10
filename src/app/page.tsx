@@ -6,9 +6,7 @@ import { PricingForm } from "@/components/pricing/pricing-form";
 import { PricingResult } from "@/components/pricing/pricing-result";
 import { SiteProductPublisher } from "@/components/pricing/site-product-publisher";
 import {
-  convertFromBRL,
   defaultExchangeRateSnapshot,
-  formatCurrency,
   type DisplayCurrency,
   type ExchangeRateSnapshot,
 } from "@/lib/currency/display-currency";
@@ -121,19 +119,14 @@ export default function Home() {
     [form, result],
   );
 
-  const displayedSalePrice = useMemo(
-    () =>
-      convertFromBRL(
-        viewModel.displayedSalePrice,
-        displayCurrency,
-        exchangeRateSnapshot.rates,
-      ),
-    [displayCurrency, exchangeRateSnapshot.rates, viewModel.displayedSalePrice],
-  );
-
   const selectedChannel = findSalesChannelById(form.salesChannelId);
   const selectedChannelLabel = selectedChannel?.name ?? salesChannels[0].name;
-  const heroSalePriceLabel = form.isKit ? "Preço do kit" : "Preço sugerido";
+  const heroSaleModeValue = form.isKit
+    ? `Kit com ${form.kitQuantity} item(ns)`
+    : "Unidade avulsa";
+  const heroProductionValue = form.multiplePiecesEnabled
+    ? `${form.quantity} peça(s) por ciclo`
+    : "1 peça por ciclo";
 
   useEffect(() => {
     let isMounted = true;
@@ -578,9 +571,9 @@ export default function Home() {
         <AppSidebar />
 
         <div>
-          <div className="mx-auto max-w-[1488px] p-8">
-            <header className="mb-6 flex flex-col gap-4 border-b border-white/6 pb-6">
-              <div>
+          <div className="mx-auto max-w-[1720px] px-4 py-6 sm:px-6 xl:px-8">
+            <header className="mb-8 flex flex-col gap-6 border-b border-white/6 pb-6 xl:flex-row xl:items-end xl:justify-between">
+              <div className="max-w-[720px]">
                 <h1 className="text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
                   Precificadora
                 </h1>
@@ -591,7 +584,7 @@ export default function Home() {
                 </p>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-3 xl:max-w-[820px]">
+              <div className="grid gap-3 sm:grid-cols-2 xl:min-w-[720px] xl:grid-cols-3">
                 <HeroStat
                   label="Canal ativo"
                   value={selectedChannelLabel}
@@ -599,21 +592,19 @@ export default function Home() {
                 />
 
                 <HeroStat
-                  label={heroSalePriceLabel}
-                  value={formatCurrency(displayedSalePrice, displayCurrency)}
+                  label="Formato de venda"
+                  value={heroSaleModeValue}
                 />
 
                 <HeroStat
-                  label="Margem real"
-                  value={`${result.realMarginPercentage
-                    .toFixed(1)
-                    .replace(".", ",")}%`}
+                  label="Produção"
+                  value={heroProductionValue}
                   tone="success"
                 />
               </div>
             </header>
 
-            <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_376px]">
+            <section className="grid gap-8 xl:grid-cols-[minmax(0,1.16fr)_minmax(430px,0.84fr)] 2xl:grid-cols-[minmax(0,1fr)_500px]">
               <div className="space-y-6">
                 <PricingForm
                   form={form}
@@ -701,12 +692,12 @@ function HeroStat({ label, value, tone = "default" }: HeroStatProps) {
   }[tone];
 
   return (
-    <div className={`rounded-[22px] border px-4 py-4 ${toneClassName}`}>
+    <div className={`rounded-[22px] border px-4 py-4 sm:px-5 ${toneClassName}`}>
       <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
         {label}
       </p>
 
-      <strong className="mt-3 block text-xl font-semibold tracking-[-0.03em]">
+      <strong className="mt-3 block text-lg font-semibold tracking-[-0.03em] sm:text-xl">
         {value}
       </strong>
     </div>
