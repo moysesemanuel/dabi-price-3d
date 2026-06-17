@@ -65,6 +65,29 @@ export function calculateSafeMinimumPrice(costTotal: number, multiplier = 1.8) {
   return Math.max(safeCost, roundToHalfStep(suggestedPrice));
 }
 
+export function calculateChannelSafeMinimumPrice(input: {
+  baseCost: number;
+  variableFeePercentage: number;
+  fixedFee: number;
+  multiplier?: number;
+}) {
+  const safeBaseCost = sanitizeNumber(input.baseCost);
+  const safeVariableFeeRate = clamp(
+    sanitizeNumber(input.variableFeePercentage) / 100,
+    0,
+    0.99,
+  );
+  const safeFixedFee = sanitizeNumber(input.fixedFee);
+  const safeMultiplier = Math.max(sanitizeNumber(input.multiplier ?? 1.8), 1);
+  const targetNetAmount = safeBaseCost * safeMultiplier + safeFixedFee;
+  const suggestedPrice =
+    safeVariableFeeRate < 1
+      ? targetNetAmount / (1 - safeVariableFeeRate)
+      : safeBaseCost;
+
+  return Math.max(safeBaseCost, roundToHalfStep(suggestedPrice));
+}
+
 export function calculateDirectSale(input: {
   customerPrice: number;
   costTotal: number;

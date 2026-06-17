@@ -7,6 +7,8 @@ export type Calculate3DPriceInput = {
   manualSalePrice?: number;
   promoEnabled?: boolean;
   promoDiscountPercentage?: number;
+  isKit?: boolean;
+  kitQuantity?: number;
 
   multiplePiecesEnabled?: boolean;
   dividePrintTimeByPieces?: boolean;
@@ -37,6 +39,11 @@ export type Calculate3DPriceResult = {
   errorMessage?: string;
 
   quantity: number;
+  piecesPerCycle: number;
+  piecesPerSaleUnit: number;
+  cyclesPerSaleUnit: number;
+  saleUnitsPerCycle: number;
+  printTimePerCycleHours: number;
 
   costPerGram: number;
   materialCost: number;
@@ -82,16 +89,23 @@ export function calculate3DPrice(
   const multiplePiecesEnabled = input.multiplePiecesEnabled ?? false;
   const dividePrintTimeByPieces = input.dividePrintTimeByPieces ?? true;
   const divideFilamentByPieces = input.divideFilamentByPieces ?? true;
-
-  const quantity = multiplePiecesEnabled ? Math.max(input.quantity, 1) : 1;
+  const isKit = input.isKit ?? false;
+  const kitQuantity = isKit ? Math.max(input.kitQuantity ?? 1, 1) : 1;
+  const piecesPerCycle = multiplePiecesEnabled ? Math.max(input.quantity, 1) : 1;
+  const piecesPerSaleUnit = kitQuantity;
+  const cyclesPerSaleUnit = piecesPerSaleUnit / piecesPerCycle;
+  const saleUnitsPerCycle = piecesPerSaleUnit > 0 ? 1 / cyclesPerSaleUnit : 1;
+  const quantity = 1;
 
   const unitPrintTimeHours =
     sanitizeNumber(input.printTimeHours) + sanitizeNumber(input.printTimeMinutes) / 60;
 
-  const printTimeTotalHours =
+  const printTimePerCycleHours =
     multiplePiecesEnabled && dividePrintTimeByPieces
       ? unitPrintTimeHours
-      : unitPrintTimeHours * quantity;
+      : unitPrintTimeHours * piecesPerCycle;
+
+  const printTimeTotalHours = printTimePerCycleHours * cyclesPerSaleUnit;
 
   const costPerGram =
     input.filamentSpoolWeightGrams > 0
@@ -99,10 +113,12 @@ export function calculate3DPrice(
         sanitizeNumber(input.filamentSpoolWeightGrams)
       : 0;
 
-  const totalWeightGrams =
+  const weightPerCycleGrams =
     multiplePiecesEnabled && divideFilamentByPieces
       ? sanitizeNumber(input.weightGrams)
-      : sanitizeNumber(input.weightGrams) * quantity;
+      : sanitizeNumber(input.weightGrams) * piecesPerCycle;
+
+  const totalWeightGrams = weightPerCycleGrams * cyclesPerSaleUnit;
 
   const materialCost = totalWeightGrams * costPerGram;
 
@@ -114,9 +130,9 @@ export function calculate3DPrice(
   const maintenanceCost =
     printTimeTotalHours * sanitizeNumber(input.maintenanceCostPerHour);
 
-  const packagingTotalCost = sanitizeNumber(input.packagingCost) * quantity;
-  const shippingTotalCost = sanitizeNumber(input.shippingCost) * quantity;
-  const laborTotalCost = sanitizeNumber(input.laborCost);
+  const packagingTotalCost = sanitizeNumber(input.packagingCost);
+  const shippingTotalCost = sanitizeNumber(input.shippingCost);
+  const laborTotalCost = sanitizeNumber(input.laborCost) * cyclesPerSaleUnit;
 
   const baseCost =
     materialCost +
@@ -133,8 +149,7 @@ export function calculate3DPrice(
   const taxRate = sanitizeNumber(input.taxPercentage) / 100;
   const desiredMarginRate = sanitizeNumber(input.profitMarginPercentage) / 100;
 
-  const marketplaceFixedFeeCost =
-    sanitizeNumber(input.marketplaceFixedFee) * quantity;
+  const marketplaceFixedFeeCost = sanitizeNumber(input.marketplaceFixedFee);
 
   const variableFeesPercentage = marketplaceRate + taxRate;
 
@@ -151,17 +166,14 @@ export function calculate3DPrice(
     : 0;
 
   const manualTotalPrice =
-    sanitizeNumber(input.manualSalePrice) > 0
-      ? sanitizeNumber(input.manualSalePrice) * quantity
-      : 0;
+    sanitizeNumber(input.manualSalePrice) > 0 ? sanitizeNumber(input.manualSalePrice) : 0;
 
   const totalPriceBeforePromotion =
     pricingMode === "manual" && manualTotalPrice > 0
       ? manualTotalPrice
       : priceByMargin;
 
-  const saleUnitPriceBeforePromotion =
-    quantity > 0 ? totalPriceBeforePromotion / quantity : 0;
+  const saleUnitPriceBeforePromotion = totalPriceBeforePromotion;
 
   const promoDiscountPercentage =
     input.promoEnabled === true
@@ -177,15 +189,15 @@ export function calculate3DPrice(
         ? saleUnitPriceBeforePromotion
         : roundUpToCommercialPrice(saleUnitPriceBeforePromotion);
 
-  const commercialTotalPrice = commercialUnitPrice * quantity;
+  const commercialTotalPrice = commercialUnitPrice;
 
   const promotionalUnitPrice =
     promoRate > 0 ? commercialUnitPrice * (1 - promoRate) : null;
 
   const effectiveUnitSalePrice = promotionalUnitPrice ?? commercialUnitPrice;
-  const finalPrice = effectiveUnitSalePrice * quantity;
+  const finalPrice = effectiveUnitSalePrice;
 
-  const unitFinalPrice = quantity > 0 ? finalPrice / quantity : 0;
+  const unitFinalPrice = finalPrice;
   const totalFinalPrice = finalPrice;
 
   const marketplaceFee = finalPrice * marketplaceRate;
@@ -198,7 +210,7 @@ export function calculate3DPrice(
     marketplaceFixedFeeCost -
     costWithLoss;
 
-  const unitNetProfit = quantity > 0 ? netProfit / quantity : 0;
+  const unitNetProfit = netProfit;
   const totalNetProfit = netProfit;
 
   const realMarginPercentage =
@@ -219,6 +231,11 @@ export function calculate3DPrice(
         : "A soma da taxa do marketplace, imposto e margem desejada precisa ser menor que 100%.",
 
     quantity,
+    piecesPerCycle,
+    piecesPerSaleUnit,
+    cyclesPerSaleUnit,
+    saleUnitsPerCycle,
+    printTimePerCycleHours,
 
     costPerGram,
     materialCost,

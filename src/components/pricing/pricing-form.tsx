@@ -932,8 +932,10 @@ export function PricingForm({
               </div>
 
               <p className="mt-4 text-xs leading-6 text-[var(--muted)]">
-                Se voce vende um kit como 1 produto unico, cadastre o kit inteiro
-                como 1 peca e informe o tempo e o filamento totais dele.
+                Se voce vende em kit, informe os itens por kit. Quando a mesa
+                nao fecha o kit inteiro em um ciclo, a precificadora passa a
+                multiplicar tempo, filamento e rateio produtivo para completar
+                esse kit.
               </p>
             </div>
           ) : null}

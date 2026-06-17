@@ -7,6 +7,11 @@ export type PricingViewModel = {
   promotionalSalePrice: number | null;
   parsedPromoDiscount: number;
   kitQuantity: number;
+  piecesPerCycle: number;
+  piecesPerSaleUnit: number;
+  cyclesPerSaleUnit: number;
+  saleUnitsPerCycle: number;
+  printTimePerCycleHours: number;
   salePricePerKitItem: number;
   unitMarketplaceFee: number;
   unitMarketplaceFixedFee: number;
@@ -42,10 +47,10 @@ export function buildPricingViewModel(
   form: PricingFormState,
   result: Calculate3DPriceResult,
 ): PricingViewModel {
-  const safeQuantity = result.quantity > 0 ? result.quantity : 1;
   const parsedManualSalePrice = parseDecimal(form.manualSalePrice);
   const parsedPromoDiscount = parseDecimal(form.promoDiscountPercentage);
   const kitQuantity = form.isKit ? Math.max(form.kitQuantity, 1) : 1;
+  const safeQuantity = result.saleUnitsPerCycle > 0 ? result.saleUnitsPerCycle : 1;
 
   const baseSalePrice =
     form.pricingMode === "manual" && parsedManualSalePrice > 0
@@ -59,19 +64,18 @@ export function buildPricingViewModel(
 
   const displayedSalePrice = promotionalSalePrice ?? baseSalePrice;
 
-  const unitMarketplaceFee = result.marketplaceFee / safeQuantity;
-  const unitMarketplaceFixedFee = result.marketplaceFixedFeeCost / safeQuantity;
-  const unitTaxCost = result.taxCost / safeQuantity;
-  const unitEnergyCost = result.energyCost / safeQuantity;
-  const unitShippingCost = result.shippingTotalCost / safeQuantity;
-  const unitMaterialCost = result.materialCost / safeQuantity;
-  const unitPackagingCost = result.packagingTotalCost / safeQuantity;
-  const unitMaintenanceCost = result.maintenanceCost / safeQuantity;
-  const unitLaborCost = result.laborTotalCost / safeQuantity;
-  const unitLossCost =
-    Math.max(result.costWithLoss - result.baseCost, 0) / safeQuantity;
+  const unitMarketplaceFee = result.marketplaceFee;
+  const unitMarketplaceFixedFee = result.marketplaceFixedFeeCost;
+  const unitTaxCost = result.taxCost;
+  const unitEnergyCost = result.energyCost;
+  const unitShippingCost = result.shippingTotalCost;
+  const unitMaterialCost = result.materialCost;
+  const unitPackagingCost = result.packagingTotalCost;
+  const unitMaintenanceCost = result.maintenanceCost;
+  const unitLaborCost = result.laborTotalCost;
+  const unitLossCost = Math.max(result.costWithLoss - result.baseCost, 0);
 
-  const unitProductionCost = result.costWithLoss / safeQuantity;
+  const unitProductionCost = result.costWithLoss;
   const unitTotalCost =
     unitProductionCost +
     unitMarketplaceFee +
@@ -82,7 +86,7 @@ export function buildPricingViewModel(
   const salePricePerKitItem = displayedSalePrice / kitQuantity;
   const totalCostPerKitItem = unitTotalCost / kitQuantity;
   const profitPerKitItem = unitProfit / kitQuantity;
-  const lotProfit = result.totalNetProfit;
+  const lotProfit = result.totalNetProfit * result.saleUnitsPerCycle;
   const realMarginPercentage =
     displayedSalePrice > 0 ? (unitProfit / displayedSalePrice) * 100 : 0;
 
@@ -92,10 +96,10 @@ export function buildPricingViewModel(
       : result.profitPerHour;
 
   const lotsPerDay =
-    result.printTimeTotalHours > 0 ? 20 / result.printTimeTotalHours : 0;
-  const unitsPerDay = lotsPerDay * safeQuantity;
+    result.printTimePerCycleHours > 0 ? 20 / result.printTimePerCycleHours : 0;
+  const unitsPerDay = lotsPerDay * result.saleUnitsPerCycle;
   const kitItemsPerDay = unitsPerDay * kitQuantity;
-  const estimatedDailyProfit = profitPerHour * 20;
+  const estimatedDailyProfit = unitsPerDay * unitProfit;
   const lotsPerMonth = lotsPerDay * 30;
   const unitsPerMonth = unitsPerDay * 30;
   const kitItemsPerMonth = kitItemsPerDay * 30;
@@ -103,7 +107,7 @@ export function buildPricingViewModel(
 
   const materialGrams =
     result.costPerGram > 0
-      ? Math.round(result.materialCost / result.costPerGram / safeQuantity)
+      ? Math.round(result.materialCost / result.costPerGram)
       : 0;
 
   return {
@@ -112,6 +116,11 @@ export function buildPricingViewModel(
     promotionalSalePrice,
     parsedPromoDiscount,
     kitQuantity,
+    piecesPerCycle: result.piecesPerCycle,
+    piecesPerSaleUnit: result.piecesPerSaleUnit,
+    cyclesPerSaleUnit: result.cyclesPerSaleUnit,
+    saleUnitsPerCycle: result.saleUnitsPerCycle,
+    printTimePerCycleHours: result.printTimePerCycleHours,
     salePricePerKitItem,
     unitMarketplaceFee,
     unitMarketplaceFixedFee,

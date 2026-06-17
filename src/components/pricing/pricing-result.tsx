@@ -9,6 +9,7 @@ import {
   type DisplayCurrency,
 } from "@/lib/currency/display-currency";
 import {
+  calculateChannelSafeMinimumPrice,
   calculateConsignment,
   calculateDirectSale,
   calculateWholesale,
@@ -33,6 +34,22 @@ type PricingResultProps = {
   exchangeRates: CurrencyRates;
   onSave: () => void;
   saveButtonLabel: string;
+};
+
+type BannerTone = "good" | "warning" | "danger";
+
+type SummaryLine = {
+  label: string;
+  value: string;
+  numericValue?: number;
+  hideWhenZero?: boolean;
+};
+
+type CostLineItem = {
+  label: string;
+  amount: number;
+  value: string;
+  meta?: string;
 };
 
 export function PricingResult({
@@ -76,11 +93,15 @@ export function PricingResult({
     kitQuantity,
     materialGrams,
     parsedPromoDiscount,
+    piecesPerCycle,
     profitPerHour,
     profitPerKitItem,
     promotionalSalePrice,
     realMarginPercentage,
     salePricePerKitItem,
+    saleUnitsPerCycle,
+    cyclesPerSaleUnit,
+    printTimePerCycleHours,
     unitEnergyCost,
     unitLaborCost,
     unitLossCost,
@@ -100,14 +121,19 @@ export function PricingResult({
     lotsPerMonth,
     unitsPerMonth,
   } = buildPricingViewModel(form, result);
+
   const marginBadge = getMarginBadge(realMarginPercentage);
   const unitCoreCost = unitProductionCost + unitTaxCost;
   const directSale = calculateDirectSale({
     customerPrice: displayedSalePrice,
     costTotal: unitCoreCost,
   });
-  const directSaleCostPerKitItem = directSale.costTotal / kitQuantity;
-  const directSaleProfitPerKitItem = directSale.grossProfit / kitQuantity;
+  const activeChannelSafeMinimumPrice = calculateChannelSafeMinimumPrice({
+    baseCost: unitProductionCost,
+    variableFeePercentage:
+      effectiveMarketplaceFeePercentage + form.taxPercentage,
+    fixedFee: unitMarketplaceFixedFee,
+  });
   const consignment = calculateConsignment({
     customerPrice: displayedSalePrice,
     costTotal: unitCoreCost,
@@ -116,17 +142,6 @@ export function PricingResult({
   const wholesale = calculateWholesale({
     costTotal: unitCoreCost,
   });
-  const wholesaleBaseTier = wholesale.tiers[0] ?? {
-    units: 10,
-    label: "10 unidades",
-    multiplier: 2.1,
-    unitPrice: wholesale.safeMinimumPrice,
-    totalPrice: wholesale.safeMinimumPrice * 10,
-    unitProfit: wholesale.safeMinimumPrice - wholesale.costTotal,
-    totalProfit:
-      (wholesale.safeMinimumPrice - wholesale.costTotal) * 10,
-    isCloseToCost: true,
-  };
 
   const summaryLines = buildSummaryLines({
     form,
@@ -136,6 +151,7 @@ export function PricingResult({
     displayCurrency,
     exchangeRates,
   }).filter((line) => !line.hideWhenZero || !isZeroValue(line.numericValue));
+
   const feeLabel =
     form.salesChannelId === "consignment"
       ? "Comissão do parceiro"
@@ -148,57 +164,166 @@ export function PricingResult({
       : form.isKit
         ? "Preço de venda do kit"
         : "Preço de venda";
+  const wholesaleUnitLabel = form.isKit ? "kit" : "un.";
   const saleUnitLabel = form.isKit ? "kit" : "unidade";
   const saleUnitLabelPlural = form.isKit ? "kits" : "unidades";
   const kitHelperText = form.isKit
     ? `${kitQuantity} item(ns) por kit`
     : undefined;
-  const perKitItemSalePrice = formatCurrency(
-    convertFromBRL(salePricePerKitItem, displayCurrency, exchangeRates),
-    displayCurrency,
-  );
-  const perKitItemCost = formatCurrency(
-    convertFromBRL(directSaleCostPerKitItem, displayCurrency, exchangeRates),
-    displayCurrency,
-  );
-  const perKitItemProfit = formatCurrency(
-    convertFromBRL(directSaleProfitPerKitItem, displayCurrency, exchangeRates),
-    displayCurrency,
-  );
-  const perKitItemNetProfit = formatCurrency(
-    convertFromBRL(profitPerKitItem, displayCurrency, exchangeRates),
-    displayCurrency,
-  );
+
+  const money = (value: number) =>
+    formatCurrency(
+      convertFromBRL(value, displayCurrency, exchangeRates),
+      displayCurrency,
+    );
+
+  const perKitItemSalePrice = money(salePricePerKitItem);
+  const directSaleCostPerKitItem = directSale.costTotal / kitQuantity;
+  const directSaleProfitPerKitItem = directSale.grossProfit / kitQuantity;
+  const perKitItemCost = money(directSaleCostPerKitItem);
+  const perKitItemProfit = money(directSaleProfitPerKitItem);
+  const perKitItemNetProfit = money(profitPerKitItem);
+
+  const channelChargesTotal =
+    unitMarketplaceFee +
+    unitMarketplaceFixedFee +
+    unitTaxCost +
+    unitShippingCost;
+  const safeGap = displayedSalePrice - activeChannelSafeMinimumPrice;
+  const activeWorthIt = unitProfit > 0;
+  const activeDecision = getActiveDecision({
+    activeWorthIt,
+    marginPercentage: realMarginPercentage,
+    safeGapValue: safeGap,
+    selectedChannelLabel,
+    formattedSafeGap: money(Math.abs(safeGap)),
+  });
+  const cyclesPerSaleLabel = formatDecimal(cyclesPerSaleUnit);
+  const saleUnitsPerCycleLabel = formatDecimal(saleUnitsPerCycle);
+  const cycleTimeLabel = `${printTimePerCycleHours.toFixed(2).replace(".", ",")}h`;
+  const productFlowSummary = form.isKit
+    ? cyclesPerSaleUnit > 1
+      ? `${piecesPerCycle} peça(s) por ciclo · ${kitQuantity} item(ns) por kit · ${cyclesPerSaleLabel} ciclo(s) para fechar 1 kit`
+      : `${kitQuantity} item(ns) por kit · 1 ciclo por kit`
+    : saleUnitsPerCycle > 1
+      ? `${saleUnitsPerCycleLabel} ${saleUnitLabelPlural} por ciclo`
+      : `1 ${saleUnitLabel} por ciclo`;
+  const timeSummary = form.isKit
+    ? cyclesPerSaleUnit > 1
+      ? `${cycleTimeLabel} por ciclo · total para produzir 1 kit`
+      : "Tempo total para produzir 1 kit"
+    : saleUnitsPerCycle > 1
+      ? `${cycleTimeLabel} por ciclo`
+      : "Base de energia e produtividade";
+  const profitPerCycleSummary = form.isKit
+    ? cyclesPerSaleUnit > 1
+      ? `1 kit a cada ${cyclesPerSaleLabel} ciclo(s) · ${piecesPerCycle} peça(s) por ciclo`
+      : "1 kit por ciclo"
+    : saleUnitsPerCycle > 1
+      ? `${saleUnitsPerCycleLabel} unidade(s) produzidas por ciclo`
+      : "1 unidade por ciclo";
+
+  const productionCostItems: CostLineItem[] = [
+    {
+      label: "Filamento",
+      amount: unitMaterialCost,
+      meta: `${materialGrams}g`,
+      value: money(unitMaterialCost),
+    },
+    {
+      label: "Energia elétrica",
+      amount: unitEnergyCost,
+      meta:
+        displayedSalePrice > 0
+          ? formatPercent((unitEnergyCost / displayedSalePrice) * 100)
+          : undefined,
+      value: money(unitEnergyCost),
+    },
+    {
+      label: "Embalagem e acabamento",
+      amount: unitPackagingCost,
+      value: money(unitPackagingCost),
+    },
+    {
+      label: "Manutenção e extras",
+      amount: unitMaintenanceCost,
+      value: money(unitMaintenanceCost),
+    },
+    {
+      label: "Mão de obra",
+      amount: unitLaborCost,
+      value: money(unitLaborCost),
+    },
+    {
+      label: "Reserva de perdas",
+      amount: unitLossCost,
+      value: money(unitLossCost),
+    },
+  ].filter((item) => !isZeroValue(item.amount));
+
+  const channelCostItems: CostLineItem[] = [
+    {
+      label: feeLabel,
+      amount: unitMarketplaceFee,
+      meta:
+        displayedSalePrice > 0
+          ? formatPercent((unitMarketplaceFee / displayedSalePrice) * 100)
+          : undefined,
+      value: money(unitMarketplaceFee),
+    },
+    {
+      label: "Tarifa fixa marketplace",
+      amount: unitMarketplaceFixedFee,
+      value: money(unitMarketplaceFixedFee),
+    },
+    {
+      label: "Imposto",
+      amount: unitTaxCost,
+      meta:
+        displayedSalePrice > 0
+          ? formatPercent((unitTaxCost / displayedSalePrice) * 100)
+          : undefined,
+      value: money(unitTaxCost),
+    },
+    {
+      label: "Frete",
+      amount: unitShippingCost,
+      meta:
+        displayedSalePrice > 0
+          ? formatPercent((unitShippingCost / displayedSalePrice) * 100)
+          : undefined,
+      value: money(unitShippingCost),
+    },
+  ].filter((item) => !isZeroValue(item.amount));
 
   return (
     <aside className="xl:sticky xl:top-6">
       <section className="rounded-[26px] border border-[var(--panel-border)] bg-[var(--panel)] p-5 shadow-[0_18px_40px_rgba(0,0,0,0.22)] sm:p-6">
         <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
-          Detalhamento
+          Resultado final
         </p>
 
-        <div className="mt-6 rounded-[22px] border border-[var(--accent)]/30 bg-[var(--accent-soft)] p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
+        <div className="mt-6 rounded-[24px] border border-[var(--accent)]/30 bg-[linear-gradient(180deg,rgba(118,201,255,0.14),rgba(7,15,28,0.96))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-[var(--accent)]">
-                {salePriceLabel}
-              </p>
-
-              <p className="mt-2 text-xs text-[var(--muted)]">
                 {selectedChannelLabel}
               </p>
+              <h2 className="mt-2 text-3xl font-semibold tracking-[-0.06em] text-white">
+                {money(displayedSalePrice)}
+              </h2>
+              <p className="mt-2 text-sm text-[var(--muted)]">{salePriceLabel}</p>
             </div>
 
-            <strong className="text-right text-3xl font-semibold tracking-[-0.04em] text-[var(--accent)]">
-              {formatCurrency(
-                convertFromBRL(displayedSalePrice, displayCurrency, exchangeRates),
-                displayCurrency,
-              )}
-            </strong>
+            <span
+              className={`inline-flex rounded-full border px-3 py-1.5 text-[12px] font-medium ${marginBadge.className}`}
+            >
+              {marginBadge.label}
+            </span>
           </div>
 
           {form.isKit ? (
-            <div className="mt-4 rounded-2xl border border-[var(--accent)]/20 bg-black/10 p-4">
+            <div className="mt-4 rounded-2xl border border-white/10 bg-black/15 p-4">
               <SimpleLine label="Itens por kit" value={`${kitQuantity}`} muted />
               <SimpleLine
                 label="Valor por item do kit"
@@ -209,698 +334,414 @@ export function PricingResult({
           ) : null}
 
           {form.promoEnabled && promotionalSalePrice ? (
-            <div className="mt-5 rounded-2xl border border-[var(--accent)]/20 bg-black/10 p-4">
+            <div className="mt-4 rounded-2xl border border-white/10 bg-black/15 p-4">
               <SimpleLine
                 label="Preço original"
-                value={formatCurrency(
-                  convertFromBRL(baseSalePrice, displayCurrency, exchangeRates),
-                  displayCurrency,
-                )}
+                value={money(baseSalePrice)}
               />
-
               <SimpleLine
                 label="Desconto aplicado"
-                value={`${formatPercent(parsedPromoDiscount)}`}
+                value={formatPercent(parsedPromoDiscount)}
                 muted
               />
-
               <SimpleLine
                 label="Preço promocional"
-                value={formatCurrency(
-                  convertFromBRL(
-                    promotionalSalePrice,
-                    displayCurrency,
-                    exchangeRates,
-                  ),
-                  displayCurrency,
-                )}
+                value={money(promotionalSalePrice)}
                 highlight
               />
             </div>
           ) : null}
-        </div>
 
-        <div className="mt-7">
-          <SectionTitle title="Resumo financeiro" />
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <SummaryCard
-              label={
-                form.isKit ? "Quanto o cliente paga no kit" : "Quanto o cliente paga"
-              }
-              value={formatCurrency(
-                convertFromBRL(directSale.customerPrice, displayCurrency, exchangeRates),
-                displayCurrency,
-              )}
-              tone="accent"
-              helper={form.isKit ? `${perKitItemSalePrice} por item do kit` : undefined}
+              label="Lucro líquido"
+              value={money(unitProfit)}
+              helper={form.isKit ? `${perKitItemNetProfit} por item` : undefined}
+              tone={activeWorthIt ? "success" : "danger"}
             />
             <SummaryCard
-              label={
-                form.isKit
-                  ? "Quanto custa para produzir o kit"
-                  : "Quanto custa para produzir"
-              }
-              value={formatCurrency(
-                convertFromBRL(directSale.costTotal, displayCurrency, exchangeRates),
-                displayCurrency,
-              )}
-              helper={form.isKit ? `${perKitItemCost} por item do kit` : undefined}
-            />
-            <SummaryCard
-              label={form.isKit ? "Seu lucro bruto no kit" : "Seu lucro bruto"}
-              value={formatCurrency(
-                convertFromBRL(directSale.grossProfit, displayCurrency, exchangeRates),
-                displayCurrency,
-              )}
-              tone="success"
-              helper={form.isKit ? `${perKitItemProfit} por item do kit` : undefined}
-            />
-            <SummaryCard
-              label="Margem de lucro"
-              value={formatPercent(directSale.marginPercentage)}
+              label="Margem real"
+              value={formatPercent(realMarginPercentage)}
               helper={kitHelperText}
+              tone="accent"
+            />
+            <SummaryCard
+              label="Custo total neste canal"
+              value={money(unitTotalCost)}
             />
             <SummaryCard
               label="Preço mínimo seguro"
-              value={formatCurrency(
-                convertFromBRL(
-                  directSale.safeMinimumPrice,
-                  displayCurrency,
-                  exchangeRates,
-                ),
-                displayCurrency,
-              )}
-              helper="Piso recomendado para não apertar sua margem."
+              value={money(activeChannelSafeMinimumPrice)}
+              helper="Piso já considerando taxas e imposto."
+            />
+          </div>
+
+          <RecommendationBanner
+            className="mt-5"
+            tone={activeDecision.tone}
+            title={activeDecision.title}
+            message={activeDecision.message}
+          />
+        </div>
+
+        <div className="mt-7">
+          <SectionTitle title="Leitura rápida" />
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <SummaryCard
+              label="Cliente paga"
+              value={money(displayedSalePrice)}
+              helper={
+                form.isKit ? `${perKitItemSalePrice} por item do kit` : undefined
+              }
+              tone="accent"
             />
             <SummaryCard
-              label="Vale a pena?"
-              value={directSale.isWorthIt ? "Sim" : "Não"}
-              tone={directSale.isWorthIt ? "success" : "danger"}
-              helper={
-                directSale.isWorthIt
-                  ? "Venda direta saudável com o preço atual."
-                  : "O preço atual não cobre seus custos."
-              }
+              label="Taxas, imposto e frete"
+              value={money(channelChargesTotal)}
+              helper="Custos específicos do canal ativo."
+            />
+            <SummaryCard
+              label="Custo de produção"
+              value={money(unitProductionCost)}
+              helper="Material, energia, perdas e operação."
+            />
+            <SummaryCard
+              label="Sobra para você"
+              value={money(unitProfit)}
+              helper={`${money(profitPerHour)} / hora`}
+              tone={activeWorthIt ? "success" : "danger"}
             />
           </div>
         </div>
 
         <div className="mt-7">
-          <SectionTitle title="Custos e descontos" />
+          <SectionTitle title="Composição do custo" />
 
-          <div className="mt-3 space-y-1">
-            {unitMarketplaceFee > 0 ? (
-              <ResultLine
-                label={feeLabel}
-                meta={formatPercent(
-                  displayedSalePrice > 0
-                    ? (unitMarketplaceFee / displayedSalePrice) * 100
-                    : 0
-                )}
-                value={convertFromBRL(
-                  unitMarketplaceFee,
-                  displayCurrency,
-                  exchangeRates,
-                )}
-                currency={displayCurrency}
-                negative
-              />
-            ) : null}
-
-            {unitMarketplaceFixedFee > 0 ? (
-              <ResultLine
-                label="Tarifa fixa marketplace"
-                value={convertFromBRL(
-                  unitMarketplaceFixedFee,
-                  displayCurrency,
-                  exchangeRates,
-                )}
-                currency={displayCurrency}
-                negative
-              />
-            ) : null}
-
-            {unitTaxCost > 0 ? (
-              <ResultLine
-                label="Imposto"
-                meta={formatPercent(
-                  displayedSalePrice > 0
-                    ? (unitTaxCost / displayedSalePrice) * 100
-                    : 0
-                )}
-                value={convertFromBRL(
-                  unitTaxCost,
-                  displayCurrency,
-                  exchangeRates,
-                )}
-                currency={displayCurrency}
-                negative
-              />
-            ) : null}
-
-            {unitEnergyCost > 0 ? (
-              <ResultLine
-                label="Energia elétrica"
-                meta={formatPercent(
-                  displayedSalePrice > 0
-                    ? (unitEnergyCost / displayedSalePrice) * 100
-                    : 0
-                )}
-                value={convertFromBRL(
-                  unitEnergyCost,
-                  displayCurrency,
-                  exchangeRates,
-                )}
-                currency={displayCurrency}
-                negative
-              />
-            ) : null}
-
-            {unitMaterialCost > 0 ? (
-              <ResultLine
-                label="Filamento"
-                meta={`${materialGrams}g`}
-                value={convertFromBRL(
-                  unitMaterialCost,
-                  displayCurrency,
-                  exchangeRates,
-                )}
-                currency={displayCurrency}
-                negative
-              />
-            ) : null}
-
-            {unitPackagingCost > 0 ? (
-              <ResultLine
-                label="Embalagem e acabamento"
-                value={convertFromBRL(
-                  unitPackagingCost,
-                  displayCurrency,
-                  exchangeRates,
-                )}
-                currency={displayCurrency}
-                negative
-              />
-            ) : null}
-
-            {unitMaintenanceCost > 0 ? (
-              <ResultLine
-                label="Manutenção e extras"
-                value={convertFromBRL(
-                  unitMaintenanceCost,
-                  displayCurrency,
-                  exchangeRates,
-                )}
-                currency={displayCurrency}
-                negative
-              />
-            ) : null}
-
-            {unitLaborCost > 0 ? (
-              <ResultLine
-                label="Mão de obra"
-                value={convertFromBRL(
-                  unitLaborCost,
-                  displayCurrency,
-                  exchangeRates,
-                )}
-                currency={displayCurrency}
-                negative
-              />
-            ) : null}
-
-            {unitShippingCost > 0 ? (
-              <ResultLine
-                label="Frete"
-                meta={formatPercent(
-                  displayedSalePrice > 0
-                    ? (unitShippingCost / displayedSalePrice) * 100
-                    : 0
-                )}
-                value={convertFromBRL(
-                  unitShippingCost,
-                  displayCurrency,
-                  exchangeRates,
-                )}
-                currency={displayCurrency}
-                negative
-              />
-            ) : null}
-
-            {unitLossCost > 0 ? (
-              <ResultLine
-                label="Reserva de perdas"
-                value={convertFromBRL(
-                  unitLossCost,
-                  displayCurrency,
-                  exchangeRates,
-                )}
-                currency={displayCurrency}
-                negative
-              />
-            ) : null}
-          </div>
-        </div>
-
-        <div className="mt-6 border-t border-white/8 pt-5">
-          <ResultLine
-            label="Total neste canal"
-            meta="Custos do produto + taxas do canal ativo"
-            value={convertFromBRL(unitTotalCost, displayCurrency, exchangeRates)}
-            currency={displayCurrency}
-            negative
-            strong
-          />
-        </div>
-
-        <div className="mt-7 rounded-[24px] border border-[var(--accent)]/35 bg-[#0f1c33] px-5 py-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-          <div className="flex items-center gap-2.5">
-            <span className="text-[28px] leading-none text-[var(--accent)]">↗</span>
-            <p className="text-[14px] font-semibold tracking-[-0.03em] text-[var(--accent)]">
-              Lucro no canal ativo
-            </p>
-          </div>
-
-          <div className="mt-5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-3">
-            <strong className="min-w-0 text-2xl font-semibold leading-[0.92] tracking-[-0.07em] text-[var(--accent)]">
-              {formatCurrency(
-                convertFromBRL(unitProfit, displayCurrency, exchangeRates),
-                displayCurrency,
-              )}
-            </strong>
-
-            <div className="ml-auto flex shrink-0 items-baseline gap-2">
-              <span className="text-sm font-semibold tracking-[-0.04em] text-[var(--accent)]">
-                {formatPercent(realMarginPercentage)}
-              </span>
-
-              <span
-                className={`inline-flex rounded-full border px-3 py-1.5 text-[12px] font-medium ${marginBadge.className}`}
-              >
-                {marginBadge.label}
-              </span>
-            </div>
-          </div>
-
-            <div className="mt-5 flex items-center gap-2.5 text-[14px] text-[#9fa7bc]">
-            <span className="text-[18px] leading-none">◷</span>
-            <span>
-              {formatCurrency(
-                convertFromBRL(profitPerHour, displayCurrency, exchangeRates),
-                displayCurrency,
-              )}
-              /hora
-            </span>
-          </div>
-
-          {form.isKit ? (
-            <p className="mt-3 text-xs text-[#9fa7bc]">
-              Lucro medio por item do kit neste canal: {perKitItemNetProfit}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="mt-7 border-t border-white/8 pt-6">
-          <SectionTitle title="Consignado" />
-
-          <div className="mt-4 rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-5">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold text-white">
-                  Comissão do ponto de venda
-                </p>
-                <p className="mt-1 text-xs text-[var(--muted)]">
-                  Ajuste quanto a loja fica em cada venda.
-                </p>
-              </div>
-
-              <strong className="text-2xl font-semibold tracking-[-0.04em] text-[var(--accent)]">
-                {formatPercent(form.consignmentCommissionPercentage)}
-              </strong>
-            </div>
-
-            <input
-              type="range"
-              min="0"
-              max="60"
-              step="1"
-              value={form.consignmentCommissionPercentage}
-              onChange={(event) =>
-                onFieldChange(
-                  "consignmentCommissionPercentage",
-                  Number(event.target.value),
-                )
-              }
-              className="mt-5 w-full accent-[var(--accent)]"
+          <div className="mt-4 grid gap-4">
+            <CostGroupCard
+              title="Produção"
+              subtitle="O que custa fabricar uma unidade vendável."
+              items={productionCostItems}
+              totalLabel="Subtotal de produção"
+              totalValue={money(unitProductionCost)}
             />
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              {[25, 30].map((percentage) => (
-                <button
-                  key={percentage}
-                  type="button"
-                  onClick={() =>
-                    onFieldChange("consignmentCommissionPercentage", percentage)
-                  }
-                  className={`rounded-xl border px-3 py-2 text-sm transition ${
-                    form.consignmentCommissionPercentage === percentage
-                      ? "border-[var(--accent)]/45 bg-[var(--accent-soft)] text-[var(--accent)]"
-                      : "border-white/8 text-white hover:border-white/14 hover:bg-white/4"
-                  }`}
-                >
-                  {percentage}%
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <SummaryCard
-                label="Quanto o cliente paga"
-                value={formatCurrency(
-                  convertFromBRL(
-                    consignment.customerPrice,
-                    displayCurrency,
-                    exchangeRates,
-                  ),
-                  displayCurrency,
-                )}
-              />
-              <SummaryCard
-                label="Quanto a loja fica"
-                value={formatCurrency(
-                  convertFromBRL(
-                    consignment.storeCommissionValue,
-                    displayCurrency,
-                    exchangeRates,
-                  ),
-                  displayCurrency,
-                )}
-                helper={formatPercent(consignment.storeCommissionPercentage)}
-              />
-              <SummaryCard
-                label="Quanto volta para você"
-                value={formatCurrency(
-                  convertFromBRL(
-                    consignment.amountReturnedToYou,
-                    displayCurrency,
-                    exchangeRates,
-                  ),
-                  displayCurrency,
-                )}
-                tone="accent"
-              />
-              <SummaryCard
-                label="Seu lucro final"
-                value={formatCurrency(
-                  convertFromBRL(
-                    consignment.grossProfit,
-                    displayCurrency,
-                    exchangeRates,
-                  ),
-                  displayCurrency,
-                )}
-                tone={consignment.isWorthIt ? "success" : "danger"}
-              />
-            </div>
-
-            <RecommendationBanner
-              className="mt-5"
-              tone={consignment.tone}
-              title={consignment.isWorthIt ? "Vale a pena?" : "Atenção"}
-              message={consignment.recommendation}
+            <CostGroupCard
+              title="Canal e impostos"
+              subtitle="Descontos e cobranças que acontecem na venda."
+              items={channelCostItems}
+              totalLabel="Subtotal do canal"
+              totalValue={money(channelChargesTotal)}
             />
           </div>
-        </div>
 
-        <div className="mt-7 border-t border-white/8 pt-6">
-          <SectionTitle title="Revenda / atacado" />
-
-          <div className="mt-4 rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-5">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <SummaryCard
-                label="Custo total do produto"
-                value={formatCurrency(
-                  convertFromBRL(wholesale.costTotal, displayCurrency, exchangeRates),
-                  displayCurrency,
-                )}
-              />
-              <SummaryCard
-                label="Preço mínimo seguro"
-                value={formatCurrency(
-                  convertFromBRL(
-                    wholesale.safeMinimumPrice,
-                    displayCurrency,
-                    exchangeRates,
-                  ),
-                  displayCurrency,
-                )}
-                helper="Base mínima recomendada para lojistas."
-              />
-            </div>
-
-            <div className="mt-5 space-y-3">
-              {wholesale.tiers.map((tier) => (
-                <div
-                  key={tier.units}
-                  className="rounded-[20px] border border-white/8 bg-black/10 p-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-semibold text-white">
-                        {tier.label}
-                      </p>
-                      <p className="mt-1 text-xs text-[var(--muted)]">
-                        Multiplicador {tier.multiplier.toFixed(1).replace(".", ",")}x
-                      </p>
-                    </div>
-
-                    <strong className="text-xl font-semibold tracking-[-0.04em] text-[var(--accent)]">
-                      {formatCurrency(
-                        convertFromBRL(tier.unitPrice, displayCurrency, exchangeRates),
-                        displayCurrency,
-                      )}{" "}
-                      / un.
-                    </strong>
-                  </div>
-
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <SummaryCard
-                      label="Preço por unidade"
-                      value={formatCurrency(
-                        convertFromBRL(
-                          tier.unitPrice,
-                          displayCurrency,
-                          exchangeRates,
-                        ),
-                        displayCurrency,
-                      )}
-                    />
-                    <SummaryCard
-                      label="Lucro por unidade"
-                      value={formatCurrency(
-                        convertFromBRL(
-                          tier.unitProfit,
-                          displayCurrency,
-                          exchangeRates,
-                        ),
-                        displayCurrency,
-                      )}
-                      tone={tier.unitProfit > 0 ? "success" : "danger"}
-                    />
-                    <SummaryCard
-                      label="Lucro total estimado"
-                      value={formatCurrency(
-                        convertFromBRL(
-                          tier.totalProfit,
-                          displayCurrency,
-                          exchangeRates,
-                        ),
-                        displayCurrency,
-                      )}
-                    />
-                  </div>
-
-                  {tier.isCloseToCost ? (
-                    <RecommendationBanner
-                      className="mt-4"
-                      tone="warning"
-                      title="Margem apertada"
-                      message="Esse preço está muito perto do custo. Revise antes de fechar com a loja."
-                    />
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-7 border-t border-white/8 pt-6">
-          <SectionTitle title="Capacidade produtiva" />
-
-          <div className="mt-5 space-y-4">
-            <MetricLine
-              label="Produto"
-              value={productName || "Sem nome"}
-              muted={
-                form.isKit
-                  ? result.quantity > 1
-                    ? `${result.quantity} ${saleUnitLabelPlural} por ciclo · ${kitQuantity} item(ns) por kit`
-                    : `1 ${saleUnitLabel} por ciclo · ${kitQuantity} item(ns) por kit`
-                  : result.quantity > 1
-                    ? `${result.quantity} ${saleUnitLabelPlural} por ciclo`
-                    : `1 ${saleUnitLabel} por ciclo`
-              }
-            />
-
-            <MetricLine
-              label="Tempo total"
-              value={`${result.printTimeTotalHours
-                .toFixed(2)
-                .replace(".", ",")}h`}
-              muted={
-                result.quantity > 1
-                  ? [
-                      form.dividePrintTimeByPieces
-                        ? "tempo digitado do ciclo"
-                        : "tempo digitado por peça",
-                      form.divideFilamentByPieces
-                        ? "filamento digitado do ciclo"
-                        : "filamento digitado por peça",
-                    ].join(" · ")
-                  : "Base de energia e produtividade"
-              }
-            />
-
-            {result.quantity > 1 ? (
-              <MetricLine
-                label="Lucro por ciclo"
-                value={formatCurrency(
-                  convertFromBRL(lotProfit, displayCurrency, exchangeRates),
-                  displayCurrency,
-                )}
-                muted={`${result.quantity} unidade(s) produzidas por ciclo`}
-              />
-            ) : null}
-
-            <MetricLine
-              label="Lucro diário estimado (20h)"
-              value={formatCurrency(
-                convertFromBRL(
-                  estimatedDailyProfit,
-                  displayCurrency,
-                  exchangeRates,
-                ),
-                displayCurrency,
-              )}
-              muted={
-                result.quantity > 1 || form.isKit
-                  ? form.isKit
-                    ? `${formatDecimal(lotsPerDay)} ciclo(s)/dia · ${Math.round(
-                        unitsPerDay,
-                      )} ${saleUnitLabelPlural}/dia · ${Math.round(
-                        kitItemsPerDay,
-                      )} itens/dia`
-                    : `${formatDecimal(lotsPerDay)} ciclo(s)/dia · ${Math.round(
-                        unitsPerDay,
-                      )} un/dia`
-                  : undefined
-              }
-            />
-
-            <MetricLine
-              label="Lucro mensal estimado (30d)"
-              value={formatCurrency(
-                convertFromBRL(
-                  estimatedMonthlyProfit,
-                  displayCurrency,
-                  exchangeRates,
-                ),
-                displayCurrency,
-              )}
-              muted={
-                result.quantity > 1 || form.isKit
-                  ? form.isKit
-                    ? `${formatDecimal(lotsPerMonth)} ciclo(s)/mês · ${Math.round(
-                        unitsPerMonth,
-                      )} ${saleUnitLabelPlural}/mês · ${Math.round(
-                        kitItemsPerMonth,
-                      )} itens/mês`
-                    : `${formatDecimal(lotsPerMonth)} ciclo(s)/mês · ${Math.round(
-                        unitsPerMonth,
-                      )} un/mês`
-                  : undefined
-              }
+          <div className="mt-4 rounded-[20px] border border-white/8 bg-black/10 px-4 py-4">
+            <SimpleLine
+              label="Total do custo neste canal"
+              value={money(unitTotalCost)}
               highlight
             />
           </div>
         </div>
 
         <div className="mt-7 border-t border-white/8 pt-6">
-          <SectionTitle title="Configuração ativa" />
+          <AccordionSection
+            title="Outros cenários"
+            description="Abra para comparar formatos alternativos de venda."
+            defaultOpen
+          >
+            <div className="space-y-4">
+              <ScenarioCard
+                title="Venda direta"
+                description="Sem comissão de loja ou marketplace."
+              >
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <SummaryCard
+                    label={form.isKit ? "Cliente paga no kit" : "Cliente paga"}
+                    value={money(directSale.customerPrice)}
+                    helper={
+                      form.isKit ? `${perKitItemSalePrice} por item` : undefined
+                    }
+                    tone="accent"
+                  />
+                  <SummaryCard
+                    label={form.isKit ? "Custo total do kit" : "Custo total"}
+                    value={money(directSale.costTotal)}
+                    helper={form.isKit ? `${perKitItemCost} por item` : undefined}
+                  />
+                  <SummaryCard
+                    label="Lucro bruto"
+                    value={money(directSale.grossProfit)}
+                    helper={form.isKit ? `${perKitItemProfit} por item` : undefined}
+                    tone={directSale.isWorthIt ? "success" : "danger"}
+                  />
+                  <SummaryCard
+                    label="Margem"
+                    value={formatPercent(directSale.marginPercentage)}
+                  />
+                </div>
 
-          <div className="mt-4 rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-5">
-            <div className="space-y-3">
-              {summaryLines.map((line) => (
-                <SimpleLine key={line.label} label={line.label} value={line.value} />
-              ))}
+                <RecommendationBanner
+                  className="mt-4"
+                  tone={directSale.isWorthIt ? "good" : "danger"}
+                  title={
+                    directSale.isWorthIt
+                      ? "Direto funciona"
+                      : "Direto precisa ajuste"
+                  }
+                  message={
+                    directSale.isWorthIt
+                      ? "Na venda direta, o preço atual cobre o custo e deixa lucro."
+                      : "Na venda direta, o preço atual ainda não cobre o custo total."
+                  }
+                />
+              </ScenarioCard>
+
+              <AccordionSection
+                title="Consignado"
+                description="Simule rapidamente quanto o ponto parceiro fica."
+                compact
+              >
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-white">
+                      Comissão do ponto de venda
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--muted)]">
+                      Ajuste quanto a loja fica em cada venda.
+                    </p>
+                  </div>
+
+                  <strong className="text-2xl font-semibold tracking-[-0.04em] text-[var(--accent)]">
+                    {formatPercent(form.consignmentCommissionPercentage)}
+                  </strong>
+                </div>
+
+                <input
+                  type="range"
+                  min="0"
+                  max="60"
+                  step="1"
+                  value={form.consignmentCommissionPercentage}
+                  onChange={(event) =>
+                    onFieldChange(
+                      "consignmentCommissionPercentage",
+                      Number(event.target.value),
+                    )
+                  }
+                  className="mt-5 w-full accent-[var(--accent)]"
+                />
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {[25, 30].map((percentage) => (
+                    <button
+                      key={percentage}
+                      type="button"
+                      onClick={() =>
+                        onFieldChange("consignmentCommissionPercentage", percentage)
+                      }
+                      className={`rounded-xl border px-3 py-2 text-sm transition ${
+                        form.consignmentCommissionPercentage === percentage
+                          ? "border-[var(--accent)]/45 bg-[var(--accent-soft)] text-[var(--accent)]"
+                          : "border-white/8 text-white hover:border-white/14 hover:bg-white/4"
+                      }`}
+                    >
+                      {percentage}%
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <SummaryCard
+                    label="Cliente paga"
+                    value={money(consignment.customerPrice)}
+                  />
+                  <SummaryCard
+                    label="Loja fica com"
+                    value={money(consignment.storeCommissionValue)}
+                    helper={formatPercent(consignment.storeCommissionPercentage)}
+                  />
+                  <SummaryCard
+                    label="Volta para você"
+                    value={money(consignment.amountReturnedToYou)}
+                    tone="accent"
+                  />
+                  <SummaryCard
+                    label="Lucro final"
+                    value={money(consignment.grossProfit)}
+                    tone={consignment.isWorthIt ? "success" : "danger"}
+                  />
+                </div>
+
+                <RecommendationBanner
+                  className="mt-4"
+                  tone={consignment.tone}
+                  title={
+                    consignment.isWorthIt
+                      ? "Consignado viável"
+                      : "Consignado em risco"
+                  }
+                  message={consignment.recommendation}
+                />
+              </AccordionSection>
+
+              <AccordionSection
+                title="Revenda / atacado"
+                description="Faixas rápidas para negociar lote com lojista."
+                compact
+              >
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <SummaryCard
+                    label={form.isKit ? "Custo total do kit" : "Custo total do produto"}
+                    value={money(wholesale.costTotal)}
+                  />
+                  <SummaryCard
+                    label={form.isKit ? "Preço mínimo seguro do kit" : "Preço mínimo seguro"}
+                    value={money(wholesale.safeMinimumPrice)}
+                    helper="Base mínima recomendada para lojistas."
+                  />
+                </div>
+
+                <div className="mt-5 space-y-3">
+                  {wholesale.tiers.map((tier) => (
+                    <div
+                      key={tier.units}
+                      className="rounded-[18px] border border-white/8 bg-black/10 p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-semibold text-white">
+                            {tier.label}
+                          </p>
+                          <p className="mt-1 text-xs text-[var(--muted)]">
+                            Multiplicador{" "}
+                            {tier.multiplier.toFixed(1).replace(".", ",")}x
+                          </p>
+                        </div>
+
+                        <strong className="text-lg font-semibold tracking-[-0.04em] text-[var(--accent)]">
+                          {money(tier.unitPrice)} / {wholesaleUnitLabel}
+                        </strong>
+                      </div>
+
+                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                        <SummaryCard
+                          label={form.isKit ? "Preço por kit" : "Preço por unidade"}
+                          value={money(tier.unitPrice)}
+                        />
+                        <SummaryCard
+                          label={form.isKit ? "Lucro por kit" : "Lucro por unidade"}
+                          value={money(tier.unitProfit)}
+                          tone={tier.unitProfit > 0 ? "success" : "danger"}
+                        />
+                        <SummaryCard
+                          label="Lucro total estimado"
+                          value={money(tier.totalProfit)}
+                        />
+                      </div>
+
+                      {tier.isCloseToCost ? (
+                        <RecommendationBanner
+                          className="mt-4"
+                          tone="warning"
+                          title="Margem apertada"
+                          message="Esse preço está muito perto do custo. Revise antes de fechar com a loja."
+                        />
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </AccordionSection>
             </div>
-          </div>
+          </AccordionSection>
         </div>
 
         <div className="mt-7 border-t border-white/8 pt-6">
-          <SectionTitle title="Comparação dos modelos" />
+          <SectionTitle title="Produção e contexto" />
 
-          <div className="mt-4 overflow-hidden rounded-[22px] border border-white/8">
-            <div className="overflow-x-auto">
-              <table className="min-w-full bg-[var(--panel-soft)]">
-                <thead>
-                  <tr className="border-b border-white/8 text-left">
-                    <ComparisonHeader>Modelo</ComparisonHeader>
-                    <ComparisonHeader>Preço cobrado</ComparisonHeader>
-                    <ComparisonHeader>Comissão / desconto</ComparisonHeader>
-                    <ComparisonHeader>Quanto fica com você</ComparisonHeader>
-                    <ComparisonHeader>Custo</ComparisonHeader>
-                    <ComparisonHeader>Lucro final</ComparisonHeader>
-                  </tr>
-                </thead>
+          <div className="mt-4 rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-5">
+            <div className="space-y-4">
+              <MetricLine
+                label="Produto"
+                value={productName || "Sem nome"}
+                muted={productFlowSummary}
+              />
 
-                <tbody>
-                  <ComparisonRow
-                    label="Venda direta"
-                    price={directSale.customerPrice}
-                    commissionOrDiscount={0}
-                    amountReturned={directSale.amountReturnedToYou}
-                    cost={directSale.costTotal}
-                    profit={directSale.grossProfit}
-                    displayCurrency={displayCurrency}
-                    exchangeRates={exchangeRates}
-                  />
-                  <ComparisonRow
-                    label="Consignado"
-                    price={consignment.customerPrice}
-                    commissionOrDiscount={consignment.storeCommissionValue}
-                    amountReturned={consignment.amountReturnedToYou}
-                    cost={consignment.costTotal}
-                    profit={consignment.grossProfit}
-                    displayCurrency={displayCurrency}
-                    exchangeRates={exchangeRates}
-                  />
-                  <ComparisonRow
-                    label="Revenda (10 un.)"
-                    price={wholesaleBaseTier.unitPrice}
-                    commissionOrDiscount={Math.max(
-                      directSale.customerPrice - wholesaleBaseTier.unitPrice,
-                      0,
-                    )}
-                    amountReturned={wholesaleBaseTier.unitPrice}
-                    cost={wholesale.costTotal}
-                    profit={wholesaleBaseTier.unitProfit}
-                    displayCurrency={displayCurrency}
-                    exchangeRates={exchangeRates}
-                  />
-                </tbody>
-              </table>
+              <MetricLine
+                label="Tempo total"
+                value={`${result.printTimeTotalHours
+                  .toFixed(2)
+                  .replace(".", ",")}h`}
+                muted={[
+                  timeSummary,
+                  form.dividePrintTimeByPieces
+                    ? "tempo digitado do ciclo"
+                    : "tempo digitado por peça",
+                  form.divideFilamentByPieces
+                    ? "filamento digitado do ciclo"
+                    : "filamento digitado por peça",
+                ].join(" · ")}
+              />
+
+              {saleUnitsPerCycle !== 1 ? (
+                <MetricLine
+                  label="Lucro por ciclo"
+                  value={money(lotProfit)}
+                  muted={profitPerCycleSummary}
+                />
+              ) : null}
+
+              <MetricLine
+                label="Lucro diário estimado (20h)"
+                value={money(estimatedDailyProfit)}
+                muted={
+                  saleUnitsPerCycle !== 1 || form.isKit
+                    ? form.isKit
+                      ? `${formatDecimal(lotsPerDay)} ciclo(s)/dia · ${formatDecimal(
+                          unitsPerDay,
+                        )} ${saleUnitLabelPlural}/dia · ${formatDecimal(
+                          kitItemsPerDay,
+                        )} itens/dia`
+                      : `${formatDecimal(lotsPerDay)} ciclo(s)/dia · ${Math.round(
+                          unitsPerDay,
+                        )} un/dia`
+                    : undefined
+                }
+              />
+
+              <MetricLine
+                label="Lucro mensal estimado (30d)"
+                value={money(estimatedMonthlyProfit)}
+                muted={
+                  saleUnitsPerCycle !== 1 || form.isKit
+                    ? form.isKit
+                      ? `${formatDecimal(
+                          lotsPerMonth,
+                        )} ciclo(s)/mês · ${formatDecimal(
+                          unitsPerMonth,
+                        )} ${saleUnitLabelPlural}/mês · ${formatDecimal(
+                          kitItemsPerMonth,
+                        )} itens/mês`
+                      : `${formatDecimal(
+                          lotsPerMonth,
+                        )} ciclo(s)/mês · ${Math.round(unitsPerMonth)} un/mês`
+                    : undefined
+                }
+                highlight
+              />
+            </div>
+
+            <div className="mt-5 border-t border-white/8 pt-5">
+              <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
+                Configuração ativa
+              </p>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {summaryLines.map((line) => (
+                  <SimpleBlock key={line.label} label={line.label} value={line.value} />
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -925,49 +766,185 @@ function SectionTitle({ title }: { title: string }) {
   );
 }
 
-function ResultLine({
+function SummaryCard({
   label,
-  meta,
   value,
-  currency,
-  negative = false,
-  strong = false,
+  helper,
+  tone = "default",
 }: {
   label: string;
+  value: string;
+  helper?: string;
+  tone?: "default" | "accent" | "success" | "danger";
+}) {
+  const toneClassName = {
+    default: "border-white/8 bg-black/10 text-white",
+    accent:
+      "border-[var(--accent)]/25 bg-[var(--accent-soft)] text-[var(--accent)]",
+    success: "border-[#6fd3ea]/20 bg-[#102a34] text-[#9ae7f9]",
+    danger: "border-rose-400/20 bg-[#3d1b25] text-[#ffb1c0]",
+  }[tone];
+
+  return (
+    <div className={`rounded-[18px] border p-4 ${toneClassName}`}>
+      <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+        {label}
+      </p>
+      <strong className="mt-3 block text-lg font-semibold tracking-[-0.04em]">
+        {value}
+      </strong>
+
+      {helper ? (
+        <p className="mt-2 text-xs text-[var(--muted)]">{helper}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function RecommendationBanner({
+  title,
+  message,
+  tone,
+  className = "",
+}: {
+  title: string;
+  message: string;
+  tone: BannerTone;
+  className?: string;
+}) {
+  const toneClassName = {
+    good: "border-[#6fd3ea]/20 bg-[#102a34] text-[#9ae7f9]",
+    warning: "border-amber-400/20 bg-[#4f3c1e] text-[#ffcf6e]",
+    danger: "border-rose-400/20 bg-[#45202a] text-[#ffb1c0]",
+  }[tone];
+
+  return (
+    <div className={`rounded-[18px] border px-4 py-4 ${toneClassName} ${className}`}>
+      <p className="text-sm font-semibold">{title}</p>
+      <p className="mt-1 text-sm leading-6">{message}</p>
+    </div>
+  );
+}
+
+function AccordionSection({
+  title,
+  description,
+  children,
+  defaultOpen = false,
+  compact = false,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <details
+      className={`group overflow-hidden rounded-[22px] border border-white/8 bg-[var(--panel-soft)] ${
+        compact ? "" : "shadow-[0_10px_28px_rgba(0,0,0,0.16)]"
+      }`}
+      open={defaultOpen}
+    >
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-4 px-5 py-4 marker:content-none">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-white">{title}</p>
+          {description ? (
+            <p className="mt-1 text-xs text-[var(--muted)]">{description}</p>
+          ) : null}
+        </div>
+
+        <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/15 text-sm text-[var(--accent)] transition-transform duration-200 group-open:rotate-180">
+          ▾
+        </span>
+      </summary>
+
+      <div className="border-t border-white/8 px-5 py-5">{children}</div>
+    </details>
+  );
+}
+
+function CostGroupCard({
+  title,
+  subtitle,
+  items,
+  totalLabel,
+  totalValue,
+}: {
+  title: string;
+  subtitle: string;
+  items: CostLineItem[];
+  totalLabel: string;
+  totalValue: string;
+}) {
+  return (
+    <div className="rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-5">
+      <div>
+        <p className="text-sm font-semibold text-white">{title}</p>
+        <p className="mt-1 text-xs text-[var(--muted)]">{subtitle}</p>
+      </div>
+
+      <div className="mt-4 space-y-1">
+        {items.length > 0 ? (
+          items.map((item) => (
+            <CostLine
+              key={item.label}
+              label={item.label}
+              value={item.value}
+              meta={item.meta}
+            />
+          ))
+        ) : (
+          <p className="rounded-2xl border border-dashed border-white/10 px-4 py-4 text-sm text-[var(--muted)]">
+            Nenhum custo relevante registrado aqui para o cenário atual.
+          </p>
+        )}
+      </div>
+
+      <div className="mt-4 border-t border-white/8 pt-4">
+        <SimpleLine label={totalLabel} value={totalValue} highlight />
+      </div>
+    </div>
+  );
+}
+
+function CostLine({
+  label,
+  value,
+  meta,
+}: {
+  label: string;
+  value: string;
   meta?: string;
-  value: number;
-  currency: DisplayCurrency;
-  negative?: boolean;
-  strong?: boolean;
 }) {
   return (
     <div className="flex items-start justify-between gap-4 border-b border-white/6 py-4 last:border-b-0">
       <div>
-        <p
-          className={`text-sm ${
-            strong ? "font-semibold text-white" : "text-[#d6d9e8]"
-          }`}
-        >
-          {label}
-        </p>
-
-        {meta ? (
-          <p className="mt-1 text-xs text-[var(--muted)]">{meta}</p>
-        ) : null}
+        <p className="text-sm text-[#d6d9e8]">{label}</p>
+        {meta ? <p className="mt-1 text-xs text-[var(--muted)]">{meta}</p> : null}
       </div>
 
-      <span
-        className={`font-mono text-sm ${
-          strong
-            ? "font-semibold text-white"
-            : negative
-              ? "text-[#dc2828]"
-              : "text-[var(--accent)]"
-        }`}
-      >
-        {negative ? "- " : ""}
-        {formatCurrency(value, currency)}
-      </span>
+      <span className="font-mono text-sm text-[#dc2828]">- {value}</span>
+    </div>
+  );
+}
+
+function ScenarioCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-5">
+      <div>
+        <p className="text-sm font-semibold text-white">{title}</p>
+        <p className="mt-1 text-xs text-[var(--muted)]">{description}</p>
+      </div>
+      <div className="mt-5">{children}</div>
     </div>
   );
 }
@@ -1007,13 +984,11 @@ function MetricLine({
 function SimpleLine({
   label,
   value,
-  danger = false,
   highlight = false,
   muted = false,
 }: {
   label: string;
   value: string;
-  danger?: boolean;
   highlight?: boolean;
   muted?: boolean;
 }) {
@@ -1025,11 +1000,9 @@ function SimpleLine({
         className={`font-mono text-sm ${
           highlight
             ? "text-[var(--accent)]"
-            : danger
-              ? "text-[#dc2828]"
-              : muted
-                ? "text-[var(--muted)]"
-                : "text-white"
+            : muted
+              ? "text-[var(--muted)]"
+              : "text-white"
         }`}
       >
         {value}
@@ -1038,126 +1011,16 @@ function SimpleLine({
   );
 }
 
-function SummaryCard({
-  label,
-  value,
-  helper,
-  tone = "default",
-}: {
-  label: string;
-  value: string;
-  helper?: string;
-  tone?: "default" | "accent" | "success" | "danger";
-}) {
-  const toneClassName = {
-    default: "border-white/8 bg-black/10 text-white",
-    accent: "border-[var(--accent)]/25 bg-[var(--accent-soft)] text-[var(--accent)]",
-    success: "border-[#6fd3ea]/20 bg-[#102a34] text-[#9ae7f9]",
-    danger: "border-rose-400/20 bg-[#3d1b25] text-[#ffb1c0]",
-  }[tone];
-
+function SimpleBlock({ label, value }: { label: string; value: string }) {
   return (
-    <div className={`rounded-[18px] border p-4 ${toneClassName}`}>
+    <div className="rounded-[18px] border border-white/8 bg-black/10 p-4">
       <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
         {label}
       </p>
-      <strong className="mt-3 block text-lg font-semibold tracking-[-0.04em]">
+      <strong className="mt-2 block text-sm font-semibold text-white">
         {value}
       </strong>
-
-      {helper ? (
-        <p className="mt-2 text-xs text-[var(--muted)]">{helper}</p>
-      ) : null}
     </div>
-  );
-}
-
-function RecommendationBanner({
-  title,
-  message,
-  tone,
-  className = "",
-}: {
-  title: string;
-  message: string;
-  tone: "good" | "warning" | "danger";
-  className?: string;
-}) {
-  const toneClassName = {
-    good: "border-[#6fd3ea]/20 bg-[#102a34] text-[#9ae7f9]",
-    warning: "border-amber-400/20 bg-[#4f3c1e] text-[#ffcf6e]",
-    danger: "border-rose-400/20 bg-[#45202a] text-[#ffb1c0]",
-  }[tone];
-
-  return (
-    <div className={`rounded-[18px] border px-4 py-4 ${toneClassName} ${className}`}>
-      <p className="text-sm font-semibold">{title}</p>
-      <p className="mt-1 text-sm leading-6">{message}</p>
-    </div>
-  );
-}
-
-function ComparisonHeader({ children }: { children: React.ReactNode }) {
-  return (
-    <th className="px-4 py-4 font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
-      {children}
-    </th>
-  );
-}
-
-function ComparisonRow({
-  label,
-  price,
-  commissionOrDiscount,
-  amountReturned,
-  cost,
-  profit,
-  displayCurrency,
-  exchangeRates,
-}: {
-  label: string;
-  price: number;
-  commissionOrDiscount: number;
-  amountReturned: number;
-  cost: number;
-  profit: number;
-  displayCurrency: DisplayCurrency;
-  exchangeRates: CurrencyRates;
-}) {
-  return (
-    <tr className="border-b border-white/6 last:border-b-0">
-      <td className="px-4 py-4 text-sm font-semibold text-white">{label}</td>
-      <td className="px-4 py-4 text-sm text-white">
-        {formatCurrency(
-          convertFromBRL(price, displayCurrency, exchangeRates),
-          displayCurrency,
-        )}
-      </td>
-      <td className="px-4 py-4 text-sm text-[#f5c96e]">
-        {formatCurrency(
-          convertFromBRL(commissionOrDiscount, displayCurrency, exchangeRates),
-          displayCurrency,
-        )}
-      </td>
-      <td className="px-4 py-4 text-sm text-white">
-        {formatCurrency(
-          convertFromBRL(amountReturned, displayCurrency, exchangeRates),
-          displayCurrency,
-        )}
-      </td>
-      <td className="px-4 py-4 text-sm text-[#dc2828]">
-        {formatCurrency(
-          convertFromBRL(cost, displayCurrency, exchangeRates),
-          displayCurrency,
-        )}
-      </td>
-      <td className="px-4 py-4 text-sm font-semibold text-[var(--accent)]">
-        {formatCurrency(
-          convertFromBRL(profit, displayCurrency, exchangeRates),
-          displayCurrency,
-        )}
-      </td>
-    </tr>
   );
 }
 
@@ -1213,7 +1076,7 @@ function buildSummaryLines({
       value: printerLabel,
     },
     {
-      label: "Producao por ciclo",
+      label: "Produção por ciclo",
       value: form.multiplePiecesEnabled
         ? `${form.quantity} peças`
         : "1 peça por vez",
@@ -1239,12 +1102,12 @@ function buildSummaryLines({
   if (form.salesChannelId === "mercado-livre") {
     const listingTypeLabel =
       mercadoLivreListingTypes.find(
-        (listingType) => listingType.id === form.mercadoLivreListingTypeId
+        (listingType) => listingType.id === form.mercadoLivreListingTypeId,
       )?.label ?? "Classico";
 
     const rootCategoryLabel =
       mercadoLivreRootCategories.find(
-        (category) => category.key === form.mercadoLivreRootCategoryKey
+        (category) => category.key === form.mercadoLivreRootCategoryKey,
       )?.label ?? "Categoria ML";
 
     lines.push(
@@ -1274,7 +1137,7 @@ function buildSummaryLines({
         ),
         numericValue: form.shippingCost,
         hideWhenZero: true,
-      }
+      },
     );
   }
 
@@ -1304,7 +1167,7 @@ function buildSummaryLines({
           : "Desligado",
         numericValue: form.shopeeOwnCoupon ? form.shopeeCouponValue : undefined,
         hideWhenZero: form.shopeeOwnCoupon,
-      }
+      },
     );
   }
 
@@ -1321,7 +1184,7 @@ function buildSummaryLines({
       {
         label: "Parcelamento",
         value: form.amazonInstallmentsEnabled ? "Habilitado" : "Desligado",
-      }
+      },
     );
   }
 
@@ -1344,7 +1207,7 @@ function buildSummaryLines({
         value: formatPercent(form.directPixDiscountPercentage),
         numericValue: form.directPixDiscountPercentage,
         hideWhenZero: true,
-      }
+      },
     );
   }
 
@@ -1358,19 +1221,12 @@ function buildSummaryLines({
         label: "Comissão do parceiro",
         value: formatPercent(form.consignmentCommissionPercentage),
         numericValue: form.consignmentCommissionPercentage,
-      }
+      },
     );
   }
 
   return lines;
 }
-
-type SummaryLine = {
-  label: string;
-  value: string;
-  numericValue?: number;
-  hideWhenZero?: boolean;
-};
 
 const printerLabels: Record<string, string> = {
   "bambu-a1": "Bambu Lab A1",
@@ -1423,6 +1279,51 @@ function getMarginBadge(margin: number) {
   return {
     label: "Ajustar",
     className: "border-rose-400/20 bg-[#4a2029] text-[#ff9aaa]",
+  };
+}
+
+function getActiveDecision({
+  activeWorthIt,
+  marginPercentage,
+  safeGapValue,
+  selectedChannelLabel,
+  formattedSafeGap,
+}: {
+  activeWorthIt: boolean;
+  marginPercentage: number;
+  safeGapValue: number;
+  selectedChannelLabel: string;
+  formattedSafeGap: string;
+}) {
+  if (!activeWorthIt || safeGapValue < 0) {
+    return {
+      tone: "danger" as const,
+      title: "Preço precisa ajuste",
+      message: `No canal ${selectedChannelLabel}, o valor atual está ${formattedSafeGap} abaixo do mínimo seguro ou já entrou em lucro negativo.`,
+    };
+  }
+
+  if (marginPercentage < 12) {
+    return {
+      tone: "warning" as const,
+      title: "Venda viável, mas apertada",
+      message:
+        "O preço cobre o cenário atual, mas a folga de margem está curta para absorver desconto, erro ou oscilação de custo.",
+    };
+  }
+
+  if (marginPercentage < 25) {
+    return {
+      tone: "warning" as const,
+      title: "Venda saudável com pouca gordura",
+      message: `Você está ${formattedSafeGap} acima do mínimo seguro. Ainda vale revisar antes de fazer promoção.`,
+    };
+  }
+
+  return {
+    tone: "good" as const,
+    title: "Preço bem posicionado",
+    message: `Você está ${formattedSafeGap} acima do mínimo seguro neste canal, com margem confortável para operar.`,
   };
 }
 
