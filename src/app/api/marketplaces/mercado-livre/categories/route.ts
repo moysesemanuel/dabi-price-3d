@@ -4,9 +4,9 @@ import {
   type MercadoLivreOfficialCategoryPathNode,
 } from "@/lib/marketplaces/mercado-livre";
 
-type MercadoLivreCategoryListItem = {
-  id?: string;
-  name?: string;
+type MercadoLivreDomainDiscoveryItem = {
+  category_id?: string;
+  category_name?: string;
 };
 
 type MercadoLivreCategoryDetail = {
@@ -26,20 +26,20 @@ type MercadoLivreCategoryDetail = {
 type MercadoLivreCategoriesResponse = {
   category: MercadoLivreOfficialCategoryNode | null;
   categories: MercadoLivreOfficialCategoryNode[];
-  warning?: string;
 };
 
-const ROOT_CATEGORIES_BLOCKED_WARNING =
-  "O Mercado Livre bloqueou a listagem pública das categorias raiz neste momento. Use a categoria prevista automaticamente ou uma categoria já vinculada.";
+const GENERIC_CATEGORIES_ERROR =
+  "Falha ao carregar categorias do Mercado Livre.";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const categoryId = searchParams.get("categoryId");
+  const query = searchParams.get("q");
 
   try {
     const payload = categoryId
       ? await fetchChildCategories(categoryId)
-      : await fetchRootCategories();
+      : await searchCategories(query);
 
     return Response.json(payload);
   } catch (error) {
@@ -55,32 +55,52 @@ export async function GET(request: Request) {
   }
 }
 
-async function fetchRootCategories(): Promise<MercadoLivreCategoriesResponse> {
-  const response = await fetch("https://api.mercadolibre.com/sites/MLB/categories", {
-    headers: {
-      accept: "application/json",
-    },
-    next: { revalidate: 60 * 60 * 24 },
-  });
+async function searchCategories(
+  query: string | null,
+): Promise<MercadoLivreCategoriesResponse> {
+  const sanitizedQuery = query?.trim() ?? "";
 
-  if (!response.ok) {
-    if (response.status === 403) {
-      return {
-        category: null,
-        categories: [],
-        warning: ROOT_CATEGORIES_BLOCKED_WARNING,
-      };
-    }
-
-    throw new Error(
-      `Mercado Livre categories(root) returned ${response.status}.`,
-    );
+  if (sanitizedQuery.length < 3) {
+    return {
+      category: null,
+      categories: [],
+    };
   }
 
-  const payload = (await response.json()) as MercadoLivreCategoryListItem[];
-  const categories = payload
-    .map((item) => toOfficialCategoryNode(item, []))
-    .filter((item): item is MercadoLivreOfficialCategoryNode => item !== null);
+  const discoveryQueries = buildDiscoveryQueries(sanitizedQuery);
+  const discoveredItems = await Promise.all(
+    discoveryQueries.map((discoveryQuery) => fetchDomainDiscovery(discoveryQuery)),
+  );
+  const uniqueCategoryIds = Array.from(
+    new Set(
+      discoveredItems
+        .flat()
+        .map((item) => item.category_id)
+        .filter((item): item is string => Boolean(item)),
+    ),
+  );
+
+  if (uniqueCategoryIds.length === 0) {
+    return {
+      category: null,
+      categories: [],
+    };
+  }
+
+  const detailResults = await Promise.allSettled(
+    uniqueCategoryIds.map((categoryId) => fetchCategoryDetail(categoryId)),
+  );
+  const rankedCategories = detailResults
+    .flatMap((result) =>
+      result.status === "fulfilled"
+        ? buildRankedCandidatesFromDetail(result.value, sanitizedQuery)
+        : [],
+    )
+    .filter((candidate) => candidate.score > 0)
+    .sort((left, right) => right.score - left.score || left.node.name.localeCompare(right.node.name));
+  const categories = Array.from(
+    new Map(rankedCategories.map((candidate) => [candidate.node.id, candidate.node])).values(),
+  );
 
   return {
     category: null,
@@ -88,9 +108,29 @@ async function fetchRootCategories(): Promise<MercadoLivreCategoriesResponse> {
   };
 }
 
-async function fetchChildCategories(
-  categoryId: string,
-): Promise<MercadoLivreCategoriesResponse> {
+async function fetchDomainDiscovery(query: string) {
+  const searchParams = new URLSearchParams({
+    limit: "8",
+    q: query,
+  });
+  const response = await fetch(
+    `https://api.mercadolibre.com/sites/MLB/domain_discovery/search?${searchParams.toString()}`,
+    {
+      headers: {
+        accept: "application/json",
+      },
+      next: { revalidate: 60 * 30 },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(GENERIC_CATEGORIES_ERROR);
+  }
+
+  return (await response.json()) as MercadoLivreDomainDiscoveryItem[];
+}
+
+async function fetchCategoryDetail(categoryId: string) {
   const response = await fetch(
     `https://api.mercadolibre.com/categories/${categoryId}`,
     {
@@ -102,12 +142,16 @@ async function fetchChildCategories(
   );
 
   if (!response.ok) {
-    throw new Error(
-      `Mercado Livre categories(detail) returned ${response.status}.`,
-    );
+    throw new Error(GENERIC_CATEGORIES_ERROR);
   }
 
-  const payload = (await response.json()) as MercadoLivreCategoryDetail;
+  return (await response.json()) as MercadoLivreCategoryDetail;
+}
+
+async function fetchChildCategories(
+  categoryId: string,
+): Promise<MercadoLivreCategoriesResponse> {
+  const payload = await fetchCategoryDetail(categoryId);
   const category = toCategoryDetailNode(payload);
 
   if (!category) {
@@ -121,27 +165,6 @@ async function fetchChildCategories(
   return {
     category,
     categories,
-  };
-}
-
-function toOfficialCategoryNode(
-  item: MercadoLivreCategoryListItem,
-  parentPath: MercadoLivreOfficialCategoryPathNode[],
-): MercadoLivreOfficialCategoryNode | null {
-  if (!item.id || !item.name) {
-    return null;
-  }
-
-  const pathFromRoot = [...parentPath, { id: item.id, name: item.name }];
-  const rootCategoryName = pathFromRoot[0]?.name ?? item.name;
-
-  return {
-    id: item.id,
-    name: item.name,
-    isLeaf: false,
-    childrenCount: 0,
-    pathFromRoot,
-    rootCategoryKey: inferMercadoLivreRootCategoryKey(rootCategoryName),
   };
 }
 
@@ -170,6 +193,151 @@ function toCategoryDetailNode(
     pathFromRoot,
     rootCategoryKey: inferMercadoLivreRootCategoryKey(rootCategoryName),
   };
+}
+
+function buildRankedCandidatesFromDetail(
+  payload: MercadoLivreCategoryDetail,
+  query: string,
+) {
+  const detailNode = toCategoryDetailNode(payload);
+
+  if (!detailNode) {
+    return [];
+  }
+
+  const rootPathNode = detailNode.pathFromRoot[0];
+  const rootNode =
+    rootPathNode && rootPathNode.id !== detailNode.id
+      ? {
+          id: rootPathNode.id,
+          name: rootPathNode.name,
+          isLeaf: false,
+          childrenCount: 1,
+          pathFromRoot: [rootPathNode],
+          rootCategoryKey: inferMercadoLivreRootCategoryKey(rootPathNode.name),
+        }
+      : null;
+
+  return [
+    {
+      node: detailNode,
+      score: scoreCategoryMatch(detailNode, query),
+    },
+    ...(rootNode
+      ? [
+          {
+            node: rootNode,
+            score: scoreCategoryMatch(rootNode, query) + 25,
+          },
+        ]
+      : []),
+  ];
+}
+
+function scoreCategoryMatch(
+  category: MercadoLivreOfficialCategoryNode,
+  query: string,
+) {
+  const normalizedQuery = normalizeCategorySearchText(query);
+  const queryTokens = normalizedQuery
+    .split(" ")
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2);
+
+  if (queryTokens.length === 0) {
+    return 0;
+  }
+
+  const normalizedName = normalizeCategorySearchText(category.name);
+  const normalizedPath = normalizeCategorySearchText(
+    category.pathFromRoot.map((node) => node.name).join(" "),
+  );
+  const nameWords = normalizedName.split(" ").filter(Boolean);
+  const pathWords = normalizedPath.split(" ").filter(Boolean);
+  const matchedTokens = queryTokens.filter((token) =>
+    [...nameWords, ...pathWords].some((word) => isRelevantWordMatch(word, token)),
+  );
+
+  if (matchedTokens.length === 0) {
+    return 0;
+  }
+
+  let score = matchedTokens.length * 20;
+
+  if (startsWithRelevantWords(nameWords, queryTokens)) {
+    score += 80;
+  } else if (startsWithRelevantWords(pathWords, queryTokens)) {
+    score += 60;
+  }
+
+  if (includesRelevantWords(nameWords, queryTokens)) {
+    score += 30;
+  }
+
+  if (category.pathFromRoot.length === 1) {
+    score += 10;
+  }
+
+  return score;
+}
+
+function buildDiscoveryQueries(query: string) {
+  const normalizedQuery = normalizeCategorySearchText(query);
+  const queryTokens = normalizedQuery
+    .split(" ")
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2);
+  const joinedTokens = queryTokens.join(" ");
+  const firstTwoTokens = queryTokens.slice(0, 2).join(" ");
+
+  return Array.from(
+    new Set(
+      [query.trim(), joinedTokens, firstTwoTokens, queryTokens[0]]
+        .map((item) => item?.trim() ?? "")
+        .filter((item) => item.length >= 3),
+    ),
+  ).slice(0, 4);
+}
+
+function normalizeCategorySearchText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function isRelevantWordMatch(word: string, token: string) {
+  if (word === token) {
+    return true;
+  }
+
+  if (token.length >= 5 && word.startsWith(token)) {
+    return true;
+  }
+
+  return false;
+}
+
+function startsWithRelevantWords(words: string[], queryTokens: string[]) {
+  if (queryTokens.length === 0 || words.length < queryTokens.length) {
+    return false;
+  }
+
+  return queryTokens.every((token, index) =>
+    isRelevantWordMatch(words[index] ?? "", token),
+  );
+}
+
+function includesRelevantWords(words: string[], queryTokens: string[]) {
+  if (queryTokens.length === 0) {
+    return false;
+  }
+
+  return queryTokens.every((token) =>
+    words.some((word) => isRelevantWordMatch(word, token)),
+  );
 }
 
 function toChildCategoryNode(

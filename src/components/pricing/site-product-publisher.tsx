@@ -119,6 +119,12 @@ export function SiteProductPublisher({
     () => formatCurrency(pricingContext.salePriceInCents / 100, "BRL"),
     [pricingContext.salePriceInCents],
   );
+  const resolvedCategory =
+    form === null
+      ? ""
+      : hasTouchedCategory
+        ? form.category
+        : inferMarketplaceCategoryName(pricingContext, form.category);
 
   const isSiteProductMode = mode === "site-product";
   const isUploadingImages = imageUploadState !== "idle";
@@ -126,14 +132,14 @@ export function SiteProductPublisher({
     form &&
     form.name.trim().length > 0 &&
     form.slug.trim().length > 0 &&
-    form.category.trim().length > 0 &&
+    resolvedCategory.trim().length > 0 &&
     form.material.trim().length > 0 &&
     form.dimensions.trim().length > 0 &&
     form.description.trim().length > 0;
   const isErpFormValid =
     form &&
     form.name.trim().length > 0 &&
-    form.category.trim().length > 0 &&
+    resolvedCategory.trim().length > 0 &&
     form.usageType.length > 0;
 
   function activateSiteProductMode() {
@@ -325,7 +331,7 @@ export function SiteProductPublisher({
         name: form.name.trim(),
         slug: slugify(form.slug),
         priceInCents: pricingContext.salePriceInCents,
-        category: form.category,
+        category: resolvedCategory.trim(),
         material: form.material.trim(),
         dimensions: form.dimensions.trim(),
         accentColor: normalizeHexColor(form.accentColor),
@@ -379,7 +385,7 @@ export function SiteProductPublisher({
         shortName: normalizeNullableString(form.shortName),
         sku: normalizeNullableString(form.sku),
         description: normalizeNullableString(form.description),
-        category: form.category.trim(),
+        category: resolvedCategory.trim(),
         material: normalizeNullableString(form.material),
         dimensions: normalizeNullableString(form.dimensions),
         tags: parseLinesOrCsv(form.tagsText),
@@ -395,12 +401,12 @@ export function SiteProductPublisher({
         ),
         mercadoLivreCategoryName:
           pricingContext.salesChannelId === "mercado-livre"
-            ? normalizeNullableString(form.category)
+            ? normalizeNullableString(resolvedCategory)
             : normalizeNullableString(form.mercadoLivreCategoryName),
         shopeeCategoryId: normalizeNullableString(form.shopeeCategoryId),
         shopeeCategoryName:
           pricingContext.salesChannelId === "shopee"
-            ? normalizeNullableString(form.category)
+            ? normalizeNullableString(resolvedCategory)
             : normalizeNullableString(form.shopeeCategoryName),
       });
 
@@ -637,7 +643,7 @@ export function SiteProductPublisher({
               <div className="mt-5 grid gap-4 md:grid-cols-2">
                 <Field
                   label="Categoria principal"
-                  value={form.category}
+                  value={resolvedCategory}
                   onChange={(value) => {
                     setHasTouchedCategory(true);
                     updateField("category", value);
@@ -729,7 +735,7 @@ export function SiteProductPublisher({
                 <SummaryLine label="Produto" value={form.name || "Sem nome"} />
                 <SummaryLine label="SKU" value={form.sku || "-"} />
                 <SummaryLine label="Slug" value={slugify(form.slug) || "-"} />
-                <SummaryLine label="Categoria" value={form.category} />
+                <SummaryLine label="Categoria" value={resolvedCategory} />
                 <SummaryLine label="Uso no ERP" value={form.usageType} />
                 <SummaryLine
                   label="Destaque"
@@ -879,10 +885,7 @@ function inferMarketplaceCategoryName(
     pricingContext.mercadoLivreCategoryName ?? "",
   );
 
-  if (
-    pricingContext.salesChannelId === "mercado-livre" &&
-    officialMercadoLivreCategory
-  ) {
+  if (officialMercadoLivreCategory) {
     return officialMercadoLivreCategory;
   }
 

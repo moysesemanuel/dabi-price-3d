@@ -12,7 +12,6 @@ import {
 } from "@/lib/currency/display-currency";
 import {
   mercadoLivreListingTypes,
-  mercadoLivreRootCategories,
 } from "@/lib/marketplaces/mercado-livre";
 import { type PricingFormState } from "@/lib/pricing/initial-pricing-form";
 import { salesChannels } from "@/lib/pricing/sales-channels";
@@ -377,29 +376,14 @@ export function PricingForm({
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_180px]">
-              <SelectField
-                label="Categoria (Classico / Premium)"
-                value={form.mercadoLivreRootCategoryKey}
-                options={mercadoLivreRootCategories.map((category) => ({
-                  value: category.key,
-                  label: category.label,
-                }))}
-                onChange={(value) =>
-                  onChange("mercadoLivreRootCategoryKey", value)
-                }
-              />
-              <Field
-                label="Taxa aplicada"
-                value={effectiveMarketplaceFeePercentage
-                  .toFixed(1)
-                  .replace(".", ",")}
-                onChange={() => undefined}
-                suffix="%"
-                disabled
-                note="Comissao"
-              />
-            </div>
+            <Field
+              label="Taxa aplicada"
+              value={effectiveMarketplaceFeePercentage.toFixed(1).replace(".", ",")}
+              onChange={() => undefined}
+              suffix="%"
+              disabled
+              note="Comissao"
+            />
 
             <MercadoLivreCategoryPicker
               selectedCategoryId={form.mercadoLivreOfficialCategoryId}

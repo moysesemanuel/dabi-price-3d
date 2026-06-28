@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type {
   MercadoLivreOfficialCategoryNode,
   MercadoLivreRootCategoryKey,
@@ -21,7 +21,6 @@ type MercadoLivreCategoriesResponse = {
   category: MercadoLivreOfficialCategoryNode | null;
   categories: MercadoLivreOfficialCategoryNode[];
   error?: string;
-  warning?: string;
 };
 
 export function MercadoLivreCategoryPicker({
@@ -42,9 +41,10 @@ export function MercadoLivreCategoryPicker({
   >({});
   const [expandedCategoryIds, setExpandedCategoryIds] = useState<string[]>([]);
   const [loadingCategoryIds, setLoadingCategoryIds] = useState<string[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [hasSearched, setHasSearched] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [warningMessage, setWarningMessage] = useState<string | null>(null);
-  const [hasLoadedRoots, setHasLoadedRoots] = useState(false);
 
   const selectedCategoryLabel = useMemo(() => {
     if (selectedCategoryName.trim()) {
@@ -59,22 +59,32 @@ export function MercadoLivreCategoryPicker({
   }, [selectedCategoryId, selectedCategoryName]);
 
   const loadCategories = useCallback(async (categoryId?: string) => {
-    const isRootRequest = !categoryId;
+    const isSearchRequest = !categoryId;
 
     if (categoryId) {
       setLoadingCategoryIds((current) => [...current, categoryId]);
+    } else {
+      setIsSearching(true);
     }
 
     setErrorMessage(null);
-    if (isRootRequest) {
-      setWarningMessage(null);
-    }
 
     try {
       const searchParams = new URLSearchParams();
 
       if (categoryId) {
         searchParams.set("categoryId", categoryId);
+      } else {
+        const sanitizedQuery = searchQuery.trim();
+
+        if (sanitizedQuery.length < 3) {
+          setHasSearched(true);
+          setRootCategories([]);
+          setErrorMessage("Digite pelo menos 3 caracteres para buscar categorias.");
+          return;
+        }
+
+        searchParams.set("q", sanitizedQuery);
       }
 
       const response = await fetch(
@@ -98,10 +108,9 @@ export function MercadoLivreCategoryPicker({
         );
       }
 
-      if (isRootRequest) {
+      if (isSearchRequest) {
         setRootCategories(payload.categories);
-        setWarningMessage(payload.warning ?? null);
-        setHasLoadedRoots(true);
+        setHasSearched(true);
       } else if (categoryId) {
         setChildrenByParentId((current) => ({
           ...current,
@@ -125,49 +134,18 @@ export function MercadoLivreCategoryPicker({
       }
     } catch (error) {
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Falha ao carregar categorias do Mercado Livre.",
+        sanitizeMercadoLivreCategoriesErrorMessage(error),
       );
     } finally {
       if (categoryId) {
         setLoadingCategoryIds((current) =>
           current.filter((currentId) => currentId !== categoryId),
         );
+      } else {
+        setIsSearching(false);
       }
     }
-  }, [selectedCategoryId]);
-
-  useEffect(() => {
-    if (!isOpen || hasLoadedRoots) {
-      return;
-    }
-
-    void loadCategories();
-  }, [hasLoadedRoots, isOpen, loadCategories]);
-
-  useEffect(() => {
-    if (
-      !isOpen ||
-      !hasLoadedRoots ||
-      rootCategories.length > 0 ||
-      !selectedCategoryId.trim() ||
-      selectedCategoryId in childrenByParentId ||
-      loadingCategoryIds.includes(selectedCategoryId)
-    ) {
-      return;
-    }
-
-    void loadCategories(selectedCategoryId);
-  }, [
-    childrenByParentId,
-    hasLoadedRoots,
-    isOpen,
-    loadCategories,
-    loadingCategoryIds,
-    rootCategories.length,
-    selectedCategoryId,
-  ]);
+  }, [searchQuery, selectedCategoryId]);
 
   function toggleCategory(category: MercadoLivreOfficialCategoryNode) {
     const isExpanded = expandedCategoryIds.includes(category.id);
@@ -223,7 +201,19 @@ export function MercadoLivreCategoryPicker({
 
             <button
               type="button"
-              onClick={() => setIsOpen(true)}
+              onClick={() => {
+                setIsOpen(true);
+                if (!searchQuery.trim() && selectedCategoryName.trim()) {
+                  setSearchQuery(selectedCategoryName.trim());
+                }
+                if (
+                  selectedCategoryId.trim() &&
+                  !(selectedCategoryId in detailsById) &&
+                  !loadingCategoryIds.includes(selectedCategoryId)
+                ) {
+                  void loadCategories(selectedCategoryId);
+                }
+              }}
               className="rounded-xl border border-[var(--accent)]/25 bg-[var(--accent-soft)] px-4 py-2 text-sm font-medium text-[var(--accent)] transition hover:border-[var(--accent)]/40"
             >
               Selecionar categoria
@@ -244,8 +234,8 @@ export function MercadoLivreCategoryPicker({
                   Escolha a categoria do anúncio
                 </h3>
                 <p className="mt-2 text-sm text-[var(--muted)]">
-                  O seletor carrega as categorias públicas do site MLB e expande as
-                  subcategorias em acordeão.
+                  Busque a categoria oficial do Mercado Livre e expanda as
+                  subcategorias quando necessário.
                 </p>
               </div>
 
@@ -259,26 +249,41 @@ export function MercadoLivreCategoryPicker({
             </div>
 
             <div className="overflow-y-auto px-5 py-5 sm:px-6">
+              <div className="mb-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px]">
+                <input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Buscar categoria oficial"
+                  className="w-full rounded-[20px] border border-white/10 bg-[#0d182b] px-4 py-3 text-base text-white outline-none transition placeholder:text-[#5d7398] focus:border-[var(--accent)]/40"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => void loadCategories()}
+                  disabled={isSearching}
+                  className="rounded-[20px] border border-[var(--accent)]/25 bg-[var(--accent-soft)] px-4 py-3 text-sm font-medium text-[var(--accent)] transition hover:border-[var(--accent)]/40 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSearching ? "Buscando..." : "Buscar"}
+                </button>
+              </div>
+
               {errorMessage ? (
                 <div className="mb-4 rounded-[20px] border border-[#dc2828]/25 bg-[#dc2828]/10 px-4 py-4 text-sm text-[#ffb3b3]">
                   {errorMessage}
                 </div>
               ) : null}
 
-              {warningMessage ? (
-                <div className="mb-4 rounded-[20px] border border-[#f4b740]/25 bg-[#f4b740]/10 px-4 py-4 text-sm text-[#ffe3a3]">
-                  {warningMessage}
-                </div>
-              ) : null}
-
-              {rootCategories.length === 0 && !hasLoadedRoots ? (
+              {isSearching ? (
                 <div className="rounded-[22px] border border-white/8 bg-[var(--panel-soft)] px-5 py-5 text-sm text-[var(--muted)]">
-                  Carregando categorias do Mercado Livre...
+                  Buscando categorias do Mercado Livre...
+                </div>
+              ) : !hasSearched && rootCategories.length === 0 ? (
+                <div className="rounded-[22px] border border-white/8 bg-[var(--panel-soft)] px-5 py-5 text-sm text-[var(--muted)]">
+                  Digite o nome do produto ou da categoria para buscar categorias oficiais.
                 </div>
               ) : rootCategories.length === 0 ? (
                 <div className="rounded-[22px] border border-dashed border-white/10 bg-[var(--panel-soft)] px-5 py-5 text-sm text-[var(--muted)]">
-                  Nenhuma categoria raiz foi carregada. Se a categoria oficial já
-                  apareceu automaticamente na precificadora, use esse valor no ERP.
+                  Nenhuma categoria foi encontrada para essa busca.
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -302,6 +307,19 @@ export function MercadoLivreCategoryPicker({
       ) : null}
     </>
   );
+}
+
+function sanitizeMercadoLivreCategoriesErrorMessage(error: unknown) {
+  if (
+    error instanceof Error &&
+    error.message.includes("Mercado Livre categories(")
+  ) {
+    return "Falha ao carregar categorias do Mercado Livre.";
+  }
+
+  return error instanceof Error
+    ? error.message
+    : "Falha ao carregar categorias do Mercado Livre.";
 }
 
 function CategoryAccordion({
