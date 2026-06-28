@@ -69,6 +69,7 @@ export function calculateChannelSafeMinimumPrice(input: {
   baseCost: number;
   variableFeePercentage: number;
   fixedFee: number;
+  targetMarginPercentage?: number;
   multiplier?: number;
 }) {
   const safeBaseCost = sanitizeNumber(input.baseCost);
@@ -78,11 +79,23 @@ export function calculateChannelSafeMinimumPrice(input: {
     0.99,
   );
   const safeFixedFee = sanitizeNumber(input.fixedFee);
+  const safeTargetMarginRate = clamp(
+    sanitizeNumber(input.targetMarginPercentage) / 100,
+    0,
+    0.99,
+  );
   const safeMultiplier = Math.max(sanitizeNumber(input.multiplier ?? 1.8), 1);
-  const targetNetAmount = safeBaseCost * safeMultiplier + safeFixedFee;
+  const targetNetAmount =
+    input.targetMarginPercentage !== undefined
+      ? safeBaseCost + safeFixedFee
+      : safeBaseCost * safeMultiplier + safeFixedFee;
+  const requiredRetentionRate =
+    input.targetMarginPercentage !== undefined
+      ? 1 - safeVariableFeeRate - safeTargetMarginRate
+      : 1 - safeVariableFeeRate;
   const suggestedPrice =
-    safeVariableFeeRate < 1
-      ? targetNetAmount / (1 - safeVariableFeeRate)
+    requiredRetentionRate > 0
+      ? targetNetAmount / requiredRetentionRate
       : safeBaseCost;
 
   return Math.max(safeBaseCost, roundToHalfStep(suggestedPrice));

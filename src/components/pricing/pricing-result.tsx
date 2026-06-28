@@ -133,6 +133,7 @@ export function PricingResult({
     variableFeePercentage:
       effectiveMarketplaceFeePercentage + form.taxPercentage,
     fixedFee: unitMarketplaceFixedFee,
+    targetMarginPercentage: form.profitMarginPercentage,
   });
   const consignment = calculateConsignment({
     customerPrice: displayedSalePrice,
@@ -372,7 +373,7 @@ export function PricingResult({
             <SummaryCard
               label="Preço mínimo seguro"
               value={money(activeChannelSafeMinimumPrice)}
-              helper="Piso já considerando taxas e imposto."
+              helper="Piso já considerando taxas, imposto e margem alvo."
             />
           </div>
 
