@@ -41,6 +41,7 @@ export type PricingFormState = {
   mercadoLivreRootCategoryKey: MercadoLivreRootCategoryKey;
   mercadoLivreListingTypeId: MercadoLivreListingTypeId;
   mercadoLivreOfficialCategoryId: string;
+  mercadoLivreOfficialCategoryName: string;
   mercadoLivreFreeShipping: boolean;
   mercadoLivrePackageHeightCm: number;
   mercadoLivrePackageWidthCm: number;
@@ -114,6 +115,7 @@ export const initialPricingForm: PricingFormState = {
   mercadoLivreRootCategoryKey: "casa-e-moveis",
   mercadoLivreListingTypeId: "gold_special",
   mercadoLivreOfficialCategoryId: "",
+  mercadoLivreOfficialCategoryName: "",
   mercadoLivreFreeShipping: true,
   mercadoLivrePackageHeightCm: 9,
   mercadoLivrePackageWidthCm: 17,

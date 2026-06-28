@@ -38,6 +38,20 @@ export type MercadoLivreFeePreview = {
   note: string;
 };
 
+export type MercadoLivreOfficialCategoryPathNode = {
+  id: string;
+  name: string;
+};
+
+export type MercadoLivreOfficialCategoryNode = {
+  id: string;
+  name: string;
+  isLeaf: boolean;
+  childrenCount: number;
+  pathFromRoot: MercadoLivreOfficialCategoryPathNode[];
+  rootCategoryKey: MercadoLivreRootCategoryKey | null;
+};
+
 export const mercadoLivreListingTypes = [
   {
     id: "gold_special",
@@ -116,4 +130,35 @@ export function getMercadoLivreFeePreview(input: {
     note:
       "Faixa oficial do Mercado Livre. A taxa exata depende da subcategoria/category_id e deve ser consultada na Listing Prices API.",
   };
+}
+
+export function inferMercadoLivreRootCategoryKey(
+  rootCategoryName: string,
+): MercadoLivreRootCategoryKey | null {
+  const normalizedRootCategoryName = normalizeMercadoLivreCategoryLabel(
+    rootCategoryName,
+  );
+
+  const matchedCategory = mercadoLivreRootCategories.find((category) => {
+    const normalizedStaticLabel = normalizeMercadoLivreCategoryLabel(
+      category.label,
+    );
+
+    return (
+      normalizedStaticLabel === normalizedRootCategoryName ||
+      normalizedStaticLabel.includes(normalizedRootCategoryName) ||
+      normalizedRootCategoryName.includes(normalizedStaticLabel)
+    );
+  });
+
+  return matchedCategory?.key ?? null;
+}
+
+function normalizeMercadoLivreCategoryLabel(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }

@@ -126,6 +126,14 @@ export default function Home() {
 
   const selectedChannel = findSalesChannelById(form.salesChannelId);
   const selectedChannelLabel = selectedChannel?.name ?? salesChannels[0].name;
+  const resolvedMercadoLivreCategoryName =
+    form.mercadoLivreOfficialCategoryName.trim() ||
+    mercadoLivreAutomation.predictedCategoryName ||
+    null;
+  const resolvedMercadoLivreCategoryId =
+    form.mercadoLivreOfficialCategoryId.trim() ||
+    mercadoLivreAutomation.predictedCategoryId ||
+    null;
   const heroSaleModeValue = form.isKit
     ? `Kit com ${form.kitQuantity} item(ns)`
     : "Unidade avulsa";
@@ -398,6 +406,7 @@ export default function Home() {
           ...current,
           productName: String(value),
           mercadoLivreOfficialCategoryId: "",
+          mercadoLivreOfficialCategoryName: "",
         };
       }
 
@@ -421,6 +430,7 @@ export default function Home() {
           mercadoLivreRootCategoryKey:
             value as PricingFormState["mercadoLivreRootCategoryKey"],
           mercadoLivreOfficialCategoryId: "",
+          mercadoLivreOfficialCategoryName: "",
         };
       }
 
@@ -436,6 +446,13 @@ export default function Home() {
         return {
           ...current,
           mercadoLivreOfficialCategoryId: String(value),
+        };
+      }
+
+      if (field === "mercadoLivreOfficialCategoryName") {
+        return {
+          ...current,
+          mercadoLivreOfficialCategoryName: String(value),
         };
       }
 
@@ -460,6 +477,28 @@ export default function Home() {
         [field]: String(value),
       };
     });
+  }
+
+  function handleMercadoLivreOfficialCategorySelect(selection: {
+    id: string;
+    name: string;
+    rootCategoryKey: PricingFormState["mercadoLivreRootCategoryKey"] | null;
+  }) {
+    setForm((current) => ({
+      ...current,
+      mercadoLivreOfficialCategoryId: selection.id,
+      mercadoLivreOfficialCategoryName: selection.name,
+      mercadoLivreRootCategoryKey:
+        selection.rootCategoryKey ?? current.mercadoLivreRootCategoryKey,
+    }));
+  }
+
+  function clearMercadoLivreOfficialCategory() {
+    setForm((current) => ({
+      ...current,
+      mercadoLivreOfficialCategoryId: "",
+      mercadoLivreOfficialCategoryName: "",
+    }));
   }
 
   function handleSaveCalculation() {
@@ -651,7 +690,7 @@ export default function Home() {
                     effectiveMarketplaceFeePercentage
                   }
                   mercadoLivrePredictedCategoryName={
-                    mercadoLivreAutomation.predictedCategoryName
+                    resolvedMercadoLivreCategoryName
                   }
                   mercadoLivreShippingEstimate={
                     mercadoLivreAutomation.shippingEstimate ?? form.shippingCost
@@ -665,6 +704,12 @@ export default function Home() {
                   displayCurrency={displayCurrency}
                   onDisplayCurrencyChange={setDisplayCurrency}
                   exchangeRateSnapshot={exchangeRateSnapshot}
+                  onMercadoLivreOfficialCategorySelect={
+                    handleMercadoLivreOfficialCategorySelect
+                  }
+                  onMercadoLivreOfficialCategoryClear={
+                    clearMercadoLivreOfficialCategory
+                  }
                 />
 
                 <SiteProductPublisher
@@ -678,12 +723,8 @@ export default function Home() {
                     salesChannelLabel: selectedChannelLabel,
                     productType: form.productType,
                     mercadoLivreCategoryId:
-                      (
-                        mercadoLivreAutomation.predictedCategoryId ??
-                        form.mercadoLivreOfficialCategoryId
-                      ) || null,
-                    mercadoLivreCategoryName:
-                      mercadoLivreAutomation.predictedCategoryName,
+                      resolvedMercadoLivreCategoryId,
+                    mercadoLivreCategoryName: resolvedMercadoLivreCategoryName,
                   }}
                   onPublish={handlePublishSiteProduct}
                   onSaveToErp={saveProductToErp}
@@ -700,7 +741,7 @@ export default function Home() {
                   effectiveMarketplaceFeePercentage
                 }
                 mercadoLivrePredictedCategoryName={
-                  mercadoLivreAutomation.predictedCategoryName
+                  resolvedMercadoLivreCategoryName
                 }
                 displayCurrency={displayCurrency}
                 exchangeRates={exchangeRateSnapshot.rates}

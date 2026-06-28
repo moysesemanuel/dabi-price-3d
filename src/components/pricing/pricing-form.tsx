@@ -20,6 +20,7 @@ import { MercadoLivreCartIcon } from "./mercado-livre-cart-icon";
 import { HandbagIcon } from "./hand-bag-icon";
 import { AmazonIcon } from "./amazon-icon";
 import { DirectSaleIcon } from "./direct-sale-icon";
+import { MercadoLivreCategoryPicker } from "./mercado-livre-category-picker";
 
 type PricingFormProps = {
   form: PricingFormState;
@@ -36,6 +37,12 @@ type PricingFormProps = {
   displayCurrency: DisplayCurrency;
   onDisplayCurrencyChange: (currency: DisplayCurrency) => void;
   exchangeRateSnapshot: ExchangeRateSnapshot;
+  onMercadoLivreOfficialCategorySelect: (selection: {
+    id: string;
+    name: string;
+    rootCategoryKey: PricingFormState["mercadoLivreRootCategoryKey"] | null;
+  }) => void;
+  onMercadoLivreOfficialCategoryClear: () => void;
 };
 
 const channelDescriptions: Record<string, string> = {
@@ -108,6 +115,8 @@ export function PricingForm({
   displayCurrency,
   onDisplayCurrencyChange,
   exchangeRateSnapshot,
+  onMercadoLivreOfficialCategorySelect,
+  onMercadoLivreOfficialCategoryClear,
 }: PricingFormProps) {
   const [mlPackageDetailsOpen, setMlPackageDetailsOpen] = useState(false);
 
@@ -391,6 +400,13 @@ export function PricingForm({
                 note="Comissao"
               />
             </div>
+
+            <MercadoLivreCategoryPicker
+              selectedCategoryId={form.mercadoLivreOfficialCategoryId}
+              selectedCategoryName={mercadoLivrePredictedCategoryName ?? ""}
+              onSelect={onMercadoLivreOfficialCategorySelect}
+              onClear={onMercadoLivreOfficialCategoryClear}
+            />
 
             <div className="border-t border-white/6 pt-6">
               <SectionEyebrow label="Custo de envio (Envios ML 2026)" />
