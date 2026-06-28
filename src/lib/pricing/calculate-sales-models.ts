@@ -200,8 +200,8 @@ function roundToHalfStep(value: number) {
   return Math.round(sanitizeNumber(value) * 2) / 2;
 }
 
-function sanitizeNumber(value: number) {
-  return Number.isFinite(value) ? value : 0;
+function sanitizeNumber(value: number | undefined | null) {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
 function clamp(value: number, min: number, max: number) {
