@@ -3,6 +3,11 @@
 import { type ChangeEvent, useMemo, useState } from "react";
 import type { PutBlobResult } from "@vercel/blob";
 import { upload } from "@vercel/blob/client";
+import type {
+  ErpProductSaveRequest,
+  ErpProductSaveResponse,
+  ErpProductUsageType,
+} from "@/lib/erp-products/types";
 import type { ProductType } from "@/lib/pricing/initial-pricing-form";
 import { formatCurrency } from "@/lib/pricing/formatters";
 import {
@@ -18,17 +23,25 @@ type SiteProductPublisherProps = {
   pricingContext: {
     productName: string;
     salePriceInCents: number;
+    totalCostInCents: number;
     marginPercentage: number;
     salesChannelLabel: string;
     productType: ProductType;
+    mercadoLivreCategoryId: string | null;
+    mercadoLivreCategoryName: string | null;
   };
   onPublish: (
     payload: Omit<SiteProductPublishRequest, "sourceCalculationId">,
   ) => Promise<SiteProductPublishResponse>;
+  onSaveToErp: (
+    payload: Omit<ErpProductSaveRequest, "sourceCalculationId">,
+  ) => Promise<ErpProductSaveResponse>;
 };
 
 type SiteProductFormState = {
   name: string;
+  shortName: string;
+  sku: string;
   slug: string;
   compareAtPrice: string;
   category: string;
@@ -42,6 +55,13 @@ type SiteProductFormState = {
   featured: boolean;
   description: string;
   tagsText: string;
+  stockQuantity: number;
+  minimumStock: number;
+  usageType: ErpProductUsageType;
+  mercadoLivreCategoryId: string;
+  mercadoLivreCategoryName: string;
+  shopeeCategoryId: string;
+  shopeeCategoryName: string;
 };
 
 type PublishState = "idle" | "submitting" | "success" | "error";
@@ -59,18 +79,42 @@ const ACCEPTED_IMAGE_TYPES = [
   "image/webp",
 ] as const;
 const ACCEPTED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"] as const;
+const usageTypeOptions: Array<{
+  value: ErpProductUsageType;
+  title: string;
+  description: string;
+}> = [
+  {
+    value: "SELLABLE",
+    title: "Vendavel",
+    description: "Produto pronto para venda e publicacao futura pelo ERP.",
+  },
+  {
+    value: "SUPPLY",
+    title: "Insumo",
+    description: "Materia-prima ou item de consumo sem foco em venda direta.",
+  },
+  {
+    value: "BOTH",
+    title: "Ambos",
+    description: "Pode ser controlado como venda e tambem como insumo.",
+  },
+];
 
 export function SiteProductPublisher({
   pricingContext,
   onPublish,
+  onSaveToErp,
 }: SiteProductPublisherProps) {
   const [mode, setMode] = useState<"history" | "site-product">("history");
   const [form, setForm] = useState<SiteProductFormState | null>(null);
   const [hasTouchedSlug, setHasTouchedSlug] = useState(false);
   const [publishState, setPublishState] = useState<PublishState>("idle");
+  const [publishTarget, setPublishTarget] = useState<"site" | "erp" | null>(null);
   const [imageUploadState, setImageUploadState] =
     useState<ImageUploadState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [publishedProductUrl, setPublishedProductUrl] = useState<string | null>(
     null,
   );
@@ -82,7 +126,7 @@ export function SiteProductPublisher({
 
   const isSiteProductMode = mode === "site-product";
   const isUploadingImages = imageUploadState !== "idle";
-  const isFormValid =
+  const isSiteFormValid =
     form &&
     form.name.trim().length > 0 &&
     form.slug.trim().length > 0 &&
@@ -90,6 +134,11 @@ export function SiteProductPublisher({
     form.material.trim().length > 0 &&
     form.dimensions.trim().length > 0 &&
     form.description.trim().length > 0;
+  const isErpFormValid =
+    form &&
+    form.name.trim().length > 0 &&
+    form.category.trim().length > 0 &&
+    form.usageType.length > 0;
 
   function activateSiteProductMode() {
     if (!form) {
@@ -97,6 +146,14 @@ export function SiteProductPublisher({
     }
 
     setMode("site-product");
+  }
+
+  function resetFeedback() {
+    setPublishState("idle");
+    setPublishTarget(null);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setPublishedProductUrl(null);
   }
 
   function updateField<K extends keyof SiteProductFormState>(
@@ -119,6 +176,7 @@ export function SiteProductPublisher({
 
       return nextForm;
     });
+    resetFeedback();
   }
 
   async function handleMainImageChange(event: ChangeEvent<HTMLInputElement>) {
@@ -129,15 +187,17 @@ export function SiteProductPublisher({
     }
 
     if (!isAcceptedImageFile(file)) {
+      setPublishTarget("site");
       setPublishState("error");
       setErrorMessage("Use apenas arquivos JPEG, JPG, PNG ou WEBP.");
+      setSuccessMessage(null);
+      setPublishedProductUrl(null);
       event.target.value = "";
       return;
     }
 
     setImageUploadState("uploading-main");
-    setPublishState("idle");
-    setErrorMessage(null);
+    resetFeedback();
 
     try {
       const blob = await uploadProductImage(file, form, "main");
@@ -150,6 +210,7 @@ export function SiteProductPublisher({
       assertPublishPayloadWithinLimit(nextForm, pricingContext.salePriceInCents);
       setForm(nextForm);
     } catch (error) {
+      setPublishTarget("site");
       setPublishState("error");
       setErrorMessage(
         error instanceof Error
@@ -172,15 +233,17 @@ export function SiteProductPublisher({
     const invalidFile = files.find((file) => !isAcceptedImageFile(file));
 
     if (invalidFile) {
+      setPublishTarget("site");
       setPublishState("error");
       setErrorMessage("Use apenas arquivos JPEG, JPG, PNG ou WEBP.");
+      setSuccessMessage(null);
+      setPublishedProductUrl(null);
       event.target.value = "";
       return;
     }
 
     setImageUploadState("uploading-gallery");
-    setPublishState("idle");
-    setErrorMessage(null);
+    resetFeedback();
 
     try {
       const blobs = await Promise.all(
@@ -195,6 +258,7 @@ export function SiteProductPublisher({
       assertPublishPayloadWithinLimit(nextForm, pricingContext.salePriceInCents);
       setForm(nextForm);
     } catch (error) {
+      setPublishTarget("site");
       setPublishState("error");
       setErrorMessage(
         error instanceof Error
@@ -217,6 +281,7 @@ export function SiteProductPublisher({
       imageUrl: "",
       imageFileName: "",
     });
+    resetFeedback();
   }
 
   function removeGalleryImage(indexToRemove: number) {
@@ -231,6 +296,7 @@ export function SiteProductPublisher({
         (_, index) => index !== indexToRemove,
       ),
     });
+    resetFeedback();
   }
 
   async function handlePublish() {
@@ -240,8 +306,11 @@ export function SiteProductPublisher({
 
     const compareAtPriceInCents = parseMoneyToCents(form.compareAtPrice);
 
+    setPublishTarget("site");
     setPublishState("submitting");
     setErrorMessage(null);
+    setSuccessMessage(null);
+    setPublishedProductUrl(null);
 
     try {
       const response = await onPublish({
@@ -273,6 +342,7 @@ export function SiteProductPublisher({
       );
       setHasTouchedSlug(true);
       setPublishedProductUrl(response.productUrl);
+      setSuccessMessage("Produto criado no site com sucesso.");
       setPublishState("success");
     } catch (error) {
       setPublishState("error");
@@ -280,6 +350,67 @@ export function SiteProductPublisher({
         error instanceof Error
           ? error.message
           : "Falha ao criar produto no site.",
+      );
+    }
+  }
+
+  async function handleSaveToErp() {
+    if (!form) {
+      return;
+    }
+
+    setPublishTarget("erp");
+    setPublishState("submitting");
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setPublishedProductUrl(null);
+
+    try {
+      const response = await onSaveToErp({
+        name: form.name.trim(),
+        shortName: normalizeNullableString(form.shortName),
+        sku: normalizeNullableString(form.sku),
+        description: normalizeNullableString(form.description),
+        category: form.category.trim(),
+        material: normalizeNullableString(form.material),
+        dimensions: normalizeNullableString(form.dimensions),
+        tags: parseLinesOrCsv(form.tagsText),
+        mainImageUrl: normalizeNullableString(form.imageUrl),
+        galleryImageUrls: form.galleryImages,
+        finalPriceInCents: pricingContext.salePriceInCents,
+        totalCostInCents: pricingContext.totalCostInCents,
+        stockQuantity: Math.max(form.stockQuantity, 0),
+        minimumStock: Math.max(form.minimumStock, 0),
+        usageType: form.usageType,
+        mercadoLivreCategoryId: normalizeNullableString(
+          form.mercadoLivreCategoryId,
+        ),
+        mercadoLivreCategoryName: normalizeNullableString(
+          form.mercadoLivreCategoryName,
+        ),
+        shopeeCategoryId: normalizeNullableString(form.shopeeCategoryId),
+        shopeeCategoryName: normalizeNullableString(form.shopeeCategoryName),
+      });
+
+      if (response.product?.sku) {
+        setForm((current) =>
+          current
+            ? {
+                ...current,
+                sku: String(response.product.sku),
+              }
+            : current,
+        );
+      }
+
+      setSuccessMessage("Produto enviado ao ERP com sucesso.");
+      setPublishState("success");
+    } catch (error) {
+      setPublishState("error");
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Falha ao enviar produto ao ERP.",
       );
     }
   }
@@ -333,6 +464,20 @@ export function SiteProductPublisher({
                   label="Nome do produto"
                   value={form.name}
                   onChange={(value) => updateField("name", value)}
+                />
+
+                <Field
+                  label="Nome curto"
+                  value={form.shortName}
+                  onChange={(value) => updateField("shortName", value)}
+                  note="Opcional no site, usado tambem pelo ERP."
+                />
+
+                <Field
+                  label="SKU"
+                  value={form.sku}
+                  onChange={(value) => updateField("sku", value)}
+                  note="Mantenha um SKU estavel para o upsert no ERP."
                 />
 
                 <Field
@@ -468,6 +613,72 @@ export function SiteProductPublisher({
                 ) : null}
               </div>
             </div>
+
+            <div className="rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-4">
+              <SectionTitle title="ERP e marketplaces" />
+
+              <div className="mt-5 grid gap-3 md:grid-cols-3">
+                {usageTypeOptions.map((option) => (
+                  <ChoiceCard
+                    key={option.value}
+                    title={option.title}
+                    description={option.description}
+                    active={form.usageType === option.value}
+                    onClick={() => updateField("usageType", option.value)}
+                  />
+                ))}
+              </div>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <Field
+                  label="Estoque inicial"
+                  value={String(form.stockQuantity)}
+                  onChange={(value) =>
+                    updateField("stockQuantity", parseInteger(value))
+                  }
+                  note="Use 0 para deixar pronto para publicar depois pelo ERP."
+                />
+
+                <Field
+                  label="Estoque mínimo"
+                  value={String(form.minimumStock)}
+                  onChange={(value) =>
+                    updateField("minimumStock", parseInteger(value))
+                  }
+                  note="Padrao recomendado: 0."
+                />
+
+                <Field
+                  label="Categoria ML ID"
+                  value={form.mercadoLivreCategoryId}
+                  onChange={(value) =>
+                    updateField("mercadoLivreCategoryId", value)
+                  }
+                  note="Preenchido automaticamente quando houver contexto ML."
+                />
+
+                <Field
+                  label="Categoria ML Nome"
+                  value={form.mercadoLivreCategoryName}
+                  onChange={(value) =>
+                    updateField("mercadoLivreCategoryName", value)
+                  }
+                />
+
+                <Field
+                  label="Categoria Shopee ID"
+                  value={form.shopeeCategoryId}
+                  onChange={(value) => updateField("shopeeCategoryId", value)}
+                  note="Opcional. Preencha manualmente quando houver."
+                />
+
+                <Field
+                  label="Categoria Shopee Nome"
+                  value={form.shopeeCategoryName}
+                  onChange={(value) => updateField("shopeeCategoryName", value)}
+                />
+              </div>
+            </div>
           </div>
 
           <aside className="xl:sticky xl:top-6">
@@ -503,8 +714,10 @@ export function SiteProductPublisher({
                 </div>
 
                 <SummaryLine label="Produto" value={form.name || "Sem nome"} />
+                <SummaryLine label="SKU" value={form.sku || "-"} />
                 <SummaryLine label="Slug" value={slugify(form.slug) || "-"} />
                 <SummaryLine label="Categoria" value={form.category} />
+                <SummaryLine label="Uso no ERP" value={form.usageType} />
                 <SummaryLine
                   label="Destaque"
                   value={form.featured ? "Sim" : "Não"}
@@ -536,9 +749,9 @@ export function SiteProductPublisher({
                 </div>
               ) : null}
 
-              {publishState === "success" ? (
+              {publishState === "success" && successMessage ? (
                 <div className="mt-5 rounded-[18px] border border-[var(--accent)]/25 bg-[var(--accent-soft)] px-4 py-4 text-sm text-[#a7edfb]">
-                  Produto criado no site com sucesso.
+                  {successMessage}
                   {publishedProductUrl ? (
                     <>
                       {" "}
@@ -559,17 +772,32 @@ export function SiteProductPublisher({
                 type="button"
                 onClick={handlePublish}
                 disabled={
-                  !isFormValid ||
+                  !isSiteFormValid ||
                   publishState === "submitting" ||
                   isUploadingImages
                 }
                 className="mt-6 w-full rounded-2xl bg-[var(--accent)] px-4 py-4 text-base font-semibold text-[#07110d] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {publishState === "submitting"
+                {publishState === "submitting" && publishTarget === "site"
                   ? "Salvando no site..."
                   : isUploadingImages
                     ? "Enviando imagens..."
                     : "Salvar no site"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSaveToErp}
+                disabled={
+                  !isErpFormValid ||
+                  publishState === "submitting" ||
+                  isUploadingImages
+                }
+                className="mt-3 w-full rounded-2xl border border-white/10 bg-[#0d182b] px-4 py-4 text-base font-semibold text-white transition hover:border-white/20 hover:bg-[#13213a] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {publishState === "submitting" && publishTarget === "erp"
+                  ? "Enviando ao ERP..."
+                  : "Salvar no ERP"}
               </button>
             </section>
           </aside>
@@ -585,9 +813,12 @@ function buildInitialForm(
   const defaultMaterial =
     pricingContext.productType === "3d" ? "PLA" : "Produto pronto";
   const defaultName = pricingContext.productName.trim() || "Sem nome";
+  const defaultShortName = buildShortName(defaultName);
 
   return {
     name: defaultName,
+    shortName: defaultShortName,
+    sku: buildSku(defaultName),
     slug: slugify(defaultName),
     compareAtPrice: "",
     category: "decor",
@@ -602,6 +833,13 @@ function buildInitialForm(
     description: buildDefaultDescription(defaultName, defaultMaterial),
     tagsText:
       pricingContext.productType === "3d" ? "3d, impresso em 3d" : "produto",
+    stockQuantity: 0,
+    minimumStock: 0,
+    usageType: "SELLABLE",
+    mercadoLivreCategoryId: pricingContext.mercadoLivreCategoryId ?? "",
+    mercadoLivreCategoryName: pricingContext.mercadoLivreCategoryName ?? "",
+    shopeeCategoryId: "",
+    shopeeCategoryName: "",
   };
 }
 
@@ -633,11 +871,32 @@ function normalizeHexColor(value: string) {
   return "#11b8f5";
 }
 
+function buildSku(value: string) {
+  const normalizedValue = slugify(value).toUpperCase();
+
+  return normalizedValue || "PRODUTO";
+}
+
+function buildShortName(value: string) {
+  return value.trim().slice(0, 60);
+}
+
 function parseLinesOrCsv(value: string) {
   return value
     .split(/[\n,]/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function parseInteger(value: string) {
+  const digits = value.replace(/[^\d-]/g, "");
+  const parsedValue = Number(digits);
+
+  if (!Number.isFinite(parsedValue)) {
+    return 0;
+  }
+
+  return Math.max(Math.trunc(parsedValue), 0);
 }
 
 function parseMoneyToCents(value: string) {
@@ -653,6 +912,11 @@ function parseMoneyToCents(value: string) {
 function normalizeOptionalString(value: string) {
   const trimmedValue = value.trim();
   return trimmedValue.length > 0 ? trimmedValue : undefined;
+}
+
+function normalizeNullableString(value: string) {
+  const trimmedValue = value.trim();
+  return trimmedValue.length > 0 ? trimmedValue : null;
 }
 
 function assertPublishPayloadWithinLimit(

@@ -6,11 +6,23 @@ const MAX_IMAGE_SIZE_IN_BYTES = 12 * 1024 * 1024;
 
 export async function POST(request: Request): Promise<NextResponse> {
   const body = (await request.json()) as HandleUploadBody;
+  const readWriteToken = process.env.BLOB_READ_WRITE_TOKEN?.trim();
+
+  if (!readWriteToken) {
+    return NextResponse.json(
+      {
+        error:
+          "BLOB_READ_WRITE_TOKEN não configurado. O fluxo de client upload do Vercel Blob precisa desse token no servidor para gerar o client token.",
+      },
+      { status: 500 },
+    );
+  }
 
   try {
     const jsonResponse = await handleUpload({
       body,
       request,
+      token: readWriteToken,
       onBeforeGenerateToken: async (pathname) => {
         if (!pathname.startsWith("site-products/")) {
           throw new Error("Destino de upload inválido.");

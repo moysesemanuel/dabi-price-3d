@@ -34,6 +34,10 @@ import {
   getJsonSizeInBytes,
 } from "@/lib/site-products/payload-size";
 import type {
+  ErpProductSaveRequest,
+  ErpProductSaveResponse,
+} from "@/lib/erp-products/types";
+import type {
   SiteProductPublishRequest,
   SiteProductPublishResponse,
 } from "@/lib/site-products/types";
@@ -566,6 +570,40 @@ export default function Home() {
     return responsePayload;
   }
 
+  async function saveProductToErp(
+    payload: Omit<ErpProductSaveRequest, "sourceCalculationId">,
+  ) {
+    const savedCalculation = persistCalculation();
+    const requestPayload: ErpProductSaveRequest = {
+      ...payload,
+      sourceCalculationId: savedCalculation.id,
+    };
+
+    const response = await fetch("/api/erp-products", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(requestPayload),
+    });
+
+    const responsePayload = (await response.json().catch(() => null)) as
+      | ErpProductSaveResponse
+      | { error?: string }
+      | null;
+
+    if (!response.ok || !responsePayload || !("product" in responsePayload)) {
+      throw new Error(
+        responsePayload && "error" in responsePayload
+          ? responsePayload.error ?? "Falha ao enviar produto ao ERP."
+          : "Falha ao enviar produto ao ERP.",
+      );
+    }
+
+    return responsePayload;
+  }
+
   return (
     <main className="app-shell min-h-screen text-white">
       <div className="min-h-screen transition-[padding] duration-300 lg:pl-[var(--app-sidebar-width)]">
@@ -635,11 +673,20 @@ export default function Home() {
                     salePriceInCents: Math.round(
                       viewModel.displayedSalePrice * 100,
                     ),
+                    totalCostInCents: Math.round(viewModel.unitTotalCost * 100),
                     marginPercentage: viewModel.realMarginPercentage,
                     salesChannelLabel: selectedChannelLabel,
                     productType: form.productType,
+                    mercadoLivreCategoryId:
+                      (
+                        mercadoLivreAutomation.predictedCategoryId ??
+                        form.mercadoLivreOfficialCategoryId
+                      ) || null,
+                    mercadoLivreCategoryName:
+                      mercadoLivreAutomation.predictedCategoryName,
                   }}
                   onPublish={handlePublishSiteProduct}
+                  onSaveToErp={saveProductToErp}
                 />
               </div>
 

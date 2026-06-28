@@ -141,7 +141,31 @@ ECOMMERCE_ADMIN_PASSWORD=admin123
 - `ECOMMERCE_STOREFRONT_URL`: URL pública da loja para montar o link final do produto
 - `ECOMMERCE_ADMIN_EMAIL` e `ECOMMERCE_ADMIN_PASSWORD`: credenciais admin usadas pela precificadora para publicar via `POST /api/products`
 
-O fluxo de produto do site envia as imagens primeiro para um Blob público da Vercel e depois publica no e-commerce usando as URLs geradas. Crie um store público na Vercel Storage e conecte-o a este projeto. Em integrações novas, a Vercel usa OIDC e injeta `BLOB_STORE_ID` e `BLOB_WEBHOOK_PUBLIC_KEY`.
+O fluxo de produto do site envia as imagens primeiro para um Blob público da Vercel e depois publica no e-commerce usando as URLs geradas. Crie um store público na Vercel Storage e conecte-o a este projeto.
+
+Para este fluxo atual de client upload com `handleUpload`, configure tambem:
+
+```text
+BLOB_READ_WRITE_TOKEN
+```
+
+Sem `BLOB_READ_WRITE_TOKEN`, a rota `POST /api/site-products/upload` nao consegue gerar o client token do Blob e o upload falha com erro como `Failed to retrieve the client token`.
+
+Observacao: `BLOB_STORE_ID` e `BLOB_WEBHOOK_PUBLIC_KEY` injetados via OIDC nao substituem `BLOB_READ_WRITE_TOKEN` neste fluxo especifico de client upload.
+
+## Integração com ERP
+
+Para usar o botão `Salvar no ERP`, configure:
+
+```env
+ERP_APP_URL=http://127.0.0.1:4000
+PRICING_INTEGRATION_TOKEN=seu_token_compartilhado_com_o_erp
+```
+
+- `ERP_APP_URL`: URL base do ERP DaBi Tech
+- `PRICING_INTEGRATION_TOKEN`: token aceito pelo endpoint `POST /api/integrations/pricing/products`
+
+O envio ao ERP passa por uma rota servidor da precificadora em `POST /api/erp-products`, que autentica a chamada, envia os valores monetários em centavos e prepara o produto para publicacao posterior no Mercado Livre pelo proprio ERP.
 
 ## Build de produção
 
