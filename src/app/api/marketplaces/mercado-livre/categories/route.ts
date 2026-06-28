@@ -26,7 +26,11 @@ type MercadoLivreCategoryDetail = {
 type MercadoLivreCategoriesResponse = {
   category: MercadoLivreOfficialCategoryNode | null;
   categories: MercadoLivreOfficialCategoryNode[];
+  warning?: string;
 };
+
+const ROOT_CATEGORIES_BLOCKED_WARNING =
+  "O Mercado Livre bloqueou a listagem pública das categorias raiz neste momento. Use a categoria prevista automaticamente ou uma categoria já vinculada.";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -60,6 +64,14 @@ async function fetchRootCategories(): Promise<MercadoLivreCategoriesResponse> {
   });
 
   if (!response.ok) {
+    if (response.status === 403) {
+      return {
+        category: null,
+        categories: [],
+        warning: ROOT_CATEGORIES_BLOCKED_WARNING,
+      };
+    }
+
     throw new Error(
       `Mercado Livre categories(root) returned ${response.status}.`,
     );

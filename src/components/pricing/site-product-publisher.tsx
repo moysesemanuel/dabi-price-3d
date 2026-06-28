@@ -10,6 +10,7 @@ import type {
 } from "@/lib/erp-products/types";
 import type { ProductType } from "@/lib/pricing/initial-pricing-form";
 import { formatCurrency } from "@/lib/pricing/formatters";
+import type { SalesChannelId } from "@/lib/pricing/sales-channels";
 import {
   MAX_SITE_PRODUCT_PUBLISH_PAYLOAD_BYTES,
   getJsonSizeInBytes,
@@ -26,6 +27,7 @@ type SiteProductPublisherProps = {
     totalCostInCents: number;
     marginPercentage: number;
     salesChannelLabel: string;
+    salesChannelId: SalesChannelId;
     productType: ProductType;
     mercadoLivreCategoryId: string | null;
     mercadoLivreCategoryName: string | null;
@@ -66,13 +68,6 @@ type SiteProductFormState = {
 
 type PublishState = "idle" | "submitting" | "success" | "error";
 type ImageUploadState = "idle" | "uploading-main" | "uploading-gallery";
-
-const categoryOptions = [
-  { value: "decor", label: "Decor" },
-  { value: "gaming", label: "Gaming" },
-  { value: "fashion", label: "Fashion" },
-  { value: "workspace", label: "Workspace" },
-];
 const ACCEPTED_IMAGE_TYPES = [
   "image/jpeg",
   "image/png",
@@ -109,6 +104,7 @@ export function SiteProductPublisher({
   const [mode, setMode] = useState<"history" | "site-product">("history");
   const [form, setForm] = useState<SiteProductFormState | null>(null);
   const [hasTouchedSlug, setHasTouchedSlug] = useState(false);
+  const [hasTouchedCategory, setHasTouchedCategory] = useState(false);
   const [publishState, setPublishState] = useState<PublishState>("idle");
   const [publishTarget, setPublishTarget] = useState<"site" | "erp" | null>(null);
   const [imageUploadState, setImageUploadState] =
@@ -141,9 +137,11 @@ export function SiteProductPublisher({
     form.usageType.length > 0;
 
   function activateSiteProductMode() {
-    if (!form) {
-      setForm(buildInitialForm(pricingContext));
-    }
+    setForm((current) =>
+      current
+        ? syncFormWithPricingContext(current, pricingContext, hasTouchedCategory)
+        : buildInitialForm(pricingContext),
+    );
 
     setMode("site-product");
   }
@@ -172,6 +170,16 @@ export function SiteProductPublisher({
 
       if (field === "name" && !hasTouchedSlug) {
         nextForm.slug = slugify(String(value));
+      }
+
+      if (field === "name" && !hasTouchedCategory) {
+        nextForm.category = inferMarketplaceCategoryName(
+          {
+            ...pricingContext,
+            productName: String(value),
+          },
+          current.category,
+        );
       }
 
       return nextForm;
@@ -385,11 +393,15 @@ export function SiteProductPublisher({
         mercadoLivreCategoryId: normalizeNullableString(
           form.mercadoLivreCategoryId,
         ),
-        mercadoLivreCategoryName: normalizeNullableString(
-          form.mercadoLivreCategoryName,
-        ),
+        mercadoLivreCategoryName:
+          pricingContext.salesChannelId === "mercado-livre"
+            ? normalizeNullableString(form.category)
+            : normalizeNullableString(form.mercadoLivreCategoryName),
         shopeeCategoryId: normalizeNullableString(form.shopeeCategoryId),
-        shopeeCategoryName: normalizeNullableString(form.shopeeCategoryName),
+        shopeeCategoryName:
+          pricingContext.salesChannelId === "shopee"
+            ? normalizeNullableString(form.category)
+            : normalizeNullableString(form.shopeeCategoryName),
       });
 
       if (response.product?.sku) {
@@ -488,13 +500,6 @@ export function SiteProductPublisher({
                     updateField("slug", value);
                   }}
                   note="URL do produto no site."
-                />
-
-                <SelectField
-                  label="Categoria"
-                  value={form.category}
-                  options={categoryOptions}
-                  onChange={(value) => updateField("category", value)}
                 />
 
                 <Field
@@ -631,6 +636,20 @@ export function SiteProductPublisher({
 
               <div className="mt-5 grid gap-4 md:grid-cols-2">
                 <Field
+                  label="Categoria principal"
+                  value={form.category}
+                  onChange={(value) => {
+                    setHasTouchedCategory(true);
+                    updateField("category", value);
+                  }}
+                  note={
+                    pricingContext.salesChannelId === "mercado-livre"
+                      ? "Preenchida com a categoria oficial do Mercado Livre quando houver contexto."
+                      : "Preencha com a categoria oficial do marketplace para evitar falha na publicação."
+                  }
+                />
+
+                <Field
                   label="Estoque inicial"
                   value={String(form.stockQuantity)}
                   onChange={(value) =>
@@ -648,35 +667,29 @@ export function SiteProductPublisher({
                   note="Padrao recomendado: 0."
                 />
 
-                <Field
-                  label="Categoria ML ID"
-                  value={form.mercadoLivreCategoryId}
-                  onChange={(value) =>
-                    updateField("mercadoLivreCategoryId", value)
-                  }
-                  note="Preenchido automaticamente quando houver contexto ML."
-                />
+                {pricingContext.salesChannelId === "mercado-livre" ? (
+                  <Field
+                    label="Categoria ML ID"
+                    value={form.mercadoLivreCategoryId}
+                    onChange={(value) =>
+                      updateField("mercadoLivreCategoryId", value)
+                    }
+                    note={
+                      form.mercadoLivreCategoryName.trim()
+                        ? `Categoria atual: ${form.mercadoLivreCategoryName}`
+                        : "Preenchido automaticamente quando houver contexto ML."
+                    }
+                  />
+                ) : null}
 
-                <Field
-                  label="Categoria ML Nome"
-                  value={form.mercadoLivreCategoryName}
-                  onChange={(value) =>
-                    updateField("mercadoLivreCategoryName", value)
-                  }
-                />
-
-                <Field
-                  label="Categoria Shopee ID"
-                  value={form.shopeeCategoryId}
-                  onChange={(value) => updateField("shopeeCategoryId", value)}
-                  note="Opcional. Preencha manualmente quando houver."
-                />
-
-                <Field
-                  label="Categoria Shopee Nome"
-                  value={form.shopeeCategoryName}
-                  onChange={(value) => updateField("shopeeCategoryName", value)}
-                />
+                {pricingContext.salesChannelId === "shopee" ? (
+                  <Field
+                    label="Categoria Shopee ID"
+                    value={form.shopeeCategoryId}
+                    onChange={(value) => updateField("shopeeCategoryId", value)}
+                    note="Use o ID mapeado para a categoria principal do produto."
+                  />
+                ) : null}
               </div>
             </div>
           </div>
@@ -821,7 +834,7 @@ function buildInitialForm(
     sku: buildSku(defaultName),
     slug: slugify(defaultName),
     compareAtPrice: "",
-    category: "decor",
+    category: inferMarketplaceCategoryName(pricingContext),
     material: defaultMaterial,
     dimensions: "",
     accentColor: "#11b8f5",
@@ -841,6 +854,39 @@ function buildInitialForm(
     shopeeCategoryId: "",
     shopeeCategoryName: "",
   };
+}
+
+function syncFormWithPricingContext(
+  form: SiteProductFormState,
+  pricingContext: SiteProductPublisherProps["pricingContext"],
+  hasTouchedCategory: boolean,
+): SiteProductFormState {
+  return {
+    ...form,
+    category: hasTouchedCategory
+      ? form.category
+      : inferMarketplaceCategoryName(pricingContext, form.category),
+    mercadoLivreCategoryId: pricingContext.mercadoLivreCategoryId ?? "",
+    mercadoLivreCategoryName: pricingContext.mercadoLivreCategoryName ?? "",
+  };
+}
+
+function inferMarketplaceCategoryName(
+  pricingContext: SiteProductPublisherProps["pricingContext"],
+  fallbackCategory = "",
+) {
+  const officialMercadoLivreCategory = normalizeOptionalString(
+    pricingContext.mercadoLivreCategoryName ?? "",
+  );
+
+  if (
+    pricingContext.salesChannelId === "mercado-livre" &&
+    officialMercadoLivreCategory
+  ) {
+    return officialMercadoLivreCategory;
+  }
+
+  return normalizeOptionalString(fallbackCategory) ?? officialMercadoLivreCategory ?? "";
 }
 
 function buildDefaultDescription(name: string, material: string) {
@@ -1110,38 +1156,6 @@ function TextArea({
       />
 
       {note ? <p className="mt-2 text-xs text-[var(--muted)]">{note}</p> : null}
-    </label>
-  );
-}
-
-function SelectField({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: Array<{ value: string; label: string }>;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className="block">
-      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
-        {label}
-      </span>
-
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full rounded-[20px] border border-white/10 bg-[#0d182b] px-4 py-3 text-white outline-none transition focus:border-[var(--accent)]/40"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
     </label>
   );
 }

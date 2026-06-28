@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   MercadoLivreOfficialCategoryNode,
   MercadoLivreRootCategoryKey,
@@ -21,6 +21,7 @@ type MercadoLivreCategoriesResponse = {
   category: MercadoLivreOfficialCategoryNode | null;
   categories: MercadoLivreOfficialCategoryNode[];
   error?: string;
+  warning?: string;
 };
 
 export function MercadoLivreCategoryPicker({
@@ -42,6 +43,7 @@ export function MercadoLivreCategoryPicker({
   const [expandedCategoryIds, setExpandedCategoryIds] = useState<string[]>([]);
   const [loadingCategoryIds, setLoadingCategoryIds] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [warningMessage, setWarningMessage] = useState<string | null>(null);
   const [hasLoadedRoots, setHasLoadedRoots] = useState(false);
 
   const selectedCategoryLabel = useMemo(() => {
@@ -56,15 +58,7 @@ export function MercadoLivreCategoryPicker({
     return "Nenhuma categoria oficial selecionada";
   }, [selectedCategoryId, selectedCategoryName]);
 
-  useEffect(() => {
-    if (!isOpen || hasLoadedRoots) {
-      return;
-    }
-
-    void loadCategories();
-  }, [hasLoadedRoots, isOpen]);
-
-  async function loadCategories(categoryId?: string) {
+  const loadCategories = useCallback(async (categoryId?: string) => {
     const isRootRequest = !categoryId;
 
     if (categoryId) {
@@ -72,6 +66,9 @@ export function MercadoLivreCategoryPicker({
     }
 
     setErrorMessage(null);
+    if (isRootRequest) {
+      setWarningMessage(null);
+    }
 
     try {
       const searchParams = new URLSearchParams();
@@ -103,6 +100,7 @@ export function MercadoLivreCategoryPicker({
 
       if (isRootRequest) {
         setRootCategories(payload.categories);
+        setWarningMessage(payload.warning ?? null);
         setHasLoadedRoots(true);
       } else if (categoryId) {
         setChildrenByParentId((current) => ({
@@ -117,6 +115,12 @@ export function MercadoLivreCategoryPicker({
             ...current,
             [loadedCategory.id]: loadedCategory,
           }));
+
+          setRootCategories((current) =>
+            current.length > 0 || loadedCategory.id !== selectedCategoryId
+              ? current
+              : [loadedCategory],
+          );
         }
       }
     } catch (error) {
@@ -132,7 +136,38 @@ export function MercadoLivreCategoryPicker({
         );
       }
     }
-  }
+  }, [selectedCategoryId]);
+
+  useEffect(() => {
+    if (!isOpen || hasLoadedRoots) {
+      return;
+    }
+
+    void loadCategories();
+  }, [hasLoadedRoots, isOpen, loadCategories]);
+
+  useEffect(() => {
+    if (
+      !isOpen ||
+      !hasLoadedRoots ||
+      rootCategories.length > 0 ||
+      !selectedCategoryId.trim() ||
+      selectedCategoryId in childrenByParentId ||
+      loadingCategoryIds.includes(selectedCategoryId)
+    ) {
+      return;
+    }
+
+    void loadCategories(selectedCategoryId);
+  }, [
+    childrenByParentId,
+    hasLoadedRoots,
+    isOpen,
+    loadCategories,
+    loadingCategoryIds,
+    rootCategories.length,
+    selectedCategoryId,
+  ]);
 
   function toggleCategory(category: MercadoLivreOfficialCategoryNode) {
     const isExpanded = expandedCategoryIds.includes(category.id);
@@ -230,9 +265,20 @@ export function MercadoLivreCategoryPicker({
                 </div>
               ) : null}
 
+              {warningMessage ? (
+                <div className="mb-4 rounded-[20px] border border-[#f4b740]/25 bg-[#f4b740]/10 px-4 py-4 text-sm text-[#ffe3a3]">
+                  {warningMessage}
+                </div>
+              ) : null}
+
               {rootCategories.length === 0 && !hasLoadedRoots ? (
                 <div className="rounded-[22px] border border-white/8 bg-[var(--panel-soft)] px-5 py-5 text-sm text-[var(--muted)]">
                   Carregando categorias do Mercado Livre...
+                </div>
+              ) : rootCategories.length === 0 ? (
+                <div className="rounded-[22px] border border-dashed border-white/10 bg-[var(--panel-soft)] px-5 py-5 text-sm text-[var(--muted)]">
+                  Nenhuma categoria raiz foi carregada. Se a categoria oficial já
+                  apareceu automaticamente na precificadora, use esse valor no ERP.
                 </div>
               ) : (
                 <div className="space-y-3">

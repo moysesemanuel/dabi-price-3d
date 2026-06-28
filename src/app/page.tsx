@@ -721,6 +721,7 @@ export default function Home() {
                     totalCostInCents: Math.round(viewModel.unitTotalCost * 100),
                     marginPercentage: viewModel.realMarginPercentage,
                     salesChannelLabel: selectedChannelLabel,
+                    salesChannelId: form.salesChannelId,
                     productType: form.productType,
                     mercadoLivreCategoryId:
                       resolvedMercadoLivreCategoryId,
