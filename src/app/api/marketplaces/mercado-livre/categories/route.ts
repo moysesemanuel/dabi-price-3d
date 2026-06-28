@@ -3,6 +3,7 @@ import {
   type MercadoLivreOfficialCategoryNode,
   type MercadoLivreOfficialCategoryPathNode,
 } from "@/lib/marketplaces/mercado-livre";
+import { getMercadoLivreApiCredentials } from "@/lib/marketplaces/mercado-livre-auth";
 
 type MercadoLivreDomainDiscoveryItem = {
   category_id?: string;
@@ -68,9 +69,22 @@ async function searchCategories(
   }
 
   const discoveryQueries = buildDiscoveryQueries(sanitizedQuery);
-  const discoveredItems = await Promise.all(
-    discoveryQueries.map((discoveryQuery) => fetchDomainDiscovery(discoveryQuery)),
+  const discoveryResults = await Promise.allSettled(
+    discoveryQueries.map((discoveryQuery) =>
+      fetchDomainDiscovery(discoveryQuery),
+    ),
   );
+  const discoveredItems = discoveryResults.flatMap((result) =>
+    result.status === "fulfilled" ? result.value : [],
+  );
+
+  if (discoveredItems.length === 0) {
+    return {
+      category: null,
+      categories: [],
+    };
+  }
+
   const uniqueCategoryIds = Array.from(
     new Set(
       discoveredItems
@@ -113,39 +127,21 @@ async function fetchDomainDiscovery(query: string) {
     limit: "8",
     q: query,
   });
-  const response = await fetch(
+  return fetchMercadoLivreJson<MercadoLivreDomainDiscoveryItem[]>(
     `https://api.mercadolibre.com/sites/MLB/domain_discovery/search?${searchParams.toString()}`,
     {
-      headers: {
-        accept: "application/json",
-      },
-      next: { revalidate: 60 * 30 },
+      revalidateSeconds: 60 * 30,
     },
   );
-
-  if (!response.ok) {
-    throw new Error(GENERIC_CATEGORIES_ERROR);
-  }
-
-  return (await response.json()) as MercadoLivreDomainDiscoveryItem[];
 }
 
 async function fetchCategoryDetail(categoryId: string) {
-  const response = await fetch(
+  return fetchMercadoLivreJson<MercadoLivreCategoryDetail>(
     `https://api.mercadolibre.com/categories/${categoryId}`,
     {
-      headers: {
-        accept: "application/json",
-      },
-      next: { revalidate: 60 * 60 * 24 },
+      revalidateSeconds: 60 * 60 * 24,
     },
   );
-
-  if (!response.ok) {
-    throw new Error(GENERIC_CATEGORIES_ERROR);
-  }
-
-  return (await response.json()) as MercadoLivreCategoryDetail;
 }
 
 async function fetchChildCategories(
@@ -389,4 +385,61 @@ function sanitizePathFromRoot(
       name: fallbackCategory.name,
     },
   ];
+}
+
+async function fetchMercadoLivreJson<T>(
+  url: string,
+  input: {
+    revalidateSeconds: number;
+  },
+): Promise<T> {
+  const optionalAccessToken = await getOptionalMercadoLivreAccessToken();
+  const attemptTokens = optionalAccessToken
+    ? [optionalAccessToken, null]
+    : [null];
+  const failures: string[] = [];
+
+  for (const accessToken of attemptTokens) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          accept: "application/json",
+          ...(accessToken
+            ? {
+                Authorization: `Bearer ${accessToken}`,
+              }
+            : {}),
+        },
+        next: { revalidate: input.revalidateSeconds },
+      });
+
+      if (response.ok) {
+        return (await response.json()) as T;
+      }
+
+      failures.push(
+        `${response.status} ${response.statusText} (${accessToken ? "auth" : "anon"})`,
+      );
+    } catch (error) {
+      failures.push(
+        `${error instanceof Error ? error.message : "unknown error"} (${accessToken ? "auth" : "anon"})`,
+      );
+    }
+  }
+
+  console.error("[mercado-livre/categories] request failed", {
+    url,
+    failures,
+  });
+
+  throw new Error(GENERIC_CATEGORIES_ERROR);
+}
+
+async function getOptionalMercadoLivreAccessToken() {
+  try {
+    const credentials = await getMercadoLivreApiCredentials();
+    return credentials.accessToken;
+  } catch {
+    return null;
+  }
 }
