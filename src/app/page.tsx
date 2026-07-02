@@ -23,8 +23,16 @@ import { calculate3DPrice } from "@/lib/pricing/calculate-3d-price";
 import { buildPricingViewModel } from "@/lib/pricing/build-pricing-view-model";
 import {
   initialPricingForm,
+  type FilamentRequirementInput,
   type PricingFormState,
 } from "@/lib/pricing/initial-pricing-form";
+import {
+  buildErpFilamentRequirements,
+  createFilamentRequirementInput,
+  getFilamentRequirementsValidationMessage,
+  normalizeFilamentRequirementInputs,
+  sumFilamentRequirementInputWeights,
+} from "@/lib/pricing/filament-requirements";
 import {
   findSalesChannelById,
   salesChannels,
@@ -55,7 +63,13 @@ type MercadoLivreAutomationState = {
 type SaveState = "idle" | "saved";
 
 export default function Home() {
-  const [form, setForm] = useState<PricingFormState>(initialPricingForm);
+  const [form, setForm] = useState<PricingFormState>(() => ({
+    ...initialPricingForm,
+    filamentRequirements: normalizeFilamentRequirementInputs(
+      initialPricingForm.filamentRequirements,
+      initialPricingForm.weightGrams,
+    ),
+  }));
   const [displayCurrency, setDisplayCurrency] =
     useState<DisplayCurrency>("BRL");
   const [exchangeRateSnapshot, setExchangeRateSnapshot] =
@@ -122,6 +136,27 @@ export default function Home() {
   const viewModel = useMemo(
     () => buildPricingViewModel(form, result),
     [form, result],
+  );
+  const filamentRequirementsForErp = useMemo(
+    () => buildErpFilamentRequirements(form),
+    [form],
+  );
+  const filamentRequirementsValidationMessage = useMemo(
+    () => getFilamentRequirementsValidationMessage(form),
+    [form],
+  );
+  const filamentRequirementsInputWeightTotal = useMemo(
+    () => sumFilamentRequirementInputWeights(form.filamentRequirements),
+    [form.filamentRequirements],
+  );
+  const preferredFilamentRequirement = useMemo(
+    () =>
+      form.filamentRequirements.find(
+        (requirement) =>
+          requirement.material.trim().length > 0 ||
+          requirement.colorHex.trim().length > 0,
+      ) ?? null,
+    [form.filamentRequirements],
   );
 
   const selectedChannel = findSalesChannelById(form.salesChannelId);
@@ -190,6 +225,10 @@ export default function Home() {
       setForm({
         ...initialPricingForm,
         ...queuedCalculation.formSnapshot,
+        filamentRequirements: normalizeFilamentRequirementInputs(
+          queuedCalculation.formSnapshot.filamentRequirements,
+          queuedCalculation.formSnapshot.weightGrams ?? initialPricingForm.weightGrams,
+        ),
       });
       setDisplayCurrency(queuedCalculation.displayCurrency);
       setExchangeRateSnapshot(queuedCalculation.exchangeRateSnapshot);
@@ -466,15 +505,105 @@ export default function Home() {
       }
 
       if (typeof currentValue === "number") {
+        const normalizedValue = Number(String(value).replace(",", ".")) || 0;
+
         return {
           ...current,
-          [field]: Number(String(value).replace(",", ".")) || 0,
+          [field]: normalizedValue,
+          ...(field === "weightGrams" && current.filamentRequirements.length === 1
+            ? {
+                filamentRequirements: [
+                  {
+                    ...current.filamentRequirements[0],
+                    weightGrams: normalizedValue,
+                  },
+                ],
+              }
+            : {}),
         };
       }
 
       return {
         ...current,
         [field]: String(value),
+      };
+    });
+  }
+
+  function updateFilamentRequirement(
+    index: number,
+    field: keyof FilamentRequirementInput,
+    value: string | number,
+  ) {
+    setForm((current) => ({
+      ...current,
+      filamentRequirements: current.filamentRequirements.map(
+        (requirement, requirementIndex) => {
+          if (requirementIndex !== index) {
+            return requirement;
+          }
+
+          if (field === "weightGrams") {
+            return {
+              ...requirement,
+              weightGrams: Number(String(value).replace(",", ".")) || 0,
+            };
+          }
+
+          return {
+            ...requirement,
+            [field]: String(value),
+          };
+        },
+      ),
+    }));
+  }
+
+  function addFilamentRequirement() {
+    setForm((current) => ({
+      ...current,
+      filamentRequirements: [
+        ...current.filamentRequirements,
+        createFilamentRequirementInput(),
+      ],
+    }));
+  }
+
+  function removeFilamentRequirement(index: number) {
+    setForm((current) => {
+      const nextRequirements = current.filamentRequirements.filter(
+        (_, requirementIndex) => requirementIndex !== index,
+      );
+
+      if (nextRequirements.length === 0) {
+        return {
+          ...current,
+          filamentRequirements: [
+            createFilamentRequirementInput(current.weightGrams),
+          ],
+        };
+      }
+
+      if (nextRequirements.length === 1) {
+        const [singleRequirement] = nextRequirements;
+
+        return {
+          ...current,
+          filamentRequirements: [
+            {
+              ...singleRequirement,
+              weightGrams:
+                singleRequirement.weightGrams > 0
+                  ? singleRequirement.weightGrams
+                  : current.weightGrams,
+            },
+          ],
+        };
+      }
+
+      return {
+        ...current,
+        filamentRequirements: nextRequirements,
       };
     });
   }
@@ -685,6 +814,9 @@ export default function Home() {
                 <PricingForm
                   form={form}
                   onChange={updateField}
+                  onFilamentRequirementChange={updateFilamentRequirement}
+                  onAddFilamentRequirement={addFilamentRequirement}
+                  onRemoveFilamentRequirement={removeFilamentRequirement}
                   suggestedPrice={viewModel.displayedSalePrice}
                   effectiveMarketplaceFeePercentage={
                     effectiveMarketplaceFeePercentage
@@ -723,6 +855,16 @@ export default function Home() {
                     salesChannelLabel: selectedChannelLabel,
                     salesChannelId: form.salesChannelId,
                     productType: form.productType,
+                    filamentRequirements: filamentRequirementsForErp,
+                    filamentRequirementsValidationMessage:
+                      filamentRequirementsValidationMessage,
+                    filamentRequirementsInputWeightTotal:
+                      filamentRequirementsInputWeightTotal,
+                    filamentWeightReferenceGrams: form.weightGrams,
+                    preferredFilamentMaterial:
+                      preferredFilamentRequirement?.material ?? null,
+                    preferredFilamentColorHex:
+                      preferredFilamentRequirement?.colorHex ?? null,
                     mercadoLivreCategoryId:
                       resolvedMercadoLivreCategoryId,
                     mercadoLivreCategoryName: resolvedMercadoLivreCategoryName,

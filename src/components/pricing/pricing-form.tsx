@@ -13,7 +13,14 @@ import {
 import {
   mercadoLivreListingTypes,
 } from "@/lib/marketplaces/mercado-livre";
-import { type PricingFormState } from "@/lib/pricing/initial-pricing-form";
+import {
+  normalizeColorHex,
+  sumFilamentRequirementInputWeights,
+} from "@/lib/pricing/filament-requirements";
+import {
+  type FilamentRequirementInput,
+  type PricingFormState,
+} from "@/lib/pricing/initial-pricing-form";
 import { salesChannels } from "@/lib/pricing/sales-channels";
 import { MercadoLivreCartIcon } from "./mercado-livre-cart-icon";
 import { HandbagIcon } from "./hand-bag-icon";
@@ -27,6 +34,13 @@ type PricingFormProps = {
     field: keyof PricingFormState,
     value: string | number | boolean
   ) => void;
+  onFilamentRequirementChange: (
+    index: number,
+    field: keyof FilamentRequirementInput,
+    value: string | number,
+  ) => void;
+  onAddFilamentRequirement: () => void;
+  onRemoveFilamentRequirement: (index: number) => void;
   suggestedPrice: number;
   effectiveMarketplaceFeePercentage: number;
   mercadoLivrePredictedCategoryName: string | null;
@@ -105,6 +119,9 @@ const printerModelOptions = [
 export function PricingForm({
   form,
   onChange,
+  onFilamentRequirementChange,
+  onAddFilamentRequirement,
+  onRemoveFilamentRequirement,
   suggestedPrice,
   effectiveMarketplaceFeePercentage,
   mercadoLivrePredictedCategoryName,
@@ -176,6 +193,20 @@ export function PricingForm({
         new Date(`${exchangeRateSnapshot.date}T00:00:00`),
       )
     : "última cotação disponível";
+  const filamentRequirementsTotal = useMemo(
+    () => sumFilamentRequirementInputWeights(form.filamentRequirements),
+    [form.filamentRequirements],
+  );
+  const filamentRequirementsDifference = Math.abs(
+    filamentRequirementsTotal - form.weightGrams,
+  );
+  const filamentRequirementsReferenceLabel = usesLotFilament
+    ? "total do ciclo"
+    : form.isKit
+      ? "base de uma peça do kit"
+      : "base de uma unidade";
+  const filamentRequirementsMatch =
+    filamentRequirementsDifference <= 0.01;
 
   function displayMoney(valueInBRL: number) {
     return formatDecimal(
@@ -972,6 +1003,65 @@ export function PricingForm({
             note={weightNote}
           />
         </div>
+
+        <div className="mt-6 rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
+                Composição por cor
+              </p>
+              <p className="mt-2 text-sm text-[var(--muted)]">
+                Informe as cores do filamento usadas no produto para enviar ao
+                ERP. Os pesos abaixo seguem a mesma regra do campo de filamento:
+                {` ${filamentRequirementsReferenceLabel}.`}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={onAddFilamentRequirement}
+              className="rounded-2xl border border-[var(--accent)]/25 bg-[var(--accent-soft)] px-4 py-3 text-sm font-medium text-[var(--accent)] transition hover:border-[var(--accent)]/40"
+            >
+              Adicionar cor
+            </button>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {form.filamentRequirements.map((requirement, index) => (
+              <FilamentRequirementCard
+                key={requirement.id ?? `filament-${index}`}
+                index={index}
+                requirement={requirement}
+                canRemove={form.filamentRequirements.length > 1}
+                onChange={onFilamentRequirementChange}
+                onRemove={onRemoveFilamentRequirement}
+              />
+            ))}
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/8 bg-[var(--panel-strong)] px-4 py-3">
+            <div>
+              <p className="text-sm text-white">
+                Soma das cores: {filamentRequirementsTotal.toFixed(2)} g
+              </p>
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                Peso total informado: {form.weightGrams.toFixed(2)} g
+              </p>
+            </div>
+
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-medium ${
+                filamentRequirementsMatch
+                  ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                  : "bg-amber-500/12 text-amber-300"
+              }`}
+            >
+              {filamentRequirementsMatch
+                ? "Pesos conferem"
+                : `Ajuste ${filamentRequirementsDifference.toFixed(2)} g`}
+            </span>
+          </div>
+        </div>
       </SectionCard>
 
       <SectionCard>
@@ -1251,6 +1341,93 @@ function PillButton({
     >
       {label}
     </button>
+  );
+}
+
+function FilamentRequirementCard({
+  index,
+  requirement,
+  canRemove,
+  onChange,
+  onRemove,
+}: {
+  index: number;
+  requirement: FilamentRequirementInput;
+  canRemove: boolean;
+  onChange: (
+    index: number,
+    field: keyof FilamentRequirementInput,
+    value: string | number,
+  ) => void;
+  onRemove: (index: number) => void;
+}) {
+  return (
+    <div className="rounded-[22px] border border-white/8 bg-[var(--panel)] px-4 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <p className="text-sm font-medium text-white">Cor {index + 1}</p>
+
+        {canRemove ? (
+          <button
+            type="button"
+            onClick={() => onRemove(index)}
+            className="rounded-xl border border-white/8 px-3 py-2 text-xs font-medium text-[var(--muted)] transition hover:border-[#dc2828]/30 hover:bg-[#dc2828]/10 hover:text-[#ffb3b3]"
+          >
+            Remover
+          </button>
+        ) : null}
+      </div>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_180px_140px_140px]">
+        <Field
+          label="Nome da cor"
+          value={requirement.colorName}
+          onChange={(value) => onChange(index, "colorName", value)}
+          inputKind="text"
+          note="Ex.: Branco, Preto, Azul translúcido"
+        />
+
+        <Field
+          label="Material"
+          value={requirement.material}
+          onChange={(value) => onChange(index, "material", value)}
+          inputKind="text"
+          note="Ex.: PLA, PETG, ABS"
+        />
+
+        <label>
+          <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
+            Hex
+          </span>
+
+          <div className="mt-2 flex h-[50px] items-center gap-3 rounded-2xl border border-white/8 bg-[var(--panel-strong)] px-4">
+            <input
+              type="color"
+              value={normalizeColorHex(requirement.colorHex)}
+              onChange={(event) =>
+                onChange(index, "colorHex", event.target.value)
+              }
+              className="size-8 rounded-lg border border-white/10 bg-transparent"
+            />
+
+            <input
+              type="text"
+              value={requirement.colorHex}
+              onChange={(event) =>
+                onChange(index, "colorHex", event.target.value)
+              }
+              className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none"
+            />
+          </div>
+        </label>
+
+        <Field
+          label="Peso"
+          value={requirement.weightGrams}
+          onChange={(value) => onChange(index, "weightGrams", value)}
+          suffix="g"
+        />
+      </div>
+    </div>
   );
 }
 

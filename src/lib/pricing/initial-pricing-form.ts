@@ -23,6 +23,14 @@ export type AmazonCategory =
   | "eletronicos"
   | "utilidades";
 
+export type FilamentRequirementInput = {
+  id?: string;
+  colorName: string;
+  colorHex: string;
+  material: string;
+  weightGrams: number;
+};
+
 export type PricingFormState = {
   productName: string;
   productType: ProductType;
@@ -77,6 +85,7 @@ export type PricingFormState = {
   weightGrams: number;
   filamentSpoolPrice: number;
   filamentSpoolWeightGrams: number;
+  filamentRequirements: FilamentRequirementInput[];
 
   // Custos
   shippingCost: number;
@@ -151,6 +160,15 @@ export const initialPricingForm: PricingFormState = {
   weightGrams: 1.66,
   filamentSpoolPrice: 186,
   filamentSpoolWeightGrams: 1000,
+  filamentRequirements: [
+    {
+      id: "filament-1",
+      colorName: "Cor principal",
+      colorHex: "#FFFFFF",
+      material: "PLA",
+      weightGrams: 1.66,
+    },
+  ],
 
   // Custos
   shippingCost: 0,

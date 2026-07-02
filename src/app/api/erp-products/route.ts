@@ -1,4 +1,5 @@
 import type {
+  ErpProductFilamentRequirement,
   ErpProductSaveRequest,
   ErpProductSaveResponse,
   ErpProductUsageType,
@@ -141,6 +142,9 @@ function normalizePayload(
         "Todas as imagens da galeria do ERP precisam ser URLs válidas.",
       ) as string,
   );
+  const filamentRequirements = normalizeFilamentRequirements(
+    input.filamentRequirements,
+  );
   const mercadoLivreCategoryId = normalizeOptionalString(
     input.mercadoLivreCategoryId,
   );
@@ -174,6 +178,7 @@ function normalizePayload(
     stockQuantity,
     minimumStock,
     usageType,
+    filamentRequirements,
     mercadoLivreCategoryId,
     mercadoLivreCategoryName,
     shopeeCategoryId: normalizeOptionalString(input.shopeeCategoryId),
@@ -236,4 +241,54 @@ function normalizeNonNegativeInteger(value: number, errorMessage: string) {
   }
 
   return Math.round(value);
+}
+
+function normalizeFilamentRequirements(
+  value: ErpProductSaveRequest["filamentRequirements"],
+): ErpProductFilamentRequirement[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((requirement) => ({
+    material: requireNonEmptyString(
+      requirement.material,
+      "Informe o material de cada filamento enviado ao ERP.",
+    ),
+    colorName: requireNonEmptyString(
+      requirement.colorName,
+      "Informe o nome de cada cor de filamento enviada ao ERP.",
+    ),
+    colorHex: normalizeOptionalHexColor(
+      requirement.colorHex,
+      "Cada cor de filamento precisa ter um HEX valido como #FFFFFF ou null.",
+    ),
+    weightGrams: normalizePositiveDecimal(
+      requirement.weightGrams,
+      "Informe um peso maior que zero para cada cor de filamento enviada ao ERP.",
+    ),
+  }));
+}
+
+function normalizeOptionalHexColor(
+  value: string | null | undefined,
+  errorMessage: string,
+) {
+  if (value == null) {
+    return null;
+  }
+
+  if (/^#[0-9a-fA-F]{6}$/.test(value.trim())) {
+    return value.trim().toUpperCase();
+  }
+
+  throw new Error(errorMessage);
+}
+
+function normalizePositiveDecimal(value: number, errorMessage: string) {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(errorMessage);
+  }
+
+  return Math.round(value * 1000) / 1000;
 }

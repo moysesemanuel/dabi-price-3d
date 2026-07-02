@@ -4,6 +4,7 @@ import { type ChangeEvent, useMemo, useState } from "react";
 import type { PutBlobResult } from "@vercel/blob";
 import { upload } from "@vercel/blob/client";
 import type {
+  ErpProductFilamentRequirement,
   ErpProductSaveRequest,
   ErpProductSaveResponse,
   ErpProductUsageType,
@@ -29,6 +30,12 @@ type SiteProductPublisherProps = {
     salesChannelLabel: string;
     salesChannelId: SalesChannelId;
     productType: ProductType;
+    filamentRequirements: ErpProductFilamentRequirement[];
+    filamentRequirementsValidationMessage: string | null;
+    filamentRequirementsInputWeightTotal: number;
+    filamentWeightReferenceGrams: number;
+    preferredFilamentMaterial: string | null;
+    preferredFilamentColorHex: string | null;
     mercadoLivreCategoryId: string | null;
     mercadoLivreCategoryName: string | null;
   };
@@ -105,6 +112,8 @@ export function SiteProductPublisher({
   const [form, setForm] = useState<SiteProductFormState | null>(null);
   const [hasTouchedSlug, setHasTouchedSlug] = useState(false);
   const [hasTouchedCategory, setHasTouchedCategory] = useState(false);
+  const [hasTouchedMaterial, setHasTouchedMaterial] = useState(false);
+  const [hasTouchedAccentColor, setHasTouchedAccentColor] = useState(false);
   const [publishState, setPublishState] = useState<PublishState>("idle");
   const [publishTarget, setPublishTarget] = useState<"site" | "erp" | null>(null);
   const [imageUploadState, setImageUploadState] =
@@ -145,7 +154,13 @@ export function SiteProductPublisher({
   function activateSiteProductMode() {
     setForm((current) =>
       current
-        ? syncFormWithPricingContext(current, pricingContext, hasTouchedCategory)
+        ? syncFormWithPricingContext(
+            current,
+            pricingContext,
+            hasTouchedCategory,
+            hasTouchedMaterial,
+            hasTouchedAccentColor,
+          )
         : buildInitialForm(pricingContext),
     );
 
@@ -186,6 +201,14 @@ export function SiteProductPublisher({
           },
           current.category,
         );
+      }
+
+      if (field === "material") {
+        setHasTouchedMaterial(true);
+      }
+
+      if (field === "accentColor") {
+        setHasTouchedAccentColor(true);
       }
 
       return nextForm;
@@ -373,6 +396,15 @@ export function SiteProductPublisher({
       return;
     }
 
+    if (pricingContext.filamentRequirementsValidationMessage) {
+      setPublishTarget("erp");
+      setPublishState("error");
+      setErrorMessage(pricingContext.filamentRequirementsValidationMessage);
+      setSuccessMessage(null);
+      setPublishedProductUrl(null);
+      return;
+    }
+
     setPublishTarget("erp");
     setPublishState("submitting");
     setErrorMessage(null);
@@ -396,6 +428,7 @@ export function SiteProductPublisher({
         stockQuantity: Math.max(form.stockQuantity, 0),
         minimumStock: Math.max(form.minimumStock, 0),
         usageType: form.usageType,
+        filamentRequirements: pricingContext.filamentRequirements,
         mercadoLivreCategoryId: normalizeNullableString(
           form.mercadoLivreCategoryId,
         ),
@@ -738,10 +771,26 @@ export function SiteProductPublisher({
                 <SummaryLine label="Categoria" value={resolvedCategory} />
                 <SummaryLine label="Uso no ERP" value={form.usageType} />
                 <SummaryLine
+                  label="Filamento ERP"
+                  value={
+                    pricingContext.productType === "3d"
+                      ? `${pricingContext.filamentRequirements.length} cor(es) · ${pricingContext.filamentRequirementsInputWeightTotal.toFixed(2)} g`
+                      : "Nao se aplica"
+                  }
+                />
+                <SummaryLine
                   label="Destaque"
                   value={form.featured ? "Sim" : "Não"}
                 />
               </div>
+
+              {pricingContext.productType === "3d" ? (
+                <p className="mt-5 text-xs leading-6 text-[var(--muted)]">
+                  O ERP receberá a composição de filamento por cor para atualizar
+                  o estoque. Peso base atual:{" "}
+                  {pricingContext.filamentWeightReferenceGrams.toFixed(2)} g.
+                </p>
+              ) : null}
 
               <label className="mt-5 flex items-center gap-3 rounded-[18px] border border-white/8 bg-[#0d182b] px-4 py-4">
                 <input
@@ -830,7 +879,9 @@ function buildInitialForm(
   pricingContext: SiteProductPublisherProps["pricingContext"],
 ): SiteProductFormState {
   const defaultMaterial =
-    pricingContext.productType === "3d" ? "PLA" : "Produto pronto";
+    pricingContext.productType === "3d"
+      ? inferPreferredFilamentMaterial(pricingContext)
+      : "Produto pronto";
   const defaultName = pricingContext.productName.trim() || "Sem nome";
   const defaultShortName = buildShortName(defaultName);
 
@@ -843,7 +894,7 @@ function buildInitialForm(
     category: inferMarketplaceCategoryName(pricingContext),
     material: defaultMaterial,
     dimensions: "",
-    accentColor: "#11b8f5",
+    accentColor: inferPreferredFilamentColor(pricingContext),
     imageUrl: "",
     imageFileName: "",
     galleryImages: [],
@@ -866,15 +917,45 @@ function syncFormWithPricingContext(
   form: SiteProductFormState,
   pricingContext: SiteProductPublisherProps["pricingContext"],
   hasTouchedCategory: boolean,
+  hasTouchedMaterial: boolean,
+  hasTouchedAccentColor: boolean,
 ): SiteProductFormState {
   return {
     ...form,
     category: hasTouchedCategory
       ? form.category
       : inferMarketplaceCategoryName(pricingContext, form.category),
+    material: hasTouchedMaterial
+      ? form.material
+      : inferPreferredFilamentMaterial(pricingContext, form.material),
+    accentColor: hasTouchedAccentColor
+      ? form.accentColor
+      : inferPreferredFilamentColor(pricingContext, form.accentColor),
     mercadoLivreCategoryId: pricingContext.mercadoLivreCategoryId ?? "",
     mercadoLivreCategoryName: pricingContext.mercadoLivreCategoryName ?? "",
   };
+}
+
+function inferPreferredFilamentMaterial(
+  pricingContext: SiteProductPublisherProps["pricingContext"],
+  fallbackMaterial = "",
+) {
+  const filamentMaterial = normalizeOptionalString(
+    pricingContext.preferredFilamentMaterial ?? "",
+  );
+
+  return filamentMaterial ?? normalizeOptionalString(fallbackMaterial) ?? "PLA";
+}
+
+function inferPreferredFilamentColor(
+  pricingContext: SiteProductPublisherProps["pricingContext"],
+  fallbackColor = "",
+) {
+  const filamentColor = normalizeOptionalString(
+    pricingContext.preferredFilamentColorHex ?? "",
+  );
+
+  return normalizeHexColor(filamentColor ?? fallbackColor);
 }
 
 function inferMarketplaceCategoryName(

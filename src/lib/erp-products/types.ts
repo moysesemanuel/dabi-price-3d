@@ -1,5 +1,12 @@
 export type ErpProductUsageType = "SELLABLE" | "SUPPLY" | "BOTH";
 
+export type ErpProductFilamentRequirement = {
+  colorName: string;
+  colorHex: string | null;
+  material: string;
+  weightGrams: number;
+};
+
 export type ErpProductSaveRequest = {
   sourceCalculationId: string | null;
   name: string;
@@ -17,6 +24,7 @@ export type ErpProductSaveRequest = {
   stockQuantity: number;
   minimumStock: number;
   usageType: ErpProductUsageType;
+  filamentRequirements: ErpProductFilamentRequirement[];
   mercadoLivreCategoryId: string | null;
   mercadoLivreCategoryName: string | null;
   shopeeCategoryId: string | null;
