@@ -62,7 +62,7 @@ export function calculateSafeMinimumPrice(costTotal: number, multiplier = 1.8) {
   const safeMultiplier = Math.max(sanitizeNumber(multiplier), 1);
   const suggestedPrice = safeCost * safeMultiplier;
 
-  return Math.max(safeCost, roundToHalfStep(suggestedPrice));
+  return Math.max(safeCost, roundCurrencyUp(suggestedPrice));
 }
 
 export function calculateChannelSafeMinimumPrice(input: {
@@ -98,7 +98,7 @@ export function calculateChannelSafeMinimumPrice(input: {
       ? targetNetAmount / requiredRetentionRate
       : safeBaseCost;
 
-  return Math.max(safeBaseCost, roundToHalfStep(suggestedPrice));
+  return Math.max(safeBaseCost, roundCurrencyUp(suggestedPrice));
 }
 
 export function calculateDirectSale(input: {
@@ -198,6 +198,10 @@ export function calculateWholesale(input: {
 
 function roundToHalfStep(value: number) {
   return Math.round(sanitizeNumber(value) * 2) / 2;
+}
+
+function roundCurrencyUp(value: number) {
+  return Math.ceil((sanitizeNumber(value) + Number.EPSILON) * 100) / 100;
 }
 
 function sanitizeNumber(value: number | undefined | null) {

@@ -178,10 +178,10 @@ export function PricingForm({
       ? "Preço de venda por unidade (R$) *"
       : "Preço de venda (R$) *";
   const salePriceFieldNote = form.isKit
-    ? `Informe o valor total cobrado pelo kit. O resumo tambem mostra o valor por item (${kitQuantity} por kit).`
+    ? `Informe o valor total cobrado pelo kit. O resumo tambem mostra o valor por item (${kitQuantity} por kit) e valida a viabilidade no canal.`
     : form.multiplePiecesEnabled
-      ? "Esse valor continua sendo por unidade vendida, mesmo com varias pecas por ciclo."
-      : undefined;
+      ? "Esse valor continua sendo por unidade vendida, mesmo com varias pecas por ciclo. O painel ao lado mostra taxas, lucro e viabilidade."
+      : "Digite o preco de venda livremente. O painel ao lado mostra taxas, lucro e se o valor e viavel no canal.";
 
   const pixPrice = useMemo(() => {
     return suggestedPrice * (1 - form.directPixDiscountPercentage / 100);
@@ -413,7 +413,7 @@ export function PricingForm({
               onChange={() => undefined}
               suffix="%"
               disabled
-              note="Comissao"
+              note="Baseada na categoria selecionada e no tipo de anuncio."
             />
 
             <MercadoLivreCategoryPicker
@@ -763,7 +763,7 @@ export function PricingForm({
       </SectionCard>
 
       <SectionCard>
-        <NumberEyebrow index="2" label="Preço & margem" />
+        <NumberEyebrow index="2" label="Preço & lucro" />
 
         <div className="mt-8">
           <p className="text-xs uppercase tracking-[0.28em] text-[var(--muted)]">
@@ -778,7 +778,7 @@ export function PricingForm({
             />
 
             <PillButton
-              label="Margem de contribuição"
+              label="Margem de lucro"
               active={form.pricingMode === "margin"}
               onClick={() => onChange("pricingMode", "margin")}
             />
@@ -799,9 +799,9 @@ export function PricingForm({
             <div className="mt-6">
               <div className="flex items-end justify-between gap-4">
                 <div>
-                  <p className="text-sm text-white">Margem desejada</p>
+                  <p className="text-sm text-white">Lucro desejado</p>
                   <p className="mt-1 text-xs text-[var(--muted)]">
-                    % sobre o preço de venda
+                    % de lucro líquido sobre o preço de venda após custos, taxas e imposto
                   </p>
                 </div>
 
@@ -1088,14 +1088,14 @@ export function PricingForm({
             prefix={currencySymbol}
           />
           <Field
-            label="Outros custos"
+            label="Manutencao por hora"
             value={displayMoney(form.maintenanceCostPerHour)}
             onChange={(value) =>
               handleMoneyChange("maintenanceCostPerHour", value)
             }
             inputKind="money"
             prefix={currencySymbol}
-            note="Uso aqui como manutencao por hora"
+            note="Rateio de manutencao da maquina por hora impressa"
             className="md:col-span-2"
           />
           {isDirect ? (

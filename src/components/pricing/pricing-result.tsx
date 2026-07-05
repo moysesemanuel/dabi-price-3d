@@ -122,18 +122,17 @@ export function PricingResult({
     unitsPerMonth,
   } = buildPricingViewModel(form, result);
 
-  const marginBadge = getMarginBadge(realMarginPercentage);
   const unitCoreCost = unitProductionCost + unitTaxCost;
   const directSale = calculateDirectSale({
     customerPrice: displayedSalePrice,
     costTotal: unitCoreCost,
   });
-  const activeChannelSafeMinimumPrice = calculateChannelSafeMinimumPrice({
+  const activeChannelSuggestedMinimumPrice = calculateChannelSafeMinimumPrice({
     baseCost: unitProductionCost,
     variableFeePercentage:
       effectiveMarketplaceFeePercentage + form.taxPercentage,
     fixedFee: unitMarketplaceFixedFee,
-    targetMarginPercentage: form.profitMarginPercentage,
+    targetMarginPercentage: 30,
   });
   const consignment = calculateConsignment({
     customerPrice: displayedSalePrice,
@@ -190,14 +189,19 @@ export function PricingResult({
     unitMarketplaceFixedFee +
     unitTaxCost +
     unitShippingCost;
-  const safeGap = displayedSalePrice - activeChannelSafeMinimumPrice;
   const activeWorthIt = unitProfit > 0;
+  const suggestedGap = displayedSalePrice - activeChannelSuggestedMinimumPrice;
+  const saleConditionBadge = getSaleConditionBadge({
+    isWorthIt: activeWorthIt,
+    marginPercentage: realMarginPercentage,
+    suggestedGapValue: suggestedGap,
+  });
   const activeDecision = getActiveDecision({
     activeWorthIt,
     marginPercentage: realMarginPercentage,
-    safeGapValue: safeGap,
+    suggestedGapValue: suggestedGap,
     selectedChannelLabel,
-    formattedSafeGap: money(Math.abs(safeGap)),
+    formattedSuggestedGap: money(Math.abs(suggestedGap)),
   });
   const cyclesPerSaleLabel = formatDecimal(cyclesPerSaleUnit);
   const saleUnitsPerCycleLabel = formatDecimal(saleUnitsPerCycle);
@@ -246,7 +250,7 @@ export function PricingResult({
       value: money(unitPackagingCost),
     },
     {
-      label: "Manutenção e extras",
+      label: "Manutenção",
       amount: unitMaintenanceCost,
       value: money(unitMaintenanceCost),
     },
@@ -317,9 +321,9 @@ export function PricingResult({
             </div>
 
             <span
-              className={`inline-flex rounded-full border px-3 py-1.5 text-[12px] font-medium ${marginBadge.className}`}
+              className={`inline-flex rounded-full border px-3 py-1.5 text-[12px] font-medium ${saleConditionBadge.className}`}
             >
-              {marginBadge.label}
+              {saleConditionBadge.label}
             </span>
           </div>
 
@@ -369,11 +373,12 @@ export function PricingResult({
             <SummaryCard
               label="Custo total neste canal"
               value={money(unitTotalCost)}
+              helper="Produção + marketplace + demais custos."
             />
             <SummaryCard
-              label="Preço mínimo seguro"
-              value={money(activeChannelSafeMinimumPrice)}
-              helper="Piso já considerando taxas, imposto e margem alvo."
+              label="Preço mínimo sugerido"
+              value={money(activeChannelSuggestedMinimumPrice)}
+              helper="Piso sugerido para manter pelo menos 30% de lucro líquido."
             />
           </div>
 
@@ -598,7 +603,11 @@ export function PricingResult({
                     value={money(wholesale.costTotal)}
                   />
                   <SummaryCard
-                    label={form.isKit ? "Preço mínimo seguro do kit" : "Preço mínimo seguro"}
+                    label={
+                      form.isKit
+                        ? "Preço mínimo sugerido do kit"
+                        : "Preço mínimo sugerido"
+                    }
                     value={money(wholesale.safeMinimumPrice)}
                     helper="Base mínima recomendada para lojistas."
                   />
@@ -1064,7 +1073,7 @@ function buildSummaryLines({
               ),
               displayCurrency,
             )}`
-          : `Margem ${formatPercent(form.profitMarginPercentage)}`,
+          : `Lucro alvo ${formatPercent(form.profitMarginPercentage)}`,
     },
     {
       label: "Promoção",
@@ -1255,76 +1264,76 @@ const paymentMethodLabels: Record<string, string> = {
   other: "Outra",
 };
 
-function getMarginBadge(margin: number) {
-  if (margin >= 45) {
+function getSaleConditionBadge({
+  isWorthIt,
+  marginPercentage,
+  suggestedGapValue,
+}: {
+  isWorthIt: boolean;
+  marginPercentage: number;
+  suggestedGapValue: number;
+}) {
+  if (!isWorthIt || suggestedGapValue < 0) {
+    return {
+      label: "Ruim",
+      className: "border-rose-400/20 bg-[#4a2029] text-[#ff9aaa]",
+    };
+  }
+
+  if (marginPercentage >= 40) {
     return {
       label: "Excelente",
       className: "border-[#6fd3ea]/25 bg-[#113849] text-[#8fe3f6]",
     };
   }
 
-  if (margin >= 25) {
-    return {
-      label: "Muito boa",
-      className: "border-[#11b8f5]/25 bg-[#0e3150] text-[#7edbff]",
-    };
-  }
-
-  if (margin >= 12) {
-    return {
-      label: "Atenção",
-      className: "border-amber-400/20 bg-[#4f3c1e] text-[#ffbf3f]",
-    };
-  }
-
   return {
-    label: "Ajustar",
-    className: "border-rose-400/20 bg-[#4a2029] text-[#ff9aaa]",
+    label: "Boa",
+    className: "border-[#11b8f5]/25 bg-[#0e3150] text-[#7edbff]",
   };
 }
 
 function getActiveDecision({
   activeWorthIt,
   marginPercentage,
-  safeGapValue,
+  suggestedGapValue,
   selectedChannelLabel,
-  formattedSafeGap,
+  formattedSuggestedGap,
 }: {
   activeWorthIt: boolean;
   marginPercentage: number;
-  safeGapValue: number;
+  suggestedGapValue: number;
   selectedChannelLabel: string;
-  formattedSafeGap: string;
+  formattedSuggestedGap: string;
 }) {
-  if (!activeWorthIt || safeGapValue < 0) {
+  if (!activeWorthIt) {
     return {
       tone: "danger" as const,
-      title: "Preço precisa ajuste",
-      message: `No canal ${selectedChannelLabel}, o valor atual está ${formattedSafeGap} abaixo do mínimo seguro ou já entrou em lucro negativo.`,
+      title: "Venda inviável",
+      message: `No canal ${selectedChannelLabel}, o valor atual já entrou em lucro negativo. Revise preço, custos ou taxas antes de vender.`,
     };
   }
 
-  if (marginPercentage < 12) {
+  if (suggestedGapValue < 0) {
     return {
       tone: "warning" as const,
-      title: "Venda viável, mas apertada",
-      message:
-        "O preço cobre o cenário atual, mas a folga de margem está curta para absorver desconto, erro ou oscilação de custo.",
+      title: "Venda boa, mas abaixo do sugerido",
+      message: `No canal ${selectedChannelLabel}, o preço atual ainda dá lucro, mas está ${formattedSuggestedGap} abaixo do mínimo sugerido para preservar 30% de lucro líquido.`,
     };
   }
 
-  if (marginPercentage < 25) {
+  if (marginPercentage < 40) {
     return {
-      tone: "warning" as const,
-      title: "Venda saudável com pouca gordura",
-      message: `Você está ${formattedSafeGap} acima do mínimo seguro. Ainda vale revisar antes de fazer promoção.`,
+      tone: "good" as const,
+      title: "Venda viável",
+      message: `Você está ${formattedSuggestedGap} acima do mínimo sugerido neste canal, com lucro líquido positivo e folga operacional.`,
     };
   }
 
   return {
     tone: "good" as const,
-    title: "Preço bem posicionado",
-    message: `Você está ${formattedSafeGap} acima do mínimo seguro neste canal, com margem confortável para operar.`,
+    title: "Venda excelente",
+    message: `Você está ${formattedSuggestedGap} acima do mínimo sugerido neste canal, com margem confortável para operar.`,
   };
 }
 
