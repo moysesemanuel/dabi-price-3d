@@ -134,6 +134,12 @@ export function SiteProductPublisher({
       : hasTouchedCategory
         ? form.category
         : inferMarketplaceCategoryName(pricingContext, form.category);
+  const resolvedMercadoLivreCategoryLabel =
+    form === null
+      ? ""
+      : normalizeOptionalString(form.mercadoLivreCategoryName) ??
+        normalizeOptionalString(resolvedCategory) ??
+        "";
 
   const isSiteProductMode = mode === "site-product";
   const isUploadingImages = imageUploadState !== "idle";
@@ -467,8 +473,8 @@ export function SiteProductPublisher({
   }
 
   return (
-    <section className="rounded-[26px] border border-[var(--panel-border)] bg-[var(--panel)] p-5 shadow-[0_18px_40px_rgba(0,0,0,0.22)] sm:p-6">
-      <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
+    <section className="rounded-[26px] border border-[#e9ddd4] bg-white p-5 shadow-[0_18px_40px_rgba(0,0,0,0.22)] sm:p-6">
+      <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#7c6858]">
         Destino do cálculo
       </p>
 
@@ -491,7 +497,7 @@ export function SiteProductPublisher({
       {isSiteProductMode && form ? (
         <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="space-y-4">
-            <div className="rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-4">
+            <div className="rounded-[22px] border border-black/8 bg-[#fff3ea] p-4">
               <div className="grid gap-3 md:grid-cols-3">
                 <InfoStat label="Produto base" value={pricingContext.productName} />
                 <InfoStat
@@ -507,7 +513,7 @@ export function SiteProductPublisher({
               </div>
             </div>
 
-            <div className="rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-4">
+            <div className="rounded-[22px] border border-black/8 bg-[#fff3ea] p-4">
               <SectionTitle title="Dados principais" />
 
               <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -555,18 +561,18 @@ export function SiteProductPublisher({
                 />
 
                 <label className="block">
-                  <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
+                  <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
                     Cor de destaque
                   </span>
 
-                  <div className="mt-2 flex items-center gap-3 rounded-[20px] border border-white/10 bg-[#0d182b] px-4 py-3">
+                  <div className="mt-2 flex items-center gap-3 rounded-[20px] border border-black/8 bg-white px-4 py-3">
                     <input
                       type="color"
                       value={normalizeHexColor(form.accentColor)}
                       onChange={(event) =>
                         updateField("accentColor", event.target.value)
                       }
-                      className="size-10 rounded-xl border border-white/10 bg-transparent"
+                      className="size-10 rounded-xl border border-black/8 bg-transparent"
                     />
 
                     <input
@@ -574,14 +580,14 @@ export function SiteProductPublisher({
                       onChange={(event) =>
                         updateField("accentColor", event.target.value)
                       }
-                      className="min-w-0 flex-1 bg-transparent text-white outline-none"
+                      className="min-w-0 flex-1 bg-transparent text-[#18120d] outline-none"
                     />
                   </div>
                 </label>
               </div>
             </div>
 
-            <div className="rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-4">
+            <div className="rounded-[22px] border border-black/8 bg-[#fff3ea] p-4">
               <SectionTitle title="Conteúdo do catálogo" />
 
               <div className="mt-5 space-y-4">
@@ -637,8 +643,8 @@ export function SiteProductPublisher({
                 ) : null}
 
                 {form.galleryImages.length > 0 ? (
-                  <div className="rounded-[18px] border border-white/8 bg-[#0d182b] p-4">
-                    <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
+                  <div className="rounded-[18px] border border-black/8 bg-white p-4">
+                    <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
                       Galeria
                     </p>
 
@@ -658,7 +664,7 @@ export function SiteProductPublisher({
               </div>
             </div>
 
-            <div className="rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-4">
+            <div className="rounded-[22px] border border-black/8 bg-[#fff3ea] p-4">
               <SectionTitle title="ERP e marketplaces" />
 
               <div className="mt-5 grid gap-3 md:grid-cols-3">
@@ -708,14 +714,13 @@ export function SiteProductPublisher({
 
                 {pricingContext.salesChannelId === "mercado-livre" ? (
                   <Field
-                    label="Categoria ML ID"
-                    value={form.mercadoLivreCategoryId}
-                    onChange={(value) =>
-                      updateField("mercadoLivreCategoryId", value)
-                    }
+                    label="Categoria ML"
+                    value={resolvedMercadoLivreCategoryLabel}
+                    onChange={() => undefined}
+                    readOnly
                     note={
-                      form.mercadoLivreCategoryName.trim()
-                        ? `Categoria atual: ${form.mercadoLivreCategoryName}`
+                      form.mercadoLivreCategoryId.trim()
+                        ? `Código enviado ao ERP: ${form.mercadoLivreCategoryId}`
                         : "Preenchido automaticamente quando houver contexto ML."
                     }
                   />
@@ -734,25 +739,25 @@ export function SiteProductPublisher({
           </div>
 
           <aside className="xl:sticky xl:top-6">
-            <section className="rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-4">
+            <section className="rounded-[22px] border border-black/8 bg-[#fff3ea] p-4">
               <SectionTitle title="Resumo da publicação" />
 
-              <div className="mt-5 rounded-[22px] border border-[var(--accent)]/30 bg-[var(--accent-soft)] p-5">
-                <p className="text-sm font-semibold text-[var(--accent)]">
+              <div className="mt-5 rounded-[22px] border border-[#ff6a00] bg-[#ff6a00] p-5">
+                <p className="text-sm font-semibold text-white">
                   Preço de venda
                 </p>
-                <strong className="mt-2 block text-3xl font-semibold tracking-[-0.04em] text-[var(--accent)]">
+                <strong className="mt-2 block text-3xl font-semibold tracking-[-0.04em] text-white">
                   {salePriceLabel}
                 </strong>
-                <p className="mt-2 text-xs text-[var(--muted)]">
+                <p className="mt-2 text-xs text-white/85">
                   Valor importado da precificadora. O cadastro do site será
                   publicado com este preço.
                 </p>
               </div>
 
               <div className="mt-5 grid gap-4">
-                <div className="rounded-[18px] border border-white/6 bg-[#0d182b] px-4 py-4">
-                  <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
+                <div className="rounded-[18px] border border-black/8 bg-white px-4 py-4">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
                     Preço promocional opcional
                   </p>
                   <input
@@ -761,7 +766,7 @@ export function SiteProductPublisher({
                       updateField("compareAtPrice", event.target.value)
                     }
                     placeholder="Ex.: 149,90"
-                    className="mt-3 w-full bg-transparent text-lg text-white outline-none placeholder:text-[#5d7398]"
+                    className="mt-3 w-full bg-transparent text-lg text-[#18120d] outline-none placeholder:text-[#7c6858]"
                   />
                 </div>
 
@@ -785,40 +790,40 @@ export function SiteProductPublisher({
               </div>
 
               {pricingContext.productType === "3d" ? (
-                <p className="mt-5 text-xs leading-6 text-[var(--muted)]">
+                <p className="mt-5 text-xs leading-6 text-[#7c6858]">
                   O ERP receberá a composição de filamento por cor para atualizar
                   o estoque. Peso base atual:{" "}
                   {pricingContext.filamentWeightReferenceGrams.toFixed(2)} g.
                 </p>
               ) : null}
 
-              <label className="mt-5 flex items-center gap-3 rounded-[18px] border border-white/8 bg-[#0d182b] px-4 py-4">
+              <label className="mt-5 flex items-center gap-3 rounded-[18px] border border-black/8 bg-white px-4 py-4">
                 <input
                   type="checkbox"
                   checked={form.featured}
                   onChange={(event) =>
                     updateField("featured", event.target.checked)
                   }
-                  className="size-4 rounded border-white/20 bg-transparent"
+                  className="size-4 rounded border-black/20 bg-transparent"
                 />
                 <div>
-                  <p className="text-sm font-medium text-white">
+                  <p className="text-sm font-medium text-[#18120d]">
                     Marcar como destaque
                   </p>
-                  <p className="text-xs text-[var(--muted)]">
+                  <p className="text-xs text-[#7c6858]">
                     O produto entra como destaque no catálogo do site.
                   </p>
                 </div>
               </label>
 
               {publishState === "error" && errorMessage ? (
-                <div className="mt-5 rounded-[18px] border border-[#dc2828]/25 bg-[#dc2828]/10 px-4 py-4 text-sm text-[#ffb3b3]">
+                <div className="mt-5 rounded-[18px] border border-[#ff6a00] bg-[#ff6a00] px-4 py-4 text-sm text-white">
                   {errorMessage}
                 </div>
               ) : null}
 
               {publishState === "success" && successMessage ? (
-                <div className="mt-5 rounded-[18px] border border-[var(--accent)]/25 bg-[var(--accent-soft)] px-4 py-4 text-sm text-[#a7edfb]">
+                <div className="mt-5 rounded-[18px] border border-black/8 bg-white px-4 py-4 text-sm text-[#18120d]">
                   {successMessage}
                   {publishedProductUrl ? (
                     <>
@@ -827,7 +832,7 @@ export function SiteProductPublisher({
                         href={publishedProductUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="font-semibold text-white underline"
+                        className="font-semibold text-[#18120d] underline"
                       >
                         Abrir produto
                       </a>
@@ -844,7 +849,7 @@ export function SiteProductPublisher({
                   publishState === "submitting" ||
                   isUploadingImages
                 }
-                className="mt-6 w-full rounded-2xl bg-[var(--accent)] px-4 py-4 text-base font-semibold text-[#07110d] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-6 w-full rounded-2xl bg-[#ff6a00] px-4 py-4 text-base font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {publishState === "submitting" && publishTarget === "site"
                   ? "Salvando no site..."
@@ -861,7 +866,7 @@ export function SiteProductPublisher({
                   publishState === "submitting" ||
                   isUploadingImages
                 }
-                className="mt-3 w-full rounded-2xl border border-white/10 bg-[#0d182b] px-4 py-4 text-base font-semibold text-white transition hover:border-white/20 hover:bg-[#13213a] disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-3 w-full rounded-2xl border border-black/8 bg-white px-4 py-4 text-base font-semibold text-[#18120d] transition hover:border-[#ff6a00]/30 hover:bg-[#ff6a00] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {publishState === "submitting" && publishTarget === "erp"
                   ? "Enviando ao ERP..."
@@ -998,7 +1003,7 @@ function normalizeHexColor(value: string) {
     return trimmedValue;
   }
 
-  return "#11b8f5";
+  return "#FF7A1A";
 }
 
 function buildSku(value: string) {
@@ -1152,14 +1157,14 @@ function ChoiceCard({
       onClick={onClick}
       className={`rounded-[22px] border px-5 py-4 text-left transition ${
         active
-          ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)] shadow-[inset_0_0_0_1px_rgba(17,184,245,0.14)]"
-          : "border-white/8 bg-[var(--panel-soft)] text-white hover:border-white/16 hover:bg-white/3"
+          ? "border-[#ff6a00] bg-[#ff6a00] text-white shadow-[inset_0_0_0_1px_rgba(196,78,0,0.14)]"
+          : "border-black/8 bg-white text-[#18120d] hover:border-[#ff6a00]/30 hover:bg-[#ff6a00]"
       }`}
     >
       <strong className="block text-lg font-semibold tracking-[-0.04em]">
         {title}
       </strong>
-      <span className="mt-2 block text-sm text-[var(--muted)]">
+      <span className="mt-2 block text-sm text-[#7c6858]">
         {description}
       </span>
     </button>
@@ -1168,7 +1173,7 @@ function ChoiceCard({
 
 function SectionTitle({ title }: { title: string }) {
   return (
-    <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
+    <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#7c6858]">
       {title}
     </p>
   );
@@ -1176,11 +1181,11 @@ function SectionTitle({ title }: { title: string }) {
 
 function InfoStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[18px] border border-white/6 bg-[#0d182b] px-4 py-4">
-      <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
+    <div className="rounded-[18px] border border-black/8 bg-white px-4 py-4">
+      <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
         {label}
       </p>
-      <p className="mt-3 text-sm font-medium text-white">{value}</p>
+      <p className="mt-3 text-sm font-medium text-[#18120d]">{value}</p>
     </div>
   );
 }
@@ -1190,25 +1195,30 @@ function Field({
   value,
   onChange,
   note,
+  readOnly = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   note?: string;
+  readOnly?: boolean;
 }) {
   return (
     <label className="block">
-      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
+      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
         {label}
       </span>
 
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full rounded-[20px] border border-white/10 bg-[#0d182b] px-4 py-3 text-base text-white outline-none transition placeholder:text-[#5d7398] focus:border-[var(--accent)]/40"
+        readOnly={readOnly}
+        className={`mt-2 w-full rounded-[20px] border border-black/8 bg-white px-4 py-3 text-base text-[#18120d] outline-none transition placeholder:text-[#7c6858] focus:border-[#ff6a00]/40 ${
+          readOnly ? "cursor-default bg-[#faf6f2]" : ""
+        }`}
       />
 
-      {note ? <p className="mt-2 text-xs text-[var(--muted)]">{note}</p> : null}
+      {note ? <p className="mt-2 text-xs text-[#7c6858]">{note}</p> : null}
     </label>
   );
 }
@@ -1228,7 +1238,7 @@ function TextArea({
 }) {
   return (
     <label className="block">
-      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
+      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
         {label}
       </span>
 
@@ -1236,10 +1246,10 @@ function TextArea({
         value={value}
         rows={rows}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full rounded-[20px] border border-white/10 bg-[#0d182b] px-4 py-3 text-base text-white outline-none transition placeholder:text-[#5d7398] focus:border-[var(--accent)]/40"
+        className="mt-2 w-full rounded-[20px] border border-black/8 bg-white px-4 py-3 text-base text-[#18120d] outline-none transition placeholder:text-[#7c6858] focus:border-[#ff6a00]/40"
       />
 
-      {note ? <p className="mt-2 text-xs text-[var(--muted)]">{note}</p> : null}
+      {note ? <p className="mt-2 text-xs text-[#7c6858]">{note}</p> : null}
     </label>
   );
 }
@@ -1261,7 +1271,7 @@ function FileField({
 }) {
   return (
     <label className="block">
-      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
+      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
         {label}
       </span>
 
@@ -1271,19 +1281,19 @@ function FileField({
         multiple={multiple}
         onChange={onChange}
         disabled={disabled}
-        className="mt-2 block w-full rounded-[20px] border border-white/10 bg-[#0d182b] px-4 py-3 text-sm text-white file:mr-4 file:rounded-full file:border-0 file:bg-[var(--accent-soft)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-2 block w-full rounded-[20px] border border-black/8 bg-white px-4 py-3 text-sm text-[#18120d] file:mr-4 file:rounded-full file:border-0 file:bg-[#ff6a00] file:px-4 file:py-2 file:text-sm file:font-medium file:text-white disabled:cursor-not-allowed disabled:opacity-60"
       />
 
-      <p className="mt-2 text-xs text-[var(--muted)]">{helper}</p>
+      <p className="mt-2 text-xs text-[#7c6858]">{helper}</p>
     </label>
   );
 }
 
 function SummaryLine({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-[18px] border border-white/6 bg-[#0d182b] px-4 py-3">
-      <span className="text-sm text-[var(--muted)]">{label}</span>
-      <strong className="text-sm text-white">{value}</strong>
+    <div className="flex items-center justify-between gap-4 rounded-[18px] border border-black/8 bg-white px-4 py-3">
+      <span className="text-sm text-[#7c6858]">{label}</span>
+      <strong className="text-sm text-[#18120d]">{value}</strong>
     </div>
   );
 }
@@ -1300,19 +1310,19 @@ function ImagePreviewCard({
   onRemove: () => void;
 }) {
   return (
-    <div className="rounded-[18px] border border-white/8 bg-[#0d182b] p-4">
+    <div className="rounded-[18px] border border-black/8 bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
+          <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
             {title}
           </p>
-          <p className="mt-2 text-sm text-white">{fileName}</p>
+          <p className="mt-2 text-sm text-[#18120d]">{fileName}</p>
         </div>
 
         <button
           type="button"
           onClick={onRemove}
-          className="rounded-full border border-white/10 px-3 py-1 text-xs text-white transition hover:border-white/20 hover:bg-white/4"
+          className="rounded-full border border-black/8 px-3 py-1 text-xs text-[#18120d] transition hover:border-[#ff6a00]/30 hover:bg-[#ff6a00]"
         >
           Remover
         </button>

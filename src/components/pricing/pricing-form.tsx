@@ -229,9 +229,28 @@ export function PricingForm({
   }
 
   return (
-    <form className="space-y-4">
-      <SectionCard>
-        <NumberEyebrow index="0" label="Base do produto" />
+    <form className="space-y-5">
+      <section className="overflow-hidden rounded-[32px] border border-black/8 bg-white shadow-[0_20px_60px_rgba(103,55,18,0.08)]">
+        <div className="border-b border-black/8 px-5 py-5 sm:px-6">
+          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#d84f00]">
+            Editor da precificação
+          </p>
+          <h2 className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[#18120d]">
+            Tudo em uma tela
+          </h2>
+          <p className="mt-2 max-w-[760px] text-sm leading-7 text-[#7c6858]">
+            Preencha os blocos abaixo na ordem que fizer sentido. O cálculo e o
+            painel lateral continuam atualizando em tempo real, sem navegação
+            por etapas.
+          </p>
+        </div>
+
+        <FormSection id="section-1">
+        <NumberEyebrow index="1" label="Base do produto" />
+        <SectionLead
+          title="Contexto do produto"
+          description="Defina o item, o formato de venda e a moeda de leitura antes de entrar nas regras do canal."
+        />
 
         <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div>
@@ -243,7 +262,7 @@ export function PricingForm({
               note="Usado no histórico, no site e nas integrações de marketplace."
             />
 
-            <div className="mt-5 grid gap-3 md:grid-cols-2">
+            <div className="mt-5 grid gap-2 md:grid-cols-2">
               <ChoiceCard
                 title="Produto 3D"
                 description="Impressora + filamento"
@@ -260,7 +279,7 @@ export function PricingForm({
           </div>
 
           <div className="space-y-4">
-            <div className="rounded-[22px] border border-white/8 bg-[var(--panel-soft)] px-4 py-4">
+            <div className="border-l border-black/10 pl-4">
               <SectionEyebrow label="Moeda de exibicao" />
 
               <div className="mt-4 flex flex-wrap gap-2">
@@ -281,13 +300,13 @@ export function PricingForm({
                 />
               </div>
 
-              <p className="mt-3 text-xs text-[var(--muted)]">
+              <p className="mt-3 text-xs text-[#7c6858]">
                 Cotação diária via {exchangeRateSnapshot.sourceLabel} ·{" "}
                 {exchangeRateDateLabel}
               </p>
             </div>
 
-            <div className="rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-5">
+            <div className="border-l border-black/10 pl-4">
               <ToggleRow
                 label="Vendido como kit?"
                 note="Usa o preco total do kit e mostra tambem o valor por item interno."
@@ -308,12 +327,16 @@ export function PricingForm({
             </div>
           </div>
         </div>
-      </SectionCard>
+        </FormSection>
 
-      <SectionCard>
-        <NumberEyebrow index="1" label="Marketplace" />
+        <FormSection id="section-2" className="border-t border-black/8">
+        <NumberEyebrow index="2" label="Marketplace" />
+        <SectionLead
+          title="Canal de venda"
+          description="Escolha primeiro o canal. As regras específicas aparecem abaixo de forma mais compacta."
+        />
 
-        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+        <div className="mt-5 flex flex-wrap gap-2">
           {salesChannels.map((channel) => {
             const isActive = channel.id === form.salesChannelId;
 
@@ -322,61 +345,61 @@ export function PricingForm({
                 key={channel.id}
                 type="button"
                 onClick={() => onChange("salesChannelId", channel.id)}
-                className={`rounded-[22px] border px-5 py-2 text-center transition ${
+                className={`inline-flex items-center gap-3 rounded-full border px-4 py-3 text-left transition ${
                   isActive
-                    ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)] shadow-[inset_0_0_0_1px_rgba(17,184,245,0.14)]"
-                    : "border-white/8 bg-[var(--panel-soft)] text-white hover:border-white/16 hover:bg-white/3"
+                    ? "border-[#ff6a00] bg-[#ff6a00] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                    : "border-black/8 bg-white text-[#18120d] hover:border-black/14 hover:bg-white"
                 }`}
               >
                 {channel.id === "mercado-livre" ? (
                   <MercadoLivreCartIcon
-                    className={`mx-auto mb-2 size-8 ${
-                      isActive ? "text-[var(--accent)]" : "text-[#b6b2d0]"
+                    className={`mb-3 size-7 ${
+                      isActive ? "text-white" : "text-[#7c6858]"
                     }`}
                   />
                 ) : null}
 
                 {channel.id === "shopee" ? (
                   <HandbagIcon
-                    className={`mx-auto mb-2 size-8 ${
-                      isActive ? "text-[var(--accent)]" : "text-[#b6b2d0]"
+                    className={`mb-3 size-7 ${
+                      isActive ? "text-white" : "text-[#7c6858]"
                     }`}
                   />
                 ) : null}
 
                 {channel.id === "amazon" ? (
                   <AmazonIcon
-                    className={`mx-auto mb-2 size-8 ${
-                      isActive ? "text-[var(--accent)]" : "text-[#b6b2d0]"
+                    className={`mb-3 size-7 ${
+                      isActive ? "text-white" : "text-[#7c6858]"
                     }`}
                   />
                 ) : null}
 
                 {channel.id === "direct" ? (
                   <DirectSaleIcon
-                    className={`mx-auto mb-2 size-8 ${
-                      isActive ? "text-[var(--accent)]" : "text-[#b6b2d0]"
+                    className={`mb-3 size-7 ${
+                      isActive ? "text-white" : "text-[#7c6858]"
                     }`}
                   />
                 ) : null}
 
                 {channel.id === "consignment" ? (
                   <DirectSaleIcon
-                    className={`mx-auto mb-2 size-8 ${
-                      isActive ? "text-[var(--accent)]" : "text-[#b6b2d0]"
+                    className={`mb-3 size-7 ${
+                      isActive ? "text-white" : "text-[#7c6858]"
                     }`}
                   />
                 ) : null}
 
                 <strong
-                  className={`block text-lg font-semibold tracking-[-0.04em] ${
-                    isActive ? "text-[var(--accent)]" : "text-[#d4d9eb]"
+                  className={`block text-sm font-semibold tracking-[-0.02em] ${
+                    isActive ? "text-white" : "text-[#18120d]"
                   }`}
                 >
                   {channel.name}
                 </strong>
 
-                <span className="mt-1 block text-xs text-[var(--muted)]">
+                <span className="text-xs text-[#7c6858]">
                   {channelDescriptions[channel.id] ?? "Canal configuravel"}
                 </span>
               </button>
@@ -418,20 +441,24 @@ export function PricingForm({
 
             <MercadoLivreCategoryPicker
               selectedCategoryId={form.mercadoLivreOfficialCategoryId}
-              selectedCategoryName={mercadoLivrePredictedCategoryName ?? ""}
+              selectedCategoryName={
+                form.mercadoLivreOfficialCategoryName.trim() ||
+                mercadoLivrePredictedCategoryName ||
+                ""
+              }
               onSelect={onMercadoLivreOfficialCategorySelect}
               onClear={onMercadoLivreOfficialCategoryClear}
             />
 
-            <div className="border-t border-white/6 pt-6">
+            <div className="border-t border-black/8 pt-6">
               <SectionEyebrow label="Custo de envio (Envios ML 2026)" />
 
-              <div className="mt-4 flex items-center justify-between gap-4 rounded-[18px] border border-white/6 bg-[var(--panel-soft)] px-4 py-4">
+              <div className="mt-4 flex items-center justify-between gap-4 rounded-[20px] border border-black/8 bg-white px-4 py-4">
                 <div>
-                  <p className="text-sm text-white">
+                  <p className="text-sm text-[#18120d]">
                     Perfil de embalagem usado na simulacao
                   </p>
-                  <p className="mt-1 text-xs text-[var(--muted)]">
+                  <p className="mt-1 text-xs text-[#7c6858]">
                     {`${form.mercadoLivrePackageHeightCm} x ${
                       form.mercadoLivrePackageWidthCm
                     } x ${
@@ -445,7 +472,7 @@ export function PricingForm({
                 <button
                   type="button"
                   onClick={() => setMlPackageDetailsOpen((current) => !current)}
-                  className="rounded-xl border border-white/8 px-4 py-2 text-sm text-white transition hover:border-white/14 hover:bg-white/4"
+                  className="rounded-full border border-black/8 bg-white px-4 py-2 text-sm text-[#18120d] transition hover:border-[#ff6a00]/30 hover:bg-[#ff6a00]"
                 >
                   {mlPackageDetailsOpen ? "Ocultar medidas" : "Ajustar medidas"}
                 </button>
@@ -508,7 +535,7 @@ export function PricingForm({
                   className={
                     form.mercadoLivreFreeShipping &&
                     mercadoLivreOfficialLookupError
-                      ? "[&_input]:border-amber-400/30 [&_input]:bg-amber-400/5"
+                      ? "[&_input]:border-[#ff6a00]/30 [&_input]:bg-[#ff6a00]"
                       : undefined
                   }
                 />
@@ -516,7 +543,7 @@ export function PricingForm({
 
               <div className="mt-3 space-y-2">
                 {!form.mercadoLivreFreeShipping ? (
-                  <p className="text-xs text-[var(--muted)]">
+                  <p className="text-xs text-[#7c6858]">
                     Frete grátis desligado. O custo do envio no cálculo fica em{" "}
                     {currencySymbol} 0,00 até você informar um valor manual.
                   </p>
@@ -524,7 +551,7 @@ export function PricingForm({
 
                 {form.mercadoLivreFreeShipping &&
                 mercadoLivreOfficialLookupError ? (
-                  <p className="text-xs text-[#ffb3b3]">
+                  <p className="text-xs text-[#d84f00]">
                     Não foi possível calcular o frete automático do Mercado
                     Livre: {mercadoLivreOfficialLookupError}
                   </p>
@@ -532,7 +559,7 @@ export function PricingForm({
 
                 {form.mercadoLivreFreeShipping &&
                 mercadoLivreOfficialLookupError ? (
-                  <p className="text-xs text-amber-300">
+                  <p className="text-xs text-[#d84f00]">
                     Use o campo <strong>Frete no cálculo</strong> para informar
                     manualmente o valor que o vendedor precisa absorver.
                   </p>
@@ -541,7 +568,7 @@ export function PricingForm({
                 {form.mercadoLivreFreeShipping &&
                 !mercadoLivreOfficialLookupError &&
                 !mercadoLivreOfficialLookupReady ? (
-                  <p className="text-xs text-[var(--muted)]">
+                  <p className="text-xs text-[#7c6858]">
                     A estimativa automática depende da conexão com o Mercado
                     Livre em <strong>Preferências</strong>.
                   </p>
@@ -562,7 +589,7 @@ export function PricingForm({
               />
 
               {mercadoLivrePredictedCategoryName ? (
-                <p className="mt-4 text-xs text-[var(--muted)]">
+                <p className="mt-4 text-xs text-[#7c6858]">
                   Categoria prevista automaticamente:{" "}
                   {mercadoLivrePredictedCategoryName}
                 </p>
@@ -607,7 +634,7 @@ export function PricingForm({
             />
 
             {form.shopeeOwnCoupon ? (
-              <div className="rounded-[20px] border-l border-[var(--accent)] pl-4">
+              <div className="rounded-[20px] border-l border-[#ff6a00] pl-4">
                 <div className="grid gap-3 md:grid-cols-2">
                   <PillButton
                     label="% desconto"
@@ -693,7 +720,7 @@ export function PricingForm({
                 }))}
                 onChange={(value) => onChange("amazonCategory", value)}
               />
-              <p className="mt-3 font-mono text-sm text-[var(--muted)]">
+              <p className="mt-3 font-mono text-sm text-[#7c6858]">
                 Comissao: 13%
               </p>
             </div>
@@ -760,13 +787,17 @@ export function PricingForm({
             </InfoBlock>
           </div>
         ) : null}
-      </SectionCard>
+        </FormSection>
 
-      <SectionCard>
-        <NumberEyebrow index="2" label="Preço & lucro" />
+        <FormSection id="section-3" className="border-t border-black/8">
+        <NumberEyebrow index="3" label="Preço & lucro" />
+        <SectionLead
+          title="Estratégia de preço"
+          description="Aqui você decide se quer partir de um valor manual ou de uma margem-alvo."
+        />
 
         <div className="mt-8">
-          <p className="text-xs uppercase tracking-[0.28em] text-[var(--muted)]">
+          <p className="text-xs uppercase tracking-[0.28em] text-[#7c6858]">
             Modo de precificação
           </p>
 
@@ -799,13 +830,13 @@ export function PricingForm({
             <div className="mt-6">
               <div className="flex items-end justify-between gap-4">
                 <div>
-                  <p className="text-sm text-white">Lucro desejado</p>
-                  <p className="mt-1 text-xs text-[var(--muted)]">
+                  <p className="text-sm text-[#18120d]">Lucro desejado</p>
+                  <p className="mt-1 text-xs text-[#7c6858]">
                     % de lucro líquido sobre o preço de venda após custos, taxas e imposto
                   </p>
                 </div>
 
-                <strong className="text-3xl font-semibold text-[var(--accent)]">
+                <strong className="text-3xl font-semibold text-[#d84f00]">
                   {form.profitMarginPercentage}%
                 </strong>
               </div>
@@ -821,8 +852,8 @@ export function PricingForm({
                 style={{
                   background: `linear-gradient(
                     to right,
-                    var(--accent) 0%,
-                    var(--accent) ${form.profitMarginPercentage}%,
+                    #ff6a00 0%,
+                    #ff6a00 ${form.profitMarginPercentage}%,
                     rgba(255,255,255,0.05) ${form.profitMarginPercentage}%,
                     rgba(255,255,255,0.05) 100%
                   )`,
@@ -833,13 +864,13 @@ export function PricingForm({
                   [&::-webkit-slider-thumb]:appearance-none
                   [&::-webkit-slider-thumb]:rounded-full
                   [&::-webkit-slider-thumb]:border-2
-                  [&::-webkit-slider-thumb]:border-[var(--accent)]
+                  [&::-webkit-slider-thumb]:border-[#ff6a00]
                   [&::-webkit-slider-thumb]:bg-white
                   [&::-moz-range-thumb]:h-5
                   [&::-moz-range-thumb]:w-5
                   [&::-moz-range-thumb]:rounded-full
                   [&::-moz-range-thumb]:border-2
-                  [&::-moz-range-thumb]:border-[var(--accent)]
+                  [&::-moz-range-thumb]:border-[#ff6a00]
                   [&::-moz-range-thumb]:bg-white"
               />
             </div>
@@ -864,16 +895,20 @@ export function PricingForm({
             </div>
           ) : null}
         </div>
-      </SectionCard>
+        </FormSection>
 
-      <SectionCard>
+        <FormSection id="section-4" className="border-t border-black/8">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <NumberEyebrow index="3" label="Impressora & energia" />
+          <NumberEyebrow index="4" label="Impressora & energia" />
 
-          <span className="rounded-md border border-white/8 px-3 py-1 font-mono text-[10px] text-[var(--muted)]">
+          <span className="rounded-md border border-black/8 px-3 py-1 font-mono text-[10px] text-[#7c6858]">
             Bambu Lab + outras
           </span>
         </div>
+        <SectionLead
+          title="Capacidade de produção"
+          description="Tempo, potência e múltiplas peças no mesmo ciclo definem custo operacional e produtividade."
+        />
 
         <div className="mt-8 space-y-6">
           <div className="max-w-[300px]">
@@ -923,7 +958,7 @@ export function PricingForm({
           />
 
           {form.multiplePiecesEnabled ? (
-            <div className="border-l border-[var(--accent)] pl-6">
+            <div className="border-l border-[#ff6a00] pl-6">
               <div className="max-w-[160px]">
                 <Field
                   label="Peças na mesa"
@@ -932,7 +967,7 @@ export function PricingForm({
                 />
               </div>
 
-              <p className="mt-5 font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
+              <p className="mt-5 font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
                 Como interpretar os campos
               </p>
 
@@ -962,7 +997,7 @@ export function PricingForm({
                 />
               </div>
 
-              <p className="mt-4 text-xs leading-6 text-[var(--muted)]">
+              <p className="mt-4 text-xs leading-6 text-[#7c6858]">
                 Se voce vende em kit, informe os itens por kit. Quando a mesa
                 nao fecha o kit inteiro em um ciclo, a precificadora passa a
                 multiplicar tempo, filamento e rateio produtivo para completar
@@ -980,10 +1015,14 @@ export function PricingForm({
             note={`Média nacional ≈ ${currencySymbol} ${displayMoney(0.85)} · verifique sua conta`}
           />
         </div>
-      </SectionCard>
+        </FormSection>
 
-      <SectionCard>
-        <NumberEyebrow index="4" label="Filamento" />
+        <FormSection id="section-5" className="border-t border-black/8">
+        <NumberEyebrow index="5" label="Filamento" />
+        <SectionLead
+          title="Material principal"
+          description="Peso e custo do filamento entram direto no custo base. A composição por cor fica recolhível logo abaixo."
+        />
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <Field
@@ -1004,23 +1043,21 @@ export function PricingForm({
           />
         </div>
 
-        <div className="mt-6 rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-5">
+        <SectionDisclosure
+          className="mt-6"
+          title="Composição por cor e dados para ERP"
+          description={`Os pesos seguem a mesma regra do campo de filamento: ${filamentRequirementsReferenceLabel}.`}
+          defaultOpen={false}
+        >
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
-                Composição por cor
-              </p>
-              <p className="mt-2 text-sm text-[var(--muted)]">
-                Informe as cores do filamento usadas no produto para enviar ao
-                ERP. Os pesos abaixo seguem a mesma regra do campo de filamento:
-                {` ${filamentRequirementsReferenceLabel}.`}
-              </p>
+            <div className="text-sm text-[#7c6858]">
+              Use apenas se precisar detalhar materiais e cores usados no produto.
             </div>
 
             <button
               type="button"
               onClick={onAddFilamentRequirement}
-              className="rounded-2xl border border-[var(--accent)]/25 bg-[var(--accent-soft)] px-4 py-3 text-sm font-medium text-[var(--accent)] transition hover:border-[var(--accent)]/40"
+              className="rounded-full border border-[#ff6a00] bg-[#ff6a00] px-4 py-3 text-sm font-medium text-white transition hover:brightness-110"
             >
               Adicionar cor
             </button>
@@ -1039,12 +1076,12 @@ export function PricingForm({
             ))}
           </div>
 
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/8 bg-[var(--panel-strong)] px-4 py-3">
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-black/8 pt-4">
             <div>
-              <p className="text-sm text-white">
+              <p className="text-sm text-[#18120d]">
                 Soma das cores: {filamentRequirementsTotal.toFixed(2)} g
               </p>
-              <p className="mt-1 text-xs text-[var(--muted)]">
+              <p className="mt-1 text-xs text-[#7c6858]">
                 Peso total informado: {form.weightGrams.toFixed(2)} g
               </p>
             </div>
@@ -1052,8 +1089,8 @@ export function PricingForm({
             <span
               className={`rounded-full px-3 py-1 text-xs font-medium ${
                 filamentRequirementsMatch
-                  ? "bg-[var(--accent-soft)] text-[var(--accent)]"
-                  : "bg-amber-500/12 text-amber-300"
+                  ? "bg-[#ff6a00] text-white"
+                  : "bg-[#ff6a00] text-white"
               }`}
             >
               {filamentRequirementsMatch
@@ -1061,16 +1098,20 @@ export function PricingForm({
                 : `Ajuste ${filamentRequirementsDifference.toFixed(2)} g`}
             </span>
           </div>
-        </div>
-      </SectionCard>
+        </SectionDisclosure>
+        </FormSection>
 
-      <SectionCard>
+        <FormSection id="section-6" className="border-t border-black/8">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <NumberEyebrow index="5" label="Demais custos" />
-          <span className="rounded-full border border-white/8 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--muted)]">
+          <NumberEyebrow index="6" label="Demais custos" />
+          <span className="rounded-full border border-black/8 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-[#7c6858]">
             opcional
           </span>
         </div>
+        <SectionLead
+          title="Custos operacionais"
+          description="Imposto, perdas, embalagem e manutenção entram como ajustes que refinam o preço final."
+        />
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <Field
@@ -1116,85 +1157,148 @@ export function PricingForm({
             note="Margem extra para absorver retrabalho"
           />
         </div>
-      </SectionCard>
+        </FormSection>
 
       {isDirect ? (
-        <SectionCard>
-          <NumberEyebrow index="6" label="Forma de pagamento" />
+        <FormSection className="border-t border-black/8">
+          <NumberEyebrow index="7" label="Forma de pagamento" />
+          <SectionLead
+            title="Recebimento na venda direta"
+            description="Configuração complementar para Pix, cartão e taxa manual da maquininha."
+          />
 
-          <p className="mt-5 text-sm text-[var(--muted)]">
-            O preco base e sempre o Pix. O cartao embute a taxa da maquininha no
-            preco cobrado do cliente.
-          </p>
+          <SectionDisclosure
+            className="mt-5"
+            title="Abrir regras de pagamento"
+            description="Pix, cartão e taxa manual da maquininha."
+            defaultOpen={false}
+          >
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {paymentOptions.map((option) => (
+                <ChoiceCard
+                  key={option.id}
+                  title={option.label}
+                  description={option.fee}
+                  active={form.directPaymentMethod === option.id}
+                  onClick={() => onChange("directPaymentMethod", option.id)}
+                  compact
+                />
+              ))}
+            </div>
 
-          <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {paymentOptions.map((option) => (
-              <ChoiceCard
-                key={option.id}
-                title={option.label}
-                description={option.fee}
-                active={form.directPaymentMethod === option.id}
-                onClick={() => onChange("directPaymentMethod", option.id)}
-                compact
+            <div className="mt-4">
+              <Field
+                label="Taxa manual"
+                value={form.directCustomCardFeePercentage}
+                onChange={(value) =>
+                  onChange("directCustomCardFeePercentage", value)
+                }
+                suffix="%"
               />
-            ))}
-          </div>
+            </div>
 
-          <div className="mt-4">
-            <Field
-              label="Taxa manual"
-              value={form.directCustomCardFeePercentage}
-              onChange={(value) =>
-                onChange("directCustomCardFeePercentage", value)
-              }
-              suffix="%"
-            />
-          </div>
-
-          <div className="mt-6 grid gap-4 border-t border-white/6 pt-6 md:grid-cols-2">
-            <Field
-              label="Desconto para pagamento no Pix"
-              value={form.directPixDiscountPercentage}
-              onChange={(value) =>
-                onChange("directPixDiscountPercentage", value)
-              }
-              suffix="%"
-              note="Padrao 5%: exclusao aproximada da taxa da maquininha"
-            />
-            <Field
-              label="Preco no Pix (calculado)"
-              value={displayMoney(pixPrice)}
-              onChange={() => undefined}
-              inputKind="money"
-              prefix={currencySymbol}
-              disabled
-            />
-          </div>
-        </SectionCard>
+            <div className="mt-6 grid gap-4 border-t border-black/8 pt-6 md:grid-cols-2">
+              <Field
+                label="Desconto para pagamento no Pix"
+                value={form.directPixDiscountPercentage}
+                onChange={(value) =>
+                  onChange("directPixDiscountPercentage", value)
+                }
+                suffix="%"
+                note="Padrao 5%: exclusao aproximada da taxa da maquininha"
+              />
+              <Field
+                label="Preco no Pix (calculado)"
+                value={displayMoney(pixPrice)}
+                onChange={() => undefined}
+                inputKind="money"
+                prefix={currencySymbol}
+                disabled
+              />
+            </div>
+          </SectionDisclosure>
+        </FormSection>
       ) : null}
+      </section>
     </form>
   );
 }
 
-function SectionCard({
+function FormSection({
   children,
   className = "",
+  id,
 }: {
   children: React.ReactNode;
   className?: string;
+  id?: string;
 }) {
   return (
     <section
-      className={`rounded-[26px] border border-[var(--panel-border)] bg-[var(--panel)] p-5 shadow-[0_16px_40px_rgba(0,0,0,0.22)] sm:p-6 ${className}`}
+      id={id}
+      className={`bg-transparent px-5 py-6 sm:px-6 sm:py-7 ${className}`}
     >
       {children}
     </section>
   );
 }
 
+function SectionLead({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="mt-5 max-w-[760px]">
+      <h3 className="text-lg font-semibold tracking-[-0.03em] text-[#18120d]">
+        {title}
+      </h3>
+      <p className="mt-2 text-sm leading-7 text-[#7c6858]">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function SectionDisclosure({
+  title,
+  description,
+  children,
+  defaultOpen = false,
+  className = "",
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+  className?: string;
+}) {
+  return (
+    <details
+      className={`group rounded-[24px] border border-black/8 bg-white ${className}`}
+      open={defaultOpen}
+    >
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-4 px-4 py-4 marker:content-none">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-[#18120d]">{title}</p>
+          <p className="mt-1 text-xs text-[#7c6858]">{description}</p>
+        </div>
+
+        <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-black/8 bg-[#ff6a00] text-sm text-white transition-transform duration-200 group-open:rotate-180">
+          ▾
+        </span>
+      </summary>
+
+      <div className="border-t border-black/8 px-4 py-4">{children}</div>
+    </details>
+  );
+}
+
 function SectionEyebrow({ label }: { label: string }) {
   return (
-    <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
+    <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#d84f00]">
       {label}
     </p>
   );
@@ -1209,10 +1313,10 @@ function NumberEyebrow({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="inline-flex size-7 items-center justify-center rounded-full bg-[var(--accent)] text-sm font-semibold text-[#08110d]">
+      <span className="inline-flex size-8 items-center justify-center rounded-2xl border border-[#ff6a00] bg-[#ff6a00] text-sm font-semibold text-white">
         {index}
       </span>
-      <span className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
+      <span className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#7c6858]">
         {label}
       </span>
     </div>
@@ -1236,22 +1340,22 @@ function ChoiceCard({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-[22px] border px-5 text-center transition ${
-        compact ? "py-4" : "py-6"
+      className={`rounded-[18px] border px-4 text-left transition ${
+        compact ? "py-3" : "py-4"
       } ${
         active
-          ? "border-[var(--accent)] bg-[var(--accent-soft)]"
-          : "border-white/8 bg-[var(--panel-soft)] hover:border-white/14"
+          ? "border-[#ff6a00] bg-[#ff6a00]"
+          : "border-[#d6c8bb] bg-[#fcfaf8] hover:border-[#bdaa99] hover:bg-white"
       }`}
     >
       <strong
-        className={`block text-base font-semibold tracking-[-0.03em] ${
-          active ? "text-[var(--accent)]" : "text-white"
+        className={`block text-sm font-semibold tracking-[-0.02em] ${
+          active ? "text-white" : "text-[#18120d]"
         }`}
       >
         {title}
       </strong>
-      <span className="mt-2 block text-xs text-[var(--muted)]">
+      <span className={`mt-1 block text-xs ${active ? "text-white/85" : "text-[#7c6858]"}`}>
         {description}
       </span>
     </button>
@@ -1273,23 +1377,23 @@ function MarketplaceModeCard({
 }) {
   const activeClassName =
     accentTone === "amber"
-      ? "border-amber-400 bg-[rgba(251,146,60,0.12)]"
-      : "border-[var(--accent)] bg-[var(--accent-soft)]";
+      ? "border-[#ff6a00] bg-[#ff6a00]"
+      : "border-[#ff6a00] bg-[#ff6a00]";
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-[22px] border px-5 py-6 text-left transition ${
+      className={`rounded-[18px] border px-4 py-4 text-left transition ${
         active
           ? activeClassName
-          : "border-white/8 bg-[var(--panel-soft)] hover:border-white/14"
+          : "border-[#d6c8bb] bg-[#fcfaf8] hover:border-[#bdaa99] hover:bg-white"
       }`}
     >
-      <strong className="block text-2xl font-semibold tracking-[-0.03em] text-white">
+      <strong className={`block text-base font-semibold tracking-[-0.03em] ${active ? "text-white" : "text-[#18120d]"}`}>
         {title}
       </strong>
-      <span className="mt-3 block text-sm text-[var(--muted)]">
+      <span className={`mt-2 block text-sm ${active ? "text-white/85" : "text-[#7c6858]"}`}>
         {description}
       </span>
     </button>
@@ -1309,10 +1413,10 @@ function MiniToggle({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
+      className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
         active
-          ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
-          : "border-white/8 bg-[var(--panel-soft)] text-[var(--muted)] hover:text-white"
+          ? "border-[#ff6a00] bg-[#ff6a00] text-white"
+          : "border-[#cfbeaf] bg-[#faf6f2] text-[#5f4d40] hover:border-[#bdaa99] hover:bg-white hover:text-[#18120d]"
       }`}
     >
       {label}
@@ -1333,10 +1437,10 @@ function PillButton({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-2xl border px-4 py-3 text-center text-sm transition ${
+      className={`rounded-full border px-4 py-3 text-center text-sm transition ${
         active
-          ? "border-[var(--accent)] bg-[var(--accent-soft)] text-white"
-          : "border-white/8 bg-[var(--panel-soft)] text-[var(--muted)] hover:text-white"
+          ? "border-[#ff6a00] bg-[#ff6a00] text-white"
+          : "border-[#cfbeaf] bg-[#faf6f2] text-[#5f4d40] hover:border-[#bdaa99] hover:bg-white hover:text-[#18120d]"
       }`}
     >
       {label}
@@ -1362,15 +1466,15 @@ function FilamentRequirementCard({
   onRemove: (index: number) => void;
 }) {
   return (
-    <div className="rounded-[22px] border border-white/8 bg-[var(--panel)] px-4 py-4">
+    <div className="rounded-[24px] border border-black/8 bg-white px-4 py-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="text-sm font-medium text-white">Cor {index + 1}</p>
+        <p className="text-sm font-medium text-[#18120d]">Cor {index + 1}</p>
 
         {canRemove ? (
           <button
             type="button"
             onClick={() => onRemove(index)}
-            className="rounded-xl border border-white/8 px-3 py-2 text-xs font-medium text-[var(--muted)] transition hover:border-[#dc2828]/30 hover:bg-[#dc2828]/10 hover:text-[#ffb3b3]"
+            className="rounded-full border border-black/8 px-3 py-2 text-xs font-medium text-[#7c6858] transition hover:border-[#ff6a00]/30 hover:bg-[#ff6a00] hover:text-white"
           >
             Remover
           </button>
@@ -1395,18 +1499,18 @@ function FilamentRequirementCard({
         />
 
         <label>
-          <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
+          <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
             Hex
           </span>
 
-          <div className="mt-2 flex h-[50px] items-center gap-3 rounded-2xl border border-white/8 bg-[var(--panel-strong)] px-4">
+          <div className="mt-2 flex h-[50px] items-center gap-3 rounded-2xl border border-black/8 bg-white px-4">
             <input
               type="color"
               value={normalizeColorHex(requirement.colorHex)}
               onChange={(event) =>
                 onChange(index, "colorHex", event.target.value)
               }
-              className="size-8 rounded-lg border border-white/10 bg-transparent"
+              className="size-8 rounded-lg border border-black/8 bg-transparent"
             />
 
             <input
@@ -1415,7 +1519,7 @@ function FilamentRequirementCard({
               onChange={(event) =>
                 onChange(index, "colorHex", event.target.value)
               }
-              className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none"
+              className="min-w-0 flex-1 bg-transparent text-sm text-[#18120d] outline-none"
             />
           </div>
         </label>
@@ -1445,21 +1549,26 @@ function ToggleRow({
   className?: string;
 }) {
   return (
-    <div className={`flex items-center justify-between gap-4 ${className}`}>
-      <div>
-        <p className="text-sm text-white">{label}</p>
-        <p className="mt-1 text-xs text-[var(--muted)]">{note}</p>
+    <div
+      className={`flex items-center justify-between gap-4 rounded-[24px] border border-[#d6c8bb] bg-[#fcfaf8] px-4 py-4 ${className}`}
+    >
+      <div className="pr-3">
+        <p className="text-sm font-medium text-[#18120d]">{label}</p>
+        <p className="mt-1 text-xs text-[#7c6858]">{note}</p>
       </div>
 
       <button
         type="button"
         onClick={onToggle}
-        className={`relative h-7 w-12 rounded-full transition ${
-          checked ? "bg-[var(--accent)]" : "bg-white/10"
+        aria-pressed={checked}
+        className={`relative h-7 w-12 shrink-0 rounded-full border transition ${
+          checked
+            ? "border-[#ff6a00] bg-[#ff6a00]"
+            : "border-[#bdaa99] bg-[#d9cec4]"
         }`}
       >
         <span
-          className={`absolute top-1 size-5 rounded-full bg-white transition ${
+          className={`absolute top-1 size-5 rounded-full border border-black/10 bg-white shadow-sm transition ${
             checked ? "left-6" : "left-1"
           }`}
         />
@@ -1491,16 +1600,23 @@ function Field({
 }) {
   const [draftValue, setDraftValue] = useState(stringifyFieldValue(value));
   const [isFocused, setIsFocused] = useState(false);
+  const isRequired = label.includes("*");
+  const normalizedLabel = label.replace("*", "").trim();
 
   return (
     <label className={className}>
-      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
-        {label}
+      <span className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
+        <span>{normalizedLabel}</span>
+        {isRequired ? (
+          <span className="rounded-full border border-[#ff6a00] bg-[#ff6a00] px-2 py-0.5 text-[10px] tracking-[0.14em] text-white">
+            obrigatório
+          </span>
+        ) : null}
       </span>
 
-      <div className="mt-2 flex items-center overflow-hidden rounded-2xl border border-white/8 bg-[var(--panel-strong)]">
+      <div className="mt-2 flex items-center overflow-hidden rounded-2xl border border-[#d6c8bb] bg-white transition focus-within:border-[#ff6a00]/45 focus-within:ring-2 focus-within:ring-[#ff6a00]">
         {prefix ? (
-          <span className="border-r border-white/8 px-4 py-3 text-sm text-[var(--muted)]">
+          <span className="border-r border-[#e1d4c9] bg-[#faf6f2] px-4 py-3 text-sm text-[#6b584a]">
             {prefix}
           </span>
         ) : null}
@@ -1532,17 +1648,17 @@ function Field({
           }}
           disabled={disabled}
           placeholder={getInputPlaceholder(inputKind)}
-          className="min-w-0 flex-1 bg-transparent px-4 py-3 text-base text-white outline-none disabled:text-[var(--accent)]"
+          className="min-w-0 flex-1 bg-transparent px-4 py-3 text-base text-[#18120d] outline-none placeholder:text-[#8a7768] disabled:bg-[#faf6f2] disabled:text-[#9a4a1c]"
         />
 
         {suffix ? (
-          <span className="border-l border-white/8 px-4 py-3 text-sm text-[var(--muted)]">
+          <span className="border-l border-[#e1d4c9] bg-[#faf6f2] px-4 py-3 text-sm text-[#6b584a]">
             {suffix}
           </span>
         ) : null}
       </div>
 
-      {note ? <p className="mt-2 text-xs text-[var(--muted)]">{note}</p> : null}
+      {note ? <p className="mt-2 text-xs text-[#7c6858]">{note}</p> : null}
     </label>
   );
 }
@@ -1604,14 +1720,14 @@ function SelectField({
 }) {
   return (
     <label>
-      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
+      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
         {label}
       </span>
 
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full rounded-2xl border border-white/8 bg-[var(--panel-strong)] px-4 py-3 text-base text-white outline-none"
+        className="mt-2 w-full rounded-2xl border border-[#d6c8bb] bg-white px-4 py-3 text-base text-[#18120d] outline-none transition focus:border-[#ff6a00]/45 focus:ring-2 focus:ring-[#ff6a00]"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -1634,13 +1750,13 @@ function InfoBlock({
 }) {
   return (
     <div
-      className={`rounded-[22px] border p-5 font-mono text-sm leading-8 ${
+      className={`rounded-[24px] border p-5 font-mono text-sm leading-8 ${
         tone === "amber"
-          ? "border-amber-500/30 bg-[rgba(251,146,60,0.08)] text-[#ddd9ef]"
-          : "border-white/6 bg-[#121522] text-[#ddd9ef]"
+          ? "border-[#ff6a00] bg-[#ff6a00] text-white"
+          : "border-[#d6c8bb] bg-[#fcfaf8] text-[#18120d]"
       }`}
     >
-      <p className="mb-3 uppercase tracking-[0.2em] text-[var(--muted)]">
+      <p className="mb-3 uppercase tracking-[0.2em] text-[#7c6858]">
         {title}
       </p>
       {children}

@@ -25,21 +25,21 @@ export function AppSidebar() {
   }, [isExpanded]);
 
   return (
-    <aside className="hidden transition-[width] duration-300 lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:w-[var(--app-sidebar-width)] lg:flex-col lg:border-r lg:border-white/6 lg:bg-[#0a1629]">
-      <div className="border-b border-white/6 px-3 py-4">
+    <aside className="hidden transition-[width] duration-300 lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:w-[var(--app-sidebar-width)] lg:flex-col lg:border-r lg:border-black/8 lg:bg-white">
+      <div className="border-b border-black/8 px-4 py-5">
         <div className="flex items-center justify-between gap-3">
           <div
             className={`min-w-0 transition-all duration-300 ${
-              isExpanded ? "text-3xl" : "text-2xl"
-            } whitespace-nowrap font-semibold leading-none tracking-[-0.08em] text-white`}
+              isExpanded ? "text-2xl" : "text-xl"
+            } whitespace-nowrap font-semibold leading-none tracking-[-0.08em] text-[#18120d]`}
           >
             {isExpanded ? (
               <>
-                DaBi<span className="text-[var(--accent)]">.e-com</span>
+                Dabi<span className="text-[#ff6a00]"> Price</span>
               </>
             ) : (
               <>
-                D<span className="text-[var(--accent)]">.</span>
+                D<span className="text-[#ff6a00]">P</span>
               </>
             )}
           </div>
@@ -47,16 +47,22 @@ export function AppSidebar() {
           <button
             type="button"
             onClick={() => setIsExpanded((current) => !current)}
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl border border-white/8 text-white transition hover:border-white/14 hover:bg-white/4"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl border border-black/8 bg-white text-[#18120d] transition hover:border-[#ff6a00]/25 hover:bg-[#ff6a00]"
             aria-label={isExpanded ? "Retrair menu lateral" : "Expandir menu lateral"}
             title={isExpanded ? "Retrair menu" : "Expandir menu"}
           >
             {isExpanded ? "←" : "→"}
           </button>
         </div>
+
+        {isExpanded ? (
+          <p className="mt-4 max-w-[160px] text-sm leading-6 text-[#7c6858]">
+            Precificação guiada para produtos físicos e impressão 3D.
+          </p>
+        ) : null}
       </div>
 
-      <nav className="flex-1 px-3 py-4">
+      <nav className="flex-1 px-3 py-5">
         <ul className="space-y-2">
           {navigationItems.map((item, index) => {
             const isActive = pathname === item.href;
@@ -67,8 +73,8 @@ export function AppSidebar() {
                   href={item.href}
                   className={`flex w-full items-center rounded-2xl px-4 py-3 text-sm transition ${
                     isActive
-                      ? "bg-[var(--accent-soft)] font-medium text-[var(--accent)]"
-                      : "text-[var(--muted)] hover:bg-white/4 hover:text-white"
+                      ? "bg-[#ff6a00] font-medium text-white"
+                      : "text-[#7c6858] hover:bg-black/[0.03] hover:text-[#18120d]"
                   } ${isExpanded ? "justify-start" : "justify-center"}`}
                   title={isExpanded ? undefined : item.label}
                 >
@@ -89,15 +95,24 @@ export function AppSidebar() {
       </nav>
 
       <div
-        className={`border-t border-white/6 px-3 py-4 text-sm text-[var(--muted)] ${
+        className={`border-t border-black/8 px-3 py-4 text-sm text-[#7c6858] ${
           isExpanded ? "" : "text-center"
         }`}
       >
-        {isExpanded ? <p className="truncate">mecs.cwb@gmail.com</p> : <p>•</p>}
+        {isExpanded ? (
+          <>
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
+              Sessão
+            </p>
+            <p className="mt-2 truncate text-[#18120d]">mecs.cwb@gmail.com</p>
+          </>
+        ) : (
+          <p>•</p>
+        )}
 
         <button
           type="button"
-          className={`mt-4 rounded-full border border-white/8 px-4 py-2 text-white transition hover:border-white/14 hover:bg-white/4 ${
+          className={`mt-4 rounded-full border border-black/8 px-4 py-2 text-[#18120d] transition hover:border-[#ff6a00]/30 hover:bg-[#ff6a00] ${
             isExpanded ? "w-full text-left" : "w-10 px-0 text-center"
           }`}
           title={isExpanded ? undefined : "Sair"}

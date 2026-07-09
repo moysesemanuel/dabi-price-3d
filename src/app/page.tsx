@@ -773,43 +773,35 @@ export default function Home() {
   }
 
   return (
-    <main className="app-shell min-h-screen text-white">
+    <main className="app-shell min-h-screen text-[#18120d]">
       <div className="min-h-screen transition-[padding] duration-300 lg:pl-[var(--app-sidebar-width)]">
         <AppSidebar />
 
         <div>
-          <div className="mx-auto max-w-[1720px] px-4 py-6 sm:px-6 xl:px-8">
-            <header className="mb-8 border-b border-white/6 pb-6">
-              <div className="max-w-[720px]">
-                <h1 className="text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
+          <div className="mx-auto max-w-[1680px] px-4 py-5 sm:px-6 xl:px-8 xl:py-8">
+            <header className="mb-8 border-b border-black/8 pb-6">
+              <div className="max-w-[860px]">
+                <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#d84f00]">
+                  Dabi Tech 3D
+                </p>
+                <h1 className="mt-3 text-3xl font-semibold tracking-[-0.06em] text-[#18120d] sm:text-5xl">
                   Precificadora
                 </h1>
 
-                <p className="mt-2 text-sm text-[var(--muted)]">
-                  Taxas reais 2026 . {selectedChannelLabel} . simulador de
-                  margem
+                <p className="mt-4 max-w-[680px] text-sm leading-7 text-[#7c6858] sm:text-base">
+                  Tela única para calcular preço de venda, custos, taxas, lucro
+                  e margem por canal.
                 </p>
               </div>
 
-              <div className="mt-5 grid gap-3 rounded-[24px] border border-white/8 bg-[var(--panel)]/72 p-4 sm:grid-cols-2 xl:grid-cols-3">
-                <HeaderMeta
-                  label="Canal ativo"
-                  value={selectedChannelLabel}
-                  tone="accent"
-                />
-                <HeaderMeta
-                  label="Formato de venda"
-                  value={heroSaleModeValue}
-                />
-                <HeaderMeta
-                  label="Produção"
-                  value={heroProductionValue}
-                  tone="success"
-                />
+              <div className="mt-5 flex flex-wrap gap-2">
+                <HeroChip label={`Canal: ${selectedChannelLabel}`} tone="accent" />
+                <HeroChip label={heroSaleModeValue} />
+                <HeroChip label={heroProductionValue} tone="success" />
               </div>
             </header>
 
-            <section className="grid gap-8 xl:grid-cols-[minmax(0,1.16fr)_minmax(430px,0.84fr)] 2xl:grid-cols-[minmax(0,1fr)_500px]">
+            <section className="grid gap-8 xl:grid-cols-[minmax(0,1.14fr)_minmax(420px,0.86fr)] 2xl:grid-cols-[minmax(0,1fr)_500px]">
               <div className="space-y-6">
                 <PricingForm
                   form={form}
@@ -907,29 +899,25 @@ export default function Home() {
   );
 }
 
-type HeaderMetaProps = {
+function HeroChip({
+  label,
+  tone = "default",
+}: {
   label: string;
-  value: string;
   tone?: "default" | "accent" | "success";
-};
-
-function HeaderMeta({ label, value, tone = "default" }: HeaderMetaProps) {
+}) {
   const toneClassName = {
-    default: "border-white/8 bg-black/10 text-white",
+    default: "border-black/8 bg-white text-[#18120d]",
     accent:
-      "border-[var(--accent)]/30 bg-[var(--accent-soft)] text-[var(--accent)]",
-    success: "border-[#6fd3ea]/25 bg-[#6fd3ea]/10 text-[#8fe3f6]",
+      "border-[#ff6a00] bg-[#ff6a00] text-white",
+    success: "border-black/8 bg-white text-[#18120d]",
   }[tone];
 
   return (
-    <div className={`rounded-[20px] border px-4 py-4 sm:px-5 ${toneClassName}`}>
-      <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
-        {label}
-      </p>
-
-      <strong className="mt-2 block text-base font-semibold tracking-[-0.03em] sm:text-lg">
-        {value}
-      </strong>
-    </div>
+    <span
+      className={`inline-flex rounded-full border px-3 py-2 text-sm ${toneClassName}`}
+    >
+      {label}
+    </span>
   );
 }

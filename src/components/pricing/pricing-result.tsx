@@ -67,8 +67,8 @@ export function PricingResult({
 }: PricingResultProps) {
   if (!result.isValid) {
     return (
-      <aside className="rounded-[26px] border border-red-400/20 bg-red-500/10 p-6 shadow-[0_24px_70px_rgba(4,4,14,0.42)] xl:sticky xl:top-6">
-        <p className="font-mono text-xs uppercase tracking-[0.3em] text-red-200">
+      <aside className="rounded-[30px] border border-[#ff6a00] bg-[#ff6a00] p-6 shadow-[0_24px_70px_rgba(4,4,14,0.42)] xl:sticky xl:top-6">
+        <p className="font-mono text-xs uppercase tracking-[0.3em] text-[#d84f00]">
           Cálculo interrompido
         </p>
 
@@ -76,7 +76,7 @@ export function PricingResult({
           Revise as taxas informadas.
         </h2>
 
-        <p className="mt-4 text-sm leading-7 text-red-100">
+        <p className="mt-4 text-sm leading-7 text-white">
           {result.errorMessage}
         </p>
       </aside>
@@ -303,21 +303,21 @@ export function PricingResult({
 
   return (
     <aside className="xl:sticky xl:top-6">
-      <section className="rounded-[26px] border border-[var(--panel-border)] bg-[var(--panel)] p-5 shadow-[0_18px_40px_rgba(0,0,0,0.22)] sm:p-6">
-        <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
-          Resultado final
+      <section className="rounded-[32px] border border-black/8 bg-white p-5 shadow-[0_20px_60px_rgba(103,55,18,0.08)] sm:p-6">
+        <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#d84f00]">
+          Painel de decisão
         </p>
 
-        <div className="mt-6 rounded-[24px] border border-[var(--accent)]/30 bg-[linear-gradient(180deg,rgba(118,201,255,0.14),rgba(7,15,28,0.96))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+        <div className="mt-4 rounded-[28px] border border-[#ff6a00]/25 bg-white p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-[var(--accent)]">
+              <p className="text-sm font-semibold text-[#d84f00]">
                 {selectedChannelLabel}
               </p>
-              <h2 className="mt-2 text-3xl font-semibold tracking-[-0.06em] text-white">
+              <h2 className="mt-2 text-4xl font-semibold tracking-[-0.07em] text-[#18120d]">
                 {money(displayedSalePrice)}
               </h2>
-              <p className="mt-2 text-sm text-[var(--muted)]">{salePriceLabel}</p>
+              <p className="mt-2 text-sm text-[#7c6858]">{salePriceLabel}</p>
             </div>
 
             <span
@@ -328,7 +328,7 @@ export function PricingResult({
           </div>
 
           {form.isKit ? (
-            <div className="mt-4 rounded-2xl border border-white/10 bg-black/15 p-4">
+            <div className="mt-4 rounded-2xl border border-black/8 bg-white p-4">
               <SimpleLine label="Itens por kit" value={`${kitQuantity}`} muted />
               <SimpleLine
                 label="Valor por item do kit"
@@ -339,7 +339,7 @@ export function PricingResult({
           ) : null}
 
           {form.promoEnabled && promotionalSalePrice ? (
-            <div className="mt-4 rounded-2xl border border-white/10 bg-black/15 p-4">
+            <div className="mt-4 rounded-2xl border border-black/8 bg-white p-4">
               <SimpleLine
                 label="Preço original"
                 value={money(baseSalePrice)}
@@ -357,25 +357,25 @@ export function PricingResult({
             </div>
           ) : null}
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <SummaryCard
+          <div className="mt-5 divide-y divide-black/8 rounded-[22px] border border-black/8 bg-white">
+            <KeyMetricRow
               label="Lucro líquido"
               value={money(unitProfit)}
               helper={form.isKit ? `${perKitItemNetProfit} por item` : undefined}
               tone={activeWorthIt ? "success" : "danger"}
             />
-            <SummaryCard
+            <KeyMetricRow
               label="Margem real"
               value={formatPercent(realMarginPercentage)}
               helper={kitHelperText}
               tone="accent"
             />
-            <SummaryCard
+            <KeyMetricRow
               label="Custo total neste canal"
               value={money(unitTotalCost)}
               helper="Produção + marketplace + demais custos."
             />
-            <SummaryCard
+            <KeyMetricRow
               label="Preço mínimo sugerido"
               value={money(activeChannelSuggestedMinimumPrice)}
               helper="Piso sugerido para manter pelo menos 30% de lucro líquido."
@@ -393,8 +393,8 @@ export function PricingResult({
         <div className="mt-7">
           <SectionTitle title="Leitura rápida" />
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <SummaryCard
+          <div className="mt-4 divide-y divide-black/8 rounded-[24px] border border-black/8 bg-white">
+            <QuickReadRow
               label="Cliente paga"
               value={money(displayedSalePrice)}
               helper={
@@ -402,17 +402,17 @@ export function PricingResult({
               }
               tone="accent"
             />
-            <SummaryCard
+            <QuickReadRow
               label="Taxas, imposto e frete"
               value={money(channelChargesTotal)}
               helper="Custos específicos do canal ativo."
             />
-            <SummaryCard
+            <QuickReadRow
               label="Custo de produção"
               value={money(unitProductionCost)}
               helper="Material, energia, perdas e operação."
             />
-            <SummaryCard
+            <QuickReadRow
               label="Sobra para você"
               value={money(unitProfit)}
               helper={`${money(profitPerHour)} / hora`}
@@ -442,7 +442,7 @@ export function PricingResult({
             />
           </div>
 
-          <div className="mt-4 rounded-[20px] border border-white/8 bg-black/10 px-4 py-4">
+          <div className="mt-4 rounded-[20px] border border-black/8 bg-white px-4 py-4">
             <SimpleLine
               label="Total do custo neste canal"
               value={money(unitTotalCost)}
@@ -451,7 +451,7 @@ export function PricingResult({
           </div>
         </div>
 
-        <div className="mt-7 border-t border-white/8 pt-6">
+        <div className="mt-7 border-t border-black/8 pt-6">
           <AccordionSection
             title="Outros cenários"
             description="Abra para comparar formatos alternativos de venda."
@@ -511,15 +511,15 @@ export function PricingResult({
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm font-semibold text-white">
+                    <p className="text-sm font-semibold text-[#18120d]">
                       Comissão do ponto de venda
                     </p>
-                    <p className="mt-1 text-xs text-[var(--muted)]">
+                    <p className="mt-1 text-xs text-[#7c6858]">
                       Ajuste quanto a loja fica em cada venda.
                     </p>
                   </div>
 
-                  <strong className="text-2xl font-semibold tracking-[-0.04em] text-[var(--accent)]">
+                  <strong className="text-2xl font-semibold tracking-[-0.04em] text-[#d84f00]">
                     {formatPercent(form.consignmentCommissionPercentage)}
                   </strong>
                 </div>
@@ -536,7 +536,7 @@ export function PricingResult({
                       Number(event.target.value),
                     )
                   }
-                  className="mt-5 w-full accent-[var(--accent)]"
+                  className="mt-5 w-full accent-[#ff6a00]"
                 />
 
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -547,10 +547,10 @@ export function PricingResult({
                       onClick={() =>
                         onFieldChange("consignmentCommissionPercentage", percentage)
                       }
-                      className={`rounded-xl border px-3 py-2 text-sm transition ${
+                      className={`rounded-full border px-3 py-2 text-sm transition ${
                         form.consignmentCommissionPercentage === percentage
-                          ? "border-[var(--accent)]/45 bg-[var(--accent-soft)] text-[var(--accent)]"
-                          : "border-white/8 text-white hover:border-white/14 hover:bg-white/4"
+                          ? "border-[#ff6a00] bg-[#ff6a00] text-white"
+                          : "border-black/8 text-[#18120d] hover:border-black/12 hover:bg-black/[0.03]"
                       }`}
                     >
                       {percentage}%
@@ -617,20 +617,20 @@ export function PricingResult({
                   {wholesale.tiers.map((tier) => (
                     <div
                       key={tier.units}
-                      className="rounded-[18px] border border-white/8 bg-black/10 p-4"
+                      className="rounded-[20px] border border-black/8 bg-white p-4"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
-                          <p className="text-sm font-semibold text-white">
+                          <p className="text-sm font-semibold text-[#18120d]">
                             {tier.label}
                           </p>
-                          <p className="mt-1 text-xs text-[var(--muted)]">
+                          <p className="mt-1 text-xs text-[#7c6858]">
                             Multiplicador{" "}
                             {tier.multiplier.toFixed(1).replace(".", ",")}x
                           </p>
                         </div>
 
-                        <strong className="text-lg font-semibold tracking-[-0.04em] text-[var(--accent)]">
+                        <strong className="text-lg font-semibold tracking-[-0.04em] text-[#d84f00]">
                           {money(tier.unitPrice)} / {wholesaleUnitLabel}
                         </strong>
                       </div>
@@ -667,10 +667,10 @@ export function PricingResult({
           </AccordionSection>
         </div>
 
-        <div className="mt-7 border-t border-white/8 pt-6">
+        <div className="mt-7 border-t border-black/8 pt-6">
           <SectionTitle title="Produção e contexto" />
 
-          <div className="mt-4 rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-5">
+          <div className="mt-4 rounded-[24px] border border-black/8 bg-white p-5">
             <div className="space-y-4">
               <MetricLine
                 label="Produto"
@@ -742,8 +742,8 @@ export function PricingResult({
               />
             </div>
 
-            <div className="mt-5 border-t border-white/8 pt-5">
-              <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
+            <div className="mt-5 border-t border-black/8 pt-5">
+              <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#7c6858]">
                 Configuração ativa
               </p>
 
@@ -759,7 +759,7 @@ export function PricingResult({
         <button
           type="button"
           onClick={onSave}
-          className="mt-7 w-full rounded-2xl bg-[var(--accent)] px-4 py-4 text-base font-semibold text-[#07110d] transition hover:brightness-110"
+          className="mt-7 w-full rounded-2xl bg-[#ff6a00] px-4 py-4 text-base font-semibold text-white transition hover:brightness-110"
         >
           {saveButtonLabel}
         </button>
@@ -770,9 +770,80 @@ export function PricingResult({
 
 function SectionTitle({ title }: { title: string }) {
   return (
-    <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
+    <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#7c6858]">
       {title}
     </p>
+  );
+}
+
+function KeyMetricRow({
+  label,
+  value,
+  helper,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  helper?: string;
+  tone?: "default" | "accent" | "success" | "danger";
+}) {
+  const valueClassName = {
+    default: "text-[#18120d]",
+    accent: "text-[#d84f00]",
+    success: "text-[#18120d]",
+    danger: "text-[#d84f00]",
+  }[tone];
+
+  return (
+    <div className="flex items-center justify-between gap-4 px-4 py-4">
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-[#18120d]">{label}</p>
+        {helper ? (
+          <p className="mt-1 text-xs text-[#7c6858]">{helper}</p>
+        ) : null}
+      </div>
+
+      <strong
+        className={`text-right text-lg font-semibold tracking-[-0.04em] ${valueClassName}`}
+      >
+        {value}
+      </strong>
+    </div>
+  );
+}
+
+function QuickReadRow({
+  label,
+  value,
+  helper,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  helper?: string;
+  tone?: "default" | "accent" | "success" | "danger";
+}) {
+  const valueClassName = {
+    default: "text-[#18120d]",
+    accent: "text-[#d84f00]",
+    success: "text-[#18120d]",
+    danger: "text-[#d84f00]",
+  }[tone];
+
+  return (
+    <div className="flex items-center justify-between gap-4 px-4 py-4">
+      <div className="min-w-0">
+        <p className="text-sm text-[#d6d9e8]">{label}</p>
+        {helper ? (
+          <p className="mt-1 text-xs text-[#7c6858]">{helper}</p>
+        ) : null}
+      </div>
+      <strong
+        className={`text-right text-base font-semibold tracking-[-0.03em] ${valueClassName}`}
+      >
+        {value}
+      </strong>
+    </div>
   );
 }
 
@@ -788,16 +859,17 @@ function SummaryCard({
   tone?: "default" | "accent" | "success" | "danger";
 }) {
   const toneClassName = {
-    default: "border-white/8 bg-black/10 text-white",
+    default: "border-black/8 bg-transparent text-[#18120d]",
     accent:
-      "border-[var(--accent)]/25 bg-[var(--accent-soft)] text-[var(--accent)]",
-    success: "border-[#6fd3ea]/20 bg-[#102a34] text-[#9ae7f9]",
-    danger: "border-rose-400/20 bg-[#3d1b25] text-[#ffb1c0]",
+      "border-[#ff6a00] bg-[#ff6a00] text-[#18120d]",
+    success: "border-black/8 bg-white text-[#18120d]",
+    danger:
+      "border-[#ff6a00] bg-[#ff6a00] text-[#18120d]",
   }[tone];
 
   return (
-    <div className={`rounded-[18px] border p-4 ${toneClassName}`}>
-      <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+    <div className={`rounded-[16px] border p-4 ${toneClassName}`}>
+      <p className="text-xs uppercase tracking-[0.2em] text-[#7c6858]">
         {label}
       </p>
       <strong className="mt-3 block text-lg font-semibold tracking-[-0.04em]">
@@ -805,7 +877,7 @@ function SummaryCard({
       </strong>
 
       {helper ? (
-        <p className="mt-2 text-xs text-[var(--muted)]">{helper}</p>
+        <p className="mt-2 text-xs text-[#7c6858]">{helper}</p>
       ) : null}
     </div>
   );
@@ -823,9 +895,11 @@ function RecommendationBanner({
   className?: string;
 }) {
   const toneClassName = {
-    good: "border-[#6fd3ea]/20 bg-[#102a34] text-[#9ae7f9]",
-    warning: "border-amber-400/20 bg-[#4f3c1e] text-[#ffcf6e]",
-    danger: "border-rose-400/20 bg-[#45202a] text-[#ffb1c0]",
+    good: "border-black/8 bg-white text-[#18120d]",
+    warning:
+      "border-[#ff6a00] bg-[#ff6a00] text-[#18120d]",
+    danger:
+      "border-[#ff6a00] bg-[#ff6a00] text-[#18120d]",
   }[tone];
 
   return (
@@ -851,25 +925,25 @@ function AccordionSection({
 }) {
   return (
     <details
-      className={`group overflow-hidden rounded-[22px] border border-white/8 bg-[var(--panel-soft)] ${
+      className={`group overflow-hidden rounded-[24px] border border-black/8 bg-white ${
         compact ? "" : "shadow-[0_10px_28px_rgba(0,0,0,0.16)]"
       }`}
       open={defaultOpen}
     >
       <summary className="flex cursor-pointer list-none items-start justify-between gap-4 px-5 py-4 marker:content-none">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-white">{title}</p>
+          <p className="text-sm font-semibold text-[#18120d]">{title}</p>
           {description ? (
-            <p className="mt-1 text-xs text-[var(--muted)]">{description}</p>
+            <p className="mt-1 text-xs text-[#7c6858]">{description}</p>
           ) : null}
         </div>
 
-        <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/15 text-sm text-[var(--accent)] transition-transform duration-200 group-open:rotate-180">
+        <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/8 bg-[#ff6a00] text-sm text-white transition-transform duration-200 group-open:rotate-180">
           ▾
         </span>
       </summary>
 
-      <div className="border-t border-white/8 px-5 py-5">{children}</div>
+      <div className="border-t border-black/8 px-5 py-5">{children}</div>
     </details>
   );
 }
@@ -888,10 +962,10 @@ function CostGroupCard({
   totalValue: string;
 }) {
   return (
-    <div className="rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-5">
+    <div className="rounded-[24px] border border-black/8 bg-white p-5">
       <div>
-        <p className="text-sm font-semibold text-white">{title}</p>
-        <p className="mt-1 text-xs text-[var(--muted)]">{subtitle}</p>
+        <p className="text-sm font-semibold text-[#18120d]">{title}</p>
+        <p className="mt-1 text-xs text-[#7c6858]">{subtitle}</p>
       </div>
 
       <div className="mt-4 space-y-1">
@@ -905,13 +979,13 @@ function CostGroupCard({
             />
           ))
         ) : (
-          <p className="rounded-2xl border border-dashed border-white/10 px-4 py-4 text-sm text-[var(--muted)]">
+          <p className="rounded-2xl border border-dashed border-black/10 px-4 py-4 text-sm text-[#7c6858]">
             Nenhum custo relevante registrado aqui para o cenário atual.
           </p>
         )}
       </div>
 
-      <div className="mt-4 border-t border-white/8 pt-4">
+      <div className="mt-4 border-t border-black/8 pt-4">
         <SimpleLine label={totalLabel} value={totalValue} highlight />
       </div>
     </div>
@@ -928,13 +1002,13 @@ function CostLine({
   meta?: string;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-white/6 py-4 last:border-b-0">
+    <div className="flex items-start justify-between gap-4 border-b border-black/6 py-4 last:border-b-0">
       <div>
         <p className="text-sm text-[#d6d9e8]">{label}</p>
-        {meta ? <p className="mt-1 text-xs text-[var(--muted)]">{meta}</p> : null}
+        {meta ? <p className="mt-1 text-xs text-[#7c6858]">{meta}</p> : null}
       </div>
 
-      <span className="font-mono text-sm text-[#dc2828]">- {value}</span>
+      <span className="font-mono text-sm text-[#ff9d9d]">- {value}</span>
     </div>
   );
 }
@@ -949,10 +1023,10 @@ function ScenarioCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-5">
+    <div className="rounded-[24px] border border-black/8 bg-white p-5">
       <div>
-        <p className="text-sm font-semibold text-white">{title}</p>
-        <p className="mt-1 text-xs text-[var(--muted)]">{description}</p>
+        <p className="text-sm font-semibold text-[#18120d]">{title}</p>
+        <p className="mt-1 text-xs text-[#7c6858]">{description}</p>
       </div>
       <div className="mt-5">{children}</div>
     </div>
@@ -976,13 +1050,13 @@ function MetricLine({
         <p className="text-sm text-[#d6d9e8]">{label}</p>
 
         {muted ? (
-          <p className="mt-1 text-xs text-[var(--muted)]">{muted}</p>
+          <p className="mt-1 text-xs text-[#7c6858]">{muted}</p>
         ) : null}
       </div>
 
       <strong
         className={`text-right text-xl font-semibold tracking-[-0.04em] ${
-          highlight ? "text-[var(--accent)]" : "text-white"
+          highlight ? "text-[#d84f00]" : "text-[#18120d]"
         }`}
       >
         {value}
@@ -1009,10 +1083,10 @@ function SimpleLine({
       <strong
         className={`font-mono text-sm ${
           highlight
-            ? "text-[var(--accent)]"
+            ? "text-[#d84f00]"
             : muted
-              ? "text-[var(--muted)]"
-              : "text-white"
+              ? "text-[#7c6858]"
+              : "text-[#18120d]"
         }`}
       >
         {value}
@@ -1023,11 +1097,11 @@ function SimpleLine({
 
 function SimpleBlock({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[18px] border border-white/8 bg-black/10 p-4">
-      <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+    <div className="rounded-[18px] border border-black/8 bg-white p-4">
+      <p className="text-xs uppercase tracking-[0.2em] text-[#7c6858]">
         {label}
       </p>
-      <strong className="mt-2 block text-sm font-semibold text-white">
+      <strong className="mt-2 block text-sm font-semibold text-[#18120d]">
         {value}
       </strong>
     </div>
@@ -1276,20 +1350,22 @@ function getSaleConditionBadge({
   if (!isWorthIt || suggestedGapValue < 0) {
     return {
       label: "Ruim",
-      className: "border-rose-400/20 bg-[#4a2029] text-[#ff9aaa]",
+      className:
+        "border-[#c85600] bg-[#c85600] text-white",
     };
   }
 
   if (marginPercentage >= 40) {
     return {
       label: "Excelente",
-      className: "border-[#6fd3ea]/25 bg-[#113849] text-[#8fe3f6]",
+      className: "border-[#2f7d32] bg-[#2f7d32] text-white",
     };
   }
 
   return {
     label: "Boa",
-    className: "border-[#11b8f5]/25 bg-[#0e3150] text-[#7edbff]",
+    className:
+      "border-[#ff6a00] bg-[#ff6a00] text-white",
   };
 }
 

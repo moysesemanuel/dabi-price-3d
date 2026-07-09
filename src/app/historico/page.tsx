@@ -34,18 +34,18 @@ export default function HistoryPage() {
   }
 
   return (
-    <main className="app-shell min-h-screen text-white">
+    <main className="app-shell min-h-screen text-[#18120d]">
       <div className="min-h-screen transition-[padding] duration-300 lg:pl-[var(--app-sidebar-width)]">
         <AppSidebar />
 
         <div className="mx-auto max-w-[1488px] p-8">
-          <header className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-white/6 pb-6">
+          <header className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-black/8 pb-6">
             <div>
-              <h1 className="text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
+              <h1 className="text-3xl font-semibold tracking-[-0.04em] text-[#18120d] sm:text-4xl">
                 Histórico
               </h1>
 
-              <p className="mt-2 text-sm text-[var(--muted)]">
+              <p className="mt-2 text-sm text-[#7c6858]">
                 Cálculos salvos localmente nesta máquina.
               </p>
             </div>
@@ -54,31 +54,31 @@ export default function HistoryPage() {
               <button
                 type="button"
                 onClick={handleClearHistory}
-                className="rounded-2xl border border-white/8 px-4 py-3 text-sm text-white transition hover:border-white/14 hover:bg-white/4"
+                className="rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm text-[#18120d] transition hover:border-[#ff6a00]/30 hover:bg-[#ff6a00]"
               >
                 Limpar histórico
               </button>
             ) : null}
           </header>
 
-          <section className="rounded-[26px] border border-[var(--panel-border)] bg-[var(--panel)] p-5 shadow-[0_18px_40px_rgba(0,0,0,0.22)] sm:p-6">
+          <section className="rounded-[26px] border border-[#e9ddd4] bg-white p-5 shadow-[0_18px_40px_rgba(0,0,0,0.22)] sm:p-6">
             {items.length === 0 ? (
-              <div className="rounded-[22px] border border-white/8 bg-[var(--panel-soft)] p-8 text-center">
-                <p className="text-lg font-semibold text-white">
+              <div className="rounded-[22px] border border-black/8 bg-[#fff3ea] p-8 text-center">
+                <p className="text-lg font-semibold text-[#18120d]">
                   Nenhum cálculo salvo ainda.
                 </p>
 
-                <p className="mt-2 text-sm text-[var(--muted)]">
+                <p className="mt-2 text-sm text-[#7c6858]">
                   Use o botão <strong>Salvar cálculo</strong> ou publique um
                   produto no site para começar a preencher esta tabela.
                 </p>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-[22px] border border-white/8">
+              <div className="overflow-hidden rounded-[22px] border border-black/8">
                 <div className="overflow-x-auto">
-                  <table className="min-w-full bg-[var(--panel-soft)]">
+                  <table className="min-w-full bg-[#fff3ea]">
                     <thead>
-                      <tr className="border-b border-white/8 text-left">
+                      <tr className="border-b border-black/8 text-left">
                         <HeaderCell>Data</HeaderCell>
                         <HeaderCell>Produto</HeaderCell>
                         <HeaderCell>Site</HeaderCell>
@@ -96,17 +96,17 @@ export default function HistoryPage() {
                       {items.map((item) => (
                         <tr
                           key={item.id}
-                          className="border-b border-white/6 last:border-b-0"
+                          className="border-b border-black/6 last:border-b-0"
                         >
                           <BodyCell>{formatSavedDate(item.savedAt)}</BodyCell>
                           <BodyCell>{item.productName}</BodyCell>
                           <BodyCell>
                             {item.siteProduct ? (
                               <div className="space-y-1">
-                                <div className="text-xs font-medium text-[var(--accent)]">
+                                <div className="text-xs font-medium text-[#d84f00]">
                                   Publicado
                                 </div>
-                                <div className="text-xs text-[var(--muted)]">
+                                <div className="text-xs text-[#7c6858]">
                                   {item.siteProduct.slug}
                                 </div>
                                 {item.siteProduct.url ? (
@@ -114,14 +114,14 @@ export default function HistoryPage() {
                                     href={item.siteProduct.url}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-xs text-white underline"
+                                    className="text-xs text-[#18120d] underline"
                                   >
                                     Abrir produto
                                   </a>
                                 ) : null}
                               </div>
                             ) : (
-                              <span className="text-xs text-[var(--muted)]">
+                              <span className="text-xs text-[#7c6858]">
                                 Só histórico local
                               </span>
                             )}
@@ -134,14 +134,14 @@ export default function HistoryPage() {
                               item.displayCurrency,
                             )}
                           </BodyCell>
-                          <BodyCell className="text-[#dc2828]">
+                          <BodyCell className="text-[#d84f00]">
                             -{" "}
                             {formatCurrency(
                               item.summary.totalCost,
                               item.displayCurrency,
                             )}
                           </BodyCell>
-                          <BodyCell className="text-[var(--accent)]">
+                          <BodyCell className="text-[#18120d]">
                             {formatCurrency(
                               item.summary.profit,
                               item.displayCurrency,
@@ -153,7 +153,7 @@ export default function HistoryPage() {
                               <button
                                 type="button"
                                 onClick={() => handleEditItem(item.id)}
-                                className="rounded-xl border border-[var(--accent)]/25 px-3 py-2 text-xs font-medium text-[var(--accent)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-soft)]"
+                                className="rounded-xl border border-[#ff6a00]/25 px-3 py-2 text-xs font-medium text-[#18120d] transition hover:border-[#ff6a00]/40 hover:bg-[#ff6a00]"
                               >
                                 Editar
                               </button>
@@ -161,7 +161,7 @@ export default function HistoryPage() {
                               <button
                                 type="button"
                                 onClick={() => handleDeleteItem(item.id)}
-                                className="rounded-xl border border-white/8 px-3 py-2 text-xs font-medium text-[#dc2828] transition hover:border-[#dc2828]/30 hover:bg-[#dc2828]/10"
+                                className="rounded-xl border border-black/8 px-3 py-2 text-xs font-medium text-[#18120d] transition hover:border-[#ff6a00]/30 hover:bg-[#ff6a00]"
                               >
                                 Excluir
                               </button>
@@ -183,7 +183,7 @@ export default function HistoryPage() {
 
 function HeaderCell({ children }: { children: React.ReactNode }) {
   return (
-    <th className="px-4 py-4 font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
+    <th className="px-4 py-4 font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
       {children}
     </th>
   );
@@ -197,7 +197,7 @@ function BodyCell({
   className?: string;
 }) {
   return (
-    <td className={`px-4 py-4 text-sm text-white ${className}`}>{children}</td>
+    <td className={`px-4 py-4 text-sm text-[#18120d] ${className}`}>{children}</td>
   );
 }
 

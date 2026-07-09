@@ -18,14 +18,14 @@ export function SelectField({
 }: SelectFieldProps) {
   return (
     <label className="block">
-      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#8b86bb]">
+      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
         {label}
       </span>
 
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full rounded-[20px] border border-white/10 bg-[#0f1020] px-4 py-3 pr-12 text-white outline-none transition focus:border-[#b888ff] focus:bg-[#131427]"
+        className="mt-2 w-full rounded-[20px] border border-[#d6c8bb] bg-white px-4 py-3 pr-12 text-[#18120d] outline-none transition focus:border-[#ff6a00]/45 focus:ring-2 focus:ring-[#ff6a00]"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
