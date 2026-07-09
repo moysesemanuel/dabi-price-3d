@@ -260,7 +260,7 @@ function normalizeHexColor(value: string) {
     return trimmedValue;
   }
 
-  return "#11b8f5";
+  return "#FF7A1A";
 }
 
 function isDataUrl(value: string) {
