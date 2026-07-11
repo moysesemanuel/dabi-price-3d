@@ -19,6 +19,7 @@ import {
   upsertCalculationInHistory,
 } from "@/lib/history/calculation-history";
 import { getMercadoLivreFeePreview } from "@/lib/marketplaces/mercado-livre";
+import { resolveShopeeFeeConfigForPrice } from "@/lib/marketplaces/shopee";
 import { calculate3DPrice } from "@/lib/pricing/calculate-3d-price";
 import { buildPricingViewModel } from "@/lib/pricing/build-pricing-view-model";
 import {
@@ -61,6 +62,45 @@ type MercadoLivreAutomationState = {
 };
 
 type SaveState = "idle" | "saved";
+
+function resolveShopeeFeeConfig(form: PricingFormState) {
+  let currentConfig = resolveShopeeFeeConfigForPrice({
+    salePrice: form.manualSalePrice > 0 ? form.manualSalePrice : 79.99,
+    sellerType: form.shopeeSellerType,
+    featuredCampaign: form.shopeeFeaturedCampaign,
+  });
+
+  for (let iteration = 0; iteration < 6; iteration += 1) {
+    const simulatedResult = calculate3DPrice({
+      ...form,
+      marketplaceFeePercentage: currentConfig.percentage,
+      marketplaceFixedFee: currentConfig.fixedFee,
+      laborCost:
+        form.salesChannelId === "direct" || form.salesChannelId === "consignment"
+          ? form.laborCost
+          : 0,
+    });
+
+    const simulatedSalePrice =
+      simulatedResult.promotionalUnitPrice ?? simulatedResult.commercialUnitPrice;
+    const nextConfig = resolveShopeeFeeConfigForPrice({
+      salePrice: simulatedSalePrice,
+      sellerType: form.shopeeSellerType,
+      featuredCampaign: form.shopeeFeaturedCampaign,
+    });
+
+    if (
+      nextConfig.percentage === currentConfig.percentage &&
+      nextConfig.fixedFee === currentConfig.fixedFee
+    ) {
+      return nextConfig;
+    }
+
+    currentConfig = nextConfig;
+  }
+
+  return currentConfig;
+}
 
 export default function Home() {
   const [form, setForm] = useState<PricingFormState>(() => ({
@@ -105,11 +145,21 @@ export default function Home() {
     form.salesChannelId,
   ]);
 
+  const shopeeFeeConfig = useMemo(() => {
+    if (form.salesChannelId !== "shopee") {
+      return null;
+    }
+
+    return resolveShopeeFeeConfig(form);
+  }, [form]);
+
   const effectiveMarketplaceFeePercentage =
     form.salesChannelId === "mercado-livre"
       ? mercadoLivreAutomation.feePercentage ??
         mercadoLivreFeePreview?.appliedFeePercentage ??
         form.marketplaceFeePercentage
+      : form.salesChannelId === "shopee"
+        ? shopeeFeeConfig?.percentage ?? form.marketplaceFeePercentage
       : form.salesChannelId === "consignment"
         ? form.consignmentCommissionPercentage
       : form.marketplaceFeePercentage;
@@ -117,6 +167,8 @@ export default function Home() {
   const effectiveMarketplaceFixedFee =
     form.salesChannelId === "mercado-livre"
       ? mercadoLivreAutomation.fixedFee ?? form.marketplaceFixedFee
+      : form.salesChannelId === "shopee"
+        ? shopeeFeeConfig?.fixedFee ?? form.marketplaceFixedFee
       : form.marketplaceFixedFee;
 
   const effectiveForm = useMemo(
@@ -787,11 +839,6 @@ export default function Home() {
                 <h1 className="mt-3 text-3xl font-semibold tracking-[-0.06em] text-[#18120d] sm:text-5xl">
                   Precificadora
                 </h1>
-
-                <p className="mt-4 max-w-[680px] text-sm leading-7 text-[#7c6858] sm:text-base">
-                  Tela única para calcular preço de venda, custos, taxas, lucro
-                  e margem por canal.
-                </p>
               </div>
 
               <div className="mt-5 flex flex-wrap gap-2">
@@ -875,6 +922,7 @@ export default function Home() {
                 effectiveMarketplaceFeePercentage={
                   effectiveMarketplaceFeePercentage
                 }
+                effectiveMarketplaceFixedFee={effectiveMarketplaceFixedFee}
                 mercadoLivrePredictedCategoryName={
                   resolvedMercadoLivreCategoryName
                 }

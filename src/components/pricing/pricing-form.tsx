@@ -58,14 +58,6 @@ type PricingFormProps = {
   onMercadoLivreOfficialCategoryClear: () => void;
 };
 
-const channelDescriptions: Record<string, string> = {
-  "mercado-livre": "Classico ou Premium",
-  shopee: "Tabela oficial 2026",
-  amazon: "FBA ou DBA",
-  direct: "Pix, cartao, personalizado",
-  consignment: "Comissao do parceiro",
-};
-
 const paymentOptions = [
   { id: "debit", label: "Debito", fee: "1,99%" },
   { id: "credit", label: "Credito", fee: "2,99%" },
@@ -82,6 +74,9 @@ const amazonCategoryOptions = [
   { value: "eletronicos", label: "Eletronicos - 11%" },
   { value: "utilidades", label: "Utilidades - 14%" },
 ] as const;
+
+const SHOPEE_SELLER_EDUCATION_URL =
+  "https://seller.br.shopee.cn/edu/article/26839/Comissao-para-vendedores-CNPJ-e-CPF-em-2026";
 
 const printerModelOptions = [
   {
@@ -238,11 +233,6 @@ export function PricingForm({
           <h2 className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[#18120d]">
             Tudo em uma tela
           </h2>
-          <p className="mt-2 max-w-[760px] text-sm leading-7 text-[#7c6858]">
-            Preencha os blocos abaixo na ordem que fizer sentido. O cálculo e o
-            painel lateral continuam atualizando em tempo real, sem navegação
-            por etapas.
-          </p>
         </div>
 
         <FormSection id="section-1">
@@ -353,7 +343,7 @@ export function PricingForm({
               >
                 {channel.id === "mercado-livre" ? (
                   <MercadoLivreCartIcon
-                    className={`mb-3 size-7 ${
+                    className={`size-7 shrink-0 ${
                       isActive ? "text-white" : "text-[#7c6858]"
                     }`}
                   />
@@ -361,7 +351,7 @@ export function PricingForm({
 
                 {channel.id === "shopee" ? (
                   <HandbagIcon
-                    className={`mb-3 size-7 ${
+                    className={`size-7 shrink-0 ${
                       isActive ? "text-white" : "text-[#7c6858]"
                     }`}
                   />
@@ -369,7 +359,7 @@ export function PricingForm({
 
                 {channel.id === "amazon" ? (
                   <AmazonIcon
-                    className={`mb-3 size-7 ${
+                    className={`size-7 shrink-0 ${
                       isActive ? "text-white" : "text-[#7c6858]"
                     }`}
                   />
@@ -377,7 +367,7 @@ export function PricingForm({
 
                 {channel.id === "direct" ? (
                   <DirectSaleIcon
-                    className={`mb-3 size-7 ${
+                    className={`size-7 shrink-0 ${
                       isActive ? "text-white" : "text-[#7c6858]"
                     }`}
                   />
@@ -385,7 +375,7 @@ export function PricingForm({
 
                 {channel.id === "consignment" ? (
                   <DirectSaleIcon
-                    className={`mb-3 size-7 ${
+                    className={`size-7 shrink-0 ${
                       isActive ? "text-white" : "text-[#7c6858]"
                     }`}
                   />
@@ -399,9 +389,6 @@ export function PricingForm({
                   {channel.name}
                 </strong>
 
-                <span className="text-xs text-[#7c6858]">
-                  {channelDescriptions[channel.id] ?? "Canal configuravel"}
-                </span>
               </button>
             );
           })}
@@ -620,7 +607,7 @@ export function PricingForm({
 
             <ToggleRow
               label="Campanha de destaque?"
-              note="+2,5% de comissao durante a campanha"
+              note="+2,5% na taxa paga a Shopee durante a campanha"
               checked={form.shopeeFeaturedCampaign}
               onToggle={() =>
                 onChange("shopeeFeaturedCampaign", !form.shopeeFeaturedCampaign)
@@ -684,6 +671,14 @@ export function PricingForm({
               <p>R$200-499,99 -&gt; 14% + R$26</p>
               <p>R$500+ -&gt; 14% + R$26</p>
               <p>Teto de comissao: R$100/item</p>
+              <a
+                href={SHOPEE_SELLER_EDUCATION_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 inline-flex rounded-full border border-[#ff6a00] bg-white px-4 py-2 text-xs font-medium text-[#ff6a00] transition hover:bg-[#fff3ea]"
+              >
+                Ver página oficial da Shopee
+              </a>
             </InfoBlock>
           </div>
         ) : null}
@@ -1248,16 +1243,18 @@ function SectionLead({
   description,
 }: {
   title: string;
-  description: string;
+  description?: string;
 }) {
   return (
     <div className="mt-5 max-w-[760px]">
       <h3 className="text-lg font-semibold tracking-[-0.03em] text-[#18120d]">
         {title}
       </h3>
-      <p className="mt-2 text-sm leading-7 text-[#7c6858]">
-        {description}
-      </p>
+      {description ? (
+        <p className="mt-2 text-sm leading-7 text-[#7c6858]">
+          {description}
+        </p>
+      ) : null}
     </div>
   );
 }

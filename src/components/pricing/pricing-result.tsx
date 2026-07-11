@@ -14,6 +14,7 @@ import {
   calculateDirectSale,
   calculateWholesale,
 } from "@/lib/pricing/calculate-sales-models";
+import { resolveShopeeFeeConfigForPrice } from "@/lib/marketplaces/shopee";
 import type { Calculate3DPriceResult } from "@/lib/pricing/calculate-3d-price";
 import { buildPricingViewModel } from "@/lib/pricing/build-pricing-view-model";
 import { formatCurrency, formatPercent } from "@/lib/pricing/formatters";
@@ -29,6 +30,7 @@ type PricingResultProps = {
   ) => void;
   selectedChannelLabel: string;
   effectiveMarketplaceFeePercentage: number;
+  effectiveMarketplaceFixedFee: number;
   mercadoLivrePredictedCategoryName?: string | null;
   displayCurrency: DisplayCurrency;
   exchangeRates: CurrencyRates;
@@ -59,6 +61,7 @@ export function PricingResult({
   onFieldChange,
   selectedChannelLabel,
   effectiveMarketplaceFeePercentage,
+  effectiveMarketplaceFixedFee,
   mercadoLivrePredictedCategoryName = null,
   displayCurrency,
   exchangeRates,
@@ -131,7 +134,7 @@ export function PricingResult({
     baseCost: unitProductionCost,
     variableFeePercentage:
       effectiveMarketplaceFeePercentage + form.taxPercentage,
-    fixedFee: unitMarketplaceFixedFee,
+    fixedFee: effectiveMarketplaceFixedFee,
     targetMarginPercentage: 30,
   });
   const consignment = calculateConsignment({
@@ -147,6 +150,7 @@ export function PricingResult({
     form,
     selectedChannelLabel,
     effectiveMarketplaceFeePercentage,
+    effectiveMarketplaceFixedFee,
     mercadoLivrePredictedCategoryName,
     displayCurrency,
     exchangeRates,
@@ -267,20 +271,73 @@ export function PricingResult({
   ].filter((item) => !isZeroValue(item.amount));
 
   const channelCostItems: CostLineItem[] = [
-    {
-      label: feeLabel,
-      amount: unitMarketplaceFee,
-      meta:
-        displayedSalePrice > 0
-          ? formatPercent((unitMarketplaceFee / displayedSalePrice) * 100)
-          : undefined,
-      value: money(unitMarketplaceFee),
-    },
-    {
-      label: "Tarifa fixa marketplace",
-      amount: unitMarketplaceFixedFee,
-      value: money(unitMarketplaceFixedFee),
-    },
+    ...(form.salesChannelId === "shopee"
+      ? (() => {
+          const shopeeFeeConfig = resolveShopeeFeeConfigForPrice({
+            salePrice: displayedSalePrice,
+            sellerType: form.shopeeSellerType,
+            featuredCampaign: form.shopeeFeaturedCampaign,
+          });
+
+          const items: CostLineItem[] = [
+            {
+              label: "Comissão percentual Shopee",
+              amount:
+                displayedSalePrice * (shopeeFeeConfig.basePercentage / 100),
+              meta: `${formatPercent(shopeeFeeConfig.basePercentage)} sobre o valor vendido`,
+              value: money(
+                displayedSalePrice * (shopeeFeeConfig.basePercentage / 100),
+              ),
+            },
+            {
+              label: "Tarifa fixa por item",
+              amount: shopeeFeeConfig.baseFixedFee,
+              meta: `Faixa atual: ${shopeeFeeConfig.priceRangeLabel} · cobrada por item vendido`,
+              value: money(shopeeFeeConfig.baseFixedFee),
+            },
+          ];
+
+          if (shopeeFeeConfig.featuredCampaignFee > 0) {
+            items.push({
+              label: "Campanha de destaque",
+              amount:
+                displayedSalePrice *
+                (shopeeFeeConfig.featuredCampaignFee / 100),
+              meta: `${formatPercent(shopeeFeeConfig.featuredCampaignFee)} adicional sobre o valor vendido`,
+              value: money(
+                displayedSalePrice *
+                  (shopeeFeeConfig.featuredCampaignFee / 100),
+              ),
+            });
+          }
+
+          if (shopeeFeeConfig.cpfSellerFee > 0) {
+            items.push({
+              label: "Taxa vendedor CPF",
+              amount: shopeeFeeConfig.cpfSellerFee,
+              meta: "Adicional fixo por item vendido no CPF",
+              value: money(shopeeFeeConfig.cpfSellerFee),
+            });
+          }
+
+          return items;
+        })()
+      : [
+          {
+            label: feeLabel,
+            amount: unitMarketplaceFee,
+            meta:
+              displayedSalePrice > 0
+                ? formatPercent((unitMarketplaceFee / displayedSalePrice) * 100)
+                : undefined,
+            value: money(unitMarketplaceFee),
+          },
+          {
+            label: "Tarifa fixa marketplace",
+            amount: unitMarketplaceFixedFee,
+            value: money(unitMarketplaceFixedFee),
+          },
+        ]),
     {
       label: "Imposto",
       amount: unitTaxCost,
@@ -300,6 +357,11 @@ export function PricingResult({
       value: money(unitShippingCost),
     },
   ].filter((item) => !isZeroValue(item.amount));
+
+  const channelCostSubtitle =
+    form.salesChannelId === "shopee"
+      ? "Comissão percentual, tarifa fixa por item vendido e demais cobranças da venda."
+      : "Descontos e cobranças que acontecem na venda.";
 
   return (
     <aside className="xl:sticky xl:top-6">
@@ -435,7 +497,7 @@ export function PricingResult({
 
             <CostGroupCard
               title="Canal e impostos"
-              subtitle="Descontos e cobranças que acontecem na venda."
+              subtitle={channelCostSubtitle}
               items={channelCostItems}
               totalLabel="Subtotal do canal"
               totalValue={money(channelChargesTotal)}
@@ -833,7 +895,7 @@ function QuickReadRow({
   return (
     <div className="flex items-center justify-between gap-4 px-4 py-4">
       <div className="min-w-0">
-        <p className="text-sm text-[#d6d9e8]">{label}</p>
+        <p className="text-sm text-[#18120d]">{label}</p>
         {helper ? (
           <p className="mt-1 text-xs text-[#7c6858]">{helper}</p>
         ) : null}
@@ -1004,7 +1066,7 @@ function CostLine({
   return (
     <div className="flex items-start justify-between gap-4 border-b border-black/6 py-4 last:border-b-0">
       <div>
-        <p className="text-sm text-[#d6d9e8]">{label}</p>
+        <p className="text-sm text-[#18120d]">{label}</p>
         {meta ? <p className="mt-1 text-xs text-[#7c6858]">{meta}</p> : null}
       </div>
 
@@ -1047,7 +1109,7 @@ function MetricLine({
   return (
     <div className="flex items-end justify-between gap-4">
       <div>
-        <p className="text-sm text-[#d6d9e8]">{label}</p>
+        <p className="text-sm text-[#18120d]">{label}</p>
 
         {muted ? (
           <p className="mt-1 text-xs text-[#7c6858]">{muted}</p>
@@ -1078,7 +1140,7 @@ function SimpleLine({
 }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <span className="text-sm text-[#d6d9e8]">{label}</span>
+      <span className="text-sm text-[#18120d]">{label}</span>
 
       <strong
         className={`font-mono text-sm ${
@@ -1112,6 +1174,7 @@ function buildSummaryLines({
   form,
   selectedChannelLabel,
   effectiveMarketplaceFeePercentage,
+  effectiveMarketplaceFixedFee,
   mercadoLivrePredictedCategoryName,
   displayCurrency,
   exchangeRates,
@@ -1119,6 +1182,7 @@ function buildSummaryLines({
   form: PricingFormState;
   selectedChannelLabel: string;
   effectiveMarketplaceFeePercentage: number;
+  effectiveMarketplaceFixedFee: number;
   mercadoLivrePredictedCategoryName: string | null;
   displayCurrency: DisplayCurrency;
   exchangeRates: CurrencyRates;
@@ -1230,6 +1294,23 @@ function buildSummaryLines({
       {
         label: "Tipo de vendedor",
         value: form.shopeeSellerType === "cnpj" ? "CNPJ" : "CPF",
+      },
+      {
+        label: "Taxa paga a Shopee",
+        value: formatPercent(effectiveMarketplaceFeePercentage),
+        numericValue: effectiveMarketplaceFeePercentage,
+      },
+      {
+        label: "Taxa fixa por item",
+        value: formatCurrency(
+          convertFromBRL(
+            effectiveMarketplaceFixedFee,
+            displayCurrency,
+            exchangeRates,
+          ),
+          displayCurrency,
+        ),
+        numericValue: effectiveMarketplaceFixedFee,
       },
       {
         label: "Campanha",
