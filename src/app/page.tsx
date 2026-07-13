@@ -36,7 +36,6 @@ import {
 } from "@/lib/pricing/filament-requirements";
 import {
   findSalesChannelById,
-  salesChannels,
 } from "@/lib/pricing/sales-channels";
 import {
   MAX_SITE_PRODUCT_PUBLISH_PAYLOAD_BYTES,
@@ -212,7 +211,7 @@ export default function Home() {
   );
 
   const selectedChannel = findSalesChannelById(form.salesChannelId);
-  const selectedChannelLabel = selectedChannel?.name ?? salesChannels[0].name;
+  const selectedChannelLabel = selectedChannel?.name ?? "Selecione o canal";
   const resolvedMercadoLivreCategoryName =
     form.mercadoLivreOfficialCategoryName.trim() ||
     mercadoLivreAutomation.predictedCategoryName ||
@@ -842,7 +841,12 @@ export default function Home() {
               </div>
 
               <div className="mt-5 flex flex-wrap gap-2">
-                <HeroChip label={`Canal: ${selectedChannelLabel}`} tone="accent" />
+                {selectedChannel ? (
+                  <HeroChip
+                    label={`Canal: ${selectedChannelLabel}`}
+                    tone="accent"
+                  />
+                ) : null}
                 <HeroChip label={heroSaleModeValue} />
                 <HeroChip label={heroProductionValue} tone="success" />
               </div>

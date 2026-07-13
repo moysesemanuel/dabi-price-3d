@@ -9,9 +9,11 @@ import type {
   ErpProductSaveResponse,
   ErpProductUsageType,
 } from "@/lib/erp-products/types";
-import type { ProductType } from "@/lib/pricing/initial-pricing-form";
+import type {
+  ProductType,
+  PricingFormState,
+} from "@/lib/pricing/initial-pricing-form";
 import { formatCurrency } from "@/lib/pricing/formatters";
-import type { SalesChannelId } from "@/lib/pricing/sales-channels";
 import {
   MAX_SITE_PRODUCT_PUBLISH_PAYLOAD_BYTES,
   getJsonSizeInBytes,
@@ -28,7 +30,7 @@ type SiteProductPublisherProps = {
     totalCostInCents: number;
     marginPercentage: number;
     salesChannelLabel: string;
-    salesChannelId: SalesChannelId;
+    salesChannelId: PricingFormState["salesChannelId"];
     productType: ProductType;
     filamentRequirements: ErpProductFilamentRequirement[];
     filamentRequirementsValidationMessage: string | null;

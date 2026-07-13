@@ -34,7 +34,7 @@ export type FilamentRequirementInput = {
 export type PricingFormState = {
   productName: string;
   productType: ProductType;
-  salesChannelId: SalesChannelId;
+  salesChannelId: SalesChannelId | "";
 
   // Preço & margem
   pricingMode: PricingMode;
@@ -107,15 +107,15 @@ export type PricingFormState = {
 };
 
 export const initialPricingForm: PricingFormState = {
-  productName: "Produto teste",
+  productName: "",
   productType: "3d",
-  salesChannelId: "direct",
+  salesChannelId: "",
 
   // Preço & margem
   pricingMode: "margin",
-  manualSalePrice: 68.4,
+  manualSalePrice: 0,
   promoEnabled: false,
-  promoDiscountPercentage: 10,
+  promoDiscountPercentage: 0,
   profitMarginPercentage: 50,
   isKit: false,
   kitQuantity: 2,
@@ -134,7 +134,7 @@ export const initialPricingForm: PricingFormState = {
   // Shopee
   shopeeSellerType: "cnpj",
   shopeeFeaturedCampaign: false,
-  shopeeOwnCoupon: true,
+  shopeeOwnCoupon: false,
   shopeeCouponMode: "percent",
   shopeeCouponValue: 0,
 
@@ -146,7 +146,7 @@ export const initialPricingForm: PricingFormState = {
   // Impressora & energia
   printerModel: "bambu-a1",
   printerPowerWatts: 100,
-  printTimeHours: 1,
+  printTimeHours: 0,
   printTimeMinutes: 0,
   kwhPrice: 0.9,
 
@@ -157,16 +157,16 @@ export const initialPricingForm: PricingFormState = {
   quantity: 1,
 
   // Filamento
-  weightGrams: 1.66,
-  filamentSpoolPrice: 186,
+  weightGrams: 0,
+  filamentSpoolPrice: 0,
   filamentSpoolWeightGrams: 1000,
   filamentRequirements: [
     {
       id: "filament-1",
-      colorName: "Cor principal",
+      colorName: "",
       colorHex: "#FFFFFF",
-      material: "PLA",
-      weightGrams: 1.66,
+      material: "",
+      weightGrams: 0,
     },
   ],
 

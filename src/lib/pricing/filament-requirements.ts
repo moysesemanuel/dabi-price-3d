@@ -36,7 +36,7 @@ export function normalizeFilamentRequirementInputs(
         ? normalizeColorHex(requirement.colorHex)
         : DEFAULT_FILAMENT_COLOR_HEX,
     material:
-      typeof requirement.material === "string" && requirement.material.trim()
+      typeof requirement.material === "string"
         ? requirement.material
         : DEFAULT_FILAMENT_MATERIAL,
     weightGrams:
