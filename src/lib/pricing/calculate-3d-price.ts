@@ -25,8 +25,9 @@ export type Calculate3DPriceInput = {
   printerPowerWatts: number;
   kwhPrice: number;
   packagingCost: number;
-  laborCost: number;
+  laborCostPerHour: number;
   maintenanceCostPerHour: number;
+  expansionReserveCostPerHour: number;
   lossPercentage: number;
   profitMarginPercentage: number;
   marketplaceFeePercentage: number;
@@ -50,6 +51,7 @@ export type Calculate3DPriceResult = {
   printTimeTotalHours: number;
   energyCost: number;
   maintenanceCost: number;
+  expansionReserveCost: number;
   packagingTotalCost: number;
   shippingTotalCost: number;
   laborTotalCost: number;
@@ -129,15 +131,19 @@ export function calculate3DPrice(
 
   const maintenanceCost =
     printTimeTotalHours * sanitizeNumber(input.maintenanceCostPerHour);
+  const expansionReserveCost =
+    printTimeTotalHours * sanitizeNumber(input.expansionReserveCostPerHour);
 
   const packagingTotalCost = sanitizeNumber(input.packagingCost);
   const shippingTotalCost = sanitizeNumber(input.shippingCost);
-  const laborTotalCost = sanitizeNumber(input.laborCost) * cyclesPerSaleUnit;
+  const laborTotalCost =
+    printTimeTotalHours * sanitizeNumber(input.laborCostPerHour);
 
   const baseCost =
     materialCost +
     energyCost +
     maintenanceCost +
+    expansionReserveCost +
     packagingTotalCost +
     shippingTotalCost +
     laborTotalCost;
@@ -242,6 +248,7 @@ export function calculate3DPrice(
     printTimeTotalHours,
     energyCost,
     maintenanceCost,
+    expansionReserveCost,
     packagingTotalCost,
     shippingTotalCost,
     laborTotalCost,

@@ -1105,7 +1105,7 @@ export function PricingForm({
         </div>
         <SectionLead
           title="Custos operacionais"
-          description="Imposto, perdas, embalagem e manutenção entram como ajustes que refinam o preço final."
+          description="Imposto, perdas e custos por hora entram aqui para refletir a operacao real da impressao."
         />
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -1132,18 +1132,25 @@ export function PricingForm({
             inputKind="money"
             prefix={currencySymbol}
             note="Rateio de manutencao da maquina por hora impressa"
-            className="md:col-span-2"
           />
-          {isDirect ? (
-            <Field
-              label="Mao de obra"
-              value={displayMoney(form.laborCost)}
-              onChange={(value) => handleMoneyChange("laborCost", value)}
-              inputKind="money"
-              prefix={currencySymbol}
-              note="Custo total do lote"
-            />
-          ) : null}
+          <Field
+            label="Mao de obra por hora"
+            value={displayMoney(form.laborCostPerHour)}
+            onChange={(value) => handleMoneyChange("laborCostPerHour", value)}
+            inputKind="money"
+            prefix={currencySymbol}
+            note="Seu tempo operacional convertido em custo por hora"
+          />
+          <Field
+            label="Reserva de expansao por hora"
+            value={displayMoney(form.expansionReserveCostPerHour)}
+            onChange={(value) =>
+              handleMoneyChange("expansionReserveCostPerHour", value)
+            }
+            inputKind="money"
+            prefix={currencySymbol}
+            note="Reserva para reinvestir e comprar novas impressoras"
+          />
           <Field
             label="Perdas / falhas"
             value={form.lossPercentage}

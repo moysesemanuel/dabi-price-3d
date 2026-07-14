@@ -23,6 +23,7 @@ import { resolveShopeeFeeConfigForPrice } from "@/lib/marketplaces/shopee";
 import { calculate3DPrice } from "@/lib/pricing/calculate-3d-price";
 import { buildPricingViewModel } from "@/lib/pricing/build-pricing-view-model";
 import {
+  hydratePricingFormState,
   initialPricingForm,
   type FilamentRequirementInput,
   type PricingFormState,
@@ -74,10 +75,6 @@ function resolveShopeeFeeConfig(form: PricingFormState) {
       ...form,
       marketplaceFeePercentage: currentConfig.percentage,
       marketplaceFixedFee: currentConfig.fixedFee,
-      laborCost:
-        form.salesChannelId === "direct" || form.salesChannelId === "consignment"
-          ? form.laborCost
-          : 0,
     });
 
     const simulatedSalePrice =
@@ -103,7 +100,7 @@ function resolveShopeeFeeConfig(form: PricingFormState) {
 
 export default function Home() {
   const [form, setForm] = useState<PricingFormState>(() => ({
-    ...initialPricingForm,
+    ...hydratePricingFormState(),
     filamentRequirements: normalizeFilamentRequirementInputs(
       initialPricingForm.filamentRequirements,
       initialPricingForm.weightGrams,
@@ -175,10 +172,6 @@ export default function Home() {
       ...form,
       marketplaceFeePercentage: effectiveMarketplaceFeePercentage,
       marketplaceFixedFee: effectiveMarketplaceFixedFee,
-      laborCost:
-        form.salesChannelId === "direct" || form.salesChannelId === "consignment"
-          ? form.laborCost
-          : 0,
     }),
     [effectiveMarketplaceFeePercentage, effectiveMarketplaceFixedFee, form],
   );
@@ -273,12 +266,15 @@ export default function Home() {
     }
 
     queueMicrotask(() => {
+      const hydratedSnapshot = hydratePricingFormState(
+        queuedCalculation.formSnapshot,
+      );
+
       setForm({
-        ...initialPricingForm,
-        ...queuedCalculation.formSnapshot,
+        ...hydratedSnapshot,
         filamentRequirements: normalizeFilamentRequirementInputs(
-          queuedCalculation.formSnapshot.filamentRequirements,
-          queuedCalculation.formSnapshot.weightGrams ?? initialPricingForm.weightGrams,
+          hydratedSnapshot.filamentRequirements,
+          hydratedSnapshot.weightGrams,
         ),
       });
       setDisplayCurrency(queuedCalculation.displayCurrency);

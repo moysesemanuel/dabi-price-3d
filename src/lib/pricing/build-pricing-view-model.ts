@@ -21,6 +21,7 @@ export type PricingViewModel = {
   unitMaterialCost: number;
   unitPackagingCost: number;
   unitMaintenanceCost: number;
+  unitExpansionReserveCost: number;
   unitLaborCost: number;
   unitLossCost: number;
   unitProductionCost: number;
@@ -72,6 +73,7 @@ export function buildPricingViewModel(
   const unitMaterialCost = result.materialCost;
   const unitPackagingCost = result.packagingTotalCost;
   const unitMaintenanceCost = result.maintenanceCost;
+  const unitExpansionReserveCost = result.expansionReserveCost;
   const unitLaborCost = result.laborTotalCost;
   const unitLossCost = Math.max(result.costWithLoss - result.baseCost, 0);
 
@@ -130,6 +132,7 @@ export function buildPricingViewModel(
     unitMaterialCost,
     unitPackagingCost,
     unitMaintenanceCost,
+    unitExpansionReserveCost,
     unitLaborCost,
     unitLossCost,
     unitProductionCost,

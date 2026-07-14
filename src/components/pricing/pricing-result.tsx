@@ -106,6 +106,7 @@ export function PricingResult({
     cyclesPerSaleUnit,
     printTimePerCycleHours,
     unitEnergyCost,
+    unitExpansionReserveCost,
     unitLaborCost,
     unitLossCost,
     unitMaintenanceCost,
@@ -257,6 +258,11 @@ export function PricingResult({
       label: "Manutenção",
       amount: unitMaintenanceCost,
       value: money(unitMaintenanceCost),
+    },
+    {
+      label: "Reserva de expansão",
+      amount: unitExpansionReserveCost,
+      value: money(unitExpansionReserveCost),
     },
     {
       label: "Mão de obra",

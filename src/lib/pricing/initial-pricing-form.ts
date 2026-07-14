@@ -90,8 +90,9 @@ export type PricingFormState = {
   // Custos
   shippingCost: number;
   packagingCost: number;
-  laborCost: number;
+  laborCostPerHour: number;
   maintenanceCostPerHour: number;
+  expansionReserveCostPerHour: number;
   lossPercentage: number;
   taxPercentage: number;
 
@@ -104,6 +105,10 @@ export type PricingFormState = {
   directPaymentMethod: DirectPaymentMethod;
   directPixDiscountPercentage: number;
   directCustomCardFeePercentage: number;
+};
+
+type LegacyPricingFormSnapshot = Partial<PricingFormState> & {
+  laborCost?: number;
 };
 
 export const initialPricingForm: PricingFormState = {
@@ -173,8 +178,9 @@ export const initialPricingForm: PricingFormState = {
   // Custos
   shippingCost: 0,
   packagingCost: 0,
-  laborCost: 0,
+  laborCostPerHour: 0,
   maintenanceCostPerHour: 0,
+  expansionReserveCostPerHour: 0,
   lossPercentage: 0,
   taxPercentage: 0,
 
@@ -188,3 +194,61 @@ export const initialPricingForm: PricingFormState = {
   directPixDiscountPercentage: 0,
   directCustomCardFeePercentage: 0,
 };
+
+export function hydratePricingFormState(
+  snapshot?: LegacyPricingFormSnapshot | null,
+): PricingFormState {
+  const normalizedSnapshot = snapshot ?? {};
+  const laborCostPerHour =
+    normalizedSnapshot.laborCostPerHour ??
+    resolveLegacyLaborCostPerHour(normalizedSnapshot);
+
+  return {
+    ...initialPricingForm,
+    ...normalizedSnapshot,
+    laborCostPerHour,
+    expansionReserveCostPerHour:
+      normalizedSnapshot.expansionReserveCostPerHour ??
+      initialPricingForm.expansionReserveCostPerHour,
+  };
+}
+
+function resolveLegacyLaborCostPerHour(snapshot: LegacyPricingFormSnapshot) {
+  const legacyLaborCost = sanitizeNumber(snapshot.laborCost);
+
+  if (legacyLaborCost <= 0) {
+    return initialPricingForm.laborCostPerHour;
+  }
+
+  const printTimeTotalHours = getSnapshotPrintTimeTotalHours(snapshot);
+
+  if (printTimeTotalHours <= 0) {
+    return legacyLaborCost;
+  }
+
+  return legacyLaborCost / printTimeTotalHours;
+}
+
+function getSnapshotPrintTimeTotalHours(snapshot: LegacyPricingFormSnapshot) {
+  const unitPrintTimeHours =
+    sanitizeNumber(snapshot.printTimeHours) +
+    sanitizeNumber(snapshot.printTimeMinutes) / 60;
+  const multiplePiecesEnabled = snapshot.multiplePiecesEnabled ?? false;
+  const dividePrintTimeByPieces = snapshot.dividePrintTimeByPieces ?? false;
+  const piecesPerCycle = multiplePiecesEnabled
+    ? Math.max(sanitizeNumber(snapshot.quantity), 1)
+    : 1;
+  const piecesPerSaleUnit =
+    snapshot.isKit === true ? Math.max(sanitizeNumber(snapshot.kitQuantity), 1) : 1;
+  const cyclesPerSaleUnit = piecesPerSaleUnit / piecesPerCycle;
+  const printTimePerCycleHours =
+    multiplePiecesEnabled && dividePrintTimeByPieces
+      ? unitPrintTimeHours
+      : unitPrintTimeHours * piecesPerCycle;
+
+  return printTimePerCycleHours * cyclesPerSaleUnit;
+}
+
+function sanitizeNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
