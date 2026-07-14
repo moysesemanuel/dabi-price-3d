@@ -39,6 +39,7 @@ type PricingResultProps = {
 };
 
 type BannerTone = "good" | "warning" | "danger";
+type FinancialTone = "default" | "accent" | "success" | "danger";
 
 type SummaryLine = {
   label: string;
@@ -52,6 +53,21 @@ type CostLineItem = {
   amount: number;
   value: string;
   meta?: string;
+  tone?: FinancialTone;
+};
+
+const financialToneTextClassName: Record<FinancialTone, string> = {
+  default: "text-[#18120d]",
+  accent: "text-[#d84f00]",
+  success: "text-[#137a3a]",
+  danger: "text-[#c1372b]",
+};
+
+const financialToneBorderClassName: Record<FinancialTone, string> = {
+  default: "border-black/8",
+  accent: "border-[#ff6a00]",
+  success: "border-[#137a3a]",
+  danger: "border-[#c1372b]",
 };
 
 export function PricingResult({
@@ -114,9 +130,12 @@ export function PricingResult({
     unitMarketplaceFixedFee,
     unitMaterialCost,
     unitPackagingCost,
+    unitBusinessRetention,
+    unitOperationalReserveCost,
     unitProfit,
     unitShippingCost,
     unitTaxCost,
+    unitThirdPartyCost,
     unitTotalCost,
     unitProductionCost,
     lotProfit,
@@ -189,11 +208,10 @@ export function PricingResult({
   const perKitItemProfit = money(directSaleProfitPerKitItem);
   const perKitItemNetProfit = money(profitPerKitItem);
 
-  const channelChargesTotal =
-    unitMarketplaceFee +
-    unitMarketplaceFixedFee +
-    unitTaxCost +
-    unitShippingCost;
+  const businessRetentionTone: FinancialTone =
+    unitBusinessRetention > 0 ? "success" : "danger";
+  const businessProfitTone: FinancialTone =
+    unitProfit > 0 ? "success" : "danger";
   const activeWorthIt = unitProfit > 0;
   const suggestedGap = displayedSalePrice - activeChannelSuggestedMinimumPrice;
   const saleConditionBadge = getSaleConditionBadge({
@@ -233,12 +251,13 @@ export function PricingResult({
       ? `${saleUnitsPerCycleLabel} unidade(s) produzidas por ciclo`
       : "1 unidade por ciclo";
 
-  const productionCostItems: CostLineItem[] = [
+  const thirdPartyCostItems: CostLineItem[] = [
     {
       label: "Filamento",
       amount: unitMaterialCost,
       meta: `${materialGrams}g`,
       value: money(unitMaterialCost),
+      tone: "danger" as const,
     },
     {
       label: "Energia elétrica",
@@ -248,39 +267,17 @@ export function PricingResult({
           ? formatPercent((unitEnergyCost / displayedSalePrice) * 100)
           : undefined,
       value: money(unitEnergyCost),
+      tone: "danger" as const,
     },
     {
       label: "Embalagem e acabamento",
       amount: unitPackagingCost,
       value: money(unitPackagingCost),
-    },
-    {
-      label: "Manutenção",
-      amount: unitMaintenanceCost,
-      value: money(unitMaintenanceCost),
-    },
-    {
-      label: "Reserva de expansão",
-      amount: unitExpansionReserveCost,
-      value: money(unitExpansionReserveCost),
-    },
-    {
-      label: "Mão de obra",
-      amount: unitLaborCost,
-      meta:
-        result.laborTimeTotalHours > 0
-          ? formatOperationalTime(result.laborTimeTotalHours)
-          : undefined,
-      value: money(unitLaborCost),
-    },
-    {
-      label: "Reserva de perdas",
-      amount: unitLossCost,
-      value: money(unitLossCost),
+      tone: "danger" as const,
     },
   ].filter((item) => !isZeroValue(item.amount));
 
-  const channelCostItems: CostLineItem[] = [
+  const thirdPartyChannelItems: CostLineItem[] = [
     ...(form.salesChannelId === "shopee"
       ? (() => {
           const shopeeFeeConfig = resolveShopeeFeeConfigForPrice({
@@ -298,12 +295,14 @@ export function PricingResult({
               value: money(
                 displayedSalePrice * (shopeeFeeConfig.basePercentage / 100),
               ),
+              tone: "danger" as const,
             },
             {
               label: "Tarifa fixa por item",
               amount: shopeeFeeConfig.baseFixedFee,
               meta: `Faixa atual: ${shopeeFeeConfig.priceRangeLabel} · cobrada por item vendido`,
               value: money(shopeeFeeConfig.baseFixedFee),
+              tone: "danger" as const,
             },
           ];
 
@@ -318,6 +317,7 @@ export function PricingResult({
                 displayedSalePrice *
                   (shopeeFeeConfig.featuredCampaignFee / 100),
               ),
+              tone: "danger" as const,
             });
           }
 
@@ -327,6 +327,7 @@ export function PricingResult({
               amount: shopeeFeeConfig.cpfSellerFee,
               meta: "Adicional fixo por item vendido no CPF",
               value: money(shopeeFeeConfig.cpfSellerFee),
+              tone: "danger" as const,
             });
           }
 
@@ -340,13 +341,15 @@ export function PricingResult({
               displayedSalePrice > 0
                 ? formatPercent((unitMarketplaceFee / displayedSalePrice) * 100)
                 : undefined,
-            value: money(unitMarketplaceFee),
-          },
-          {
-            label: "Tarifa fixa marketplace",
-            amount: unitMarketplaceFixedFee,
-            value: money(unitMarketplaceFixedFee),
-          },
+              value: money(unitMarketplaceFee),
+              tone: "danger" as const,
+            },
+            {
+              label: "Tarifa fixa marketplace",
+              amount: unitMarketplaceFixedFee,
+              value: money(unitMarketplaceFixedFee),
+              tone: "danger" as const,
+            },
         ]),
     {
       label: "Imposto",
@@ -356,6 +359,7 @@ export function PricingResult({
           ? formatPercent((unitTaxCost / displayedSalePrice) * 100)
           : undefined,
       value: money(unitTaxCost),
+      tone: "danger" as const,
     },
     {
       label: "Frete",
@@ -365,13 +369,50 @@ export function PricingResult({
           ? formatPercent((unitShippingCost / displayedSalePrice) * 100)
           : undefined,
       value: money(unitShippingCost),
+      tone: "danger" as const,
     },
   ].filter((item) => !isZeroValue(item.amount));
 
-  const channelCostSubtitle =
-    form.salesChannelId === "shopee"
-      ? "Comissão percentual, tarifa fixa por item vendido e demais cobranças da venda."
-      : "Descontos e cobranças que acontecem na venda.";
+  const operationalReserveItems: CostLineItem[] = [
+    {
+      label: "Manutenção",
+      amount: unitMaintenanceCost,
+      value: money(unitMaintenanceCost),
+      tone: "accent" as const,
+    },
+    {
+      label: "Reserva de perdas",
+      amount: unitLossCost,
+      value: money(unitLossCost),
+      tone: "accent" as const,
+    },
+  ].filter((item) => !isZeroValue(item.amount));
+
+  const businessReturnItems: CostLineItem[] = [
+    {
+      label: "Remuneração da mão de obra",
+      amount: unitLaborCost,
+      meta:
+        result.laborTimeTotalHours > 0
+          ? formatOperationalTime(result.laborTimeTotalHours)
+          : undefined,
+      value: money(unitLaborCost),
+      tone: "success" as const,
+    },
+    {
+      label: "Reserva de expansão",
+      amount: unitExpansionReserveCost,
+      value: money(unitExpansionReserveCost),
+      tone: "success" as const,
+    },
+    {
+      label: "Lucro empresarial",
+      amount: unitProfit,
+      meta: `${money(profitPerHour)} / hora de impressão`,
+      value: money(unitProfit),
+      tone: businessProfitTone,
+    },
+  ].filter((item) => !isZeroValue(item.amount));
 
   return (
     <aside className="xl:sticky xl:top-6">
@@ -431,10 +472,16 @@ export function PricingResult({
 
           <div className="mt-5 divide-y divide-black/8 rounded-[22px] border border-black/8 bg-white">
             <KeyMetricRow
-              label="Lucro líquido"
+              label="Retorno total para o negócio"
+              value={money(unitBusinessRetention)}
+              helper="Pró-labore + reserva de expansão + lucro empresarial."
+              tone={businessRetentionTone}
+            />
+            <KeyMetricRow
+              label="Lucro empresarial"
               value={money(unitProfit)}
               helper={form.isKit ? `${perKitItemNetProfit} por item` : undefined}
-              tone={activeWorthIt ? "success" : "danger"}
+              tone={businessProfitTone}
             />
             <KeyMetricRow
               label="Margem real"
@@ -446,11 +493,31 @@ export function PricingResult({
               label="Custo total neste canal"
               value={money(unitTotalCost)}
               helper="Produção + marketplace + demais custos."
+              tone="danger"
             />
             <KeyMetricRow
               label="Preço mínimo sugerido"
               value={money(activeChannelSuggestedMinimumPrice)}
               helper="Piso sugerido para manter pelo menos 30% de lucro líquido."
+            />
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <SummaryCard
+              label="Pró-labore neste item"
+              value={money(unitLaborCost)}
+              helper={
+                result.laborTimeTotalHours > 0
+                  ? formatOperationalTime(result.laborTimeTotalHours)
+                  : undefined
+              }
+              tone="success"
+            />
+            <SummaryCard
+              label="Reserva para expansão"
+              value={money(unitExpansionReserveCost)}
+              helper="Parcela que permanece no caixa para crescimento."
+              tone="success"
             />
           </div>
 
@@ -463,7 +530,7 @@ export function PricingResult({
         </div>
 
         <div className="mt-7">
-          <SectionTitle title="Leitura rápida" />
+          <SectionTitle title="Distribuição rápida" />
 
           <div className="mt-4 divide-y divide-black/8 rounded-[24px] border border-black/8 bg-white">
             <QuickReadRow
@@ -472,53 +539,66 @@ export function PricingResult({
               helper={
                 form.isKit ? `${perKitItemSalePrice} por item do kit` : undefined
               }
+              tone="success"
+            />
+            <QuickReadRow
+              label="Sai para terceiros"
+              value={money(unitThirdPartyCost)}
+              helper="Material, energia, embalagem, frete, taxas e impostos."
+              tone="danger"
+            />
+            <QuickReadRow
+              label="Protege a operação"
+              value={money(unitOperationalReserveCost)}
+              helper="Manutenção e reserva para absorver falhas."
               tone="accent"
             />
             <QuickReadRow
-              label="Taxas, imposto e frete"
-              value={money(channelChargesTotal)}
-              helper="Custos específicos do canal ativo."
-            />
-            <QuickReadRow
-              label="Custo de produção"
-              value={money(unitProductionCost)}
-              helper="Material, energia, perdas e operação."
-            />
-            <QuickReadRow
-              label="Sobra para você"
-              value={money(unitProfit)}
-              helper={`${money(profitPerHour)} / hora`}
-              tone={activeWorthIt ? "success" : "danger"}
+              label="Fica no negócio"
+              value={money(unitBusinessRetention)}
+              helper="Mão de obra + expansão + lucro empresarial."
+              tone={businessRetentionTone}
             />
           </div>
         </div>
 
         <div className="mt-7">
-          <SectionTitle title="Composição do custo" />
+          <SectionTitle title="Distribuição do valor vendido" />
 
           <div className="mt-4 grid gap-4">
             <CostGroupCard
-              title="Produção"
-              subtitle="O que custa fabricar uma unidade vendável."
-              items={productionCostItems}
-              totalLabel="Subtotal de produção"
-              totalValue={money(unitProductionCost)}
+              title="Sai para terceiros"
+              subtitle="Valores que efetivamente saem do caixa para fornecedores, canal e tributos."
+              items={[...thirdPartyCostItems, ...thirdPartyChannelItems]}
+              totalLabel="Subtotal de saídas"
+              totalValue={money(unitThirdPartyCost)}
+              tone="danger"
             />
 
             <CostGroupCard
-              title="Canal e impostos"
-              subtitle={channelCostSubtitle}
-              items={channelCostItems}
-              totalLabel="Subtotal do canal"
-              totalValue={money(channelChargesTotal)}
+              title="Proteção da operação"
+              subtitle="Reserva interna para sustentar manutenção e absorver perdas do processo."
+              items={operationalReserveItems}
+              totalLabel="Subtotal de proteção"
+              totalValue={money(unitOperationalReserveCost)}
+              tone="accent"
+            />
+
+            <CostGroupCard
+              title="Fica com você / negócio"
+              subtitle="Parcela do preço que remunera seu trabalho, forma caixa para expansão e gera lucro empresarial."
+              items={businessReturnItems}
+              totalLabel="Subtotal que permanece no negócio"
+              totalValue={money(unitBusinessRetention)}
+              tone={businessRetentionTone}
             />
           </div>
 
           <div className="mt-4 rounded-[20px] border border-black/8 bg-white px-4 py-4">
             <SimpleLine
-              label="Total do custo neste canal"
-              value={money(unitTotalCost)}
-              highlight
+              label="Valor total cobrado do cliente"
+              value={money(displayedSalePrice)}
+              tone="success"
             />
           </div>
         </div>
@@ -541,12 +621,13 @@ export function PricingResult({
                     helper={
                       form.isKit ? `${perKitItemSalePrice} por item` : undefined
                     }
-                    tone="accent"
+                    tone="success"
                   />
                   <SummaryCard
                     label={form.isKit ? "Custo total do kit" : "Custo total"}
                     value={money(directSale.costTotal)}
                     helper={form.isKit ? `${perKitItemCost} por item` : undefined}
+                    tone="danger"
                   />
                   <SummaryCard
                     label="Lucro bruto"
@@ -634,16 +715,18 @@ export function PricingResult({
                   <SummaryCard
                     label="Cliente paga"
                     value={money(consignment.customerPrice)}
+                    tone="success"
                   />
                   <SummaryCard
                     label="Loja fica com"
                     value={money(consignment.storeCommissionValue)}
                     helper={formatPercent(consignment.storeCommissionPercentage)}
+                    tone="danger"
                   />
                   <SummaryCard
                     label="Volta para você"
                     value={money(consignment.amountReturnedToYou)}
-                    tone="accent"
+                    tone="success"
                   />
                   <SummaryCard
                     label="Lucro final"
@@ -673,6 +756,7 @@ export function PricingResult({
                   <SummaryCard
                     label={form.isKit ? "Custo total do kit" : "Custo total do produto"}
                     value={money(wholesale.costTotal)}
+                    tone="danger"
                   />
                   <SummaryCard
                     label={
@@ -720,6 +804,7 @@ export function PricingResult({
                         <SummaryCard
                           label="Lucro total estimado"
                           value={money(tier.totalProfit)}
+                          tone={tier.totalProfit > 0 ? "success" : "danger"}
                         />
                       </div>
 
@@ -873,15 +958,8 @@ function KeyMetricRow({
   label: string;
   value: string;
   helper?: string;
-  tone?: "default" | "accent" | "success" | "danger";
+  tone?: FinancialTone;
 }) {
-  const valueClassName = {
-    default: "text-[#18120d]",
-    accent: "text-[#d84f00]",
-    success: "text-[#18120d]",
-    danger: "text-[#d84f00]",
-  }[tone];
-
   return (
     <div className="flex items-center justify-between gap-4 px-4 py-4">
       <div className="min-w-0">
@@ -892,7 +970,7 @@ function KeyMetricRow({
       </div>
 
       <strong
-        className={`text-right text-lg font-semibold tracking-[-0.04em] ${valueClassName}`}
+        className={`text-right text-lg font-semibold tracking-[-0.04em] ${financialToneTextClassName[tone]}`}
       >
         {value}
       </strong>
@@ -909,15 +987,8 @@ function QuickReadRow({
   label: string;
   value: string;
   helper?: string;
-  tone?: "default" | "accent" | "success" | "danger";
+  tone?: FinancialTone;
 }) {
-  const valueClassName = {
-    default: "text-[#18120d]",
-    accent: "text-[#d84f00]",
-    success: "text-[#18120d]",
-    danger: "text-[#d84f00]",
-  }[tone];
-
   return (
     <div className="flex items-center justify-between gap-4 px-4 py-4">
       <div className="min-w-0">
@@ -927,7 +998,7 @@ function QuickReadRow({
         ) : null}
       </div>
       <strong
-        className={`text-right text-base font-semibold tracking-[-0.03em] ${valueClassName}`}
+        className={`text-right text-base font-semibold tracking-[-0.03em] ${financialToneTextClassName[tone]}`}
       >
         {value}
       </strong>
@@ -944,19 +1015,12 @@ function SummaryCard({
   label: string;
   value: string;
   helper?: string;
-  tone?: "default" | "accent" | "success" | "danger";
+  tone?: FinancialTone;
 }) {
-  const toneClassName = {
-    default: "border-black/8 bg-transparent text-[#18120d]",
-    accent:
-      "border-[#ff6a00] bg-[#ff6a00] text-[#18120d]",
-    success: "border-black/8 bg-white text-[#18120d]",
-    danger:
-      "border-[#ff6a00] bg-[#ff6a00] text-[#18120d]",
-  }[tone];
-
   return (
-    <div className={`rounded-[16px] border p-4 ${toneClassName}`}>
+    <div
+      className={`rounded-[16px] border bg-white p-4 ${financialToneBorderClassName[tone]} ${financialToneTextClassName[tone]}`}
+    >
       <p className="text-xs uppercase tracking-[0.2em] text-[#7c6858]">
         {label}
       </p>
@@ -1042,12 +1106,14 @@ function CostGroupCard({
   items,
   totalLabel,
   totalValue,
+  tone = "default",
 }: {
   title: string;
   subtitle: string;
   items: CostLineItem[];
   totalLabel: string;
   totalValue: string;
+  tone?: FinancialTone;
 }) {
   return (
     <div className="rounded-[24px] border border-black/8 bg-white p-5">
@@ -1064,6 +1130,7 @@ function CostGroupCard({
               label={item.label}
               value={item.value}
               meta={item.meta}
+              tone={item.tone ?? tone}
             />
           ))
         ) : (
@@ -1074,7 +1141,7 @@ function CostGroupCard({
       </div>
 
       <div className="mt-4 border-t border-black/8 pt-4">
-        <SimpleLine label={totalLabel} value={totalValue} highlight />
+        <SimpleLine label={totalLabel} value={totalValue} tone={tone} />
       </div>
     </div>
   );
@@ -1084,11 +1151,20 @@ function CostLine({
   label,
   value,
   meta,
+  tone = "default",
 }: {
   label: string;
   value: string;
   meta?: string;
+  tone?: FinancialTone;
 }) {
+  const signal = {
+    default: "",
+    accent: "",
+    success: "+ ",
+    danger: "- ",
+  }[tone];
+
   return (
     <div className="flex items-start justify-between gap-4 border-b border-black/6 py-4 last:border-b-0">
       <div>
@@ -1096,7 +1172,12 @@ function CostLine({
         {meta ? <p className="mt-1 text-xs text-[#7c6858]">{meta}</p> : null}
       </div>
 
-      <span className="font-mono text-sm text-[#ff9d9d]">- {value}</span>
+      <span
+        className={`font-mono text-sm ${financialToneTextClassName[tone]}`}
+      >
+        {signal}
+        {value}
+      </span>
     </div>
   );
 }
@@ -1158,25 +1239,27 @@ function SimpleLine({
   value,
   highlight = false,
   muted = false,
+  tone,
 }: {
   label: string;
   value: string;
   highlight?: boolean;
   muted?: boolean;
+  tone?: FinancialTone;
 }) {
+  const valueClassName = tone
+    ? financialToneTextClassName[tone]
+    : highlight
+      ? "text-[#d84f00]"
+      : muted
+        ? "text-[#7c6858]"
+        : "text-[#18120d]";
+
   return (
     <div className="flex items-center justify-between gap-4">
       <span className="text-sm text-[#18120d]">{label}</span>
 
-      <strong
-        className={`font-mono text-sm ${
-          highlight
-            ? "text-[#d84f00]"
-            : muted
-              ? "text-[#7c6858]"
-              : "text-[#18120d]"
-        }`}
-      >
+      <strong className={`font-mono text-sm ${valueClassName}`}>
         {value}
       </strong>
     </div>

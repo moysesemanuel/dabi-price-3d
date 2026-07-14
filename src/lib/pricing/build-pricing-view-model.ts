@@ -26,6 +26,9 @@ export type PricingViewModel = {
   unitLossCost: number;
   unitProductionCost: number;
   unitTotalCost: number;
+  unitThirdPartyCost: number;
+  unitOperationalReserveCost: number;
+  unitBusinessRetention: number;
   unitProfit: number;
   totalCostPerKitItem: number;
   profitPerKitItem: number;
@@ -83,6 +86,17 @@ export function buildPricingViewModel(
     unitMarketplaceFee +
     unitMarketplaceFixedFee +
     unitTaxCost;
+  const unitThirdPartyCost =
+    unitMaterialCost +
+    unitEnergyCost +
+    unitPackagingCost +
+    unitShippingCost +
+    unitMarketplaceFee +
+    unitMarketplaceFixedFee +
+    unitTaxCost;
+  const unitOperationalReserveCost = unitMaintenanceCost + unitLossCost;
+  const unitBusinessRetention =
+    unitLaborCost + unitExpansionReserveCost + result.unitNetProfit;
 
   const unitProfit = result.unitNetProfit;
   const salePricePerKitItem = displayedSalePrice / kitQuantity;
@@ -137,6 +151,9 @@ export function buildPricingViewModel(
     unitLossCost,
     unitProductionCost,
     unitTotalCost,
+    unitThirdPartyCost,
+    unitOperationalReserveCost,
+    unitBusinessRetention,
     unitProfit,
     totalCostPerKitItem,
     profitPerKitItem,
