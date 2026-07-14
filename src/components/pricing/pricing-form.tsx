@@ -177,6 +177,15 @@ export function PricingForm({
     : form.multiplePiecesEnabled
       ? "Esse valor continua sendo por unidade vendida, mesmo com varias pecas por ciclo. O painel ao lado mostra taxas, lucro e viabilidade."
       : "Digite o preco de venda livremente. O painel ao lado mostra taxas, lucro e se o valor e viavel no canal.";
+  const laborTimeHoursLabel = form.isKit
+    ? "Horas de trabalho manual do kit"
+    : "Horas de trabalho manual";
+  const laborTimeMinutesLabel = form.isKit
+    ? "Minutos de trabalho manual do kit"
+    : "Minutos de trabalho manual";
+  const laborTimeNote = form.isKit
+    ? "Considere apenas o tempo humano para preparar, retirar, acabar e embalar 1 kit."
+    : "Considere apenas o tempo humano para preparar, retirar, acabar e embalar 1 unidade.";
 
   const pixPrice = useMemo(() => {
     return suggestedPrice * (1 - form.directPixDiscountPercentage / 100);
@@ -1105,7 +1114,7 @@ export function PricingForm({
         </div>
         <SectionLead
           title="Custos operacionais"
-          description="Imposto, perdas e custos por hora entram aqui para refletir a operacao real da impressao."
+          description="Imposto, perdas e custos operacionais entram aqui para refletir a operacao real sem misturar tempo da maquina com tempo humano."
         />
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -1134,12 +1143,23 @@ export function PricingForm({
             note="Rateio de manutencao da maquina por hora impressa"
           />
           <Field
+            label={laborTimeHoursLabel}
+            value={form.laborTimeHours}
+            onChange={(value) => onChange("laborTimeHours", value)}
+            note={laborTimeNote}
+          />
+          <Field
+            label={laborTimeMinutesLabel}
+            value={form.laborTimeMinutes}
+            onChange={(value) => onChange("laborTimeMinutes", value)}
+          />
+          <Field
             label="Mao de obra por hora"
             value={displayMoney(form.laborCostPerHour)}
             onChange={(value) => handleMoneyChange("laborCostPerHour", value)}
             inputKind="money"
             prefix={currencySymbol}
-            note="Seu tempo operacional convertido em custo por hora"
+            note="Valor da sua hora de trabalho manual"
           />
           <Field
             label="Reserva de expansao por hora"

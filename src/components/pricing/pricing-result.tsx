@@ -267,6 +267,10 @@ export function PricingResult({
     {
       label: "Mão de obra",
       amount: unitLaborCost,
+      meta:
+        result.laborTimeTotalHours > 0
+          ? formatOperationalTime(result.laborTimeTotalHours)
+          : undefined,
       value: money(unitLaborCost),
     },
     {
@@ -834,6 +838,22 @@ export function PricingResult({
       </section>
     </aside>
   );
+}
+
+function formatOperationalTime(totalHours: number) {
+  const totalMinutes = Math.round(totalHours * 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours > 0 && minutes > 0) {
+    return `${hours}h ${minutes}min de trabalho manual`;
+  }
+
+  if (hours > 0) {
+    return `${hours}h de trabalho manual`;
+  }
+
+  return `${minutes}min de trabalho manual`;
 }
 
 function SectionTitle({ title }: { title: string }) {

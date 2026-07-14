@@ -25,6 +25,8 @@ export type Calculate3DPriceInput = {
   printerPowerWatts: number;
   kwhPrice: number;
   packagingCost: number;
+  laborTimeHours: number;
+  laborTimeMinutes: number;
   laborCostPerHour: number;
   maintenanceCostPerHour: number;
   expansionReserveCostPerHour: number;
@@ -49,6 +51,7 @@ export type Calculate3DPriceResult = {
   costPerGram: number;
   materialCost: number;
   printTimeTotalHours: number;
+  laborTimeTotalHours: number;
   energyCost: number;
   maintenanceCost: number;
   expansionReserveCost: number;
@@ -108,6 +111,9 @@ export function calculate3DPrice(
       : unitPrintTimeHours * piecesPerCycle;
 
   const printTimeTotalHours = printTimePerCycleHours * cyclesPerSaleUnit;
+  const laborTimeTotalHours =
+    sanitizeNumber(input.laborTimeHours) +
+    sanitizeNumber(input.laborTimeMinutes) / 60;
 
   const costPerGram =
     input.filamentSpoolWeightGrams > 0
@@ -137,7 +143,7 @@ export function calculate3DPrice(
   const packagingTotalCost = sanitizeNumber(input.packagingCost);
   const shippingTotalCost = sanitizeNumber(input.shippingCost);
   const laborTotalCost =
-    printTimeTotalHours * sanitizeNumber(input.laborCostPerHour);
+    laborTimeTotalHours * sanitizeNumber(input.laborCostPerHour);
 
   const baseCost =
     materialCost +
@@ -246,6 +252,7 @@ export function calculate3DPrice(
     costPerGram,
     materialCost,
     printTimeTotalHours,
+    laborTimeTotalHours,
     energyCost,
     maintenanceCost,
     expansionReserveCost,

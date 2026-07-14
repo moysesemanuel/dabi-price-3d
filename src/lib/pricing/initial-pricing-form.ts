@@ -90,6 +90,8 @@ export type PricingFormState = {
   // Custos
   shippingCost: number;
   packagingCost: number;
+  laborTimeHours: number;
+  laborTimeMinutes: number;
   laborCostPerHour: number;
   maintenanceCostPerHour: number;
   expansionReserveCostPerHour: number;
@@ -178,6 +180,8 @@ export const initialPricingForm: PricingFormState = {
   // Custos
   shippingCost: 0,
   packagingCost: 0,
+  laborTimeHours: 0,
+  laborTimeMinutes: 0,
   laborCostPerHour: 0,
   maintenanceCostPerHour: 0,
   expansionReserveCostPerHour: 0,
@@ -202,10 +206,13 @@ export function hydratePricingFormState(
   const laborCostPerHour =
     normalizedSnapshot.laborCostPerHour ??
     resolveLegacyLaborCostPerHour(normalizedSnapshot);
+  const laborTimeInMinutes = resolveLaborTimeInMinutes(normalizedSnapshot);
 
   return {
     ...initialPricingForm,
     ...normalizedSnapshot,
+    laborTimeHours: Math.floor(laborTimeInMinutes / 60),
+    laborTimeMinutes: laborTimeInMinutes % 60,
     laborCostPerHour,
     expansionReserveCostPerHour:
       normalizedSnapshot.expansionReserveCostPerHour ??
@@ -227,6 +234,26 @@ function resolveLegacyLaborCostPerHour(snapshot: LegacyPricingFormSnapshot) {
   }
 
   return legacyLaborCost / printTimeTotalHours;
+}
+
+function resolveLaborTimeInMinutes(snapshot: LegacyPricingFormSnapshot) {
+  const laborTimeMinutesFromSnapshot =
+    sanitizeNumber(snapshot.laborTimeHours) * 60 +
+    sanitizeNumber(snapshot.laborTimeMinutes);
+
+  if (laborTimeMinutesFromSnapshot > 0) {
+    return laborTimeMinutesFromSnapshot;
+  }
+
+  const hasLegacyLaborValue =
+    sanitizeNumber(snapshot.laborCost) > 0 ||
+    sanitizeNumber(snapshot.laborCostPerHour) > 0;
+
+  if (!hasLegacyLaborValue) {
+    return 0;
+  }
+
+  return Math.round(getSnapshotPrintTimeTotalHours(snapshot) * 60);
 }
 
 function getSnapshotPrintTimeTotalHours(snapshot: LegacyPricingFormSnapshot) {
