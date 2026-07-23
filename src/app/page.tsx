@@ -12,7 +12,6 @@ import {
   type ExchangeRateSnapshot,
 } from "@/lib/currency/display-currency";
 import {
-  attachSiteProductToCalculation,
   consumeQueuedCalculationEditId,
   getCalculationFromHistory,
   saveCalculationToHistory,
@@ -38,18 +37,10 @@ import {
 import {
   findSalesChannelById,
 } from "@/lib/pricing/sales-channels";
-import {
-  MAX_SITE_PRODUCT_PUBLISH_PAYLOAD_BYTES,
-  getJsonSizeInBytes,
-} from "@/lib/site-products/payload-size";
 import type {
   ErpProductSaveRequest,
   ErpProductSaveResponse,
 } from "@/lib/erp-products/types";
-import type {
-  SiteProductPublishRequest,
-  SiteProductPublishResponse,
-} from "@/lib/site-products/types";
 
 type MercadoLivreAutomationState = {
   feePercentage: number | null;
@@ -737,54 +728,6 @@ export default function Home() {
     return nextItem;
   }
 
-  async function handlePublishSiteProduct(
-    payload: Omit<SiteProductPublishRequest, "sourceCalculationId">,
-  ) {
-    const savedCalculation = persistCalculation();
-    const requestPayload = {
-      ...payload,
-      sourceCalculationId: savedCalculation.id,
-    };
-
-    if (
-      getJsonSizeInBytes(requestPayload) > MAX_SITE_PRODUCT_PUBLISH_PAYLOAD_BYTES
-    ) {
-      throw new Error(
-        "As imagens deixaram a publicacao grande demais para o deploy atual. Remova algumas imagens ou use arquivos menores.",
-      );
-    }
-
-    const response = await fetch("/api/site-products/publish", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(requestPayload),
-    });
-
-    const responsePayload = (await response.json().catch(() => null)) as
-      | SiteProductPublishResponse
-      | { error?: string }
-      | null;
-
-    if (!response.ok || !responsePayload || !("product" in responsePayload)) {
-      throw new Error(
-        responsePayload && "error" in responsePayload
-          ? responsePayload.error ?? "Falha ao criar produto no site."
-          : "Falha ao criar produto no site.",
-      );
-    }
-
-    attachSiteProductToCalculation(savedCalculation.id, {
-      id: responsePayload.product.id,
-      slug: responsePayload.product.slug,
-      url: responsePayload.productUrl,
-      publishedAt: new Date().toISOString(),
-    });
-
-    return responsePayload;
-  }
-
   async function saveProductToErp(
     payload: Omit<ErpProductSaveRequest, "sourceCalculationId">,
   ) {
@@ -792,6 +735,7 @@ export default function Home() {
     const requestPayload: ErpProductSaveRequest = {
       ...payload,
       sourceCalculationId: savedCalculation.id,
+      publishToMercadoLivre: payload.publishToMercadoLivre === true,
     };
 
     const response = await fetch("/api/erp-products", {
@@ -908,7 +852,6 @@ export default function Home() {
                       resolvedMercadoLivreCategoryId,
                     mercadoLivreCategoryName: resolvedMercadoLivreCategoryName,
                   }}
-                  onPublish={handlePublishSiteProduct}
                   onSaveToErp={saveProductToErp}
                 />
               </div>

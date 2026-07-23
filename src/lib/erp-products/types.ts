@@ -9,6 +9,7 @@ export type ErpProductFilamentRequirement = {
 
 export type ErpProductSaveRequest = {
   sourceCalculationId: string | null;
+  publishToMercadoLivre?: boolean;
   name: string;
   shortName: string | null;
   sku: string | null;
@@ -40,4 +41,9 @@ export type ErpProductRecord = {
 
 export type ErpProductSaveResponse = {
   product: ErpProductRecord;
+  mercadoLivre?: {
+    published: boolean;
+    externalItemId?: string | null;
+    status?: string | null;
+  };
 };

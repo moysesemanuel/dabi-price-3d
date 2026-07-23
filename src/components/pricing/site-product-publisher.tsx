@@ -18,10 +18,6 @@ import {
   MAX_SITE_PRODUCT_PUBLISH_PAYLOAD_BYTES,
   getJsonSizeInBytes,
 } from "@/lib/site-products/payload-size";
-import type {
-  SiteProductPublishRequest,
-  SiteProductPublishResponse,
-} from "@/lib/site-products/types";
 
 type SiteProductPublisherProps = {
   pricingContext: {
@@ -41,9 +37,6 @@ type SiteProductPublisherProps = {
     mercadoLivreCategoryId: string | null;
     mercadoLivreCategoryName: string | null;
   };
-  onPublish: (
-    payload: Omit<SiteProductPublishRequest, "sourceCalculationId">,
-  ) => Promise<SiteProductPublishResponse>;
   onSaveToErp: (
     payload: Omit<ErpProductSaveRequest, "sourceCalculationId">,
   ) => Promise<ErpProductSaveResponse>;
@@ -76,6 +69,7 @@ type SiteProductFormState = {
 };
 
 type PublishState = "idle" | "submitting" | "success" | "error";
+type PublishTarget = "site" | "erp" | "mercado-livre" | null;
 type ImageUploadState = "idle" | "uploading-main" | "uploading-gallery";
 const ACCEPTED_IMAGE_TYPES = [
   "image/jpeg",
@@ -107,7 +101,6 @@ const usageTypeOptions: Array<{
 
 export function SiteProductPublisher({
   pricingContext,
-  onPublish,
   onSaveToErp,
 }: SiteProductPublisherProps) {
   const [mode, setMode] = useState<"history" | "site-product">("history");
@@ -117,7 +110,7 @@ export function SiteProductPublisher({
   const [hasTouchedMaterial, setHasTouchedMaterial] = useState(false);
   const [hasTouchedAccentColor, setHasTouchedAccentColor] = useState(false);
   const [publishState, setPublishState] = useState<PublishState>("idle");
-  const [publishTarget, setPublishTarget] = useState<"site" | "erp" | null>(null);
+  const [publishTarget, setPublishTarget] = useState<PublishTarget>(null);
   const [imageUploadState, setImageUploadState] =
     useState<ImageUploadState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -145,19 +138,17 @@ export function SiteProductPublisher({
 
   const isSiteProductMode = mode === "site-product";
   const isUploadingImages = imageUploadState !== "idle";
-  const isSiteFormValid =
-    form &&
-    form.name.trim().length > 0 &&
-    form.slug.trim().length > 0 &&
-    resolvedCategory.trim().length > 0 &&
-    form.material.trim().length > 0 &&
-    form.dimensions.trim().length > 0 &&
-    form.description.trim().length > 0;
   const isErpFormValid =
     form &&
     form.name.trim().length > 0 &&
     resolvedCategory.trim().length > 0 &&
     form.usageType.length > 0;
+  const canPublishToMercadoLivre =
+    !!form &&
+    isErpFormValid &&
+    form.usageType !== "SUPPLY" &&
+    form.mercadoLivreCategoryId.trim().length > 0 &&
+    form.imageUrl.trim().length > 0;
 
   function activateSiteProductMode() {
     setForm((current) =>
@@ -344,68 +335,13 @@ export function SiteProductPublisher({
     resetFeedback();
   }
 
-  async function handlePublish() {
-    if (!form) {
-      return;
-    }
-
-    const compareAtPriceInCents = parseMoneyToCents(form.compareAtPrice);
-
-    setPublishTarget("site");
-    setPublishState("submitting");
-    setErrorMessage(null);
-    setSuccessMessage(null);
-    setPublishedProductUrl(null);
-
-    try {
-      const response = await onPublish({
-        name: form.name.trim(),
-        slug: slugify(form.slug),
-        priceInCents: pricingContext.salePriceInCents,
-        category: resolvedCategory.trim(),
-        material: form.material.trim(),
-        dimensions: form.dimensions.trim(),
-        accentColor: normalizeHexColor(form.accentColor),
-        featured: form.featured,
-        description: form.description.trim(),
-        tags: parseLinesOrCsv(form.tagsText),
-        imageUrl: normalizeOptionalString(form.imageUrl),
-        galleryImages: form.galleryImages,
-        ...(compareAtPriceInCents &&
-        compareAtPriceInCents > pricingContext.salePriceInCents
-          ? { compareAtPriceInCents }
-          : {}),
-      });
-
-      setForm((current) =>
-        current
-          ? {
-              ...current,
-              slug: response.product.slug,
-            }
-          : current,
-      );
-      setHasTouchedSlug(true);
-      setPublishedProductUrl(response.productUrl);
-      setSuccessMessage("Produto criado no site com sucesso.");
-      setPublishState("success");
-    } catch (error) {
-      setPublishState("error");
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Falha ao criar produto no site.",
-      );
-    }
-  }
-
-  async function handleSaveToErp() {
+  async function handleSaveToErp(publishToMercadoLivre = false) {
     if (!form) {
       return;
     }
 
     if (pricingContext.filamentRequirementsValidationMessage) {
-      setPublishTarget("erp");
+      setPublishTarget(publishToMercadoLivre ? "mercado-livre" : "erp");
       setPublishState("error");
       setErrorMessage(pricingContext.filamentRequirementsValidationMessage);
       setSuccessMessage(null);
@@ -413,7 +349,7 @@ export function SiteProductPublisher({
       return;
     }
 
-    setPublishTarget("erp");
+    setPublishTarget(publishToMercadoLivre ? "mercado-livre" : "erp");
     setPublishState("submitting");
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -421,6 +357,7 @@ export function SiteProductPublisher({
 
     try {
       const response = await onSaveToErp({
+        publishToMercadoLivre,
         name: form.name.trim(),
         shortName: normalizeNullableString(form.shortName),
         sku: normalizeNullableString(form.sku),
@@ -462,7 +399,11 @@ export function SiteProductPublisher({
         );
       }
 
-      setSuccessMessage("Produto enviado ao ERP com sucesso.");
+      setSuccessMessage(
+        response.mercadoLivre?.published
+          ? "Produto salvo no ERP e enviado ao Mercado Livre."
+          : "Produto enviado ao ERP com sucesso.",
+      );
       setPublishState("success");
     } catch (error) {
       setPublishState("error");
@@ -489,8 +430,8 @@ export function SiteProductPublisher({
         />
 
         <ChoiceCard
-          title="Produto do site"
-          description="Abre os campos do catálogo e publica no e-commerce."
+          title="Produto do ERP"
+          description="Abre os campos do catálogo, salva no ERP e deixa a publicação do e-commerce por conta do ERP."
           active={isSiteProductMode}
           onClick={activateSiteProductMode}
         />
@@ -752,8 +693,8 @@ export function SiteProductPublisher({
                   {salePriceLabel}
                 </strong>
                 <p className="mt-2 text-xs text-white/85">
-                  Valor importado da precificadora. O cadastro do site será
-                  publicado com este preço.
+                  Valor importado da precificadora. O ERP será a origem da
+                  publicação no e-commerce com este preço.
                 </p>
               </div>
 
@@ -843,37 +784,54 @@ export function SiteProductPublisher({
                 </div>
               ) : null}
 
-              <button
-                type="button"
-                onClick={handlePublish}
-                disabled={
-                  !isSiteFormValid ||
-                  publishState === "submitting" ||
-                  isUploadingImages
-                }
-                className="mt-6 w-full rounded-2xl bg-[#ff6a00] px-4 py-4 text-base font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {publishState === "submitting" && publishTarget === "site"
-                  ? "Salvando no site..."
-                  : isUploadingImages
-                    ? "Enviando imagens..."
-                    : "Salvar no site"}
-              </button>
+              <div className="mt-6 rounded-[18px] border border-black/8 bg-white px-4 py-4 text-sm text-[#7c6858]">
+                A publicação direta no site foi desativada nesta etapa. Agora
+                voce escolhe se quer apenas salvar no ERP ou ja tentar enviar o
+                produto ao Mercado Livre.
+              </div>
 
-              <button
-                type="button"
-                onClick={handleSaveToErp}
-                disabled={
-                  !isErpFormValid ||
-                  publishState === "submitting" ||
-                  isUploadingImages
-                }
-                className="mt-3 w-full rounded-2xl border border-black/8 bg-white px-4 py-4 text-base font-semibold text-[#18120d] transition hover:border-[#ff6a00]/30 hover:bg-[#ff6a00] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {publishState === "submitting" && publishTarget === "erp"
-                  ? "Enviando ao ERP..."
-                  : "Salvar no ERP"}
-              </button>
+              <div className="mt-3 grid gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleSaveToErp(false)}
+                  disabled={
+                    !isErpFormValid ||
+                    publishState === "submitting" ||
+                    isUploadingImages
+                  }
+                  className="w-full rounded-2xl border border-black/8 bg-white px-4 py-4 text-base font-semibold text-[#18120d] transition hover:border-[#ff6a00]/30 hover:bg-[#ff6a00] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {publishState === "submitting" && publishTarget === "erp"
+                    ? "Enviando ao ERP..."
+                    : isUploadingImages
+                      ? "Enviando imagens..."
+                      : "Salvar no ERP"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSaveToErp(true)}
+                  disabled={
+                    !canPublishToMercadoLivre ||
+                    publishState === "submitting" ||
+                    isUploadingImages
+                  }
+                  className="w-full rounded-2xl border border-[#ff6a00] bg-[#ff6a00] px-4 py-4 text-base font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {publishState === "submitting" &&
+                  publishTarget === "mercado-livre"
+                    ? "Salvando no ERP e enviando ao ML..."
+                    : "Salvar no ERP e enviar para o ML"}
+                </button>
+              </div>
+
+              {!canPublishToMercadoLivre ? (
+                <p className="mt-3 text-xs leading-5 text-[#7c6858]">
+                  Para enviar ao Mercado Livre, mantenha o produto como vendavel
+                  ou ambos, informe uma categoria ML valida e envie a imagem
+                  principal.
+                </p>
+              ) : null}
             </section>
           </aside>
         </div>

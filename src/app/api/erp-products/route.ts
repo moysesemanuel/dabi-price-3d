@@ -95,6 +95,8 @@ export async function POST(request: Request) {
 
   return Response.json({
     product: responsePayload.product,
+    mercadoLivre:
+      "mercadoLivre" in responsePayload ? responsePayload.mercadoLivre : undefined,
   });
 }
 
@@ -153,6 +155,7 @@ function normalizePayload(
   );
 
   if (
+    input.publishToMercadoLivre === true &&
     usageType !== "SUPPLY" &&
     mercadoLivreCategoryId &&
     !mainImageUrl
@@ -163,6 +166,7 @@ function normalizePayload(
   }
 
   return {
+    publishToMercadoLivre: input.publishToMercadoLivre === true,
     name,
     shortName: normalizeOptionalString(input.shortName),
     sku: normalizeOptionalString(input.sku),
