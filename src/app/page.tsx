@@ -54,6 +54,11 @@ type MercadoLivreAutomationState = {
   officialLookupError: string | null;
 };
 
+type MercadoLivreManualOverrides = {
+  feePercentage: boolean;
+  shippingCost: boolean;
+};
+
 type SaveState = "idle" | "saved";
 
 function resolveShopeeFeeConfig(form: PricingFormState) {
@@ -118,6 +123,11 @@ export default function Home() {
       officialLookupReady: false,
       officialLookupError: null,
     });
+  const [mercadoLivreManualOverrides, setMercadoLivreManualOverrides] =
+    useState<MercadoLivreManualOverrides>({
+      feePercentage: false,
+      shippingCost: false,
+    });
 
   const mercadoLivreFeePreview = useMemo(() => {
     if (form.salesChannelId !== "mercado-livre") {
@@ -144,12 +154,10 @@ export default function Home() {
 
   const effectiveMarketplaceFeePercentage =
     form.salesChannelId === "mercado-livre"
-      ? mercadoLivreAutomation.feePercentage ??
-        mercadoLivreFeePreview?.appliedFeePercentage ??
-        form.marketplaceFeePercentage
+      ? form.marketplaceFeePercentage
       : form.salesChannelId === "shopee"
         ? shopeeFeeConfig?.percentage ?? form.marketplaceFeePercentage
-      : form.salesChannelId === "consignment"
+        : form.salesChannelId === "consignment"
         ? form.consignmentCommissionPercentage
       : form.marketplaceFeePercentage;
 
@@ -273,6 +281,10 @@ export default function Home() {
       setDisplayCurrency(queuedCalculation.displayCurrency);
       setExchangeRateSnapshot(queuedCalculation.exchangeRateSnapshot);
       setEditingCalculationId(queuedCalculation.id);
+      setMercadoLivreManualOverrides({
+        feePercentage: true,
+        shippingCost: true,
+      });
       setSaveState("idle");
     });
   }, []);
@@ -339,6 +351,9 @@ export default function Home() {
         const payload = (await feesResponse.json()) as {
           feePercentage?: number | null;
           fixedFee?: number | null;
+          shippingEstimate?: number | null;
+          officialLookupReady?: boolean;
+          officialLookupError?: string | null;
           predictedCategory?: {
             id?: string;
             name?: string;
@@ -356,10 +371,20 @@ export default function Home() {
           : ((await shippingResponse.json().catch(() => null)) as {
               error?: string;
             } | null);
-        const shippingFreeCost =
+        const shippingFreeCostFromDedicatedRoute =
           typeof shippingSuccessPayload?.freeShippingCost === "number"
             ? shippingSuccessPayload.freeShippingCost
             : null;
+        const shippingFreeCostFromFeesRoute =
+          typeof payload.shippingEstimate === "number"
+            ? payload.shippingEstimate
+            : null;
+        const shippingFreeCost =
+          shippingFreeCostFromDedicatedRoute ?? shippingFreeCostFromFeesRoute;
+        const nextFeePercentage =
+          typeof payload.feePercentage === "number"
+            ? payload.feePercentage
+            : (mercadoLivreFeePreview?.appliedFeePercentage ?? null);
         const shippingCategoryId =
           typeof shippingSuccessPayload?.categoryId === "string"
             ? shippingSuccessPayload.categoryId
@@ -367,10 +392,7 @@ export default function Home() {
         const shippingErrorMessage = shippingErrorPayload?.error ?? null;
 
         setMercadoLivreAutomation({
-          feePercentage:
-            typeof payload.feePercentage === "number"
-              ? payload.feePercentage
-              : null,
+          feePercentage: nextFeePercentage,
           fixedFee:
             typeof payload.fixedFee === "number" ? payload.fixedFee : null,
           shippingEstimate: shippingFreeCost,
@@ -380,11 +402,14 @@ export default function Home() {
             shippingCategoryId ??
             payload.predictedCategory?.id ??
             null,
-          officialLookupReady: shippingResponse.ok,
-          officialLookupError: shippingResponse.ok
-            ? null
-            : shippingErrorMessage ??
-              "Falha ao consultar o frete grátis do Mercado Livre.",
+          officialLookupReady:
+            payload.officialLookupReady === true || shippingResponse.ok,
+          officialLookupError:
+            payload.officialLookupError ??
+            (shippingResponse.ok
+              ? null
+              : shippingErrorMessage ??
+                "Falha ao consultar o frete grátis do Mercado Livre."),
         });
 
         setForm((current) => {
@@ -394,8 +419,13 @@ export default function Home() {
             shippingCategoryId ||
             payload.predictedCategory?.id ||
             "";
-
-          const nextShippingCost = shippingFreeCost ?? current.shippingCost;
+          const nextShippingCost = mercadoLivreManualOverrides.shippingCost
+            ? current.shippingCost
+            : (shippingFreeCost ?? current.shippingCost);
+          const nextMarketplaceFeePercentage =
+            mercadoLivreManualOverrides.feePercentage
+              ? current.marketplaceFeePercentage
+              : (nextFeePercentage ?? current.marketplaceFeePercentage);
 
           const nextFixedFee =
             typeof payload.fixedFee === "number"
@@ -404,6 +434,7 @@ export default function Home() {
 
           if (
             nextCategoryId === current.mercadoLivreOfficialCategoryId &&
+            nextMarketplaceFeePercentage === current.marketplaceFeePercentage &&
             nextShippingCost === current.shippingCost &&
             nextFixedFee === current.marketplaceFixedFee
           ) {
@@ -413,6 +444,7 @@ export default function Home() {
           return {
             ...current,
             mercadoLivreOfficialCategoryId: nextCategoryId,
+            marketplaceFeePercentage: nextMarketplaceFeePercentage,
             shippingCost: nextShippingCost,
             marketplaceFixedFee: nextFixedFee,
           };
@@ -448,6 +480,8 @@ export default function Home() {
     form.productName,
     form.salesChannelId,
     mercadoLivreFeePreview?.appliedFeePercentage,
+    mercadoLivreManualOverrides.feePercentage,
+    mercadoLivreManualOverrides.shippingCost,
     result.commercialUnitPrice,
   ]);
 
@@ -468,6 +502,10 @@ export default function Home() {
     setForm((current) => {
       if (field === "salesChannelId") {
         const nextChannel = findSalesChannelById(String(value));
+        setMercadoLivreManualOverrides({
+          feePercentage: false,
+          shippingCost: false,
+        });
 
         return {
           ...current,
@@ -536,6 +574,20 @@ export default function Home() {
       }
 
       const currentValue = current[field];
+
+      if (field === "marketplaceFeePercentage") {
+        setMercadoLivreManualOverrides((currentOverrides) => ({
+          ...currentOverrides,
+          feePercentage: true,
+        }));
+      }
+
+      if (field === "shippingCost") {
+        setMercadoLivreManualOverrides((currentOverrides) => ({
+          ...currentOverrides,
+          shippingCost: true,
+        }));
+      }
 
       if (typeof currentValue === "boolean") {
         return {
@@ -834,11 +886,16 @@ export default function Home() {
                   effectiveMarketplaceFeePercentage={
                     effectiveMarketplaceFeePercentage
                   }
+                  mercadoLivreSuggestedFeePercentage={
+                    mercadoLivreAutomation.feePercentage ??
+                    mercadoLivreFeePreview?.appliedFeePercentage ??
+                    null
+                  }
                   mercadoLivrePredictedCategoryName={
                     resolvedMercadoLivreCategoryName
                   }
                   mercadoLivreShippingEstimate={
-                    mercadoLivreAutomation.shippingEstimate ?? form.shippingCost
+                    mercadoLivreAutomation.shippingEstimate
                   }
                   mercadoLivreOfficialLookupReady={
                     mercadoLivreAutomation.officialLookupReady

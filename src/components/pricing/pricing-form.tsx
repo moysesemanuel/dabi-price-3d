@@ -43,8 +43,9 @@ type PricingFormProps = {
   onRemoveFilamentRequirement: (index: number) => void;
   suggestedPrice: number;
   effectiveMarketplaceFeePercentage: number;
+  mercadoLivreSuggestedFeePercentage: number | null;
   mercadoLivrePredictedCategoryName: string | null;
-  mercadoLivreShippingEstimate: number;
+  mercadoLivreShippingEstimate: number | null;
   mercadoLivreOfficialLookupReady: boolean;
   mercadoLivreOfficialLookupError: string | null;
   displayCurrency: DisplayCurrency;
@@ -119,6 +120,7 @@ export function PricingForm({
   onRemoveFilamentRequirement,
   suggestedPrice,
   effectiveMarketplaceFeePercentage,
+  mercadoLivreSuggestedFeePercentage,
   mercadoLivrePredictedCategoryName,
   mercadoLivreShippingEstimate,
   mercadoLivreOfficialLookupReady,
@@ -426,14 +428,31 @@ export function PricingForm({
               </div>
             </div>
 
-            <Field
-              label="Taxa aplicada"
-              value={effectiveMarketplaceFeePercentage.toFixed(1).replace(".", ",")}
-              onChange={() => undefined}
-              suffix="%"
-              disabled
-              note="Baseada na categoria selecionada e no tipo de anuncio."
-            />
+            <div className="grid gap-4 md:grid-cols-2">
+              <SuggestionStat
+                label="Taxa sugerida"
+                value={
+                  mercadoLivreSuggestedFeePercentage === null
+                    ? "Sem sugestão automática"
+                    : `${mercadoLivreSuggestedFeePercentage
+                        .toFixed(1)
+                        .replace(".", ",")}%`
+                }
+                note="Estimativa automática baseada na categoria e no tipo de anúncio."
+              />
+
+              <Field
+                label="Taxa no cálculo"
+                value={effectiveMarketplaceFeePercentage
+                  .toFixed(1)
+                  .replace(".", ",")}
+                onChange={(value) =>
+                  onChange("marketplaceFeePercentage", value)
+                }
+                suffix="%"
+                note="Você pode ajustar manualmente se a taxa real do anúncio for diferente."
+              />
+            </div>
 
             <MercadoLivreCategoryPicker
               selectedCategoryId={form.mercadoLivreOfficialCategoryId}
@@ -508,13 +527,14 @@ export function PricingForm({
               ) : null}
 
               <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <Field
-                  label="Custo de envio estimado"
-                  value={displayMoney(mercadoLivreShippingEstimate)}
-                  onChange={() => undefined}
-                  inputKind="money"
-                  prefix={currencySymbol}
-                  disabled
+                <SuggestionStat
+                  label="Envio sugerido"
+                  value={
+                    mercadoLivreShippingEstimate === null
+                      ? "Sem estimativa automática"
+                      : `${currencySymbol} ${displayMoney(mercadoLivreShippingEstimate)}`
+                  }
+                  note="Estimativa automática informativa. O campo ao lado define o frete usado no cálculo."
                 />
                 <Field
                   label="Frete no calculo"
@@ -565,8 +585,8 @@ export function PricingForm({
                 !mercadoLivreOfficialLookupError &&
                 !mercadoLivreOfficialLookupReady ? (
                   <p className="text-xs text-[#7c6858]">
-                    A estimativa automática depende da conexão com o Mercado
-                    Livre em <strong>Preferências</strong>.
+                    A estimativa automática depende da integração técnica do
+                    Mercado Livre configurada na plataforma.
                   </p>
                 ) : null}
               </div>
@@ -1601,6 +1621,26 @@ function ToggleRow({
   );
 }
 
+function SuggestionStat({
+  label,
+  value,
+  note,
+}: {
+  label: string;
+  value: string;
+  note: string;
+}) {
+  return (
+    <div className="pricing-suggestion-stat rounded-[22px] border px-4 py-4">
+      <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
+        {label}
+      </p>
+      <p className="mt-3 text-base font-semibold text-[#18120d]">{value}</p>
+      <p className="mt-2 text-xs text-[#7c6858]">{note}</p>
+    </div>
+  );
+}
+
 function Field({
   label,
   value,
@@ -1638,9 +1678,9 @@ function Field({
         ) : null}
       </span>
 
-      <div className="mt-2 flex items-center overflow-hidden rounded-2xl border border-[#d6c8bb] bg-white transition focus-within:border-[#ff6a00]/45 focus-within:ring-2 focus-within:ring-[#ff6a00]">
+      <div className="pricing-input-shell mt-2 flex items-center overflow-hidden rounded-2xl border transition focus-within:border-[#ff6a00]/45 focus-within:ring-2 focus-within:ring-[#ff6a00]">
         {prefix ? (
-          <span className="border-r border-[#e1d4c9] bg-[#faf6f2] px-4 py-3 text-sm text-[#6b584a]">
+          <span className="pricing-input-addon border-r px-4 py-3 text-sm text-[#6b584a]">
             {prefix}
           </span>
         ) : null}
@@ -1672,11 +1712,11 @@ function Field({
           }}
           disabled={disabled}
           placeholder={getInputPlaceholder(inputKind)}
-          className="min-w-0 flex-1 bg-transparent px-4 py-3 text-base text-[#18120d] outline-none placeholder:text-[#8a7768] disabled:bg-[#faf6f2] disabled:text-[#9a4a1c]"
+          className="pricing-input-control min-w-0 flex-1 bg-transparent px-4 py-3 text-base text-[#18120d] outline-none placeholder:text-[#8a7768] disabled:text-[#9a4a1c]"
         />
 
         {suffix ? (
-          <span className="border-l border-[#e1d4c9] bg-[#faf6f2] px-4 py-3 text-sm text-[#6b584a]">
+          <span className="pricing-input-addon border-l px-4 py-3 text-sm text-[#6b584a]">
             {suffix}
           </span>
         ) : null}
