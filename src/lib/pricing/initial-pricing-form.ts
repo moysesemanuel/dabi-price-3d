@@ -42,6 +42,7 @@ export type PricingFormState = {
   promoEnabled: boolean;
   promoDiscountPercentage: number;
   profitMarginPercentage: number;
+  healthyMarginTargetPercentage: number;
   isKit: boolean;
   kitQuantity: number;
 
@@ -96,6 +97,7 @@ export type PricingFormState = {
   maintenanceCostPerHour: number;
   expansionReserveCostPerHour: number;
   lossPercentage: number;
+  lossLaborSharePercentage: number;
   taxPercentage: number;
 
   // Marketplace
@@ -107,6 +109,10 @@ export type PricingFormState = {
   directPaymentMethod: DirectPaymentMethod;
   directPixDiscountPercentage: number;
   directCustomCardFeePercentage: number;
+
+  // Validação comercial
+  benchmarkMarketPrice: number;
+  benchmarkPracticedPrice: number;
 };
 
 type LegacyPricingFormSnapshot = Partial<PricingFormState> & {
@@ -124,6 +130,7 @@ export const initialPricingForm: PricingFormState = {
   promoEnabled: false,
   promoDiscountPercentage: 0,
   profitMarginPercentage: 50,
+  healthyMarginTargetPercentage: 30,
   isKit: false,
   kitQuantity: 2,
 
@@ -186,6 +193,7 @@ export const initialPricingForm: PricingFormState = {
   maintenanceCostPerHour: 0,
   expansionReserveCostPerHour: 0,
   lossPercentage: 0,
+  lossLaborSharePercentage: 30,
   taxPercentage: 0,
 
   // Marketplace
@@ -197,6 +205,10 @@ export const initialPricingForm: PricingFormState = {
   directPaymentMethod: "other",
   directPixDiscountPercentage: 0,
   directCustomCardFeePercentage: 0,
+
+  // Validação comercial
+  benchmarkMarketPrice: 0,
+  benchmarkPracticedPrice: 0,
 };
 
 export function hydratePricingFormState(

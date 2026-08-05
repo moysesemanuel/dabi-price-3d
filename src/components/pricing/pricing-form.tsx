@@ -972,6 +972,40 @@ export function PricingForm({
               />
             </div>
           ) : null}
+
+          <SectionDisclosure
+            className="mt-6"
+            title="Políticas da operação"
+            description="Premissas configuráveis da sua empresa. Não tratamos isso como verdade universal."
+            defaultOpen={false}
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field
+                label="Margem mínima saudável"
+                value={form.healthyMarginTargetPercentage}
+                onChange={(value) =>
+                  onChange("healthyMarginTargetPercentage", value)
+                }
+                suffix="%"
+                note="Usada no preço mínimo sugerido e nos alertas de viabilidade."
+              />
+              <Field
+                label="Mão de obra sujeita a falha"
+                value={form.lossLaborSharePercentage}
+                onChange={(value) =>
+                  onChange("lossLaborSharePercentage", value)
+                }
+                suffix="%"
+                note="Parcela do trabalho manual que costuma se repetir em uma reimpressão."
+              />
+            </div>
+
+            <InfoBlock title="Modelo conceitual da conta:">
+              <p>Sai para terceiros: material, energia, embalagem, frete, taxas e imposto.</p>
+              <p>Protege a operação: manutenção e reserva de perdas.</p>
+              <p>Fica no negócio: pró-labore, reserva de expansão e lucro empresarial.</p>
+            </InfoBlock>
+          </SectionDisclosure>
         </div>
         </FormSection>
 
@@ -1187,8 +1221,8 @@ export function PricingForm({
           </span>
         </div>
         <SectionLead
-          title="Custos operacionais"
-          description="Imposto, perdas e custos operacionais entram aqui para refletir a operacao real sem misturar tempo da maquina com tempo humano."
+          title="Custos, políticas e leitura fiscal"
+          description="Separe custo operacional, proteção do negócio e leitura fiscal sem transformar a ferramenta em motor contábil."
         />
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -1197,7 +1231,7 @@ export function PricingForm({
             value={form.taxPercentage}
             onChange={(value) => onChange("taxPercentage", value)}
             suffix="%"
-            note="Simples, MEI ou regime proprio"
+            note="Estimativa operacional do canal. Não substitui apuração fiscal do seu regime."
           />
           <Field
             label="Embalagem / acabamento"
@@ -1243,16 +1277,51 @@ export function PricingForm({
             }
             inputKind="money"
             prefix={currencySymbol}
-            note="Reserva para reinvestir e comprar novas impressoras"
+            note="Política interna de caixa para reinvestimento e crescimento."
           />
           <Field
             label="Perdas / falhas"
             value={form.lossPercentage}
             onChange={(value) => onChange("lossPercentage", value)}
             suffix="%"
-            note="Aplicada sobre filamento, energia, manutenção e parte da preparação manual"
+            note="Proteção aplicada só na base sujeita a reimpressão: filamento, energia, manutenção e parte da mão de obra."
           />
         </div>
+
+        <SectionDisclosure
+          className="mt-6"
+          title="Benchmark comercial"
+          description="Valide o preço sugerido contra mercado e operação real antes de vender o sistema como produto."
+          defaultOpen={false}
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field
+              label="Preço praticado hoje"
+              value={displayMoney(form.benchmarkPracticedPrice)}
+              onChange={(value) =>
+                handleMoneyChange("benchmarkPracticedPrice", value)
+              }
+              inputKind="money"
+              prefix={currencySymbol}
+              note="Preço final que você já cobra hoje nesse item."
+            />
+            <Field
+              label="Preço visto no mercado"
+              value={displayMoney(form.benchmarkMarketPrice)}
+              onChange={(value) =>
+                handleMoneyChange("benchmarkMarketPrice", value)
+              }
+              inputKind="money"
+              prefix={currencySymbol}
+              note="Referência observada em concorrentes ou canais comparáveis."
+            />
+          </div>
+
+          <InfoBlock title="Como validar comercialmente:">
+            <p>Use pelo menos 20 produtos reais e compare preço sugerido, preço praticado e resultado estimado.</p>
+            <p>Repita isso em perfis diferentes de operação antes de prometer precisão comercial ampla.</p>
+          </InfoBlock>
+        </SectionDisclosure>
         </FormSection>
 
       {isDirect ? (

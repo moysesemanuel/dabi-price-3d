@@ -1,5 +1,4 @@
 export type PricingMode = "manual" | "margin";
-const LOSS_AFFECTED_LABOR_SHARE = 0.3;
 
 export type Calculate3DPriceInput = {
   productName: string;
@@ -32,6 +31,7 @@ export type Calculate3DPriceInput = {
   maintenanceCostPerHour: number;
   expansionReserveCostPerHour: number;
   lossPercentage: number;
+  lossLaborSharePercentage: number;
   profitMarginPercentage: number;
   marketplaceFeePercentage: number;
   marketplaceFixedFee: number;
@@ -60,6 +60,9 @@ export type Calculate3DPriceResult = {
   shippingTotalCost: number;
   laborTotalCost: number;
   baseCost: number;
+  lossAffectedLaborCost: number;
+  lossAffectedCostBase: number;
+  lossReserveCost: number;
   costWithLoss: number;
 
   targetPriceBeforeFees: number;
@@ -78,6 +81,8 @@ export type Calculate3DPriceResult = {
   netProfit: number;
   unitNetProfit: number;
   totalNetProfit: number;
+  variableFeesPercentage: number;
+  desiredMarginPercentage: number;
   realMarginPercentage: number;
   profitPerHour: number;
 
@@ -156,11 +161,14 @@ export function calculate3DPrice(
     laborTotalCost;
 
   // Losses should affect only costs that tend to repeat in a reprint cycle.
+  const lossLaborShareRate =
+    clamp(sanitizeNumber(input.lossLaborSharePercentage), 0, 100) / 100;
+  const lossAffectedLaborCost = laborTotalCost * lossLaborShareRate;
   const lossAffectedCostBase =
     materialCost +
     energyCost +
     maintenanceCost +
-    laborTotalCost * LOSS_AFFECTED_LABOR_SHARE;
+    lossAffectedLaborCost;
   const lossReserveCost =
     lossAffectedCostBase * (sanitizeNumber(input.lossPercentage) / 100);
   const costWithLoss = baseCost + lossReserveCost;
@@ -171,18 +179,18 @@ export function calculate3DPrice(
 
   const marketplaceFixedFeeCost = sanitizeNumber(input.marketplaceFixedFee);
 
-  const variableFeesPercentage = marketplaceRate + taxRate;
+  const variableFeeRate = marketplaceRate + taxRate;
 
   const isValidFees =
     pricingMode === "manual"
-      ? variableFeesPercentage < 1
-      : variableFeesPercentage + desiredMarginRate < 1;
+      ? variableFeeRate < 1
+      : variableFeeRate + desiredMarginRate < 1;
 
   const targetPriceBeforeFees = costWithLoss;
 
   const priceByMargin = isValidFees
     ? (costWithLoss + marketplaceFixedFeeCost) /
-      (1 - variableFeesPercentage - desiredMarginRate)
+      (1 - variableFeeRate - desiredMarginRate)
     : 0;
 
   const manualTotalPrice =
@@ -232,12 +240,14 @@ export function calculate3DPrice(
 
   const unitNetProfit = netProfit;
   const totalNetProfit = netProfit;
+  const variableFeesPercentage = variableFeesPercentageToPercent(variableFeeRate);
+  const desiredMarginPercentage = desiredMarginRate * 100;
 
   const realMarginPercentage =
     finalPrice > 0 ? (netProfit / finalPrice) * 100 : 0;
 
   const profitPerHour =
-    printTimeTotalHours > 0 ? netProfit / printTimeTotalHours : 0;
+    laborTimeTotalHours > 0 ? netProfit / laborTimeTotalHours : 0;
 
   const extraProfitWithCommercialPrice =
     commercialTotalPrice - totalPriceBeforePromotion;
@@ -268,6 +278,9 @@ export function calculate3DPrice(
     shippingTotalCost,
     laborTotalCost,
     baseCost,
+    lossAffectedLaborCost,
+    lossAffectedCostBase,
+    lossReserveCost,
     costWithLoss,
 
     targetPriceBeforeFees,
@@ -286,6 +299,8 @@ export function calculate3DPrice(
     netProfit,
     unitNetProfit,
     totalNetProfit,
+    variableFeesPercentage,
+    desiredMarginPercentage,
     realMarginPercentage,
     profitPerHour,
 
@@ -335,4 +350,8 @@ function sanitizeNumber(value: number | undefined | null) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
+}
+
+function variableFeesPercentageToPercent(rate: number) {
+  return rate * 100;
 }

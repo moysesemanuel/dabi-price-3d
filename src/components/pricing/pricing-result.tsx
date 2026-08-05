@@ -10,12 +10,16 @@ import {
 } from "@/lib/currency/display-currency";
 import {
   calculateChannelSafeMinimumPrice,
+  calculateProfitMargin,
   calculateConsignment,
   calculateDirectSale,
   calculateWholesale,
 } from "@/lib/pricing/calculate-sales-models";
 import { resolveShopeeFeeConfigForPrice } from "@/lib/marketplaces/shopee";
-import type { Calculate3DPriceResult } from "@/lib/pricing/calculate-3d-price";
+import {
+  calculate3DPrice,
+  type Calculate3DPriceResult,
+} from "@/lib/pricing/calculate-3d-price";
 import { buildPricingViewModel } from "@/lib/pricing/build-pricing-view-model";
 import { formatCurrency, formatPercent } from "@/lib/pricing/formatters";
 import type { PricingFormState } from "@/lib/pricing/initial-pricing-form";
@@ -150,12 +154,13 @@ export function PricingResult({
     customerPrice: displayedSalePrice,
     costTotal: unitCoreCost,
   });
+  const healthyMarginTarget = form.healthyMarginTargetPercentage;
   const activeChannelSuggestedMinimumPrice = calculateChannelSafeMinimumPrice({
     baseCost: unitProductionCost,
     variableFeePercentage:
       effectiveMarketplaceFeePercentage + form.taxPercentage,
     fixedFee: effectiveMarketplaceFixedFee,
-    targetMarginPercentage: 30,
+    targetMarginPercentage: healthyMarginTarget,
   });
   const consignment = calculateConsignment({
     customerPrice: displayedSalePrice,
@@ -165,6 +170,30 @@ export function PricingResult({
   const wholesale = calculateWholesale({
     costTotal: unitCoreCost,
   });
+  const benchmarkPracticedScenario =
+    form.benchmarkPracticedPrice > 0
+      ? calculate3DPrice({
+          ...form,
+          pricingMode: "manual",
+          manualSalePrice: form.benchmarkPracticedPrice,
+          promoEnabled: false,
+          promoDiscountPercentage: 0,
+          marketplaceFeePercentage: effectiveMarketplaceFeePercentage,
+          marketplaceFixedFee: effectiveMarketplaceFixedFee,
+        })
+      : null;
+  const benchmarkChannelCost =
+    (benchmarkPracticedScenario?.marketplaceFee ?? 0) +
+    (benchmarkPracticedScenario?.marketplaceFixedFeeCost ?? 0) +
+    (benchmarkPracticedScenario?.taxCost ?? 0);
+  const benchmarkMarketGap =
+    form.benchmarkMarketPrice > 0
+      ? form.benchmarkMarketPrice - displayedSalePrice
+      : null;
+  const benchmarkPracticedGap =
+    form.benchmarkPracticedPrice > 0
+      ? form.benchmarkPracticedPrice - displayedSalePrice
+      : null;
 
   const summaryLines = buildSummaryLines({
     form,
@@ -216,11 +245,13 @@ export function PricingResult({
   const suggestedGap = displayedSalePrice - activeChannelSuggestedMinimumPrice;
   const saleConditionBadge = getSaleConditionBadge({
     isWorthIt: activeWorthIt,
+    healthyMarginTarget,
     marginPercentage: realMarginPercentage,
     suggestedGapValue: suggestedGap,
   });
   const activeDecision = getActiveDecision({
     activeWorthIt,
+    healthyMarginTarget,
     marginPercentage: realMarginPercentage,
     suggestedGapValue: suggestedGap,
     selectedChannelLabel,
@@ -250,6 +281,15 @@ export function PricingResult({
     : saleUnitsPerCycle > 1
       ? `${saleUnitsPerCycleLabel} unidade(s) produzidas por ciclo`
       : "1 unidade por ciclo";
+  const channelOutflowTotal =
+    unitMarketplaceFee + unitMarketplaceFixedFee + unitTaxCost;
+  const benchmarkValidation = getBenchmarkValidation({
+    benchmarkMarketGap,
+    benchmarkPracticedGap,
+    benchmarkPracticedScenario,
+    healthyMarginTarget,
+    money,
+  });
 
   const thirdPartyCostItems: CostLineItem[] = [
     {
@@ -383,6 +423,7 @@ export function PricingResult({
     {
       label: "Reserva de perdas",
       amount: unitLossCost,
+      meta: `${formatPercent(form.lossPercentage)} sobre a base sujeita a reimpressão`,
       value: money(unitLossCost),
       tone: "accent" as const,
     },
@@ -408,7 +449,10 @@ export function PricingResult({
     {
       label: "Lucro empresarial",
       amount: unitProfit,
-      meta: `${money(profitPerHour)} / hora de impressão`,
+      meta:
+        result.laborTimeTotalHours > 0
+          ? `${money(profitPerHour)} / hora operacional`
+          : undefined,
       value: money(unitProfit),
       tone: businessProfitTone,
     },
@@ -498,7 +542,7 @@ export function PricingResult({
             <KeyMetricRow
               label="Preço mínimo sugerido"
               value={money(activeChannelSuggestedMinimumPrice)}
-              helper="Piso sugerido para manter pelo menos 30% de lucro líquido."
+              helper={`Piso sugerido para manter pelo menos ${formatPercent(healthyMarginTarget)} de lucro líquido.`}
             />
           </div>
 
@@ -563,6 +607,49 @@ export function PricingResult({
         </div>
 
         <div className="mt-7">
+          <SectionTitle title="Modelo da conta" />
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <SummaryCard
+              label="Custo protegido"
+              value={money(unitProductionCost)}
+              helper="Produzir, entregar e proteger a operação antes do lucro."
+              tone="danger"
+            />
+            <SummaryCard
+              label="Pró-labore"
+              value={money(unitLaborCost)}
+              helper="Remuneração do tempo humano operacional."
+              tone="success"
+            />
+            <SummaryCard
+              label="Reserva de expansão"
+              value={money(unitExpansionReserveCost)}
+              helper="Caixa interno para crescimento e reposição futura."
+              tone="success"
+            />
+            <SummaryCard
+              label="Reserva de perdas"
+              value={money(unitLossCost)}
+              helper="Proteção contra falhas e reimpressões."
+              tone="accent"
+            />
+            <SummaryCard
+              label="Lucro empresarial"
+              value={money(unitProfit)}
+              helper="Resultado que sobra depois de custos, canal e imposto."
+              tone={businessProfitTone}
+            />
+          </div>
+
+          <p className="mt-4 text-xs leading-6 text-[#7c6858]">
+            A precificadora trata imposto e taxas como leitura operacional do
+            canal. Isso orienta a decisão comercial, mas não substitui
+            apuração fiscal ou contábil.
+          </p>
+        </div>
+
+        <div className="mt-7">
           <SectionTitle title="Distribuição do valor vendido" />
 
           <div className="mt-4 grid gap-4">
@@ -602,6 +689,151 @@ export function PricingResult({
             />
           </div>
         </div>
+
+        <div className="mt-7 border-t border-black/8 pt-6">
+          <SectionTitle title="Memória do cálculo" />
+
+          <div className="mt-4 grid gap-4">
+            <FormulaCard
+              title="1. Custo protegido de produção"
+              subtitle="Tudo que precisa ser coberto antes de falar em lucro."
+              totalLabel="Subtotal protegido"
+              totalValue={money(unitProductionCost)}
+              tone="danger"
+              expression={`Filamento + energia + manutenção + embalagem + frete + pró-labore + expansão + perdas = ${money(unitProductionCost)}`}
+            >
+              <SimpleLine label="Filamento" value={money(unitMaterialCost)} />
+              <SimpleLine label="Energia" value={money(unitEnergyCost)} />
+              <SimpleLine label="Manutenção" value={money(unitMaintenanceCost)} />
+              <SimpleLine label="Embalagem" value={money(unitPackagingCost)} />
+              <SimpleLine label="Frete" value={money(unitShippingCost)} />
+              <SimpleLine label="Pró-labore" value={money(unitLaborCost)} />
+              <SimpleLine
+                label="Reserva de expansão"
+                value={money(unitExpansionReserveCost)}
+              />
+              <SimpleLine
+                label="Reserva de perdas"
+                value={money(unitLossCost)}
+              />
+            </FormulaCard>
+
+            <FormulaCard
+              title="2. Saídas do canal e do fisco"
+              subtitle="Quanto o canal e o imposto retiram da venda."
+              totalLabel="Subtotal de saídas"
+              totalValue={money(channelOutflowTotal)}
+              tone="danger"
+              expression={`Taxas variáveis ${formatPercent(result.variableFeesPercentage)} + tarifa fixa ${money(unitMarketplaceFixedFee)} = ${money(channelOutflowTotal)}`}
+            >
+              <SimpleLine label={feeLabel} value={money(unitMarketplaceFee)} />
+              <SimpleLine
+                label="Tarifa fixa"
+                value={money(unitMarketplaceFixedFee)}
+              />
+              <SimpleLine label="Imposto" value={money(unitTaxCost)} />
+            </FormulaCard>
+
+            <FormulaCard
+              title="3. Regra do preço"
+              subtitle={
+                form.pricingMode === "margin"
+                  ? "O preço sugerido já segura a margem líquida alvo depois de custos, canal e imposto."
+                  : "No preço manual, a ferramenta mede o que sobra de verdade depois das saídas."
+              }
+              totalLabel={
+                form.pricingMode === "margin"
+                  ? "Preço sugerido"
+                  : "Preço analisado"
+              }
+              totalValue={money(displayedSalePrice)}
+              tone="success"
+              expression={
+                form.pricingMode === "margin"
+                  ? `(${money(unitProductionCost)} + ${money(unitMarketplaceFixedFee)}) ÷ (1 - ${formatPercent(result.variableFeesPercentage)} - ${formatPercent(result.desiredMarginPercentage)}) = ${money(displayedSalePrice)}`
+                  : `${money(displayedSalePrice)} - ${money(unitProductionCost)} - ${money(channelOutflowTotal)} = ${money(unitProfit)}`
+              }
+            >
+              <SimpleLine
+                label="Margem alvo"
+                value={formatPercent(result.desiredMarginPercentage)}
+              />
+              <SimpleLine
+                label="Margem saudável"
+                value={formatPercent(healthyMarginTarget)}
+              />
+              <SimpleLine
+                label="Lucro empresarial estimado"
+                value={money(unitProfit)}
+                tone={businessProfitTone}
+              />
+            </FormulaCard>
+          </div>
+        </div>
+
+        {(form.benchmarkPracticedPrice > 0 || form.benchmarkMarketPrice > 0) ? (
+          <div className="mt-7 border-t border-black/8 pt-6">
+            <SectionTitle title="Benchmark comercial" />
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <SummaryCard
+                label="Preço sugerido"
+                value={money(displayedSalePrice)}
+                helper="Valor que respeita a política atual."
+                tone="success"
+              />
+              {form.benchmarkPracticedPrice > 0 ? (
+                <SummaryCard
+                  label="Preço praticado"
+                  value={money(form.benchmarkPracticedPrice)}
+                  helper={
+                    benchmarkPracticedGap === null
+                      ? undefined
+                      : `${money(Math.abs(benchmarkPracticedGap))} ${
+                          benchmarkPracticedGap >= 0 ? "acima" : "abaixo"
+                        } do sugerido`
+                  }
+                  tone={benchmarkPracticedGap !== null && benchmarkPracticedGap >= 0 ? "success" : "danger"}
+                />
+              ) : null}
+              {form.benchmarkMarketPrice > 0 ? (
+                <SummaryCard
+                  label="Preço de mercado"
+                  value={money(form.benchmarkMarketPrice)}
+                  helper={
+                    benchmarkMarketGap === null
+                      ? undefined
+                      : `${money(Math.abs(benchmarkMarketGap))} ${
+                          benchmarkMarketGap >= 0 ? "acima" : "abaixo"
+                        } do sugerido`
+                  }
+                  tone={benchmarkMarketGap !== null && benchmarkMarketGap >= 0 ? "success" : "accent"}
+                />
+              ) : null}
+              {benchmarkPracticedScenario ? (
+                <SummaryCard
+                  label="Lucro no praticado"
+                  value={money(benchmarkPracticedScenario.netProfit)}
+                  helper={formatPercent(
+                    calculateProfitMargin(
+                      form.benchmarkPracticedPrice,
+                      benchmarkPracticedScenario.costWithLoss +
+                        benchmarkChannelCost,
+                    ),
+                  )}
+                  tone={benchmarkPracticedScenario.netProfit > 0 ? "success" : "danger"}
+                />
+              ) : null}
+            </div>
+
+            <RecommendationBanner
+              className="mt-4"
+              tone={benchmarkValidation.tone}
+              title={benchmarkValidation.title}
+              message={benchmarkValidation.message}
+            />
+          </div>
+        ) : null}
 
         <div className="mt-7 border-t border-black/8 pt-6">
           <AccordionSection
@@ -1103,6 +1335,7 @@ function AccordionSection({
 function CostGroupCard({
   title,
   subtitle,
+  expression,
   items,
   totalLabel,
   totalValue,
@@ -1110,6 +1343,7 @@ function CostGroupCard({
 }: {
   title: string;
   subtitle: string;
+  expression?: string;
   items: CostLineItem[];
   totalLabel: string;
   totalValue: string;
@@ -1120,6 +1354,11 @@ function CostGroupCard({
       <div>
         <p className="text-sm font-semibold text-[#18120d]">{title}</p>
         <p className="mt-1 text-xs text-[#7c6858]">{subtitle}</p>
+        {expression ? (
+          <p className="mt-3 rounded-2xl border border-black/8 bg-[#fcfaf8] px-4 py-3 text-xs leading-6 text-[#5f4d40]">
+            {expression}
+          </p>
+        ) : null}
       </div>
 
       <div className="mt-4 space-y-1">
@@ -1329,6 +1568,22 @@ function buildSummaryLines({
         : "Desligada",
     },
     {
+      label: "Margem saudável",
+      value: formatPercent(form.healthyMarginTargetPercentage),
+    },
+    {
+      label: "Perdas",
+      value: formatPercent(form.lossPercentage),
+      numericValue: form.lossPercentage,
+      hideWhenZero: true,
+    },
+    {
+      label: "MO sujeita a falha",
+      value: formatPercent(form.lossLaborSharePercentage),
+      numericValue: form.lossLaborSharePercentage,
+      hideWhenZero: true,
+    },
+    {
       label: "Impressora",
       value: printerLabel,
     },
@@ -1530,10 +1785,12 @@ const paymentMethodLabels: Record<string, string> = {
 
 function getSaleConditionBadge({
   isWorthIt,
+  healthyMarginTarget,
   marginPercentage,
   suggestedGapValue,
 }: {
   isWorthIt: boolean;
+  healthyMarginTarget: number;
   marginPercentage: number;
   suggestedGapValue: number;
 }) {
@@ -1545,10 +1802,17 @@ function getSaleConditionBadge({
     };
   }
 
-  if (marginPercentage >= 40) {
+  if (marginPercentage >= healthyMarginTarget + 10) {
     return {
       label: "Excelente",
       className: "border-[#2f7d32] bg-[#2f7d32] text-white",
+    };
+  }
+
+  if (marginPercentage < healthyMarginTarget) {
+    return {
+      label: "Ajustar",
+      className: "border-[#ff6a00] bg-[#ff6a00] text-white",
     };
   }
 
@@ -1561,12 +1825,14 @@ function getSaleConditionBadge({
 
 function getActiveDecision({
   activeWorthIt,
+  healthyMarginTarget,
   marginPercentage,
   suggestedGapValue,
   selectedChannelLabel,
   formattedSuggestedGap,
 }: {
   activeWorthIt: boolean;
+  healthyMarginTarget: number;
   marginPercentage: number;
   suggestedGapValue: number;
   selectedChannelLabel: string;
@@ -1584,11 +1850,19 @@ function getActiveDecision({
     return {
       tone: "warning" as const,
       title: "Venda boa, mas abaixo do sugerido",
-      message: `No canal ${selectedChannelLabel}, o preço atual ainda dá lucro, mas está ${formattedSuggestedGap} abaixo do mínimo sugerido para preservar 30% de lucro líquido.`,
+      message: `No canal ${selectedChannelLabel}, o preço atual ainda dá lucro, mas está ${formattedSuggestedGap} abaixo do mínimo sugerido para preservar ${formatPercent(healthyMarginTarget)} de lucro líquido.`,
     };
   }
 
-  if (marginPercentage < 40) {
+  if (marginPercentage < healthyMarginTarget) {
+    return {
+      tone: "warning" as const,
+      title: "Venda viável, mas com margem curta",
+      message: `Você está acima do piso sugerido, mas ainda abaixo da margem saudável de ${formatPercent(healthyMarginTarget)} definida para a operação.`,
+    };
+  }
+
+  if (marginPercentage < healthyMarginTarget + 10) {
     return {
       tone: "good" as const,
       title: "Venda viável",
@@ -1605,4 +1879,87 @@ function getActiveDecision({
 
 function isZeroValue(value?: number) {
   return value === undefined || Math.abs(value) < 0.0001;
+}
+
+function FormulaCard({
+  title,
+  subtitle,
+  expression,
+  children,
+  totalLabel,
+  totalValue,
+  tone = "default",
+}: {
+  title: string;
+  subtitle: string;
+  expression: string;
+  children: React.ReactNode;
+  totalLabel: string;
+  totalValue: string;
+  tone?: FinancialTone;
+}) {
+  return (
+    <div className="rounded-[24px] border border-black/8 bg-white p-5">
+      <p className="text-sm font-semibold text-[#18120d]">{title}</p>
+      <p className="mt-1 text-xs text-[#7c6858]">{subtitle}</p>
+      <p className="mt-3 rounded-2xl border border-black/8 bg-[#fcfaf8] px-4 py-3 text-xs leading-6 text-[#5f4d40]">
+        {expression}
+      </p>
+      <div className="mt-4 space-y-3">{children}</div>
+      <div className="mt-4 border-t border-black/8 pt-4">
+        <SimpleLine label={totalLabel} value={totalValue} tone={tone} />
+      </div>
+    </div>
+  );
+}
+
+function getBenchmarkValidation({
+  benchmarkMarketGap,
+  benchmarkPracticedGap,
+  benchmarkPracticedScenario,
+  healthyMarginTarget,
+  money,
+}: {
+  benchmarkMarketGap: number | null;
+  benchmarkPracticedGap: number | null;
+  benchmarkPracticedScenario: Calculate3DPriceResult | null;
+  healthyMarginTarget: number;
+  money: (value: number) => string;
+}) {
+  if (benchmarkPracticedScenario && benchmarkPracticedScenario.netProfit <= 0) {
+    return {
+      tone: "danger" as const,
+      title: "Preço praticado em risco",
+      message:
+        "No preço praticado atual, a operação perde dinheiro depois de custos, canal e imposto.",
+    };
+  }
+
+  if (benchmarkPracticedGap !== null && benchmarkPracticedGap < 0) {
+    return {
+      tone: "warning" as const,
+      title: "Preço praticado abaixo da política",
+      message: `O preço atual está ${money(
+        Math.abs(benchmarkPracticedGap),
+      )} abaixo do sugerido para segurar a política de ${formatPercent(
+        healthyMarginTarget,
+      )} de margem saudável.`,
+    };
+  }
+
+  if (benchmarkMarketGap !== null && benchmarkMarketGap < 0) {
+    return {
+      tone: "warning" as const,
+      title: "Mercado abaixo da sua política",
+      message:
+        "A referência observada no mercado ficou abaixo do preço sugerido. Revise posicionamento, eficiência ou premissas antes de escalar essa regra.",
+    };
+  }
+
+  return {
+    tone: "good" as const,
+    title: "Benchmark coerente",
+    message:
+      "Os preços de referência não conflitam com a política atual. Use esse comparativo para validar mais produtos antes de comercializar o sistema.",
+  };
 }

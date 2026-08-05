@@ -81,8 +81,7 @@ function resolveShopeeFeeConfig(form: PricingFormState) {
       marketplaceFixedFee: currentConfig.fixedFee,
     });
 
-    const simulatedSalePrice =
-      simulatedResult.promotionalUnitPrice ?? simulatedResult.commercialUnitPrice;
+    const simulatedSalePrice = simulatedResult.finalPrice;
     const nextConfig = resolveShopeeFeeConfigForPrice({
       salePrice: simulatedSalePrice,
       sellerType: form.shopeeSellerType,
@@ -339,15 +338,11 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (form.salesChannelId !== "mercado-livre") {
+    if (!mercadoLivreLookupContext.canRun) {
       return;
     }
 
-    const price = result.commercialUnitPrice;
-
-    if (price <= 0 || form.productName.trim().length < 3) {
-      return;
-    }
+    const price = viewModel.displayedSalePrice;
 
     const controller = new AbortController();
 
@@ -539,11 +534,11 @@ export default function Home() {
     form.mercadoLivreFreeShipping,
     form.mercadoLivreRootCategoryKey,
     form.productName,
-    form.salesChannelId,
     mercadoLivreFeePreview?.appliedFeePercentage,
+    mercadoLivreLookupContext.canRun,
     mercadoLivreManualOverrides.feePercentage,
     mercadoLivreManualOverrides.shippingCost,
-    result.commercialUnitPrice,
+    viewModel.displayedSalePrice,
   ]);
 
   useEffect(() => {
@@ -958,10 +953,7 @@ export default function Home() {
                   mercadoLivreShippingEstimate={
                     mercadoLivreAutomation.shippingEstimate
                   }
-                  mercadoLivreIsLoading={
-                    mercadoLivreLookupContext.canRun &&
-                    mercadoLivreAutomation.isLoading
-                  }
+                  mercadoLivreIsLoading={mercadoLivreAutomation.isLoading}
                   mercadoLivreCanRunLookup={mercadoLivreLookupContext.canRun}
                   mercadoLivreMissingLookupRequirements={
                     mercadoLivreLookupContext.missingRequirements

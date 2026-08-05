@@ -51,22 +51,13 @@ export function buildPricingViewModel(
   form: PricingFormState,
   result: Calculate3DPriceResult,
 ): PricingViewModel {
-  const parsedManualSalePrice = parseDecimal(form.manualSalePrice);
-  const parsedPromoDiscount = parseDecimal(form.promoDiscountPercentage);
   const kitQuantity = form.isKit ? Math.max(form.kitQuantity, 1) : 1;
   const safeQuantity = result.saleUnitsPerCycle > 0 ? result.saleUnitsPerCycle : 1;
 
-  const baseSalePrice =
-    form.pricingMode === "manual" && parsedManualSalePrice > 0
-      ? parsedManualSalePrice
-      : result.commercialUnitPrice;
-
-  const promotionalSalePrice =
-    form.promoEnabled && parsedPromoDiscount > 0
-      ? baseSalePrice * (1 - parsedPromoDiscount / 100)
-      : null;
-
-  const displayedSalePrice = promotionalSalePrice ?? baseSalePrice;
+  const baseSalePrice = result.commercialUnitPrice;
+  const promotionalSalePrice = result.promotionalUnitPrice;
+  const displayedSalePrice = result.finalPrice;
+  const parsedPromoDiscount = result.promoDiscountPercentage;
 
   const unitMarketplaceFee = result.marketplaceFee;
   const unitMarketplaceFixedFee = result.marketplaceFixedFeeCost;
@@ -106,10 +97,7 @@ export function buildPricingViewModel(
   const realMarginPercentage =
     displayedSalePrice > 0 ? (unitProfit / displayedSalePrice) * 100 : 0;
 
-  const profitPerHour =
-    result.printTimeTotalHours > 0
-      ? result.totalNetProfit / result.printTimeTotalHours
-      : result.profitPerHour;
+  const profitPerHour = result.profitPerHour;
 
   const lotsPerDay =
     result.printTimePerCycleHours > 0 ? 20 / result.printTimePerCycleHours : 0;
@@ -171,15 +159,4 @@ export function buildPricingViewModel(
     materialGrams,
     safeQuantity,
   };
-}
-
-function parseDecimal(value: string | number) {
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : 0;
-  }
-
-  const normalizedValue = value.replace(",", ".");
-  const parsedValue = Number(normalizedValue);
-
-  return Number.isFinite(parsedValue) ? parsedValue : 0;
 }
