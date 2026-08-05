@@ -48,6 +48,7 @@ type PricingFormProps = {
   mercadoLivreShippingEstimate: number | null;
   mercadoLivreIsLoading: boolean;
   mercadoLivreCanRunLookup: boolean;
+  mercadoLivreMissingLookupRequirements: string[];
   mercadoLivreOfficialLookupReady: boolean;
   mercadoLivreOfficialLookupError: string | null;
   displayCurrency: DisplayCurrency;
@@ -127,6 +128,7 @@ export function PricingForm({
   mercadoLivreShippingEstimate,
   mercadoLivreIsLoading,
   mercadoLivreCanRunLookup,
+  mercadoLivreMissingLookupRequirements,
   mercadoLivreOfficialLookupReady,
   mercadoLivreOfficialLookupError,
   displayCurrency,
@@ -249,7 +251,10 @@ export function PricingForm({
     if (!mercadoLivreCanRunLookup) {
       return {
         value: "Aguardando contexto para consulta",
-        note: "Informe nome do produto, categoria e dados de embalagem para consultar taxa e frete automáticos.",
+        note:
+          mercadoLivreMissingLookupRequirements.length > 0
+            ? `Falta informar: ${mercadoLivreMissingLookupRequirements.join(", ")}.`
+            : "Ainda faltam dados obrigatórios para consultar taxa e frete automáticos.",
       };
     }
 
@@ -1245,7 +1250,7 @@ export function PricingForm({
             value={form.lossPercentage}
             onChange={(value) => onChange("lossPercentage", value)}
             suffix="%"
-            note="Margem extra para absorver retrabalho"
+            note="Aplicada sobre filamento, energia, manutenção e parte da preparação manual"
           />
         </div>
         </FormSection>

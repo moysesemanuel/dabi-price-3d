@@ -1,4 +1,5 @@
 export type PricingMode = "manual" | "margin";
+const LOSS_AFFECTED_LABOR_SHARE = 0.3;
 
 export type Calculate3DPriceInput = {
   productName: string;
@@ -154,8 +155,15 @@ export function calculate3DPrice(
     shippingTotalCost +
     laborTotalCost;
 
-  const costWithLoss =
-    baseCost * (1 + sanitizeNumber(input.lossPercentage) / 100);
+  // Losses should affect only costs that tend to repeat in a reprint cycle.
+  const lossAffectedCostBase =
+    materialCost +
+    energyCost +
+    maintenanceCost +
+    laborTotalCost * LOSS_AFFECTED_LABOR_SHARE;
+  const lossReserveCost =
+    lossAffectedCostBase * (sanitizeNumber(input.lossPercentage) / 100);
+  const costWithLoss = baseCost + lossReserveCost;
 
   const marketplaceRate = sanitizeNumber(input.marketplaceFeePercentage) / 100;
   const taxRate = sanitizeNumber(input.taxPercentage) / 100;

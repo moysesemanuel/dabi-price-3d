@@ -60,6 +60,11 @@ type MercadoLivreManualOverrides = {
   shippingCost: boolean;
 };
 
+type MercadoLivreLookupContext = {
+  canRun: boolean;
+  missingRequirements: string[];
+};
+
 type SaveState = "idle" | "saved";
 
 function resolveShopeeFeeConfig(form: PricingFormState) {
@@ -222,10 +227,48 @@ export default function Home() {
   const heroProductionValue = form.multiplePiecesEnabled
     ? `${form.quantity} peça(s) por ciclo`
     : "1 peça por ciclo";
-  const canRunMercadoLivreLookup =
-    form.salesChannelId === "mercado-livre" &&
-    result.commercialUnitPrice > 0 &&
-    form.productName.trim().length >= 3;
+  const mercadoLivreLookupContext = useMemo<MercadoLivreLookupContext>(() => {
+    const missingRequirements: string[] = [];
+
+    if (form.productName.trim().length < 3) {
+      missingRequirements.push("nome do produto com pelo menos 3 caracteres");
+    }
+
+    if (viewModel.displayedSalePrice <= 0) {
+      missingRequirements.push("preço de venda maior que zero");
+    }
+
+    if (form.mercadoLivrePackageHeightCm <= 0) {
+      missingRequirements.push("altura da embalagem");
+    }
+
+    if (form.mercadoLivrePackageWidthCm <= 0) {
+      missingRequirements.push("largura da embalagem");
+    }
+
+    if (form.mercadoLivrePackageLengthCm <= 0) {
+      missingRequirements.push("comprimento da embalagem");
+    }
+
+    if (form.mercadoLivrePackageWeightKg <= 0) {
+      missingRequirements.push("peso com embalagem");
+    }
+
+    return {
+      canRun:
+        form.salesChannelId === "mercado-livre" &&
+        missingRequirements.length === 0,
+      missingRequirements,
+    };
+  }, [
+    form.mercadoLivrePackageHeightCm,
+    form.mercadoLivrePackageLengthCm,
+    form.mercadoLivrePackageWeightKg,
+    form.mercadoLivrePackageWidthCm,
+    form.productName,
+    form.salesChannelId,
+    viewModel.displayedSalePrice,
+  ]);
 
   useEffect(() => {
     let isMounted = true;
@@ -916,9 +959,13 @@ export default function Home() {
                     mercadoLivreAutomation.shippingEstimate
                   }
                   mercadoLivreIsLoading={
-                    canRunMercadoLivreLookup && mercadoLivreAutomation.isLoading
+                    mercadoLivreLookupContext.canRun &&
+                    mercadoLivreAutomation.isLoading
                   }
-                  mercadoLivreCanRunLookup={canRunMercadoLivreLookup}
+                  mercadoLivreCanRunLookup={mercadoLivreLookupContext.canRun}
+                  mercadoLivreMissingLookupRequirements={
+                    mercadoLivreLookupContext.missingRequirements
+                  }
                   mercadoLivreOfficialLookupReady={
                     mercadoLivreAutomation.officialLookupReady
                   }
