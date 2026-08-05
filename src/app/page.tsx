@@ -12,6 +12,7 @@ import {
   type ExchangeRateSnapshot,
 } from "@/lib/currency/display-currency";
 import {
+  attachErpProductToCalculation,
   consumeQueuedCalculationEditId,
   getCalculationFromHistory,
   saveCalculationToHistory,
@@ -37,9 +38,10 @@ import {
 import {
   findSalesChannelById,
 } from "@/lib/pricing/sales-channels";
-import type {
-  ErpProductSaveRequest,
-  ErpProductSaveResponse,
+import {
+  ERP_PRODUCT_PAYLOAD_VERSION,
+  type ErpProductSaveRequest,
+  type ErpProductSaveResponse,
 } from "@/lib/erp-products/types";
 
 type MercadoLivreAutomationState = {
@@ -713,6 +715,7 @@ export default function Home() {
           exchangeRateSnapshot.rates,
         ),
       },
+      erpProduct: existingCalculation?.erpProduct,
       siteProduct: existingCalculation?.siteProduct,
     };
 
@@ -735,6 +738,21 @@ export default function Home() {
     const requestPayload: ErpProductSaveRequest = {
       ...payload,
       sourceCalculationId: savedCalculation.id,
+      payloadVersion: ERP_PRODUCT_PAYLOAD_VERSION,
+      pricingMetadata: {
+        calculatedAt: savedCalculation.savedAt,
+        sourceSalesChannelId: form.salesChannelId || null,
+        sourceSalesChannelLabel: selectedChannelLabel,
+        displayCurrency,
+        exchangeRateDate: exchangeRateSnapshot.date,
+        productType: form.productType,
+        salePriceInCents: Math.round(viewModel.displayedSalePrice * 100),
+        totalCostInCents: Math.round(viewModel.unitTotalCost * 100),
+        profitInCents: Math.round(viewModel.unitProfit * 100),
+        profitPerHourInCents: Math.round(viewModel.profitPerHour * 100),
+        marginPercentage: viewModel.realMarginPercentage,
+      },
+      tenantContext: null,
       publishToMercadoLivre: payload.publishToMercadoLivre === true,
     };
 
@@ -759,6 +777,18 @@ export default function Home() {
           : "Falha ao enviar produto ao ERP.",
       );
     }
+
+    attachErpProductToCalculation(savedCalculation.id, {
+      id:
+        typeof responsePayload.product.id === "string"
+          ? responsePayload.product.id
+          : null,
+      sku:
+        typeof responsePayload.product.sku === "string"
+          ? responsePayload.product.sku
+          : null,
+      syncedAt: new Date().toISOString(),
+    });
 
     return responsePayload;
   }
@@ -834,10 +864,13 @@ export default function Home() {
                       viewModel.displayedSalePrice * 100,
                     ),
                     totalCostInCents: Math.round(viewModel.unitTotalCost * 100),
+                    profitInCents: Math.round(viewModel.unitProfit * 100),
                     marginPercentage: viewModel.realMarginPercentage,
                     salesChannelLabel: selectedChannelLabel,
                     salesChannelId: form.salesChannelId,
                     productType: form.productType,
+                    displayCurrency,
+                    exchangeRateDate: exchangeRateSnapshot.date,
                     filamentRequirements: filamentRequirementsForErp,
                     filamentRequirementsValidationMessage:
                       filamentRequirementsValidationMessage,
@@ -846,8 +879,6 @@ export default function Home() {
                     filamentWeightReferenceGrams: form.weightGrams,
                     preferredFilamentMaterial:
                       preferredFilamentRequirement?.material ?? null,
-                    preferredFilamentColorHex:
-                      preferredFilamentRequirement?.colorHex ?? null,
                     mercadoLivreCategoryId:
                       resolvedMercadoLivreCategoryId,
                     mercadoLivreCategoryName: resolvedMercadoLivreCategoryName,

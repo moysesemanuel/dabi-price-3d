@@ -3,37 +3,39 @@
 import { type ChangeEvent, useMemo, useState } from "react";
 import type { PutBlobResult } from "@vercel/blob";
 import { upload } from "@vercel/blob/client";
+import {
+  ERP_PRODUCT_PAYLOAD_VERSION,
+} from "@/lib/erp-products/types";
 import type {
   ErpProductFilamentRequirement,
   ErpProductSaveRequest,
   ErpProductSaveResponse,
   ErpProductUsageType,
 } from "@/lib/erp-products/types";
+import type { DisplayCurrency } from "@/lib/currency/display-currency";
 import type {
   ProductType,
   PricingFormState,
 } from "@/lib/pricing/initial-pricing-form";
 import { formatCurrency } from "@/lib/pricing/formatters";
-import {
-  MAX_SITE_PRODUCT_PUBLISH_PAYLOAD_BYTES,
-  getJsonSizeInBytes,
-} from "@/lib/site-products/payload-size";
 
 type SiteProductPublisherProps = {
   pricingContext: {
     productName: string;
     salePriceInCents: number;
     totalCostInCents: number;
+    profitInCents: number;
     marginPercentage: number;
     salesChannelLabel: string;
     salesChannelId: PricingFormState["salesChannelId"];
     productType: ProductType;
+    displayCurrency: DisplayCurrency;
+    exchangeRateDate: string | null;
     filamentRequirements: ErpProductFilamentRequirement[];
     filamentRequirementsValidationMessage: string | null;
     filamentRequirementsInputWeightTotal: number;
     filamentWeightReferenceGrams: number;
     preferredFilamentMaterial: string | null;
-    preferredFilamentColorHex: string | null;
     mercadoLivreCategoryId: string | null;
     mercadoLivreCategoryName: string | null;
   };
@@ -47,16 +49,13 @@ type SiteProductFormState = {
   shortName: string;
   sku: string;
   slug: string;
-  compareAtPrice: string;
   category: string;
   material: string;
   dimensions: string;
-  accentColor: string;
   imageUrl: string;
   imageFileName: string;
   galleryImages: string[];
   galleryFileNames: string[];
-  featured: boolean;
   description: string;
   tagsText: string;
   stockQuantity: number;
@@ -69,7 +68,7 @@ type SiteProductFormState = {
 };
 
 type PublishState = "idle" | "submitting" | "success" | "error";
-type PublishTarget = "site" | "erp" | "mercado-livre" | null;
+type PublishTarget = "erp" | "mercado-livre" | null;
 type ImageUploadState = "idle" | "uploading-main" | "uploading-gallery";
 const ACCEPTED_IMAGE_TYPES = [
   "image/jpeg",
@@ -108,20 +107,20 @@ export function SiteProductPublisher({
   const [hasTouchedSlug, setHasTouchedSlug] = useState(false);
   const [hasTouchedCategory, setHasTouchedCategory] = useState(false);
   const [hasTouchedMaterial, setHasTouchedMaterial] = useState(false);
-  const [hasTouchedAccentColor, setHasTouchedAccentColor] = useState(false);
   const [publishState, setPublishState] = useState<PublishState>("idle");
   const [publishTarget, setPublishTarget] = useState<PublishTarget>(null);
   const [imageUploadState, setImageUploadState] =
     useState<ImageUploadState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [publishedProductUrl, setPublishedProductUrl] = useState<string | null>(
-    null,
-  );
 
   const salePriceLabel = useMemo(
-    () => formatCurrency(pricingContext.salePriceInCents / 100, "BRL"),
-    [pricingContext.salePriceInCents],
+    () =>
+      formatCurrency(
+        pricingContext.salePriceInCents / 100,
+        pricingContext.displayCurrency,
+      ),
+    [pricingContext.displayCurrency, pricingContext.salePriceInCents],
   );
   const resolvedCategory =
     form === null
@@ -158,7 +157,6 @@ export function SiteProductPublisher({
             pricingContext,
             hasTouchedCategory,
             hasTouchedMaterial,
-            hasTouchedAccentColor,
           )
         : buildInitialForm(pricingContext),
     );
@@ -171,7 +169,6 @@ export function SiteProductPublisher({
     setPublishTarget(null);
     setErrorMessage(null);
     setSuccessMessage(null);
-    setPublishedProductUrl(null);
   }
 
   function updateField<K extends keyof SiteProductFormState>(
@@ -206,10 +203,6 @@ export function SiteProductPublisher({
         setHasTouchedMaterial(true);
       }
 
-      if (field === "accentColor") {
-        setHasTouchedAccentColor(true);
-      }
-
       return nextForm;
     });
     resetFeedback();
@@ -223,11 +216,10 @@ export function SiteProductPublisher({
     }
 
     if (!isAcceptedImageFile(file)) {
-      setPublishTarget("site");
+      setPublishTarget("erp");
       setPublishState("error");
       setErrorMessage("Use apenas arquivos JPEG, JPG, PNG ou WEBP.");
       setSuccessMessage(null);
-      setPublishedProductUrl(null);
       event.target.value = "";
       return;
     }
@@ -243,10 +235,9 @@ export function SiteProductPublisher({
         imageFileName: file.name,
       };
 
-      assertPublishPayloadWithinLimit(nextForm, pricingContext.salePriceInCents);
       setForm(nextForm);
     } catch (error) {
-      setPublishTarget("site");
+      setPublishTarget("erp");
       setPublishState("error");
       setErrorMessage(
         error instanceof Error
@@ -269,11 +260,10 @@ export function SiteProductPublisher({
     const invalidFile = files.find((file) => !isAcceptedImageFile(file));
 
     if (invalidFile) {
-      setPublishTarget("site");
+      setPublishTarget("erp");
       setPublishState("error");
       setErrorMessage("Use apenas arquivos JPEG, JPG, PNG ou WEBP.");
       setSuccessMessage(null);
-      setPublishedProductUrl(null);
       event.target.value = "";
       return;
     }
@@ -291,10 +281,9 @@ export function SiteProductPublisher({
         galleryFileNames: [...form.galleryFileNames, ...files.map((file) => file.name)],
       };
 
-      assertPublishPayloadWithinLimit(nextForm, pricingContext.salePriceInCents);
       setForm(nextForm);
     } catch (error) {
-      setPublishTarget("site");
+      setPublishTarget("erp");
       setPublishState("error");
       setErrorMessage(
         error instanceof Error
@@ -345,7 +334,6 @@ export function SiteProductPublisher({
       setPublishState("error");
       setErrorMessage(pricingContext.filamentRequirementsValidationMessage);
       setSuccessMessage(null);
-      setPublishedProductUrl(null);
       return;
     }
 
@@ -353,12 +341,27 @@ export function SiteProductPublisher({
     setPublishState("submitting");
     setErrorMessage(null);
     setSuccessMessage(null);
-    setPublishedProductUrl(null);
 
     try {
       const response = await onSaveToErp({
+        payloadVersion: ERP_PRODUCT_PAYLOAD_VERSION,
+        tenantContext: null,
+        pricingMetadata: {
+          calculatedAt: new Date().toISOString(),
+          sourceSalesChannelId: pricingContext.salesChannelId || null,
+          sourceSalesChannelLabel: pricingContext.salesChannelLabel,
+          displayCurrency: pricingContext.displayCurrency,
+          exchangeRateDate: pricingContext.exchangeRateDate,
+          productType: pricingContext.productType,
+          salePriceInCents: pricingContext.salePriceInCents,
+          totalCostInCents: pricingContext.totalCostInCents,
+          profitInCents: pricingContext.profitInCents,
+          profitPerHourInCents: 0,
+          marginPercentage: pricingContext.marginPercentage,
+        },
         publishToMercadoLivre,
         name: form.name.trim(),
+        slug: slugify(form.slug || form.name),
         shortName: normalizeNullableString(form.shortName),
         sku: normalizeNullableString(form.sku),
         description: normalizeNullableString(form.description),
@@ -401,7 +404,7 @@ export function SiteProductPublisher({
 
       setSuccessMessage(
         response.mercadoLivre?.published
-          ? "Produto salvo no ERP e enviado ao Mercado Livre."
+          ? "Produto salvo no ERP e marcado para publicação no Mercado Livre via ERP."
           : "Produto enviado ao ERP com sucesso.",
       );
       setPublishState("success");
@@ -431,7 +434,7 @@ export function SiteProductPublisher({
 
         <ChoiceCard
           title="Produto do ERP"
-          description="Abre os campos do catálogo, salva no ERP e deixa a publicação do e-commerce por conta do ERP."
+          description="Prepara a ficha comercial, salva no ERP e deixa a publicação sob governança do ERP."
           active={isSiteProductMode}
           onClick={activateSiteProductMode}
         />
@@ -470,7 +473,7 @@ export function SiteProductPublisher({
                   label="Nome curto"
                   value={form.shortName}
                   onChange={(value) => updateField("shortName", value)}
-                  note="Opcional no site, usado tambem pelo ERP."
+                  note="Opcional, usado tambem pelo ERP."
                 />
 
                 <Field
@@ -481,13 +484,13 @@ export function SiteProductPublisher({
                 />
 
                 <Field
-                  label="Slug"
+                  label="Slug / identificador legível"
                   value={form.slug}
                   onChange={(value) => {
                     setHasTouchedSlug(true);
                     updateField("slug", value);
                   }}
-                  note="URL do produto no site."
+                  note="Identificador derivável para ERP e canais de venda."
                 />
 
                 <Field
@@ -502,36 +505,11 @@ export function SiteProductPublisher({
                   onChange={(value) => updateField("dimensions", value)}
                   note="Ex.: 15 x 9 x 6 cm"
                 />
-
-                <label className="block">
-                  <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
-                    Cor de destaque
-                  </span>
-
-                  <div className="mt-2 flex items-center gap-3 rounded-[20px] border border-black/8 bg-white px-4 py-3">
-                    <input
-                      type="color"
-                      value={normalizeHexColor(form.accentColor)}
-                      onChange={(event) =>
-                        updateField("accentColor", event.target.value)
-                      }
-                      className="size-10 rounded-xl border border-black/8 bg-transparent"
-                    />
-
-                    <input
-                      value={form.accentColor}
-                      onChange={(event) =>
-                        updateField("accentColor", event.target.value)
-                      }
-                      className="min-w-0 flex-1 bg-transparent text-[#18120d] outline-none"
-                    />
-                  </div>
-                </label>
               </div>
             </div>
 
             <div className="rounded-[22px] border border-black/8 bg-[#fff3ea] p-4">
-              <SectionTitle title="Conteúdo do catálogo" />
+              <SectionTitle title="Ficha comercial" />
 
               <div className="mt-5 space-y-4">
                 <TextArea
@@ -693,31 +671,21 @@ export function SiteProductPublisher({
                   {salePriceLabel}
                 </strong>
                 <p className="mt-2 text-xs text-white/85">
-                  Valor importado da precificadora. O ERP será a origem da
-                  publicação no e-commerce com este preço.
+                  Valor importado da precificadora. O ERP seguirá como origem
+                  oficial do catálogo e da publicação no e-commerce.
                 </p>
               </div>
 
               <div className="mt-5 grid gap-4">
-                <div className="rounded-[18px] border border-black/8 bg-white px-4 py-4">
-                  <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
-                    Preço promocional opcional
-                  </p>
-                  <input
-                    value={form.compareAtPrice}
-                    onChange={(event) =>
-                      updateField("compareAtPrice", event.target.value)
-                    }
-                    placeholder="Ex.: 149,90"
-                    className="mt-3 w-full bg-transparent text-lg text-[#18120d] outline-none placeholder:text-[#7c6858]"
-                  />
-                </div>
-
                 <SummaryLine label="Produto" value={form.name || "Sem nome"} />
                 <SummaryLine label="SKU" value={form.sku || "-"} />
                 <SummaryLine label="Slug" value={slugify(form.slug) || "-"} />
                 <SummaryLine label="Categoria" value={resolvedCategory} />
                 <SummaryLine label="Uso no ERP" value={form.usageType} />
+                <SummaryLine
+                  label="Versão do contrato"
+                  value={ERP_PRODUCT_PAYLOAD_VERSION}
+                />
                 <SummaryLine
                   label="Filamento ERP"
                   value={
@@ -725,10 +693,6 @@ export function SiteProductPublisher({
                       ? `${pricingContext.filamentRequirements.length} cor(es) · ${pricingContext.filamentRequirementsInputWeightTotal.toFixed(2)} g`
                       : "Nao se aplica"
                   }
-                />
-                <SummaryLine
-                  label="Destaque"
-                  value={form.featured ? "Sim" : "Não"}
                 />
               </div>
 
@@ -740,25 +704,6 @@ export function SiteProductPublisher({
                 </p>
               ) : null}
 
-              <label className="mt-5 flex items-center gap-3 rounded-[18px] border border-black/8 bg-white px-4 py-4">
-                <input
-                  type="checkbox"
-                  checked={form.featured}
-                  onChange={(event) =>
-                    updateField("featured", event.target.checked)
-                  }
-                  className="size-4 rounded border-black/20 bg-transparent"
-                />
-                <div>
-                  <p className="text-sm font-medium text-[#18120d]">
-                    Marcar como destaque
-                  </p>
-                  <p className="text-xs text-[#7c6858]">
-                    O produto entra como destaque no catálogo do site.
-                  </p>
-                </div>
-              </label>
-
               {publishState === "error" && errorMessage ? (
                 <div className="mt-5 rounded-[18px] border border-[#ff6a00] bg-[#ff6a00] px-4 py-4 text-sm text-white">
                   {errorMessage}
@@ -768,26 +713,13 @@ export function SiteProductPublisher({
               {publishState === "success" && successMessage ? (
                 <div className="mt-5 rounded-[18px] border border-black/8 bg-white px-4 py-4 text-sm text-[#18120d]">
                   {successMessage}
-                  {publishedProductUrl ? (
-                    <>
-                      {" "}
-                      <a
-                        href={publishedProductUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-semibold text-[#18120d] underline"
-                      >
-                        Abrir produto
-                      </a>
-                    </>
-                  ) : null}
                 </div>
               ) : null}
 
               <div className="mt-6 rounded-[18px] border border-black/8 bg-white px-4 py-4 text-sm text-[#7c6858]">
-                A publicação direta no site foi desativada nesta etapa. Agora
-                voce escolhe se quer apenas salvar no ERP ou ja tentar enviar o
-                produto ao Mercado Livre.
+                A precificadora apenas prepara e envia o produto ao ERP. Se
+                houver publicação adicional, ela deve acontecer sob governança
+                do ERP, inclusive para marketplaces.
               </div>
 
               <div className="mt-3 grid gap-3">
@@ -821,7 +753,7 @@ export function SiteProductPublisher({
                   {publishState === "submitting" &&
                   publishTarget === "mercado-livre"
                     ? "Salvando no ERP e enviando ao ML..."
-                    : "Salvar no ERP e enviar para o ML"}
+                    : "Salvar no ERP e solicitar envio ao ML"}
                 </button>
               </div>
 
@@ -855,16 +787,13 @@ function buildInitialForm(
     shortName: defaultShortName,
     sku: buildSku(defaultName),
     slug: slugify(defaultName),
-    compareAtPrice: "",
     category: inferMarketplaceCategoryName(pricingContext),
     material: defaultMaterial,
     dimensions: "",
-    accentColor: inferPreferredFilamentColor(pricingContext),
     imageUrl: "",
     imageFileName: "",
     galleryImages: [],
     galleryFileNames: [],
-    featured: false,
     description: buildDefaultDescription(defaultName, defaultMaterial),
     tagsText:
       pricingContext.productType === "3d" ? "3d, impresso em 3d" : "produto",
@@ -883,7 +812,6 @@ function syncFormWithPricingContext(
   pricingContext: SiteProductPublisherProps["pricingContext"],
   hasTouchedCategory: boolean,
   hasTouchedMaterial: boolean,
-  hasTouchedAccentColor: boolean,
 ): SiteProductFormState {
   return {
     ...form,
@@ -893,9 +821,6 @@ function syncFormWithPricingContext(
     material: hasTouchedMaterial
       ? form.material
       : inferPreferredFilamentMaterial(pricingContext, form.material),
-    accentColor: hasTouchedAccentColor
-      ? form.accentColor
-      : inferPreferredFilamentColor(pricingContext, form.accentColor),
     mercadoLivreCategoryId: pricingContext.mercadoLivreCategoryId ?? "",
     mercadoLivreCategoryName: pricingContext.mercadoLivreCategoryName ?? "",
   };
@@ -910,17 +835,6 @@ function inferPreferredFilamentMaterial(
   );
 
   return filamentMaterial ?? normalizeOptionalString(fallbackMaterial) ?? "PLA";
-}
-
-function inferPreferredFilamentColor(
-  pricingContext: SiteProductPublisherProps["pricingContext"],
-  fallbackColor = "",
-) {
-  const filamentColor = normalizeOptionalString(
-    pricingContext.preferredFilamentColorHex ?? "",
-  );
-
-  return normalizeHexColor(filamentColor ?? fallbackColor);
 }
 
 function inferMarketplaceCategoryName(
@@ -942,7 +856,7 @@ function buildDefaultDescription(name: string, material: string) {
   return [
     `${name} produzido em ${material}.`,
     "",
-    "Descreva aqui o uso do produto, acabamento, compatibilidade e diferenciais para o catálogo do site.",
+    "Descreva aqui o uso do produto, acabamento, compatibilidade e diferenciais para ERP e canais de venda.",
   ].join("\n");
 }
 
@@ -954,16 +868,6 @@ function slugify(value: string) {
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-}
-
-function normalizeHexColor(value: string) {
-  const trimmedValue = value.trim();
-
-  if (/^#[0-9a-fA-F]{6}$/.test(trimmedValue)) {
-    return trimmedValue;
-  }
-
-  return "#FF7A1A";
 }
 
 function buildSku(value: string) {
@@ -994,16 +898,6 @@ function parseInteger(value: string) {
   return Math.max(Math.trunc(parsedValue), 0);
 }
 
-function parseMoneyToCents(value: string) {
-  const normalizedValue = Number(value.replace(/\./g, "").replace(",", "."));
-
-  if (!Number.isFinite(normalizedValue) || normalizedValue <= 0) {
-    return null;
-  }
-
-  return Math.round(normalizedValue * 100);
-}
-
 function normalizeOptionalString(value: string) {
   const trimmedValue = value.trim();
   return trimmedValue.length > 0 ? trimmedValue : undefined;
@@ -1012,40 +906,6 @@ function normalizeOptionalString(value: string) {
 function normalizeNullableString(value: string) {
   const trimmedValue = value.trim();
   return trimmedValue.length > 0 ? trimmedValue : null;
-}
-
-function assertPublishPayloadWithinLimit(
-  form: SiteProductFormState,
-  salePriceInCents: number,
-) {
-  const compareAtPriceInCents = parseMoneyToCents(form.compareAtPrice);
-  const payload = {
-    name: form.name.trim(),
-    slug: slugify(form.slug),
-    priceInCents: salePriceInCents,
-    category: form.category,
-    material: form.material.trim(),
-    dimensions: form.dimensions.trim(),
-    accentColor: normalizeHexColor(form.accentColor),
-    featured: form.featured,
-    description: form.description.trim(),
-    tags: parseLinesOrCsv(form.tagsText),
-    imageUrl: normalizeOptionalString(form.imageUrl),
-    galleryImages: form.galleryImages,
-    ...(compareAtPriceInCents && compareAtPriceInCents > salePriceInCents
-      ? { compareAtPriceInCents }
-      : {}),
-  };
-  const payloadSizeInBytes = getJsonSizeInBytes({
-    ...payload,
-    sourceCalculationId: "calc-size-check",
-  });
-
-  if (payloadSizeInBytes > MAX_SITE_PRODUCT_PUBLISH_PAYLOAD_BYTES) {
-    throw new Error(
-      "As imagens ainda deixaram a publicacao grande demais. Remova algumas imagens ou use arquivos menores.",
-    );
-  }
 }
 
 function isAcceptedImageFile(file: File) {
@@ -1074,7 +934,7 @@ async function uploadProductImage(
     return await upload(pathname, file, {
       access: "public",
       contentType: file.type || undefined,
-      handleUploadUrl: "/api/site-products/upload",
+      handleUploadUrl: "/api/erp-products/assets/upload",
     });
   } catch (error) {
     throw new Error(
@@ -1097,7 +957,7 @@ function buildBlobPath(
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-  return `site-products/${safeSlug}/${kind}-${safeFileName || "image"}`;
+  return `erp-products/${safeSlug}/${kind}-${safeFileName || "image"}`;
 }
 
 function ChoiceCard({
@@ -1124,7 +984,11 @@ function ChoiceCard({
       <strong className="block text-lg font-semibold tracking-[-0.04em]">
         {title}
       </strong>
-      <span className="mt-2 block text-sm text-[#7c6858]">
+      <span
+        className={`mt-2 block text-sm ${
+          active ? "text-white/80" : "text-[#7c6858]"
+        }`}
+      >
         {description}
       </span>
     </button>

@@ -20,6 +20,11 @@ export type SavedCalculation = {
     marginPercentage: number;
     profitPerHour: number;
   };
+  erpProduct?: {
+    id: string | null;
+    sku: string | null;
+    syncedAt: string;
+  };
   siteProduct?: {
     id: string;
     slug: string;
@@ -113,6 +118,26 @@ export function attachSiteProductToCalculation(
   const nextItem = {
     ...currentItem,
     siteProduct,
+  };
+
+  upsertCalculationInHistory(nextItem);
+
+  return nextItem;
+}
+
+export function attachErpProductToCalculation(
+  calculationId: string,
+  erpProduct: NonNullable<SavedCalculation["erpProduct"]>,
+) {
+  const currentItem = getCalculationFromHistory(calculationId);
+
+  if (!currentItem) {
+    return null;
+  }
+
+  const nextItem = {
+    ...currentItem,
+    erpProduct,
   };
 
   upsertCalculationInHistory(nextItem);

@@ -69,8 +69,8 @@ export default function HistoryPage() {
                 </p>
 
                 <p className="mt-2 text-sm text-[#7c6858]">
-                  Use o botão <strong>Salvar cálculo</strong> ou publique um
-                  produto no site para começar a preencher esta tabela.
+                  Use o botão <strong>Salvar cálculo</strong> ou envie um
+                  produto ao ERP para começar a preencher esta tabela.
                 </p>
               </div>
             ) : (
@@ -81,7 +81,7 @@ export default function HistoryPage() {
                       <tr className="border-b border-black/8 text-left">
                         <HeaderCell>Data</HeaderCell>
                         <HeaderCell>Produto</HeaderCell>
-                        <HeaderCell>Site</HeaderCell>
+                        <HeaderCell>ERP</HeaderCell>
                         <HeaderCell>Canal</HeaderCell>
                         <HeaderCell>Moeda</HeaderCell>
                         <HeaderCell>Preço</HeaderCell>
@@ -101,24 +101,26 @@ export default function HistoryPage() {
                           <BodyCell>{formatSavedDate(item.savedAt)}</BodyCell>
                           <BodyCell>{item.productName}</BodyCell>
                           <BodyCell>
-                            {item.siteProduct ? (
+                            {item.erpProduct ? (
                               <div className="space-y-1">
                                 <div className="text-xs font-medium text-[#d84f00]">
-                                  Publicado
+                                  Sincronizado
+                                </div>
+                                <div className="text-xs text-[#7c6858]">
+                                  {item.erpProduct.sku || item.erpProduct.id || "Sem SKU"}
+                                </div>
+                                <div className="text-xs text-[#7c6858]">
+                                  {formatSavedDate(item.erpProduct.syncedAt)}
+                                </div>
+                              </div>
+                            ) : item.siteProduct ? (
+                              <div className="space-y-1">
+                                <div className="text-xs font-medium text-[#d84f00]">
+                                  Legado
                                 </div>
                                 <div className="text-xs text-[#7c6858]">
                                   {item.siteProduct.slug}
                                 </div>
-                                {item.siteProduct.url ? (
-                                  <a
-                                    href={item.siteProduct.url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-xs text-[#18120d] underline"
-                                  >
-                                    Abrir produto
-                                  </a>
-                                ) : null}
                               </div>
                             ) : (
                               <span className="text-xs text-[#7c6858]">
@@ -134,14 +136,14 @@ export default function HistoryPage() {
                               item.displayCurrency,
                             )}
                           </BodyCell>
-                          <BodyCell className="text-[#d84f00]">
+                          <BodyCell className="text-[#c62828]">
                             -{" "}
                             {formatCurrency(
                               item.summary.totalCost,
                               item.displayCurrency,
                             )}
                           </BodyCell>
-                          <BodyCell className="text-[#18120d]">
+                          <BodyCell className="text-[#1f8b4c]">
                             {formatCurrency(
                               item.summary.profit,
                               item.displayCurrency,

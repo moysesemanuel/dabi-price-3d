@@ -1,11 +1,9 @@
+import { resolvePricingTenantContext } from "@/lib/erp-products/context";
+import { normalizeErpProductSaveRequest } from "@/lib/erp-products/normalize-save-request";
 import type {
-  ErpProductFilamentRequirement,
   ErpProductSaveRequest,
   ErpProductSaveResponse,
-  ErpProductUsageType,
 } from "@/lib/erp-products/types";
-
-const VALID_USAGE_TYPES: ErpProductUsageType[] = ["SELLABLE", "SUPPLY", "BOTH"];
 
 export async function POST(request: Request) {
   let body: ErpProductSaveRequest;
@@ -29,10 +27,13 @@ export async function POST(request: Request) {
     );
   }
 
-  let payload: Omit<ErpProductSaveRequest, "sourceCalculationId">;
+  let payload: ErpProductSaveRequest;
 
   try {
-    payload = normalizePayload(body);
+    payload = normalizeErpProductSaveRequest(
+      body,
+      resolvePricingTenantContext(),
+    );
   } catch (error) {
     return Response.json(
       {
@@ -98,201 +99,4 @@ export async function POST(request: Request) {
     mercadoLivre:
       "mercadoLivre" in responsePayload ? responsePayload.mercadoLivre : undefined,
   });
-}
-
-function normalizePayload(
-  input: ErpProductSaveRequest,
-): Omit<ErpProductSaveRequest, "sourceCalculationId"> {
-  const name = requireNonEmptyString(input.name, "Informe o nome do produto.");
-  const category = requireNonEmptyString(
-    input.category,
-    "Informe a categoria do produto.",
-  );
-  const usageType = VALID_USAGE_TYPES.includes(input.usageType)
-    ? input.usageType
-    : null;
-
-  if (!usageType) {
-    throw new Error("Selecione um tipo de uso válido para o ERP.");
-  }
-
-  const finalPriceInCents = normalizeNonNegativeInteger(
-    input.finalPriceInCents,
-    "Preço final inválido para o ERP.",
-  );
-  const totalCostInCents = normalizeNonNegativeInteger(
-    input.totalCostInCents,
-    "Custo total inválido para o ERP.",
-  );
-  const stockQuantity = normalizeNonNegativeInteger(
-    input.stockQuantity,
-    "Estoque inicial inválido.",
-  );
-  const minimumStock = normalizeNonNegativeInteger(
-    input.minimumStock,
-    "Estoque mínimo inválido.",
-  );
-
-  const mainImageUrl = normalizeOptionalUrl(
-    input.mainImageUrl,
-    "A imagem principal do ERP precisa ser uma URL válida.",
-  );
-  const galleryImageUrls = normalizeStringArray(input.galleryImageUrls).map(
-    (url) =>
-      normalizeOptionalUrl(
-        url,
-        "Todas as imagens da galeria do ERP precisam ser URLs válidas.",
-      ) as string,
-  );
-  const filamentRequirements = normalizeFilamentRequirements(
-    input.filamentRequirements,
-  );
-  const mercadoLivreCategoryId = normalizeOptionalString(
-    input.mercadoLivreCategoryId,
-  );
-  const mercadoLivreCategoryName = normalizeOptionalString(
-    input.mercadoLivreCategoryName,
-  );
-
-  if (
-    input.publishToMercadoLivre === true &&
-    usageType !== "SUPPLY" &&
-    mercadoLivreCategoryId &&
-    !mainImageUrl
-  ) {
-    throw new Error(
-      "Envie uma imagem principal válida antes de salvar um produto vendável para o Mercado Livre no ERP.",
-    );
-  }
-
-  return {
-    publishToMercadoLivre: input.publishToMercadoLivre === true,
-    name,
-    shortName: normalizeOptionalString(input.shortName),
-    sku: normalizeOptionalString(input.sku),
-    description: normalizeOptionalString(input.description),
-    category,
-    material: normalizeOptionalString(input.material),
-    dimensions: normalizeOptionalString(input.dimensions),
-    tags: normalizeStringArray(input.tags),
-    mainImageUrl,
-    galleryImageUrls,
-    finalPriceInCents,
-    totalCostInCents,
-    stockQuantity,
-    minimumStock,
-    usageType,
-    filamentRequirements,
-    mercadoLivreCategoryId,
-    mercadoLivreCategoryName,
-    shopeeCategoryId: normalizeOptionalString(input.shopeeCategoryId),
-    shopeeCategoryName: normalizeOptionalString(input.shopeeCategoryName),
-  };
-}
-
-function requireNonEmptyString(value: string, message: string) {
-  const normalizedValue = value.trim();
-
-  if (!normalizedValue) {
-    throw new Error(message);
-  }
-
-  return normalizedValue;
-}
-
-function normalizeOptionalString(value: string | null | undefined) {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const normalizedValue = value.trim();
-  return normalizedValue.length > 0 ? normalizedValue : null;
-}
-
-function normalizeStringArray(value: string[] | string) {
-  if (Array.isArray(value)) {
-    return value.map((item) => item.trim()).filter(Boolean);
-  }
-
-  if (typeof value === "string") {
-    return value
-      .split(/[\n,]/)
-      .map((item) => item.trim())
-      .filter(Boolean);
-  }
-
-  return [];
-}
-
-function normalizeOptionalUrl(value: string | null | undefined, errorMessage: string) {
-  const normalizedValue = normalizeOptionalString(value);
-
-  if (!normalizedValue) {
-    return null;
-  }
-
-  try {
-    const parsedUrl = new URL(normalizedValue);
-    return parsedUrl.toString();
-  } catch {
-    throw new Error(errorMessage);
-  }
-}
-
-function normalizeNonNegativeInteger(value: number, errorMessage: string) {
-  if (!Number.isFinite(value) || value < 0) {
-    throw new Error(errorMessage);
-  }
-
-  return Math.round(value);
-}
-
-function normalizeFilamentRequirements(
-  value: ErpProductSaveRequest["filamentRequirements"],
-): ErpProductFilamentRequirement[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.map((requirement) => ({
-    material: requireNonEmptyString(
-      requirement.material,
-      "Informe o material de cada filamento enviado ao ERP.",
-    ),
-    colorName: requireNonEmptyString(
-      requirement.colorName,
-      "Informe o nome de cada cor de filamento enviada ao ERP.",
-    ),
-    colorHex: normalizeOptionalHexColor(
-      requirement.colorHex,
-      "Cada cor de filamento precisa ter um HEX valido como #FFFFFF ou null.",
-    ),
-    weightGrams: normalizePositiveDecimal(
-      requirement.weightGrams,
-      "Informe um peso maior que zero para cada cor de filamento enviada ao ERP.",
-    ),
-  }));
-}
-
-function normalizeOptionalHexColor(
-  value: string | null | undefined,
-  errorMessage: string,
-) {
-  if (value == null) {
-    return null;
-  }
-
-  if (/^#[0-9a-fA-F]{6}$/.test(value.trim())) {
-    return value.trim().toUpperCase();
-  }
-
-  throw new Error(errorMessage);
-}
-
-function normalizePositiveDecimal(value: number, errorMessage: string) {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(errorMessage);
-  }
-
-  return Math.round(value * 1000) / 1000;
 }
