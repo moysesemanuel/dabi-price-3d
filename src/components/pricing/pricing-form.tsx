@@ -46,6 +46,8 @@ type PricingFormProps = {
   mercadoLivreSuggestedFeePercentage: number | null;
   mercadoLivrePredictedCategoryName: string | null;
   mercadoLivreShippingEstimate: number | null;
+  mercadoLivreIsLoading: boolean;
+  mercadoLivreCanRunLookup: boolean;
   mercadoLivreOfficialLookupReady: boolean;
   mercadoLivreOfficialLookupError: string | null;
   displayCurrency: DisplayCurrency;
@@ -123,6 +125,8 @@ export function PricingForm({
   mercadoLivreSuggestedFeePercentage,
   mercadoLivrePredictedCategoryName,
   mercadoLivreShippingEstimate,
+  mercadoLivreIsLoading,
+  mercadoLivreCanRunLookup,
   mercadoLivreOfficialLookupReady,
   mercadoLivreOfficialLookupError,
   displayCurrency,
@@ -235,10 +239,24 @@ export function PricingForm({
       };
     }
 
-    if (!mercadoLivreOfficialLookupReady) {
+    if (mercadoLivreIsLoading) {
       return {
         value: "Consultando Mercado Livre",
         note: "Aguarde a consulta automática de categoria, taxa e frete.",
+      };
+    }
+
+    if (!mercadoLivreCanRunLookup) {
+      return {
+        value: "Aguardando contexto para consulta",
+        note: "Informe nome do produto, categoria e dados de embalagem para consultar taxa e frete automáticos.",
+      };
+    }
+
+    if (!mercadoLivreOfficialLookupReady) {
+      return {
+        value: "Consulta pendente",
+        note: "O Mercado Livre ainda não devolveu uma resposta utilizável para este cenário.",
       };
     }
 
@@ -565,6 +583,7 @@ export function PricingForm({
                   label="Envio sugerido"
                   value={mercadoLivreSuggestedShippingState.value}
                   note={mercadoLivreSuggestedShippingState.note}
+                  loading={mercadoLivreIsLoading}
                 />
                 <Field
                   label="Frete no calculo"
@@ -1655,17 +1674,24 @@ function SuggestionStat({
   label,
   value,
   note,
+  loading = false,
 }: {
   label: string;
   value: string;
   note: string;
+  loading?: boolean;
 }) {
   return (
     <div className="pricing-suggestion-stat rounded-[22px] border px-4 py-4">
       <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
         {label}
       </p>
-      <p className="mt-3 text-base font-semibold text-[#18120d]">{value}</p>
+      <div className="mt-3 flex items-center gap-3">
+        {loading ? (
+          <span className="inline-flex size-4 animate-spin rounded-full border-2 border-[#ff6a00]/25 border-t-[#ff6a00]" />
+        ) : null}
+        <p className="text-base font-semibold text-[#18120d]">{value}</p>
+      </div>
       <p className="mt-2 text-xs text-[#7c6858]">{note}</p>
     </div>
   );

@@ -45,6 +45,7 @@ import {
 } from "@/lib/erp-products/types";
 
 type MercadoLivreAutomationState = {
+  isLoading: boolean;
   feePercentage: number | null;
   fixedFee: number | null;
   shippingEstimate: number | null;
@@ -115,6 +116,7 @@ export default function Home() {
 
   const [mercadoLivreAutomation, setMercadoLivreAutomation] =
     useState<MercadoLivreAutomationState>({
+      isLoading: false,
       feePercentage: null,
       fixedFee: null,
       shippingEstimate: null,
@@ -220,6 +222,10 @@ export default function Home() {
   const heroProductionValue = form.multiplePiecesEnabled
     ? `${form.quantity} peça(s) por ciclo`
     : "1 peça por ciclo";
+  const canRunMercadoLivreLookup =
+    form.salesChannelId === "mercado-livre" &&
+    result.commercialUnitPrice > 0 &&
+    form.productName.trim().length >= 3;
 
   useEffect(() => {
     let isMounted = true;
@@ -319,6 +325,12 @@ export default function Home() {
     }
 
     async function run() {
+      setMercadoLivreAutomation((current) => ({
+        ...current,
+        isLoading: true,
+        officialLookupError: null,
+      }));
+
       try {
         const shippingParams = new URLSearchParams({
           height: String(form.mercadoLivrePackageHeightCm),
@@ -392,6 +404,7 @@ export default function Home() {
         const shippingErrorMessage = shippingErrorPayload?.error ?? null;
 
         setMercadoLivreAutomation({
+          isLoading: false,
           feePercentage: nextFeePercentage,
           fixedFee:
             typeof payload.fixedFee === "number" ? payload.fixedFee : null,
@@ -453,6 +466,7 @@ export default function Home() {
         if ((error as Error).name !== "AbortError") {
           setMercadoLivreAutomation((current) => ({
             ...current,
+            isLoading: false,
             feePercentage:
               current.feePercentage ??
               mercadoLivreFeePreview?.appliedFeePercentage ??
@@ -462,6 +476,10 @@ export default function Home() {
               "Falha ao consultar o Mercado Livre.",
           }));
         }
+      } finally {
+        setMercadoLivreAutomation((current) =>
+          current.isLoading ? { ...current, isLoading: false } : current,
+        );
       }
     }
 
@@ -897,6 +915,10 @@ export default function Home() {
                   mercadoLivreShippingEstimate={
                     mercadoLivreAutomation.shippingEstimate
                   }
+                  mercadoLivreIsLoading={
+                    canRunMercadoLivreLookup && mercadoLivreAutomation.isLoading
+                  }
+                  mercadoLivreCanRunLookup={canRunMercadoLivreLookup}
                   mercadoLivreOfficialLookupReady={
                     mercadoLivreAutomation.officialLookupReady
                   }
