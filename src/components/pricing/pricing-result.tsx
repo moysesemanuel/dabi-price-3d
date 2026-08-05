@@ -241,6 +241,7 @@ export function PricingResult({
     unitBusinessRetention > 0 ? "success" : "danger";
   const businessProfitTone: FinancialTone =
     unitProfit > 0 ? "success" : "danger";
+  const resultLabel = unitProfit >= 0 ? "Lucro líquido" : "Prejuízo";
   const activeWorthIt = unitProfit > 0;
   const suggestedGap = displayedSalePrice - activeChannelSuggestedMinimumPrice;
   const saleConditionBadge = getSaleConditionBadge({
@@ -431,7 +432,7 @@ export function PricingResult({
 
   const businessReturnItems: CostLineItem[] = [
     {
-      label: "Remuneração da mão de obra",
+      label: "Pró-labore",
       amount: unitLaborCost,
       meta:
         result.laborTimeTotalHours > 0
@@ -447,7 +448,7 @@ export function PricingResult({
       tone: "success" as const,
     },
     {
-      label: "Lucro empresarial",
+      label: "Resultado final",
       amount: unitProfit,
       meta:
         result.laborTimeTotalHours > 0
@@ -457,6 +458,12 @@ export function PricingResult({
       tone: businessProfitTone,
     },
   ].filter((item) => !isZeroValue(item.amount));
+  const internalFlowItems: CostLineItem[] = [
+    ...operationalReserveItems,
+    ...businessReturnItems,
+  ];
+  const internalFlowTotal =
+    unitOperationalReserveCost + unitLaborCost + unitExpansionReserveCost + unitProfit;
 
   return (
     <aside className="xl:sticky xl:top-6">
@@ -516,13 +523,7 @@ export function PricingResult({
 
           <div className="mt-5 divide-y divide-black/8 rounded-[22px] border border-black/8 bg-white">
             <KeyMetricRow
-              label="Retorno total para o negócio"
-              value={money(unitBusinessRetention)}
-              helper="Pró-labore + reserva de expansão + lucro empresarial."
-              tone={businessRetentionTone}
-            />
-            <KeyMetricRow
-              label="Lucro empresarial"
+              label={resultLabel}
               value={money(unitProfit)}
               helper={form.isKit ? `${perKitItemNetProfit} por item` : undefined}
               tone={businessProfitTone}
@@ -543,25 +544,6 @@ export function PricingResult({
               label="Preço mínimo sugerido"
               value={money(activeChannelSuggestedMinimumPrice)}
               helper={`Piso sugerido para manter pelo menos ${formatPercent(healthyMarginTarget)} de lucro líquido.`}
-            />
-          </div>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <SummaryCard
-              label="Pró-labore neste item"
-              value={money(unitLaborCost)}
-              helper={
-                result.laborTimeTotalHours > 0
-                  ? formatOperationalTime(result.laborTimeTotalHours)
-                  : undefined
-              }
-              tone="success"
-            />
-            <SummaryCard
-              label="Reserva para expansão"
-              value={money(unitExpansionReserveCost)}
-              helper="Parcela que permanece no caixa para crescimento."
-              tone="success"
             />
           </div>
 
@@ -586,61 +568,70 @@ export function PricingResult({
               tone="success"
             />
             <QuickReadRow
-              label="Sai para terceiros"
+              label="Custos externos"
               value={money(unitThirdPartyCost)}
               helper="Material, energia, embalagem, frete, taxas e impostos."
               tone="danger"
             />
             <QuickReadRow
-              label="Protege a operação"
+              label="Reserva operacional"
               value={money(unitOperationalReserveCost)}
               helper="Manutenção e reserva para absorver falhas."
               tone="accent"
             />
             <QuickReadRow
-              label="Fica no negócio"
-              value={money(unitBusinessRetention)}
-              helper="Pró-labore + expansão + lucro empresarial."
-              tone={businessRetentionTone}
-            />
-          </div>
-
-          <div className="mt-4 grid gap-4">
-            <CostGroupCard
-              title="Sai para terceiros"
-              subtitle="Valores que efetivamente saem do caixa para fornecedores, canal e tributos."
-              items={[...thirdPartyCostItems, ...thirdPartyChannelItems]}
-              totalLabel="Subtotal de saídas"
-              totalValue={money(unitThirdPartyCost)}
-              tone="danger"
-            />
-
-            <CostGroupCard
-              title="Proteção da operação"
-              subtitle="Reserva interna para sustentar manutenção e absorver perdas do processo."
-              items={operationalReserveItems}
-              totalLabel="Subtotal de proteção"
-              totalValue={money(unitOperationalReserveCost)}
-              tone="accent"
-            />
-
-            <CostGroupCard
-              title="Fica com você / negócio"
-              subtitle="Parcela do preço que remunera seu trabalho, forma caixa para expansão e gera lucro empresarial."
-              items={businessReturnItems}
-              totalLabel="Subtotal que permanece no negócio"
-              totalValue={money(unitBusinessRetention)}
-              tone={businessRetentionTone}
-            />
-          </div>
-
-          <div className="mt-4 rounded-[20px] border border-black/8 bg-white px-4 py-4">
-            <SimpleLine
-              label="Valor total cobrado do cliente"
-              value={money(displayedSalePrice)}
+              label="Pró-labore"
+              value={money(unitLaborCost)}
+              helper={
+                result.laborTimeTotalHours > 0
+                  ? formatOperationalTime(result.laborTimeTotalHours)
+                  : "Remuneração do trabalho manual."
+              }
               tone="success"
             />
+            <QuickReadRow
+              label="Reserva de expansão"
+              value={money(unitExpansionReserveCost)}
+              helper="Parcela interna para crescimento."
+              tone="success"
+            />
+            <QuickReadRow
+              label={resultLabel}
+              value={money(unitProfit)}
+              helper={
+                result.laborTimeTotalHours > 0
+                  ? `${money(profitPerHour)} / hora operacional`
+                  : "Resultado final depois de todos os custos."
+              }
+              tone={businessProfitTone}
+            />
           </div>
+
+          <AccordionSection
+            title="Detalhamento dos valores"
+            description="Abra para ver cada linha que compõe o preço."
+            compact
+          >
+            <div className="grid gap-4">
+              <CostGroupCard
+                title="Custos externos"
+                subtitle="Valores que efetivamente saem do caixa para fornecedores, canal e tributos."
+                items={[...thirdPartyCostItems, ...thirdPartyChannelItems]}
+                totalLabel="Subtotal externo"
+                totalValue={money(unitThirdPartyCost)}
+                tone="danger"
+              />
+
+              <CostGroupCard
+                title="Dentro do negócio"
+                subtitle="O que vira proteção, remuneração, caixa futuro e resultado final."
+                items={internalFlowItems}
+                totalLabel="Subtotal interno"
+                totalValue={money(internalFlowTotal)}
+                tone={businessRetentionTone}
+              />
+            </div>
+          </AccordionSection>
 
           <p className="mt-4 text-xs leading-6 text-[#7c6858]">
             Imposto e taxas entram aqui como leitura operacional do canal. A
@@ -802,7 +793,7 @@ export function PricingResult({
           <AccordionSection
             title="Outros cenários"
             description="Abra para comparar formatos alternativos de venda."
-            defaultOpen
+            defaultOpen={false}
           >
             <div className="space-y-4">
               <ScenarioCard
