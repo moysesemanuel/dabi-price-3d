@@ -134,7 +134,6 @@ export function PricingResult({
     unitMarketplaceFixedFee,
     unitMaterialCost,
     unitPackagingCost,
-    unitBusinessRetention,
     unitOperationalReserveCost,
     unitProfit,
     unitShippingCost,
@@ -237,8 +236,6 @@ export function PricingResult({
   const perKitItemProfit = money(directSaleProfitPerKitItem);
   const perKitItemNetProfit = money(profitPerKitItem);
 
-  const businessRetentionTone: FinancialTone =
-    unitBusinessRetention > 0 ? "success" : "danger";
   const businessProfitTone: FinancialTone =
     unitProfit > 0 ? "success" : "danger";
   const resultLabel = unitProfit >= 0 ? "Lucro líquido" : "Prejuízo";
@@ -458,12 +455,12 @@ export function PricingResult({
       tone: businessProfitTone,
     },
   ].filter((item) => !isZeroValue(item.amount));
-  const internalFlowItems: CostLineItem[] = [
+  const totalCostItems: CostLineItem[] = [
+    ...thirdPartyCostItems,
+    ...thirdPartyChannelItems,
     ...operationalReserveItems,
-    ...businessReturnItems,
+    ...businessReturnItems.filter((item) => item.label !== "Resultado final"),
   ];
-  const internalFlowTotal =
-    unitOperationalReserveCost + unitLaborCost + unitExpansionReserveCost + unitProfit;
 
   return (
     <aside className="xl:sticky xl:top-6">
@@ -568,31 +565,19 @@ export function PricingResult({
               tone="success"
             />
             <QuickReadRow
-              label="Custos externos"
-              value={money(unitThirdPartyCost)}
-              helper="Material, energia, embalagem, frete, taxas e impostos."
+              label="Custo total"
+              value={money(unitTotalCost)}
+              helper="Tudo que precisa ser coberto neste canal: produção, frete, taxas, pró-labore e reservas."
               tone="danger"
             />
             <QuickReadRow
-              label="Reserva operacional"
-              value={money(unitOperationalReserveCost)}
-              helper="Manutenção e reserva para absorver falhas."
-              tone="accent"
-            />
-            <QuickReadRow
-              label="Pró-labore"
+              label="Pró-labore dentro do custo"
               value={money(unitLaborCost)}
               helper={
                 result.laborTimeTotalHours > 0
-                  ? formatOperationalTime(result.laborTimeTotalHours)
-                  : "Remuneração do trabalho manual."
+                  ? `${formatOperationalTime(result.laborTimeTotalHours)} · já incluído no custo total`
+                  : "Remuneração do trabalho manual já incluída no custo total."
               }
-              tone="success"
-            />
-            <QuickReadRow
-              label="Reserva de expansão"
-              value={money(unitExpansionReserveCost)}
-              helper="Parcela interna para crescimento."
               tone="success"
             />
             <QuickReadRow
@@ -614,21 +599,12 @@ export function PricingResult({
           >
             <div className="grid gap-4">
               <CostGroupCard
-                title="Custos externos"
-                subtitle="Valores que efetivamente saem do caixa para fornecedores, canal e tributos."
-                items={[...thirdPartyCostItems, ...thirdPartyChannelItems]}
-                totalLabel="Subtotal externo"
-                totalValue={money(unitThirdPartyCost)}
+                title="Como o custo total foi formado"
+                subtitle="Essas linhas já estão dentro do custo total acima. Não são cobranças extras."
+                items={totalCostItems}
+                totalLabel="Custo total"
+                totalValue={money(unitTotalCost)}
                 tone="danger"
-              />
-
-              <CostGroupCard
-                title="Dentro do negócio"
-                subtitle="O que vira proteção, remuneração, caixa futuro e resultado final."
-                items={internalFlowItems}
-                totalLabel="Subtotal interno"
-                totalValue={money(internalFlowTotal)}
-                tone={businessRetentionTone}
               />
             </div>
           </AccordionSection>
@@ -1011,92 +987,96 @@ export function PricingResult({
         </div>
 
         <div className="mt-7 border-t border-black/8 pt-6">
-          <SectionTitle title="Produção e contexto" />
-
-          <div className="mt-4 rounded-[24px] border border-black/8 bg-white p-5">
-            <div className="space-y-4">
-              <MetricLine
-                label="Produto"
-                value={productName || "Sem nome"}
-                muted={productFlowSummary}
-              />
-
-              <MetricLine
-                label="Tempo total"
-                value={`${result.printTimeTotalHours
-                  .toFixed(2)
-                  .replace(".", ",")}h`}
-                muted={[
-                  timeSummary,
-                  form.dividePrintTimeByPieces
-                    ? "tempo digitado do ciclo"
-                    : "tempo digitado por peça",
-                  form.divideFilamentByPieces
-                    ? "filamento digitado do ciclo"
-                    : "filamento digitado por peça",
-                ].join(" · ")}
-              />
-
-              {saleUnitsPerCycle !== 1 ? (
+          <AccordionSection
+            title="Produção e contexto"
+            description="Abra para ver produtividade, horizonte mensal e configuração ativa."
+            defaultOpen={false}
+          >
+            <div className="rounded-[24px] border border-black/8 bg-white p-5">
+              <div className="space-y-4">
                 <MetricLine
-                  label="Lucro por ciclo"
-                  value={money(lotProfit)}
-                  muted={profitPerCycleSummary}
+                  label="Produto"
+                  value={productName || "Sem nome"}
+                  muted={productFlowSummary}
                 />
-              ) : null}
 
-              <MetricLine
-                label="Lucro diário estimado (20h)"
-                value={money(estimatedDailyProfit)}
-                muted={
-                  saleUnitsPerCycle !== 1 || form.isKit
-                    ? form.isKit
-                      ? `${formatDecimal(lotsPerDay)} ciclo(s)/dia · ${formatDecimal(
-                          unitsPerDay,
-                        )} ${saleUnitLabelPlural}/dia · ${formatDecimal(
-                          kitItemsPerDay,
-                        )} itens/dia`
-                      : `${formatDecimal(lotsPerDay)} ciclo(s)/dia · ${Math.round(
-                          unitsPerDay,
-                        )} un/dia`
-                    : undefined
-                }
-              />
+                <MetricLine
+                  label="Tempo total"
+                  value={`${result.printTimeTotalHours
+                    .toFixed(2)
+                    .replace(".", ",")}h`}
+                  muted={[
+                    timeSummary,
+                    form.dividePrintTimeByPieces
+                      ? "tempo digitado do ciclo"
+                      : "tempo digitado por peça",
+                    form.divideFilamentByPieces
+                      ? "filamento digitado do ciclo"
+                      : "filamento digitado por peça",
+                  ].join(" · ")}
+                />
 
-              <MetricLine
-                label="Lucro mensal estimado (30d)"
-                value={money(estimatedMonthlyProfit)}
-                muted={
-                  saleUnitsPerCycle !== 1 || form.isKit
-                    ? form.isKit
-                      ? `${formatDecimal(
-                          lotsPerMonth,
-                        )} ciclo(s)/mês · ${formatDecimal(
-                          unitsPerMonth,
-                        )} ${saleUnitLabelPlural}/mês · ${formatDecimal(
-                          kitItemsPerMonth,
-                        )} itens/mês`
-                      : `${formatDecimal(
-                          lotsPerMonth,
-                        )} ciclo(s)/mês · ${Math.round(unitsPerMonth)} un/mês`
-                    : undefined
-                }
-                highlight
-              />
-            </div>
+                {saleUnitsPerCycle !== 1 ? (
+                  <MetricLine
+                    label="Lucro por ciclo"
+                    value={money(lotProfit)}
+                    muted={profitPerCycleSummary}
+                  />
+                ) : null}
 
-            <div className="mt-5 border-t border-black/8 pt-5">
-              <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#7c6858]">
-                Configuração ativa
-              </p>
+                <MetricLine
+                  label="Lucro diário estimado (20h)"
+                  value={money(estimatedDailyProfit)}
+                  muted={
+                    saleUnitsPerCycle !== 1 || form.isKit
+                      ? form.isKit
+                        ? `${formatDecimal(lotsPerDay)} ciclo(s)/dia · ${formatDecimal(
+                            unitsPerDay,
+                          )} ${saleUnitLabelPlural}/dia · ${formatDecimal(
+                            kitItemsPerDay,
+                          )} itens/dia`
+                        : `${formatDecimal(lotsPerDay)} ciclo(s)/dia · ${Math.round(
+                            unitsPerDay,
+                          )} un/dia`
+                      : undefined
+                  }
+                />
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {summaryLines.map((line) => (
-                  <SimpleBlock key={line.label} label={line.label} value={line.value} />
-                ))}
+                <MetricLine
+                  label="Lucro mensal estimado (30d)"
+                  value={money(estimatedMonthlyProfit)}
+                  muted={
+                    saleUnitsPerCycle !== 1 || form.isKit
+                      ? form.isKit
+                        ? `${formatDecimal(
+                            lotsPerMonth,
+                          )} ciclo(s)/mês · ${formatDecimal(
+                            unitsPerMonth,
+                          )} ${saleUnitLabelPlural}/mês · ${formatDecimal(
+                            kitItemsPerMonth,
+                          )} itens/mês`
+                        : `${formatDecimal(
+                            lotsPerMonth,
+                          )} ciclo(s)/mês · ${Math.round(unitsPerMonth)} un/mês`
+                      : undefined
+                  }
+                  highlight
+                />
+              </div>
+
+              <div className="mt-5 border-t border-black/8 pt-5">
+                <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#7c6858]">
+                  Configuração ativa
+                </p>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {summaryLines.map((line) => (
+                    <SimpleBlock key={line.label} label={line.label} value={line.value} />
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          </AccordionSection>
         </div>
 
         <button
