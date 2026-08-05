@@ -213,6 +213,40 @@ export function PricingForm({
       : "base de uma unidade";
   const filamentRequirementsMatch =
     filamentRequirementsDifference <= 0.01;
+  const mercadoLivreSuggestedShippingState = (() => {
+    if (!form.mercadoLivreFreeShipping) {
+      return {
+        value: "Frete grátis desligado",
+        note: "Sem frete grátis, a estimativa automática deixa de ser necessária.",
+      };
+    }
+
+    if (mercadoLivreShippingEstimate !== null) {
+      return {
+        value: `${currencySymbol} ${displayMoney(mercadoLivreShippingEstimate)}`,
+        note: "Estimativa automática informativa. O campo ao lado define o frete usado no cálculo.",
+      };
+    }
+
+    if (mercadoLivreOfficialLookupError) {
+      return {
+        value: "Estimativa indisponível",
+        note: mercadoLivreOfficialLookupError,
+      };
+    }
+
+    if (!mercadoLivreOfficialLookupReady) {
+      return {
+        value: "Consultando Mercado Livre",
+        note: "Aguarde a consulta automática de categoria, taxa e frete.",
+      };
+    }
+
+    return {
+      value: "Sem cobertura para este cenário",
+      note: "O Mercado Livre não retornou uma estimativa automática para essa combinação de categoria, anúncio e embalagem.",
+    };
+  })();
 
   function displayMoney(valueInBRL: number) {
     return formatDecimal(
@@ -529,12 +563,8 @@ export function PricingForm({
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <SuggestionStat
                   label="Envio sugerido"
-                  value={
-                    mercadoLivreShippingEstimate === null
-                      ? "Sem estimativa automática"
-                      : `${currencySymbol} ${displayMoney(mercadoLivreShippingEstimate)}`
-                  }
-                  note="Estimativa automática informativa. O campo ao lado define o frete usado no cálculo."
+                  value={mercadoLivreSuggestedShippingState.value}
+                  note={mercadoLivreSuggestedShippingState.note}
                 />
                 <Field
                   label="Frete no calculo"
