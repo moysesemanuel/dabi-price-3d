@@ -574,7 +574,7 @@ export function PricingResult({
         </div>
 
         <div className="mt-7">
-          <SectionTitle title="Distribuição rápida" />
+          <SectionTitle title="Composição do preço" />
 
           <div className="mt-4 divide-y divide-black/8 rounded-[24px] border border-black/8 bg-white">
             <QuickReadRow
@@ -600,57 +600,10 @@ export function PricingResult({
             <QuickReadRow
               label="Fica no negócio"
               value={money(unitBusinessRetention)}
-              helper="Mão de obra + expansão + lucro empresarial."
+              helper="Pró-labore + expansão + lucro empresarial."
               tone={businessRetentionTone}
             />
           </div>
-        </div>
-
-        <div className="mt-7">
-          <SectionTitle title="Modelo da conta" />
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <SummaryCard
-              label="Custo protegido"
-              value={money(unitProductionCost)}
-              helper="Produzir, entregar e proteger a operação antes do lucro."
-              tone="danger"
-            />
-            <SummaryCard
-              label="Pró-labore"
-              value={money(unitLaborCost)}
-              helper="Remuneração do tempo humano operacional."
-              tone="success"
-            />
-            <SummaryCard
-              label="Reserva de expansão"
-              value={money(unitExpansionReserveCost)}
-              helper="Caixa interno para crescimento e reposição futura."
-              tone="success"
-            />
-            <SummaryCard
-              label="Reserva de perdas"
-              value={money(unitLossCost)}
-              helper="Proteção contra falhas e reimpressões."
-              tone="accent"
-            />
-            <SummaryCard
-              label="Lucro empresarial"
-              value={money(unitProfit)}
-              helper="Resultado que sobra depois de custos, canal e imposto."
-              tone={businessProfitTone}
-            />
-          </div>
-
-          <p className="mt-4 text-xs leading-6 text-[#7c6858]">
-            A precificadora trata imposto e taxas como leitura operacional do
-            canal. Isso orienta a decisão comercial, mas não substitui
-            apuração fiscal ou contábil.
-          </p>
-        </div>
-
-        <div className="mt-7">
-          <SectionTitle title="Distribuição do valor vendido" />
 
           <div className="mt-4 grid gap-4">
             <CostGroupCard
@@ -688,87 +641,97 @@ export function PricingResult({
               tone="success"
             />
           </div>
+
+          <p className="mt-4 text-xs leading-6 text-[#7c6858]">
+            Imposto e taxas entram aqui como leitura operacional do canal. A
+            ferramenta orienta decisão comercial, mas não substitui apuração
+            fiscal ou contábil.
+          </p>
         </div>
 
         <div className="mt-7 border-t border-black/8 pt-6">
-          <SectionTitle title="Memória do cálculo" />
+          <AccordionSection
+            title="Memória do cálculo"
+            description="Abra só quando quiser auditar a fórmula detalhada."
+            compact
+          >
+            <div className="grid gap-4">
+              <FormulaCard
+                title="1. Custo protegido de produção"
+                subtitle="Tudo que precisa ser coberto antes de falar em lucro."
+                totalLabel="Subtotal protegido"
+                totalValue={money(unitProductionCost)}
+                tone="danger"
+                expression={`Filamento + energia + manutenção + embalagem + frete + pró-labore + expansão + perdas = ${money(unitProductionCost)}`}
+              >
+                <SimpleLine label="Filamento" value={money(unitMaterialCost)} />
+                <SimpleLine label="Energia" value={money(unitEnergyCost)} />
+                <SimpleLine label="Manutenção" value={money(unitMaintenanceCost)} />
+                <SimpleLine label="Embalagem" value={money(unitPackagingCost)} />
+                <SimpleLine label="Frete" value={money(unitShippingCost)} />
+                <SimpleLine label="Pró-labore" value={money(unitLaborCost)} />
+                <SimpleLine
+                  label="Reserva de expansão"
+                  value={money(unitExpansionReserveCost)}
+                />
+                <SimpleLine
+                  label="Reserva de perdas"
+                  value={money(unitLossCost)}
+                />
+              </FormulaCard>
 
-          <div className="mt-4 grid gap-4">
-            <FormulaCard
-              title="1. Custo protegido de produção"
-              subtitle="Tudo que precisa ser coberto antes de falar em lucro."
-              totalLabel="Subtotal protegido"
-              totalValue={money(unitProductionCost)}
-              tone="danger"
-              expression={`Filamento + energia + manutenção + embalagem + frete + pró-labore + expansão + perdas = ${money(unitProductionCost)}`}
-            >
-              <SimpleLine label="Filamento" value={money(unitMaterialCost)} />
-              <SimpleLine label="Energia" value={money(unitEnergyCost)} />
-              <SimpleLine label="Manutenção" value={money(unitMaintenanceCost)} />
-              <SimpleLine label="Embalagem" value={money(unitPackagingCost)} />
-              <SimpleLine label="Frete" value={money(unitShippingCost)} />
-              <SimpleLine label="Pró-labore" value={money(unitLaborCost)} />
-              <SimpleLine
-                label="Reserva de expansão"
-                value={money(unitExpansionReserveCost)}
-              />
-              <SimpleLine
-                label="Reserva de perdas"
-                value={money(unitLossCost)}
-              />
-            </FormulaCard>
+              <FormulaCard
+                title="2. Saídas do canal e do fisco"
+                subtitle="Quanto o canal e o imposto retiram da venda."
+                totalLabel="Subtotal de saídas"
+                totalValue={money(channelOutflowTotal)}
+                tone="danger"
+                expression={`Taxas variáveis ${formatPercent(result.variableFeesPercentage)} + tarifa fixa ${money(unitMarketplaceFixedFee)} = ${money(channelOutflowTotal)}`}
+              >
+                <SimpleLine label={feeLabel} value={money(unitMarketplaceFee)} />
+                <SimpleLine
+                  label="Tarifa fixa"
+                  value={money(unitMarketplaceFixedFee)}
+                />
+                <SimpleLine label="Imposto" value={money(unitTaxCost)} />
+              </FormulaCard>
 
-            <FormulaCard
-              title="2. Saídas do canal e do fisco"
-              subtitle="Quanto o canal e o imposto retiram da venda."
-              totalLabel="Subtotal de saídas"
-              totalValue={money(channelOutflowTotal)}
-              tone="danger"
-              expression={`Taxas variáveis ${formatPercent(result.variableFeesPercentage)} + tarifa fixa ${money(unitMarketplaceFixedFee)} = ${money(channelOutflowTotal)}`}
-            >
-              <SimpleLine label={feeLabel} value={money(unitMarketplaceFee)} />
-              <SimpleLine
-                label="Tarifa fixa"
-                value={money(unitMarketplaceFixedFee)}
-              />
-              <SimpleLine label="Imposto" value={money(unitTaxCost)} />
-            </FormulaCard>
-
-            <FormulaCard
-              title="3. Regra do preço"
-              subtitle={
-                form.pricingMode === "margin"
-                  ? "O preço sugerido já segura a margem líquida alvo depois de custos, canal e imposto."
-                  : "No preço manual, a ferramenta mede o que sobra de verdade depois das saídas."
-              }
-              totalLabel={
-                form.pricingMode === "margin"
-                  ? "Preço sugerido"
-                  : "Preço analisado"
-              }
-              totalValue={money(displayedSalePrice)}
-              tone="success"
-              expression={
-                form.pricingMode === "margin"
-                  ? `(${money(unitProductionCost)} + ${money(unitMarketplaceFixedFee)}) ÷ (1 - ${formatPercent(result.variableFeesPercentage)} - ${formatPercent(result.desiredMarginPercentage)}) = ${money(displayedSalePrice)}`
-                  : `${money(displayedSalePrice)} - ${money(unitProductionCost)} - ${money(channelOutflowTotal)} = ${money(unitProfit)}`
-              }
-            >
-              <SimpleLine
-                label="Margem alvo"
-                value={formatPercent(result.desiredMarginPercentage)}
-              />
-              <SimpleLine
-                label="Margem saudável"
-                value={formatPercent(healthyMarginTarget)}
-              />
-              <SimpleLine
-                label="Lucro empresarial estimado"
-                value={money(unitProfit)}
-                tone={businessProfitTone}
-              />
-            </FormulaCard>
-          </div>
+              <FormulaCard
+                title="3. Regra do preço"
+                subtitle={
+                  form.pricingMode === "margin"
+                    ? "O preço sugerido já segura a margem líquida alvo depois de custos, canal e imposto."
+                    : "No preço manual, a ferramenta mede o que sobra de verdade depois das saídas."
+                }
+                totalLabel={
+                  form.pricingMode === "margin"
+                    ? "Preço sugerido"
+                    : "Preço analisado"
+                }
+                totalValue={money(displayedSalePrice)}
+                tone="success"
+                expression={
+                  form.pricingMode === "margin"
+                    ? `(${money(unitProductionCost)} + ${money(unitMarketplaceFixedFee)}) ÷ (1 - ${formatPercent(result.variableFeesPercentage)} - ${formatPercent(result.desiredMarginPercentage)}) = ${money(displayedSalePrice)}`
+                    : `${money(displayedSalePrice)} - ${money(unitProductionCost)} - ${money(channelOutflowTotal)} = ${money(unitProfit)}`
+                }
+              >
+                <SimpleLine
+                  label="Margem alvo"
+                  value={formatPercent(result.desiredMarginPercentage)}
+                />
+                <SimpleLine
+                  label="Margem saudável"
+                  value={formatPercent(healthyMarginTarget)}
+                />
+                <SimpleLine
+                  label="Lucro empresarial estimado"
+                  value={money(unitProfit)}
+                  tone={businessProfitTone}
+                />
+              </FormulaCard>
+            </div>
+          </AccordionSection>
         </div>
 
         {(form.benchmarkPracticedPrice > 0 || form.benchmarkMarketPrice > 0) ? (
