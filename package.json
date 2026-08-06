@@ -9,7 +9,10 @@
     "build:webpack": "next build --webpack",
     "start": "next start",
     "start:3005": "next start -p 3005",
-    "lint": "eslint"
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test:pricing": "node --no-warnings --test tests/*.test.mjs",
+    "check": "npm run lint && npm run typecheck && npm run test:pricing"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

@@ -1,4 +1,5 @@
 import { AppSidebar } from "@/components/app/app-sidebar";
+import { PreferencesPanel } from "@/components/preferences/preferences-panel";
 
 export default function PreferencesPage() {
   return (
@@ -17,50 +18,9 @@ export default function PreferencesPage() {
             </p>
           </header>
 
-          <section className="rounded-[26px] border border-[#e9ddd4] bg-white p-6 shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
-            <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#7c6858]">
-              Mercado Livre
-            </p>
-
-            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[#18120d]">
-              Integração gerenciada no ERP
-            </h2>
-
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-[#7c6858]">
-              A precificadora não é mais responsável por conectar contas,
-              armazenar credenciais ou administrar OAuth de marketplace. O
-              vínculo com Mercado Livre deve ser gerenciado no ERP, que segue
-              como origem oficial de catálogo e publicação.
-            </p>
-
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
-              <StatusCard
-                label="Responsável"
-                value="ERP da operação"
-              />
-              <StatusCard
-                label="Na precificadora"
-                value="Somente contexto comercial"
-              />
-              <StatusCard
-                label="Credenciais"
-                value="Ocultas desta interface"
-              />
-            </div>
-          </section>
+          <PreferencesPanel />
         </div>
       </div>
     </main>
-  );
-}
-
-function StatusCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[22px] border border-black/8 bg-[#fff3ea] p-4">
-      <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
-        {label}
-      </p>
-      <p className="mt-3 text-sm font-medium text-[#18120d]">{value}</p>
-    </div>
   );
 }

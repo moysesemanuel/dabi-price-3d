@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AppSidebar } from "@/components/app/app-sidebar";
+import { BusinessSetupModal } from "@/components/app/business-setup-modal";
 import { PricingForm } from "@/components/pricing/pricing-form";
 import { PricingResult } from "@/components/pricing/pricing-result";
 import { SiteProductPublisher } from "@/components/pricing/site-product-publisher";
@@ -43,6 +44,14 @@ import {
   type ErpProductSaveRequest,
   type ErpProductSaveResponse,
 } from "@/lib/erp-products/types";
+import {
+  applyPreferencesToForm,
+  getBusinessPreset,
+  readAppPreferences,
+  subscribeAppPreferences,
+  writeAppPreferences,
+  type AppPreferences,
+} from "@/lib/settings/app-preferences";
 
 type MercadoLivreAutomationState = {
   isLoading: boolean;
@@ -102,21 +111,33 @@ function resolveShopeeFeeConfig(form: PricingFormState) {
 }
 
 export default function Home() {
-  const [form, setForm] = useState<PricingFormState>(() => ({
-    ...hydratePricingFormState(),
-    filamentRequirements: normalizeFilamentRequirementInputs(
-      initialPricingForm.filamentRequirements,
-      initialPricingForm.weightGrams,
-    ),
-  }));
-  const [displayCurrency, setDisplayCurrency] =
-    useState<DisplayCurrency>("BRL");
+  const [form, setForm] = useState<PricingFormState>(() => {
+    const preferences = readAppPreferences();
+    const hydratedForm = {
+      ...hydratePricingFormState(),
+      filamentRequirements: normalizeFilamentRequirementInputs(
+        initialPricingForm.filamentRequirements,
+        initialPricingForm.weightGrams,
+      ),
+    };
+
+    return applyPreferencesToForm(hydratedForm, preferences);
+  });
+  const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>(
+    () => readAppPreferences().defaultDisplayCurrency,
+  );
   const [exchangeRateSnapshot, setExchangeRateSnapshot] =
     useState<ExchangeRateSnapshot>(defaultExchangeRateSnapshot);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [editingCalculationId, setEditingCalculationId] = useState<
     string | null
   >(null);
+  const [appPreferences, setAppPreferences] = useState<AppPreferences>(() =>
+    readAppPreferences(),
+  );
+  const [isBusinessSetupOpen, setIsBusinessSetupOpen] = useState(
+    () => !readAppPreferences().onboardingCompleted,
+  );
 
   const [mercadoLivreAutomation, setMercadoLivreAutomation] =
     useState<MercadoLivreAutomationState>({
@@ -268,6 +289,15 @@ export default function Home() {
     form.salesChannelId,
     viewModel.displayedSalePrice,
   ]);
+
+  useEffect(() => {
+    return subscribeAppPreferences(() => {
+      const preferences = readAppPreferences();
+
+      setAppPreferences(preferences);
+      setIsBusinessSetupOpen(!preferences.onboardingCompleted);
+    });
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -911,7 +941,7 @@ export default function Home() {
             <header className="mb-8 border-b border-black/8 pb-6">
               <div className="max-w-[860px]">
                 <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#d84f00]">
-                  Dabi Tech 3D
+                  {appPreferences.workspaceName}
                 </p>
                 <h1 className="mt-3 text-3xl font-semibold tracking-[-0.06em] text-[#18120d] sm:text-5xl">
                   Precificadora
@@ -919,6 +949,10 @@ export default function Home() {
               </div>
 
               <div className="mt-5 flex flex-wrap gap-2">
+                <HeroChip
+                  label={`Perfil: ${getBusinessPreset(appPreferences.businessPresetId).label}`}
+                  tone="default"
+                />
                 {selectedChannel ? (
                   <HeroChip
                     label={`Canal: ${selectedChannelLabel}`}
@@ -1034,6 +1068,18 @@ export default function Home() {
             </section>
           </div>
         </div>
+
+        <BusinessSetupModal
+          open={isBusinessSetupOpen}
+          onComplete={(preferences) => {
+            const savedPreferences = writeAppPreferences(preferences);
+
+            setAppPreferences(savedPreferences);
+            setDisplayCurrency(savedPreferences.defaultDisplayCurrency);
+            setForm((current) => applyPreferencesToForm(current, savedPreferences));
+            setIsBusinessSetupOpen(false);
+          }}
+        />
       </div>
     </main>
   );

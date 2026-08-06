@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import {
+  defaultAppPreferences,
+  readAppPreferences,
+  subscribeAppPreferences,
+} from "@/lib/settings/app-preferences";
 
 const EXPANDED_WIDTH = 215;
 const COLLAPSED_WIDTH = 88;
@@ -18,6 +23,10 @@ const navigationItems = [
 export function AppSidebar() {
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(true);
+  const [workspaceName, setWorkspaceName] = useState(
+    defaultAppPreferences.workspaceName,
+  );
+  const [operatorLabel, setOperatorLabel] = useState("Configuração pendente");
   const themeSwitchRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -39,6 +48,23 @@ export function AppSidebar() {
       "aria-pressed",
       String(nextTheme === "dark"),
     );
+  }, []);
+
+  useEffect(() => {
+    const syncPreferences = () => {
+      const preferences = readAppPreferences();
+
+      setWorkspaceName(preferences.workspaceName || "Dabi Price");
+      setOperatorLabel(
+        preferences.operatorEmail ||
+          preferences.operatorName ||
+          "Configuração pendente",
+      );
+    };
+
+    syncPreferences();
+
+    return subscribeAppPreferences(syncPreferences);
   }, []);
 
   function applyTheme(themeMode: ThemeMode) {
@@ -128,9 +154,14 @@ export function AppSidebar() {
         {isExpanded ? (
           <>
             <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
-              Sessão
+              Workspace
             </p>
-            <p className="mt-2 truncate text-[var(--foreground)]">mecs.cwb@gmail.com</p>
+            <p className="mt-2 truncate text-[var(--foreground)]">
+              {workspaceName}
+            </p>
+            <p className="mt-1 truncate text-xs text-[var(--muted)]">
+              {operatorLabel}
+            </p>
 
             <div className="mt-4 rounded-[24px] border border-[color:var(--panel-border)] bg-[var(--panel)] px-4 py-4">
               <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
