@@ -1,7 +1,24 @@
 import type { DisplayCurrency } from "@/lib/currency/display-currency";
 import type { PricingFormState } from "@/lib/pricing/initial-pricing-form";
+import {
+  getWorkspacePlan,
+  workspaceRoleMeta,
+  workspacePlans,
+  type SubscriptionStatus,
+  type WorkspacePlan,
+  type WorkspacePlanId,
+  type WorkspaceRole,
+  type WorkspaceSubscription,
+} from "../workspace/catalog";
 
 export type BusinessPresetId = "maker" | "studio" | "farm";
+export type {
+  SubscriptionStatus,
+  WorkspacePlan,
+  WorkspacePlanId,
+  WorkspaceRole,
+  WorkspaceSubscription,
+};
 
 export type PricingPolicyDefaults = Pick<
   PricingFormState,
@@ -21,10 +38,12 @@ export type AppPreferences = {
   workspaceName: string;
   operatorName: string;
   operatorEmail: string;
+  operatorRole: WorkspaceRole;
   businessPresetId: BusinessPresetId;
   defaultDisplayCurrency: DisplayCurrency;
   applyPresetToNewCalculations: boolean;
   onboardingCompleted: boolean;
+  subscription: WorkspaceSubscription;
   pricingDefaults: PricingPolicyDefaults;
 };
 
@@ -38,6 +57,7 @@ export type BusinessPreset = {
 
 const STORAGE_KEY = "dabi-price-3d:app-preferences";
 const PREFERENCES_EVENT = "dabi-price-3d:app-preferences-updated";
+export { getWorkspacePlan, workspaceRoleMeta, workspacePlans };
 
 export const businessPresets: readonly BusinessPreset[] = [
   {
@@ -100,10 +120,16 @@ export const defaultAppPreferences: AppPreferences = {
   workspaceName: "Dabi Tech 3D",
   operatorName: "",
   operatorEmail: "",
+  operatorRole: "owner",
   businessPresetId: "studio",
   defaultDisplayCurrency: "BRL",
   applyPresetToNewCalculations: true,
   onboardingCompleted: false,
+  subscription: {
+    planId: "growth",
+    status: "internal",
+    seatsUsed: 1,
+  },
   pricingDefaults: clonePricingPolicyDefaults(
     getBusinessPreset("studio").defaults,
   ),
@@ -117,6 +143,10 @@ export function getBusinessPreset(presetId: BusinessPresetId) {
     businessPresets.find((preset) => preset.id === presetId) ??
     businessPresets[0]
   );
+}
+
+export function resolveCalculationHistoryLimit(preferences: AppPreferences) {
+  return getWorkspacePlan(preferences.subscription.planId).historyLimit;
 }
 
 export function clonePricingPolicyDefaults(
@@ -171,6 +201,7 @@ export function writeAppPreferences(preferences: AppPreferences) {
     return preferences;
   }
 
+  const previousPreferences = readAppPreferences();
   const normalizedPreferences = normalizeAppPreferences(preferences);
   const serializedPreferences = JSON.stringify(normalizedPreferences);
 
@@ -178,6 +209,36 @@ export function writeAppPreferences(preferences: AppPreferences) {
   cachedPreferencesSnapshot = normalizedPreferences;
   window.localStorage.setItem(STORAGE_KEY, serializedPreferences);
   window.dispatchEvent(new Event(PREFERENCES_EVENT));
+
+  if (!previousPreferences.onboardingCompleted && normalizedPreferences.onboardingCompleted) {
+    queueWorkspaceAuditEvent({
+      type: "onboarding-completed",
+      title: "Onboarding inicial concluído",
+      description:
+        "O workspace recebeu identidade, preset operacional e política padrão de precificação.",
+      tone: "success",
+    });
+  } else if (
+    previousPreferences.subscription.planId !==
+      normalizedPreferences.subscription.planId ||
+    previousPreferences.subscription.status !==
+      normalizedPreferences.subscription.status
+  ) {
+    queueWorkspaceAuditEvent({
+      type: "plan-updated",
+      title: "Plano comercial atualizado",
+      description: `Workspace ajustado para ${getWorkspacePlan(normalizedPreferences.subscription.planId).label} (${normalizedPreferences.subscription.status}).`,
+      tone: "success",
+    });
+  } else {
+    queueWorkspaceAuditEvent({
+      type: "preferences-updated",
+      title: "Preferências operacionais atualizadas",
+      description:
+        "Políticas comerciais, identidade do workspace ou parâmetros padrão foram revisados.",
+      tone: "neutral",
+    });
+  }
 
   return normalizedPreferences;
 }
@@ -207,6 +268,7 @@ export function buildPreferencesFromPreset(
     ...defaultAppPreferences,
     ...overrides,
     businessPresetId: preset.id,
+    subscription: overrides?.subscription ?? defaultAppPreferences.subscription,
     pricingDefaults: clonePricingPolicyDefaults(preset.defaults),
   });
 }
@@ -226,6 +288,9 @@ function normalizeAppPreferences(
     basePreferences.pricingDefaults,
     fallbackPreset.defaults,
   );
+  const subscription = normalizeWorkspaceSubscription(
+    basePreferences.subscription,
+  );
 
   return {
     workspaceName: sanitizeText(
@@ -234,6 +299,11 @@ function normalizeAppPreferences(
     ),
     operatorName: sanitizeText(basePreferences.operatorName),
     operatorEmail: sanitizeText(basePreferences.operatorEmail),
+    operatorRole:
+      basePreferences.operatorRole &&
+      basePreferences.operatorRole in workspaceRoleMeta
+        ? basePreferences.operatorRole
+        : defaultAppPreferences.operatorRole,
     businessPresetId: fallbackPreset.id,
     defaultDisplayCurrency:
       basePreferences.defaultDisplayCurrency === "USD" ||
@@ -243,7 +313,33 @@ function normalizeAppPreferences(
     applyPresetToNewCalculations:
       basePreferences.applyPresetToNewCalculations !== false,
     onboardingCompleted: basePreferences.onboardingCompleted === true,
+    subscription,
     pricingDefaults,
+  };
+}
+
+function normalizeWorkspaceSubscription(
+  subscription: Partial<WorkspaceSubscription> | undefined,
+): WorkspaceSubscription {
+  const plan = getWorkspacePlan(
+    subscription?.planId ?? defaultAppPreferences.subscription.planId,
+  );
+
+  return {
+    planId: plan.id,
+    status:
+      subscription?.status === "trial" || subscription?.status === "active"
+        ? subscription.status
+        : defaultAppPreferences.subscription.status,
+    seatsUsed: Math.max(
+      1,
+      Math.round(
+        sanitizeNumber(
+          subscription?.seatsUsed,
+          defaultAppPreferences.subscription.seatsUsed,
+        ),
+      ),
+    ),
   };
 }
 
@@ -296,4 +392,21 @@ function sanitizeText(value: unknown, fallback = "") {
 
 function sanitizeNumber(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function queueWorkspaceAuditEvent(
+  event: {
+    type: "preferences-updated" | "onboarding-completed" | "plan-updated";
+    title: string;
+    description: string;
+    tone: "neutral" | "success";
+  },
+) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  void import("../workspace/audit-log").then(({ appendWorkspaceAuditEvent }) => {
+    appendWorkspaceAuditEvent(event);
+  });
 }

@@ -3,6 +3,11 @@ import type {
   ExchangeRateSnapshot,
 } from "@/lib/currency/display-currency";
 import type { PricingFormState } from "@/lib/pricing/initial-pricing-form";
+import {
+  readAppPreferences,
+  resolveCalculationHistoryLimit,
+} from "@/lib/settings/app-preferences";
+import { appendWorkspaceAuditEvent } from "@/lib/workspace/audit-log";
 
 export type SavedCalculation = {
   id: string;
@@ -87,9 +92,15 @@ export function readCalculationHistory() {
 
 export function saveCalculationToHistory(item: SavedCalculation) {
   const currentItems = readCalculationHistory();
-  const nextItems = [item, ...currentItems].slice(0, MAX_ITEMS);
+  const nextItems = [item, ...currentItems].slice(0, resolveHistoryLimit());
 
   writeCalculationHistory(nextItems);
+  appendWorkspaceAuditEvent({
+    type: "calculation-saved",
+    title: "Cálculo salvo no histórico",
+    description: `${item.productName} foi registrado para auditoria comercial e reaproveitamento.`,
+    tone: "success",
+  });
 
   return nextItems;
 }
@@ -98,9 +109,15 @@ export function upsertCalculationInHistory(item: SavedCalculation) {
   const currentItems = readCalculationHistory().filter(
     (currentItem) => currentItem.id !== item.id,
   );
-  const nextItems = [item, ...currentItems].slice(0, MAX_ITEMS);
+  const nextItems = [item, ...currentItems].slice(0, resolveHistoryLimit());
 
   writeCalculationHistory(nextItems);
+  appendWorkspaceAuditEvent({
+    type: "calculation-updated",
+    title: "Cálculo atualizado",
+    description: `${item.productName} teve dados comerciais ou operacionais revisados.`,
+    tone: "neutral",
+  });
 
   return nextItems;
 }
@@ -121,6 +138,12 @@ export function attachSiteProductToCalculation(
   };
 
   upsertCalculationInHistory(nextItem);
+  appendWorkspaceAuditEvent({
+    type: "site-product-linked",
+    title: "Produto vinculado ao catálogo",
+    description: `${nextItem.productName} recebeu vínculo com o produto ${siteProduct.slug}.`,
+    tone: "success",
+  });
 
   return nextItem;
 }
@@ -141,6 +164,12 @@ export function attachErpProductToCalculation(
   };
 
   upsertCalculationInHistory(nextItem);
+  appendWorkspaceAuditEvent({
+    type: "erp-synced",
+    title: "Produto sincronizado com ERP",
+    description: `${nextItem.productName} foi associado ao ERP com referência ${erpProduct.sku || erpProduct.id || "sem SKU"}.`,
+    tone: "success",
+  });
 
   return nextItem;
 }
@@ -154,12 +183,25 @@ export function clearCalculationHistory() {
   cachedHistorySnapshot = EMPTY_HISTORY;
   window.localStorage.removeItem(STORAGE_KEY);
   window.dispatchEvent(new Event(HISTORY_EVENT));
+  appendWorkspaceAuditEvent({
+    type: "history-cleared",
+    title: "Histórico limpo",
+    description: "Os cálculos locais foram removidos desta máquina.",
+    tone: "warning",
+  });
 }
 
 export function deleteCalculationFromHistory(id: string) {
+  const deletedItem = getCalculationFromHistory(id);
   const nextItems = readCalculationHistory().filter((item) => item.id !== id);
 
   writeCalculationHistory(nextItems);
+  appendWorkspaceAuditEvent({
+    type: "calculation-deleted",
+    title: "Cálculo excluído",
+    description: `${deletedItem?.productName ?? "Um cálculo"} foi removido do histórico local.`,
+    tone: "warning",
+  });
 
   return nextItems;
 }
@@ -205,4 +247,12 @@ export function subscribeCalculationHistory(onStoreChange: () => void) {
     window.removeEventListener(HISTORY_EVENT, handleChange);
     window.removeEventListener("storage", handleChange);
   };
+}
+
+function resolveHistoryLimit() {
+  if (typeof window === "undefined") {
+    return MAX_ITEMS;
+  }
+
+  return resolveCalculationHistoryLimit(readAppPreferences());
 }

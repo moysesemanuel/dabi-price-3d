@@ -11,7 +11,7 @@
     "start:3005": "next start -p 3005",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:pricing": "node --no-warnings --test tests/*.test.mjs",
+    "test:pricing": "node --no-warnings --experimental-specifier-resolution=node --test tests/*.test.mjs",
     "check": "npm run lint && npm run typecheck && npm run test:pricing"
   },
   "dependencies": {
