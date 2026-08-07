@@ -1043,6 +1043,7 @@ export default function Home() {
                 productName={form.productName}
                 form={form}
                 result={result}
+                profitDestinations={appPreferences.profitDestinations}
                 onFieldChange={updateField}
                 selectedChannelLabel={selectedChannelLabel}
                 effectiveMarketplaceFeePercentage={

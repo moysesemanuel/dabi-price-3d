@@ -3,6 +3,7 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { WorkspaceCommercialPanel } from "@/components/preferences/workspace-commercial-panel";
 import { currencyMeta } from "@/lib/currency/display-currency";
+import { validateProfitDestinationPercentages } from "@/lib/pricing/profit-destination";
 import {
   buildPreferencesFromPreset,
   businessPresets,
@@ -21,6 +22,9 @@ export function PreferencesPanel() {
     readAppPreferences(),
   );
   const [saveState, setSaveState] = useState<"idle" | "saved">("idle");
+  const profitDestinationValidation = validateProfitDestinationPercentages(
+    preferences.profitDestinations,
+  );
 
   useEffect(() => {
     if (saveState !== "saved") {
@@ -33,6 +37,10 @@ export function PreferencesPanel() {
   }, [saveState]);
 
   function handleSave() {
+    if (!profitDestinationValidation.isValid) {
+      return;
+    }
+
     writeAppPreferences(preferences);
     setSaveState("saved");
   }
@@ -356,18 +364,6 @@ export function PreferencesPanel() {
             }
           />
           <PreferenceNumberField
-            label="Reserva de expansão por hora"
-            value={preferences.pricingDefaults.expansionReserveCostPerHour}
-            prefix="R$"
-            onChange={(value) =>
-              updatePricingDefaults(
-                setPreferences,
-                "expansionReserveCostPerHour",
-                value,
-              )
-            }
-          />
-          <PreferenceNumberField
             label="Imposto operacional"
             value={preferences.pricingDefaults.taxPercentage}
             suffix="%"
@@ -394,10 +390,84 @@ export function PreferencesPanel() {
           <button
             type="button"
             onClick={handleSave}
+            disabled={!profitDestinationValidation.isValid}
             className="rounded-full bg-[#ff6a00] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110"
           >
             {saveState === "saved" ? "Preferências salvas" : "Salvar preferências"}
           </button>
+        </div>
+      </section>
+
+      <section className="rounded-[26px] border border-[#e9ddd4] bg-white p-6 shadow-[0_18px_40px_rgba(0,0,0,0.08)]">
+        <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#7c6858]">
+          Destinação do lucro
+        </p>
+
+        <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[#18120d]">
+          Como o lucro é distribuído depois da venda
+        </h2>
+
+        <p className="mt-3 max-w-3xl text-sm leading-7 text-[#7c6858]">
+          Esta política é apenas gerencial. Ela não entra na formação do preço e
+          serve para mostrar como o lucro realizado pode ser repartido dentro da
+          empresa.
+        </p>
+
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <PreferenceNumberField
+            label="Expansão"
+            value={preferences.profitDestinations.expansionPercentage}
+            suffix="%"
+            onChange={(value) =>
+              updateProfitDestinations(
+                setPreferences,
+                "expansionPercentage",
+                value,
+              )
+            }
+          />
+          <PreferenceNumberField
+            label="Reserva de caixa"
+            value={preferences.profitDestinations.cashReservePercentage}
+            suffix="%"
+            onChange={(value) =>
+              updateProfitDestinations(
+                setPreferences,
+                "cashReservePercentage",
+                value,
+              )
+            }
+          />
+          <PreferenceNumberField
+            label="Distribuição aos sócios"
+            value={preferences.profitDestinations.ownerDistributionPercentage}
+            suffix="%"
+            onChange={(value) =>
+              updateProfitDestinations(
+                setPreferences,
+                "ownerDistributionPercentage",
+                value,
+              )
+            }
+          />
+        </div>
+
+        <div
+          className={`mt-5 rounded-[22px] border px-5 py-4 text-sm ${
+            profitDestinationValidation.isValid
+              ? "border-[#1f8b4c]/20 bg-[#eef8f2] text-[#1f8b4c]"
+              : "border-[#c1372b]/20 bg-[#fff1f1] text-[#c1372b]"
+          }`}
+        >
+          Total configurado:{" "}
+          <strong>{profitDestinationValidation.totalPercentage.toFixed(2).replace(".", ",")}%</strong>
+          {profitDestinationValidation.errorMessage ? (
+            <span className="ml-2">{profitDestinationValidation.errorMessage}</span>
+          ) : (
+            <span className="ml-2">
+              A soma está válida e será usada apenas na leitura gerencial do lucro.
+            </span>
+          )}
         </div>
       </section>
 
@@ -439,6 +509,22 @@ function updatePricingDefaults(
     ...current,
     pricingDefaults: {
       ...current.pricingDefaults,
+      [field]: normalizedValue,
+    },
+  }));
+}
+
+function updateProfitDestinations(
+  setPreferences: Dispatch<SetStateAction<AppPreferences>>,
+  field: keyof AppPreferences["profitDestinations"],
+  value: string,
+) {
+  const normalizedValue = Number(value.replace(",", ".")) || 0;
+
+  setPreferences((current) => ({
+    ...current,
+    profitDestinations: {
+      ...current.profitDestinations,
       [field]: normalizedValue,
     },
   }));

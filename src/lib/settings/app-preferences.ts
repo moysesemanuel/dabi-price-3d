@@ -1,4 +1,9 @@
 import type { DisplayCurrency } from "@/lib/currency/display-currency";
+import {
+  defaultProfitDestinationPercentages,
+  normalizeProfitDestinationPercentages,
+  type ProfitDestinationPercentages,
+} from "@/lib/pricing/profit-destination";
 import type { PricingFormState } from "@/lib/pricing/initial-pricing-form";
 import {
   getWorkspacePlan,
@@ -45,6 +50,7 @@ export type AppPreferences = {
   onboardingCompleted: boolean;
   subscription: WorkspaceSubscription;
   pricingDefaults: PricingPolicyDefaults;
+  profitDestinations: ProfitDestinationPercentages;
 };
 
 export type BusinessPreset = {
@@ -72,7 +78,7 @@ export const businessPresets: readonly BusinessPreset[] = [
       lossPercentage: 4,
       lossLaborSharePercentage: 20,
       maintenanceCostPerHour: 2,
-      expansionReserveCostPerHour: 1,
+      expansionReserveCostPerHour: 0,
       taxPercentage: 0,
       laborCostPerHour: 25,
       kwhPrice: 0.9,
@@ -90,7 +96,7 @@ export const businessPresets: readonly BusinessPreset[] = [
       lossPercentage: 8,
       lossLaborSharePercentage: 30,
       maintenanceCostPerHour: 4,
-      expansionReserveCostPerHour: 3,
+      expansionReserveCostPerHour: 0,
       taxPercentage: 6,
       laborCostPerHour: 31.25,
       kwhPrice: 0.9,
@@ -108,7 +114,7 @@ export const businessPresets: readonly BusinessPreset[] = [
       lossPercentage: 10,
       lossLaborSharePercentage: 35,
       maintenanceCostPerHour: 6,
-      expansionReserveCostPerHour: 5,
+      expansionReserveCostPerHour: 0,
       taxPercentage: 8,
       laborCostPerHour: 38,
       kwhPrice: 0.95,
@@ -130,6 +136,7 @@ export const defaultAppPreferences: AppPreferences = {
     status: "internal",
     seatsUsed: 1,
   },
+  profitDestinations: { ...defaultProfitDestinationPercentages },
   pricingDefaults: clonePricingPolicyDefaults(
     getBusinessPreset("studio").defaults,
   ),
@@ -269,6 +276,8 @@ export function buildPreferencesFromPreset(
     ...overrides,
     businessPresetId: preset.id,
     subscription: overrides?.subscription ?? defaultAppPreferences.subscription,
+    profitDestinations:
+      overrides?.profitDestinations ?? defaultAppPreferences.profitDestinations,
     pricingDefaults: clonePricingPolicyDefaults(preset.defaults),
   });
 }
@@ -290,6 +299,9 @@ function normalizeAppPreferences(
   );
   const subscription = normalizeWorkspaceSubscription(
     basePreferences.subscription,
+  );
+  const profitDestinations = normalizeProfitDestinationPercentages(
+    basePreferences.profitDestinations,
   );
 
   return {
@@ -315,6 +327,7 @@ function normalizeAppPreferences(
     onboardingCompleted: basePreferences.onboardingCompleted === true,
     subscription,
     pricingDefaults,
+    profitDestinations,
   };
 }
 

@@ -143,8 +143,7 @@ export function calculate3DPrice(
 
   const maintenanceCost =
     printTimeTotalHours * sanitizeNumber(input.maintenanceCostPerHour);
-  const expansionReserveCost =
-    printTimeTotalHours * sanitizeNumber(input.expansionReserveCostPerHour);
+  const expansionReserveCost = 0;
 
   const packagingTotalCost = sanitizeNumber(input.packagingCost);
   const shippingTotalCost = sanitizeNumber(input.shippingCost);
@@ -155,7 +154,6 @@ export function calculate3DPrice(
     materialCost +
     energyCost +
     maintenanceCost +
-    expansionReserveCost +
     packagingTotalCost +
     shippingTotalCost +
     laborTotalCost;

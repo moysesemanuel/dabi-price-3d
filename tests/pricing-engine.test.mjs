@@ -58,6 +58,29 @@ test("perdas afetam só a base permitida e respeitam a parcela configurável de 
   assert.equal(Number(result.lossReserveCost.toFixed(2)), 2.65);
 });
 
+test("reserva de expansão antiga não entra mais no subtotal protegido nem no preço", () => {
+  const baseResult = calculate3DPrice(
+    createBaseInput({
+      expansionReserveCostPerHour: 0,
+    }),
+  );
+  const legacyConfiguredResult = calculate3DPrice(
+    createBaseInput({
+      expansionReserveCostPerHour: 22,
+    }),
+  );
+
+  assert.equal(Number(legacyConfiguredResult.expansionReserveCost.toFixed(2)), 0);
+  assert.equal(
+    Number(legacyConfiguredResult.costWithLoss.toFixed(2)),
+    Number(baseResult.costWithLoss.toFixed(2)),
+  );
+  assert.equal(
+    Number(legacyConfiguredResult.finalPrice.toFixed(2)),
+    Number(baseResult.finalPrice.toFixed(2)),
+  );
+});
+
 test("lucro por hora usa hora operacional, não hora de impressão", () => {
   const result = calculate3DPrice(
     createBaseInput({

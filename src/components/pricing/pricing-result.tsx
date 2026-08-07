@@ -15,6 +15,10 @@ import {
   calculateDirectSale,
   calculateWholesale,
 } from "@/lib/pricing/calculate-sales-models";
+import {
+  calculateProfitDestinationBreakdown,
+  type ProfitDestinationPercentages,
+} from "@/lib/pricing/profit-destination";
 import { resolveShopeeFeeConfigForPrice } from "@/lib/marketplaces/shopee";
 import {
   calculate3DPrice,
@@ -28,6 +32,7 @@ type PricingResultProps = {
   productName: string;
   form: PricingFormState;
   result: Calculate3DPriceResult;
+  profitDestinations: ProfitDestinationPercentages;
   onFieldChange: (
     field: keyof PricingFormState,
     value: string | number | boolean,
@@ -78,6 +83,7 @@ export function PricingResult({
   productName,
   form,
   result,
+  profitDestinations,
   onFieldChange,
   selectedChannelLabel,
   effectiveMarketplaceFeePercentage,
@@ -126,7 +132,6 @@ export function PricingResult({
     cyclesPerSaleUnit,
     printTimePerCycleHours,
     unitEnergyCost,
-    unitExpansionReserveCost,
     unitLaborCost,
     unitLossCost,
     unitMaintenanceCost,
@@ -166,6 +171,10 @@ export function PricingResult({
   });
   const wholesale = calculateWholesale({
     costTotal: unitCoreCost,
+  });
+  const profitDestinationBreakdown = calculateProfitDestinationBreakdown({
+    estimatedProfit: unitProfit,
+    percentages: profitDestinations,
   });
   const benchmarkPracticedScenario =
     form.benchmarkPracticedPrice > 0
@@ -437,12 +446,6 @@ export function PricingResult({
       tone: "success" as const,
     },
     {
-      label: "Reserva de expansão",
-      amount: unitExpansionReserveCost,
-      value: money(unitExpansionReserveCost),
-      tone: "success" as const,
-    },
-    {
       label: "Resultado final",
       amount: unitProfit,
       meta:
@@ -565,7 +568,7 @@ export function PricingResult({
             <QuickReadRow
               label="Custo total"
               value={money(unitTotalCost)}
-              helper="Tudo que precisa ser coberto neste canal: produção, frete, taxas, pró-labore e reservas."
+              helper="Tudo que precisa ser coberto neste canal: produção, frete, taxas, pró-labore e proteção operacional."
               tone="danger"
             />
             <QuickReadRow
@@ -615,6 +618,45 @@ export function PricingResult({
         </div>
 
         <div className="mt-7 border-t border-black/8 pt-6">
+          <SectionTitle title="Destinação do lucro" />
+
+          <div className="mt-4 rounded-[24px] border border-black/8 bg-white p-5">
+            <SimpleLine
+              label="Lucro estimado"
+              value={money(unitProfit)}
+              tone={businessProfitTone}
+            />
+            <div className="mt-4 grid gap-3">
+              <SimpleLine
+                label={`Expansão — ${formatPercent(profitDestinations.expansionPercentage)}`}
+                value={money(profitDestinationBreakdown.expansionAmount)}
+              />
+              <SimpleLine
+                label={`Reserva de caixa — ${formatPercent(profitDestinations.cashReservePercentage)}`}
+                value={money(profitDestinationBreakdown.cashReserveAmount)}
+              />
+              <SimpleLine
+                label={`Distribuição — ${formatPercent(profitDestinations.ownerDistributionPercentage)}`}
+                value={money(profitDestinationBreakdown.ownerDistributionAmount)}
+              />
+            </div>
+
+            <p className="mt-4 text-xs leading-6 text-[#7c6858]">
+              Esta leitura é apenas gerencial e não altera o preço de venda.
+              {profitDestinationBreakdown.distributableProfit <= 0
+                ? " Como o lucro estimado está zerado ou negativo, não há valor positivo para distribuir."
+                : ""}
+            </p>
+
+            {!profitDestinationBreakdown.isValid ? (
+              <p className="mt-2 text-xs text-[#c1372b]">
+                {profitDestinationBreakdown.errorMessage}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="mt-7 border-t border-black/8 pt-6">
           <AccordionSection
             title="Memória do cálculo"
             description="Abra só quando quiser auditar a fórmula detalhada."
@@ -627,7 +669,7 @@ export function PricingResult({
                 totalLabel="Subtotal protegido"
                 totalValue={money(unitProductionCost)}
                 tone="danger"
-                expression={`Filamento + energia + manutenção + embalagem + frete + pró-labore + expansão + perdas = ${money(unitProductionCost)}`}
+                expression={`Filamento + energia + manutenção + embalagem + frete + pró-labore + perdas = ${money(unitProductionCost)}`}
               >
                 <SimpleLine label="Filamento" value={money(unitMaterialCost)} />
                 <SimpleLine label="Energia" value={money(unitEnergyCost)} />
@@ -635,10 +677,6 @@ export function PricingResult({
                 <SimpleLine label="Embalagem" value={money(unitPackagingCost)} />
                 <SimpleLine label="Frete" value={money(unitShippingCost)} />
                 <SimpleLine label="Pró-labore" value={money(unitLaborCost)} />
-                <SimpleLine
-                  label="Reserva de expansão"
-                  value={money(unitExpansionReserveCost)}
-                />
                 <SimpleLine
                   label="Reserva de perdas"
                   value={money(unitLossCost)}

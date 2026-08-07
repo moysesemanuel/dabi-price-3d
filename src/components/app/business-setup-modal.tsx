@@ -134,8 +134,8 @@ export function BusinessSetupModal({
                   value={`R$ ${activePreset.defaults.laborCostPerHour.toFixed(2).replace(".", ",")}`}
                 />
                 <Stat
-                  label="Expansão/h"
-                  value={`R$ ${activePreset.defaults.expansionReserveCostPerHour.toFixed(2).replace(".", ",")}`}
+                  label="MO sujeita à falha"
+                  value={`${activePreset.defaults.lossLaborSharePercentage}%`}
                 />
               </div>
             </div>

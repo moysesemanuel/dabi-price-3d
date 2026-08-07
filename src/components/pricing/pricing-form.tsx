@@ -1003,7 +1003,7 @@ export function PricingForm({
             <InfoBlock title="Modelo conceitual da conta:">
               <p>Sai para terceiros: material, energia, embalagem, frete, taxas e imposto.</p>
               <p>Protege a operação: manutenção e reserva de perdas.</p>
-              <p>Fica no negócio: pró-labore, reserva de expansão e lucro empresarial.</p>
+              <p>Fica no negócio: pró-labore e lucro empresarial.</p>
             </InfoBlock>
           </SectionDisclosure>
         </div>
@@ -1268,16 +1268,6 @@ export function PricingForm({
             inputKind="money"
             prefix={currencySymbol}
             note="Valor da sua hora de trabalho manual"
-          />
-          <Field
-            label="Reserva de expansao por hora"
-            value={displayMoney(form.expansionReserveCostPerHour)}
-            onChange={(value) =>
-              handleMoneyChange("expansionReserveCostPerHour", value)
-            }
-            inputKind="money"
-            prefix={currencySymbol}
-            note="Política interna de caixa para reinvestimento e crescimento."
           />
           <Field
             label="Perdas / falhas"
