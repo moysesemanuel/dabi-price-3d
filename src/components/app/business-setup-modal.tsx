@@ -44,9 +44,8 @@ export function BusinessSetupModal({
             Configure sua operação antes da primeira precificação
           </h2>
           <p className="mt-3 max-w-3xl text-sm leading-7 text-[#7c6858]">
-            Um SaaS maduro precisa nascer com políticas claras. Escolha o perfil
-            da operação, defina quem administra a conta e salve um padrão para
-            novas simulações.
+            Escolha o perfil da operação, defina quem administra a conta e salve
+            um padrão para novas simulações.
           </p>
         </div>
 

@@ -5,10 +5,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   defaultAppPreferences,
-  getWorkspacePlan,
   readAppPreferences,
   subscribeAppPreferences,
-  workspaceRoleMeta,
 } from "@/lib/settings/app-preferences";
 
 const EXPANDED_WIDTH = 215;
@@ -29,7 +27,6 @@ export function AppSidebar() {
     defaultAppPreferences.workspaceName,
   );
   const [operatorLabel, setOperatorLabel] = useState("Configuração pendente");
-  const [workspaceMetaLabel, setWorkspaceMetaLabel] = useState("Growth · Owner");
   const themeSwitchRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -62,9 +59,6 @@ export function AppSidebar() {
         preferences.operatorEmail ||
           preferences.operatorName ||
           "Configuração pendente",
-      );
-      setWorkspaceMetaLabel(
-        `${getWorkspacePlan(preferences.subscription.planId).label} · ${workspaceRoleMeta[preferences.operatorRole].label}`,
       );
     };
 
@@ -167,9 +161,6 @@ export function AppSidebar() {
             </p>
             <p className="mt-1 truncate text-xs text-[var(--muted)]">
               {operatorLabel}
-            </p>
-            <p className="mt-1 truncate text-xs text-[var(--muted)]">
-              {workspaceMetaLabel}
             </p>
 
             <div className="mt-4 rounded-[24px] border border-[color:var(--panel-border)] bg-[var(--panel)] px-4 py-4">

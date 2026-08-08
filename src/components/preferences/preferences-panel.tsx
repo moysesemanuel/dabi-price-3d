@@ -1,18 +1,14 @@
 "use client";
 
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
-import { WorkspaceCommercialPanel } from "@/components/preferences/workspace-commercial-panel";
 import { currencyMeta } from "@/lib/currency/display-currency";
 import { validateProfitDestinationPercentages } from "@/lib/pricing/profit-destination";
 import {
   buildPreferencesFromPreset,
   businessPresets,
-  getWorkspacePlan,
   readAppPreferences,
   type AppPreferences,
   type BusinessPresetId,
-  type WorkspacePlanId,
-  workspacePlans,
   workspaceRoleMeta,
   writeAppPreferences,
 } from "@/lib/settings/app-preferences";
@@ -139,8 +135,8 @@ export function PreferencesPanel() {
         </h2>
 
         <p className="mt-3 max-w-3xl text-sm leading-7 text-[#7c6858]">
-          Escolha um perfil base e ajuste as políticas abaixo. Em um SaaS maduro,
-          essas premissas precisam ser explícitas e reaplicáveis.
+          Escolha um perfil base e ajuste as políticas abaixo para manter novas
+          simulações consistentes.
         </p>
 
         <div className="mt-6 grid gap-4 xl:grid-cols-3">
@@ -176,102 +172,6 @@ export function PreferencesPanel() {
             podem ser editados e salvos como política padrão.
           </div>
         ) : null}
-      </section>
-
-      <section className="rounded-[26px] border border-[#e9ddd4] bg-white p-6 shadow-[0_18px_40px_rgba(0,0,0,0.08)]">
-        <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#7c6858]">
-          Plano comercial
-        </p>
-
-        <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[#18120d]">
-          Capacidade e posicionamento do produto
-        </h2>
-
-        <p className="mt-3 max-w-3xl text-sm leading-7 text-[#7c6858]">
-          A camada SaaS precisa explicitar o que o workspace contratou, quanto
-          pode usar e qual nível de operação ele suporta.
-        </p>
-
-        <div className="mt-6 grid gap-4 xl:grid-cols-3">
-          {workspacePlans.map((plan) => {
-            const isActive = plan.id === preferences.subscription.planId;
-
-            return (
-              <button
-                key={plan.id}
-                type="button"
-                onClick={() =>
-                  setPreferences((current) => ({
-                    ...current,
-                    subscription: {
-                      ...current.subscription,
-                      planId: plan.id,
-                    },
-                  }))
-                }
-                className={`rounded-[22px] border p-5 text-left transition ${
-                  isActive
-                    ? "border-[#ff6a00] bg-[#fff3ea]"
-                    : "border-black/8 bg-white hover:border-[#ff6a00]/40"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm font-semibold text-[#18120d]">
-                    {plan.label}
-                  </p>
-                  <span className="rounded-full border border-black/8 bg-white px-3 py-1 text-xs text-[#7c6858]">
-                    {plan.monthlyPriceLabel}
-                  </span>
-                </div>
-                <p className="mt-2 text-sm leading-6 text-[#7c6858]">
-                  {plan.description}
-                </p>
-                <p className="mt-4 text-xs text-[#7c6858]">
-                  {plan.historyLimit} cálculos · {plan.seatsIncluded} assento(s) ·{" "}
-                  {plan.supportLabel}
-                </p>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
-          <PreferenceSelect
-            label="Status da assinatura"
-            value={preferences.subscription.status}
-            onChange={(value) =>
-              setPreferences((current) => ({
-                ...current,
-                subscription: {
-                  ...current.subscription,
-                  status: value as AppPreferences["subscription"]["status"],
-                },
-              }))
-            }
-            options={[
-              { value: "internal", label: "Uso interno" },
-              { value: "trial", label: "Trial" },
-              { value: "active", label: "Ativo" },
-            ]}
-          />
-          <PreferenceNumberField
-            label="Assentos em uso"
-            value={preferences.subscription.seatsUsed}
-            onChange={(value) =>
-              setPreferences((current) => ({
-                ...current,
-                subscription: {
-                  ...current.subscription,
-                  seatsUsed: Math.max(
-                    1,
-                    Math.round(Number(value.replace(",", ".")) || 1),
-                  ),
-                },
-              }))
-            }
-          />
-          <ReadOnlyPlanField planId={preferences.subscription.planId} />
-        </div>
       </section>
 
       <section className="rounded-[26px] border border-[#e9ddd4] bg-white p-6 shadow-[0_18px_40px_rgba(0,0,0,0.08)]">
@@ -471,8 +371,6 @@ export function PreferencesPanel() {
         </div>
       </section>
 
-      <WorkspaceCommercialPanel preferences={preferences} />
-
       <section className="rounded-[26px] border border-[#e9ddd4] bg-white p-6 shadow-[0_18px_40px_rgba(0,0,0,0.08)]">
         <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#7c6858]">
           Governança
@@ -489,8 +387,8 @@ export function PreferencesPanel() {
             tributário parametrizado por contador.
           </p>
           <p>
-            Para vender como SaaS, a recomendação é validar presets e políticas
-            com amostras reais de produtos antes de escalar o uso comercial.
+            Valide presets e políticas com produtos reais para ganhar confiança
+            nos preços sugeridos antes de aplicar em escala.
           </p>
         </div>
       </section>
@@ -657,28 +555,5 @@ function Toggle({
         />
       </span>
     </button>
-  );
-}
-
-function ReadOnlyPlanField({ planId }: { planId: WorkspacePlanId }) {
-  const plan = getWorkspacePlan(planId);
-
-  return (
-    <div>
-      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
-        Limite do plano
-      </span>
-      <div className="mt-2 rounded-2xl border border-black/8 bg-[#fcfaf8] px-4 py-3">
-        <p className="text-base text-[#18120d]">
-          {plan.historyLimit} cálculos no histórico
-        </p>
-        <p className="mt-2 text-xs text-[#7c6858]">
-          {plan.erpSyncEnabled ? "ERP liberado" : "ERP indisponível"} ·{" "}
-          {plan.marketplaceAutomationEnabled
-            ? "automação de canais ativa"
-            : "automação de canais limitada"}
-        </p>
-      </div>
-    </div>
   );
 }
