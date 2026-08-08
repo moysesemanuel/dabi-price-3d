@@ -6,6 +6,7 @@ import {
   createLocalDevelopmentSession,
   consumeLocalDevelopmentPasswordResetToken,
   findLocalDevelopmentWorkspaceMemberById,
+  getLocalDevelopmentBootstrapConfig,
   inviteLocalDevelopmentWorkspaceMember,
   listLocalDevelopmentWorkspaceMembers,
   resetLocalDevelopmentAuthStateForTests,
@@ -20,24 +21,28 @@ test.beforeEach(() => {
   resetLocalDevelopmentAuthStateForTests();
 });
 
+const bootstrapConfig = getLocalDevelopmentBootstrapConfig();
+const operatorResetPassword = buildTestPassword("operator");
+const managerResetPassword = buildTestPassword("manager");
+
 test("admin local default autentica e a sessao pode ser resolvida pelo token", () => {
   assert.equal(
     verifyLocalDevelopmentCredentials({
-      email: "admin@dabitech3d.com",
-      password: "admin123",
+      email: bootstrapConfig.email,
+      password: bootstrapConfig.password,
     }),
     true,
   );
 
   const loginResult = createLocalDevelopmentSession({
-    email: "admin@dabitech3d.com",
+    email: bootstrapConfig.email,
   });
 
   assert.ok(loginResult);
   assert.match(loginResult.sessionToken, /^local-dev-session:/);
   assert.equal(
     resolveLocalDevelopmentSession(loginResult.sessionToken)?.user.email,
-    "admin@dabitech3d.com",
+    bootstrapConfig.email,
   );
 });
 
@@ -64,7 +69,7 @@ test("convite local ativa membro por token e permite login com a nova senha", ()
 
   const resetResult = consumeLocalDevelopmentPasswordResetToken({
     token: issuedToken.token,
-    password: "novaSenha123",
+    password: operatorResetPassword,
   });
 
   assert.equal(resetResult?.email, invitedMember.email);
@@ -72,7 +77,7 @@ test("convite local ativa membro por token e permite login com a nova senha", ()
   assert.equal(
     verifyLocalDevelopmentCredentials({
       email: invitedMember.email,
-      password: "novaSenha123",
+      password: operatorResetPassword,
     }),
     true,
   );
@@ -99,7 +104,7 @@ test("owner local pode ser transferido para outro membro", () => {
   assert.ok(issuedToken);
   consumeLocalDevelopmentPasswordResetToken({
     token: issuedToken.token,
-    password: "gestora123",
+    password: managerResetPassword,
   });
 
   const updatedMember = updateLocalDevelopmentWorkspaceMemberRole({
@@ -112,7 +117,7 @@ test("owner local pode ser transferido para outro membro", () => {
   const members = listLocalDevelopmentWorkspaceMembers();
   const newOwner = members.find((member) => member.email === invitedMember.email);
   const previousAdmin = members.find(
-    (member) => member.email === "admin@dabitech3d.com",
+    (member) => member.email === bootstrapConfig.email,
   );
 
   assert.equal(newOwner?.isWorkspaceOwner, true);
@@ -138,5 +143,9 @@ test("remocao local elimina membro da lista do workspace", () => {
     ),
     false,
   );
-  assert.equal(buildLocalDevelopmentSession().user.email, "admin@dabitech3d.com");
+  assert.equal(buildLocalDevelopmentSession().user.email, bootstrapConfig.email);
 });
+
+function buildTestPassword(label) {
+  return `test-${label}-password-123`;
+}
