@@ -293,12 +293,12 @@ export function PricingForm({
 
   return (
     <form className="space-y-5">
-      <section className="overflow-hidden rounded-[32px] border border-black/8 bg-white shadow-[0_20px_60px_rgba(103,55,18,0.08)]">
-        <div className="border-b border-black/8 px-5 py-5 sm:px-6">
-          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#d84f00]">
+      <section className="overflow-hidden rounded-[32px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.94)] shadow-[0_20px_60px_rgba(57,37,118,0.08)]">
+        <div className="border-b border-[var(--panel-border)] px-5 py-5 sm:px-6">
+          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--accent)]">
             Editor da precificação
           </p>
-          <h2 className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[#18120d]">
+          <h2 className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--foreground)]">
             Tudo em uma tela
           </h2>
         </div>
@@ -1407,11 +1407,11 @@ function SectionLead({
 }) {
   return (
     <div className="mt-5 max-w-[760px]">
-      <h3 className="text-lg font-semibold tracking-[-0.03em] text-[#18120d]">
+      <h3 className="text-lg font-semibold tracking-[-0.03em] text-[var(--foreground)]">
         {title}
       </h3>
       {description ? (
-        <p className="mt-2 text-sm leading-7 text-[#7c6858]">
+        <p className="mt-2 text-sm leading-7 text-[var(--muted)]">
           {description}
         </p>
       ) : null}
@@ -1434,28 +1434,28 @@ function SectionDisclosure({
 }) {
   return (
     <details
-      className={`group rounded-[24px] border border-black/8 bg-white ${className}`}
+      className={`group rounded-[24px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.94)] ${className}`}
       open={defaultOpen}
     >
       <summary className="flex cursor-pointer list-none items-start justify-between gap-4 px-4 py-4 marker:content-none">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-[#18120d]">{title}</p>
-          <p className="mt-1 text-xs text-[#7c6858]">{description}</p>
+          <p className="text-sm font-medium text-[var(--foreground)]">{title}</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">{description}</p>
         </div>
 
-        <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-black/8 bg-[#ff6a00] text-sm text-white transition-transform duration-200 group-open:rotate-180">
+        <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-[var(--accent)] bg-[var(--accent)] text-sm text-white transition-transform duration-200 group-open:rotate-180">
           ▾
         </span>
       </summary>
 
-      <div className="border-t border-black/8 px-4 py-4">{children}</div>
+      <div className="border-t border-[var(--panel-border)] px-4 py-4">{children}</div>
     </details>
   );
 }
 
 function SectionEyebrow({ label }: { label: string }) {
   return (
-    <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#d84f00]">
+    <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--accent)]">
       {label}
     </p>
   );
@@ -1470,10 +1470,10 @@ function NumberEyebrow({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="inline-flex size-8 items-center justify-center rounded-2xl border border-[#ff6a00] bg-[#ff6a00] text-sm font-semibold text-white">
+      <span className="inline-flex size-8 items-center justify-center rounded-2xl border border-[var(--accent)] bg-[var(--accent)] text-sm font-semibold text-white">
         {index}
       </span>
-      <span className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#7c6858]">
+      <span className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
         {label}
       </span>
     </div>
@@ -1501,18 +1501,18 @@ function ChoiceCard({
         compact ? "py-3" : "py-4"
       } ${
         active
-          ? "border-[#ff6a00] bg-[#ff6a00]"
-          : "border-[#d6c8bb] bg-[#fcfaf8] hover:border-[#bdaa99] hover:bg-white"
+          ? "border-[var(--accent)] bg-[var(--accent)]"
+          : "border-[var(--panel-border)] bg-[var(--panel-soft)] hover:border-[#c9bef9] hover:bg-white"
       }`}
     >
       <strong
         className={`block text-sm font-semibold tracking-[-0.02em] ${
-          active ? "text-white" : "text-[#18120d]"
+          active ? "text-white" : "text-[var(--foreground)]"
         }`}
       >
         {title}
       </strong>
-      <span className={`mt-1 block text-xs ${active ? "text-white/85" : "text-[#7c6858]"}`}>
+      <span className={`mt-1 block text-xs ${active ? "text-white/85" : "text-[var(--muted)]"}`}>
         {description}
       </span>
     </button>
@@ -1534,8 +1534,8 @@ function MarketplaceModeCard({
 }) {
   const activeClassName =
     accentTone === "amber"
-      ? "border-[#ff6a00] bg-[#ff6a00]"
-      : "border-[#ff6a00] bg-[#ff6a00]";
+      ? "border-[var(--accent)] bg-[var(--accent)]"
+      : "border-[var(--accent)] bg-[var(--accent)]";
 
   return (
     <button
@@ -1544,13 +1544,13 @@ function MarketplaceModeCard({
       className={`rounded-[18px] border px-4 py-4 text-left transition ${
         active
           ? activeClassName
-          : "border-[#d6c8bb] bg-[#fcfaf8] hover:border-[#bdaa99] hover:bg-white"
+          : "border-[var(--panel-border)] bg-[var(--panel-soft)] hover:border-[#c9bef9] hover:bg-white"
       }`}
     >
-      <strong className={`block text-base font-semibold tracking-[-0.03em] ${active ? "text-white" : "text-[#18120d]"}`}>
+      <strong className={`block text-base font-semibold tracking-[-0.03em] ${active ? "text-white" : "text-[var(--foreground)]"}`}>
         {title}
       </strong>
-      <span className={`mt-2 block text-sm ${active ? "text-white/85" : "text-[#7c6858]"}`}>
+      <span className={`mt-2 block text-sm ${active ? "text-white/85" : "text-[var(--muted)]"}`}>
         {description}
       </span>
     </button>
@@ -1572,8 +1572,8 @@ function MiniToggle({
       onClick={onClick}
       className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
         active
-          ? "border-[#ff6a00] bg-[#ff6a00] text-white"
-          : "border-[#cfbeaf] bg-[#faf6f2] text-[#5f4d40] hover:border-[#bdaa99] hover:bg-white hover:text-[#18120d]"
+          ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+          : "border-[var(--panel-border)] bg-[var(--panel-soft)] text-[var(--muted)] hover:border-[#c9bef9] hover:bg-white hover:text-[var(--foreground)]"
       }`}
     >
       {label}
@@ -1596,8 +1596,8 @@ function PillButton({
       onClick={onClick}
       className={`rounded-full border px-4 py-3 text-center text-sm transition ${
         active
-          ? "border-[#ff6a00] bg-[#ff6a00] text-white"
-          : "border-[#cfbeaf] bg-[#faf6f2] text-[#5f4d40] hover:border-[#bdaa99] hover:bg-white hover:text-[#18120d]"
+          ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+          : "border-[var(--panel-border)] bg-[var(--panel-soft)] text-[var(--muted)] hover:border-[#c9bef9] hover:bg-white hover:text-[var(--foreground)]"
       }`}
     >
       {label}
@@ -1623,15 +1623,15 @@ function FilamentRequirementCard({
   onRemove: (index: number) => void;
 }) {
   return (
-    <div className="rounded-[24px] border border-black/8 bg-white px-4 py-4">
+    <div className="rounded-[24px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.94)] px-4 py-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="text-sm font-medium text-[#18120d]">Cor {index + 1}</p>
+        <p className="text-sm font-medium text-[var(--foreground)]">Cor {index + 1}</p>
 
         {canRemove ? (
           <button
             type="button"
             onClick={() => onRemove(index)}
-            className="rounded-full border border-black/8 px-3 py-2 text-xs font-medium text-[#7c6858] transition hover:border-[#ff6a00]/30 hover:bg-[#ff6a00] hover:text-white"
+            className="rounded-full border border-[var(--panel-border)] px-3 py-2 text-xs font-medium text-[var(--muted)] transition hover:border-[#6c56ff]/30 hover:bg-[var(--accent)] hover:text-white"
           >
             Remover
           </button>
@@ -1656,18 +1656,18 @@ function FilamentRequirementCard({
         />
 
         <label>
-          <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
+          <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
             Hex
           </span>
 
-          <div className="mt-2 flex h-[50px] items-center gap-3 rounded-2xl border border-black/8 bg-white px-4">
+          <div className="mt-2 flex h-[50px] items-center gap-3 rounded-2xl border border-[var(--panel-border)] bg-white px-4">
             <input
               type="color"
               value={normalizeColorHex(requirement.colorHex)}
               onChange={(event) =>
                 onChange(index, "colorHex", event.target.value)
               }
-              className="size-8 rounded-lg border border-black/8 bg-transparent"
+              className="size-8 rounded-lg border border-[var(--panel-border)] bg-transparent"
             />
 
             <input
@@ -1676,7 +1676,7 @@ function FilamentRequirementCard({
               onChange={(event) =>
                 onChange(index, "colorHex", event.target.value)
               }
-              className="min-w-0 flex-1 bg-transparent text-sm text-[#18120d] outline-none"
+              className="min-w-0 flex-1 bg-transparent text-sm text-[var(--foreground)] outline-none"
             />
           </div>
         </label>
@@ -1707,11 +1707,11 @@ function ToggleRow({
 }) {
   return (
     <div
-      className={`flex items-center justify-between gap-4 rounded-[24px] border border-[#d6c8bb] bg-[#fcfaf8] px-4 py-4 ${className}`}
+      className={`flex items-center justify-between gap-4 rounded-[24px] border border-[var(--panel-border)] bg-[var(--panel-soft)] px-4 py-4 ${className}`}
     >
       <div className="pr-3">
-        <p className="text-sm font-medium text-[#18120d]">{label}</p>
-        <p className="mt-1 text-xs text-[#7c6858]">{note}</p>
+        <p className="text-sm font-medium text-[var(--foreground)]">{label}</p>
+        <p className="mt-1 text-xs text-[var(--muted)]">{note}</p>
       </div>
 
       <button
@@ -1720,8 +1720,8 @@ function ToggleRow({
         aria-pressed={checked}
         className={`relative h-7 w-12 shrink-0 rounded-full border transition ${
           checked
-            ? "border-[#ff6a00] bg-[#ff6a00]"
-            : "border-[#bdaa99] bg-[#d9cec4]"
+            ? "border-[var(--accent)] bg-[var(--accent)]"
+            : "border-[#cbc2eb] bg-[#ddd7f3]"
         }`}
       >
         <span
@@ -1747,16 +1747,16 @@ function SuggestionStat({
 }) {
   return (
     <div className="pricing-suggestion-stat rounded-[22px] border px-4 py-4">
-      <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
+      <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
         {label}
       </p>
       <div className="mt-3 flex items-center gap-3">
         {loading ? (
-          <span className="inline-flex size-4 animate-spin rounded-full border-2 border-[#ff6a00]/25 border-t-[#ff6a00]" />
+          <span className="inline-flex size-4 animate-spin rounded-full border-2 border-[#6c56ff]/25 border-t-[#6c56ff]" />
         ) : null}
-        <p className="text-base font-semibold text-[#18120d]">{value}</p>
+        <p className="text-base font-semibold text-[var(--foreground)]">{value}</p>
       </div>
-      <p className="mt-2 text-xs text-[#7c6858]">{note}</p>
+      <p className="mt-2 text-xs text-[var(--muted)]">{note}</p>
     </div>
   );
 }
@@ -1789,18 +1789,18 @@ function Field({
 
   return (
     <label className={className}>
-      <span className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
+      <span className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
         <span>{normalizedLabel}</span>
         {isRequired ? (
-          <span className="rounded-full border border-[#ff6a00] bg-[#ff6a00] px-2 py-0.5 text-[10px] tracking-[0.14em] text-white">
+          <span className="rounded-full border border-[var(--accent)] bg-[var(--accent)] px-2 py-0.5 text-[10px] tracking-[0.14em] text-white">
             obrigatório
           </span>
         ) : null}
       </span>
 
-      <div className="pricing-input-shell mt-2 flex items-center overflow-hidden rounded-2xl border transition focus-within:border-[#ff6a00]/45 focus-within:ring-2 focus-within:ring-[#ff6a00]">
+      <div className="pricing-input-shell mt-2 flex items-center overflow-hidden rounded-2xl border transition focus-within:border-[#6c56ff] focus-within:ring-2 focus-within:ring-[#6c56ff]/20">
         {prefix ? (
-          <span className="pricing-input-addon border-r px-4 py-3 text-sm text-[#6b584a]">
+          <span className="pricing-input-addon border-r px-4 py-3 text-sm text-[var(--muted)]">
             {prefix}
           </span>
         ) : null}
@@ -1832,17 +1832,17 @@ function Field({
           }}
           disabled={disabled}
           placeholder={getInputPlaceholder(inputKind)}
-          className="pricing-input-control min-w-0 flex-1 bg-transparent px-4 py-3 text-base text-[#18120d] outline-none placeholder:text-[#8a7768] disabled:text-[#9a4a1c]"
+          className="pricing-input-control min-w-0 flex-1 bg-transparent px-4 py-3 text-base text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] disabled:text-[var(--muted)]"
         />
 
         {suffix ? (
-          <span className="pricing-input-addon border-l px-4 py-3 text-sm text-[#6b584a]">
+          <span className="pricing-input-addon border-l px-4 py-3 text-sm text-[var(--muted)]">
             {suffix}
           </span>
         ) : null}
       </div>
 
-      {note ? <p className="mt-2 text-xs text-[#7c6858]">{note}</p> : null}
+      {note ? <p className="mt-2 text-xs text-[var(--muted)]">{note}</p> : null}
     </label>
   );
 }
@@ -1904,14 +1904,14 @@ function SelectField({
 }) {
   return (
     <label>
-      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
+      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
         {label}
       </span>
 
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full rounded-2xl border border-[#d6c8bb] bg-white px-4 py-3 text-base text-[#18120d] outline-none transition focus:border-[#ff6a00]/45 focus:ring-2 focus:ring-[#ff6a00]"
+        className="mt-2 w-full rounded-2xl border border-[var(--panel-border)] bg-white px-4 py-3 text-base text-[var(--foreground)] outline-none transition focus:border-[#6c56ff] focus:ring-2 focus:ring-[#6c56ff]/20"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -1936,11 +1936,11 @@ function InfoBlock({
     <div
       className={`rounded-[24px] border p-5 font-mono text-sm leading-8 ${
         tone === "amber"
-          ? "border-[#ff6a00] bg-[#ff6a00] text-white"
-          : "border-[#d6c8bb] bg-[#fcfaf8] text-[#18120d]"
+          ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+          : "border-[var(--panel-border)] bg-[var(--panel-soft)] text-[var(--foreground)]"
       }`}
     >
-      <p className="mb-3 uppercase tracking-[0.2em] text-[#7c6858]">
+      <p className={`mb-3 uppercase tracking-[0.2em] ${tone === "amber" ? "text-white/80" : "text-[var(--muted)]"}`}>
         {title}
       </p>
       {children}

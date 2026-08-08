@@ -35,15 +35,15 @@ export function BusinessSetupModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 py-8">
-      <div className="w-full max-w-4xl rounded-[32px] border border-black/8 bg-white shadow-[0_40px_100px_rgba(0,0,0,0.22)]">
-        <div className="border-b border-black/8 px-6 py-6 sm:px-8">
-          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#d84f00]">
+      <div className="w-full max-w-4xl rounded-[32px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.96)] shadow-[0_36px_90px_rgba(57,37,118,0.16)] backdrop-blur-xl">
+        <div className="border-b border-[var(--panel-border)] px-6 py-6 sm:px-8">
+          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--accent)]">
             Setup inicial
           </p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[#18120d]">
+          <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[var(--foreground)]">
             Configure sua operação antes da primeira precificação
           </h2>
-          <p className="mt-3 max-w-3xl text-sm leading-7 text-[#7c6858]">
+          <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--muted)]">
             Escolha o perfil da operação, defina quem administra a conta e salve
             um padrão para novas simulações.
           </p>
@@ -78,7 +78,7 @@ export function BusinessSetupModal({
           </div>
 
           <div className="mt-8">
-            <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#7c6858]">
+            <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
               Perfil de negócio
             </p>
 
@@ -93,17 +93,17 @@ export function BusinessSetupModal({
                     onClick={() => setPresetId(preset.id)}
                     className={`rounded-[24px] border p-5 text-left transition ${
                       isActive
-                        ? "border-[#ff6a00] bg-[#fff3ea]"
-                        : "border-black/8 bg-white hover:border-[#ff6a00]/40"
+                        ? "border-[var(--accent)] bg-[var(--panel-soft)]"
+                        : "border-[var(--panel-border)] bg-white hover:border-[#6c56ff]/40"
                     }`}
                   >
-                    <p className="text-base font-semibold text-[#18120d]">
+                    <p className="text-base font-semibold text-[var(--foreground)]">
                       {preset.label}
                     </p>
-                    <p className="mt-2 text-sm leading-6 text-[#7c6858]">
+                    <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
                       {preset.description}
                     </p>
-                    <p className="mt-3 text-xs text-[#7c6858]">
+                    <p className="mt-3 text-xs text-[var(--muted)]">
                       {preset.audience}
                     </p>
                   </button>
@@ -111,8 +111,8 @@ export function BusinessSetupModal({
               })}
             </div>
 
-            <div className="mt-5 rounded-[24px] border border-black/8 bg-[#fcfaf8] px-5 py-5">
-              <p className="text-sm font-semibold text-[#18120d]">
+            <div className="mt-5 rounded-[24px] border border-[var(--panel-border)] bg-[var(--panel-soft)] px-5 py-5">
+              <p className="text-sm font-semibold text-[var(--foreground)]">
                 Políticas iniciais do perfil {activePreset.label}
               </p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -140,8 +140,8 @@ export function BusinessSetupModal({
             </div>
           </div>
 
-          <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-black/8 pt-5">
-            <p className="max-w-2xl text-sm text-[#7c6858]">
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--panel-border)] pt-5">
+            <p className="max-w-2xl text-sm text-[var(--muted)]">
               Você poderá ajustar todos esses parâmetros depois em{" "}
               <strong>Preferências</strong>.
             </p>
@@ -160,7 +160,7 @@ export function BusinessSetupModal({
                   }),
                 )
               }
-              className="rounded-full bg-[#ff6a00] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110"
+              className="rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110"
             >
               Salvar e começar
             </button>
@@ -182,14 +182,14 @@ function TextField({
 }) {
   return (
     <label>
-      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
+      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
         {label}
       </span>
       <input
         type="text"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full rounded-2xl border border-black/8 bg-white px-4 py-3 text-base text-[#18120d] outline-none transition focus:border-[#ff6a00] focus:ring-2 focus:ring-[#ff6a00]/20"
+        className="mt-2 w-full rounded-2xl border border-[var(--panel-border)] bg-white px-4 py-3 text-base text-[var(--foreground)] outline-none transition focus:border-[#6c56ff] focus:ring-2 focus:ring-[#6c56ff]/20"
       />
     </label>
   );
@@ -208,13 +208,13 @@ function SelectField({
 }) {
   return (
     <label>
-      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
+      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
         {label}
       </span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full rounded-2xl border border-black/8 bg-white px-4 py-3 text-base text-[#18120d] outline-none transition focus:border-[#ff6a00] focus:ring-2 focus:ring-[#ff6a00]/20"
+        className="mt-2 w-full rounded-2xl border border-[var(--panel-border)] bg-white px-4 py-3 text-base text-[var(--foreground)] outline-none transition focus:border-[#6c56ff] focus:ring-2 focus:ring-[#6c56ff]/20"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -228,11 +228,13 @@ function SelectField({
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[18px] border border-black/8 bg-white p-4">
-      <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
+    <div className="rounded-[18px] border border-[var(--panel-border)] bg-white p-4">
+      <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
         {label}
       </p>
-      <p className="mt-2 text-sm font-semibold text-[#18120d]">{value}</p>
+      <p className="mt-2 text-sm font-semibold text-[var(--foreground)]">
+        {value}
+      </p>
     </div>
   );
 }

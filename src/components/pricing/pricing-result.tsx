@@ -66,15 +66,15 @@ type CostLineItem = {
 };
 
 const financialToneTextClassName: Record<FinancialTone, string> = {
-  default: "text-[#18120d]",
-  accent: "text-[#d84f00]",
+  default: "text-[var(--foreground)]",
+  accent: "text-[var(--accent)]",
   success: "text-[#137a3a]",
   danger: "text-[#c1372b]",
 };
 
 const financialToneBorderClassName: Record<FinancialTone, string> = {
-  default: "border-black/8",
-  accent: "border-[#ff6a00]",
+  default: "border-[var(--panel-border)]",
+  accent: "border-[var(--accent)]",
   success: "border-[#137a3a]",
   danger: "border-[#c1372b]",
 };
@@ -96,8 +96,8 @@ export function PricingResult({
 }: PricingResultProps) {
   if (!result.isValid) {
     return (
-      <aside className="rounded-[30px] border border-[#ff6a00] bg-[#ff6a00] p-6 shadow-[0_24px_70px_rgba(4,4,14,0.42)] xl:sticky xl:top-6">
-        <p className="font-mono text-xs uppercase tracking-[0.3em] text-[#d84f00]">
+      <aside className="rounded-[30px] border border-[var(--accent)] bg-[linear-gradient(180deg,#271a59_0%,#140d33_100%)] p-6 text-white shadow-[0_24px_70px_rgba(12,8,32,0.34)] xl:sticky xl:top-6">
+        <p className="font-mono text-xs uppercase tracking-[0.3em] text-white/70">
           Cálculo interrompido
         </p>
 
@@ -465,21 +465,21 @@ export function PricingResult({
 
   return (
     <aside className="xl:sticky xl:top-6">
-      <section className="rounded-[32px] border border-black/8 bg-white p-5 shadow-[0_20px_60px_rgba(103,55,18,0.08)] sm:p-6">
-        <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#d84f00]">
+      <section className="rounded-[32px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.94)] p-5 shadow-[0_20px_60px_rgba(57,37,118,0.08)] sm:p-6">
+        <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--accent)]">
           Painel de decisão
         </p>
 
-        <div className="mt-4 rounded-[28px] border border-[#ff6a00]/25 bg-white p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]">
+        <div className="mt-4 rounded-[28px] border border-[#6c56ff]/20 bg-[var(--panel-soft)] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-[#d84f00]">
+              <p className="text-sm font-semibold text-[var(--accent)]">
                 {selectedChannelLabel}
               </p>
-              <h2 className="mt-2 text-4xl font-semibold tracking-[-0.07em] text-[#18120d]">
+              <h2 className="mt-2 text-4xl font-semibold tracking-[-0.07em] text-[var(--foreground)]">
                 {money(displayedSalePrice)}
               </h2>
-              <p className="mt-2 text-sm text-[#7c6858]">{salePriceLabel}</p>
+              <p className="mt-2 text-sm text-[var(--muted)]">{salePriceLabel}</p>
             </div>
 
             <span
@@ -490,7 +490,7 @@ export function PricingResult({
           </div>
 
           {form.isKit ? (
-            <div className="mt-4 rounded-2xl border border-black/8 bg-white p-4">
+            <div className="mt-4 rounded-2xl border border-[var(--panel-border)] bg-white p-4">
               <SimpleLine label="Itens por kit" value={`${kitQuantity}`} muted />
               <SimpleLine
                 label="Valor por item do kit"
@@ -501,7 +501,7 @@ export function PricingResult({
           ) : null}
 
           {form.promoEnabled && promotionalSalePrice ? (
-            <div className="mt-4 rounded-2xl border border-black/8 bg-white p-4">
+            <div className="mt-4 rounded-2xl border border-[var(--panel-border)] bg-white p-4">
               <SimpleLine
                 label="Preço original"
                 value={money(baseSalePrice)}
@@ -519,7 +519,7 @@ export function PricingResult({
             </div>
           ) : null}
 
-          <div className="mt-5 divide-y divide-black/8 rounded-[22px] border border-black/8 bg-white">
+          <div className="mt-5 divide-y divide-[var(--panel-border)] rounded-[22px] border border-[var(--panel-border)] bg-white">
             <KeyMetricRow
               label={resultLabel}
               value={money(unitProfit)}
@@ -1145,7 +1145,7 @@ function formatOperationalTime(totalHours: number) {
 
 function SectionTitle({ title }: { title: string }) {
   return (
-    <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#7c6858]">
+    <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
       {title}
     </p>
   );
@@ -1165,9 +1165,9 @@ function KeyMetricRow({
   return (
     <div className="flex items-center justify-between gap-4 px-4 py-4">
       <div className="min-w-0">
-        <p className="text-sm font-medium text-[#18120d]">{label}</p>
+        <p className="text-sm font-medium text-[var(--foreground)]">{label}</p>
         {helper ? (
-          <p className="mt-1 text-xs text-[#7c6858]">{helper}</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">{helper}</p>
         ) : null}
       </div>
 
@@ -1194,9 +1194,9 @@ function QuickReadRow({
   return (
     <div className="flex items-center justify-between gap-4 px-4 py-4">
       <div className="min-w-0">
-        <p className="text-sm text-[#18120d]">{label}</p>
+        <p className="text-sm text-[var(--foreground)]">{label}</p>
         {helper ? (
-          <p className="mt-1 text-xs text-[#7c6858]">{helper}</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">{helper}</p>
         ) : null}
       </div>
       <strong
@@ -1223,7 +1223,7 @@ function SummaryCard({
     <div
       className={`rounded-[16px] border bg-white p-4 ${financialToneBorderClassName[tone]} ${financialToneTextClassName[tone]}`}
     >
-      <p className="text-xs uppercase tracking-[0.2em] text-[#7c6858]">
+      <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
         {label}
       </p>
       <strong className="mt-3 block text-lg font-semibold tracking-[-0.04em]">
@@ -1231,7 +1231,7 @@ function SummaryCard({
       </strong>
 
       {helper ? (
-        <p className="mt-2 text-xs text-[#7c6858]">{helper}</p>
+        <p className="mt-2 text-xs text-[var(--muted)]">{helper}</p>
       ) : null}
     </div>
   );
@@ -1249,11 +1249,11 @@ function RecommendationBanner({
   className?: string;
 }) {
   const toneClassName = {
-    good: "border-black/8 bg-white text-[#18120d]",
+    good: "border-[var(--panel-border)] bg-white text-[var(--foreground)]",
     warning:
-      "border-[#ff6a00] bg-[#ff6a00] text-[#18120d]",
+      "border-[var(--accent)] bg-[var(--panel-soft)] text-[var(--foreground)]",
     danger:
-      "border-[#ff6a00] bg-[#ff6a00] text-[#18120d]",
+      "border-[#c1372b] bg-[#fff1f1] text-[#7f1d1d]",
   }[tone];
 
   return (
@@ -1279,25 +1279,25 @@ function AccordionSection({
 }) {
   return (
     <details
-      className={`group overflow-hidden rounded-[24px] border border-black/8 bg-white ${
-        compact ? "" : "shadow-[0_10px_28px_rgba(0,0,0,0.16)]"
+      className={`group overflow-hidden rounded-[24px] border border-[var(--panel-border)] bg-white ${
+        compact ? "" : "shadow-[0_10px_28px_rgba(57,37,118,0.08)]"
       }`}
       open={defaultOpen}
     >
       <summary className="flex cursor-pointer list-none items-start justify-between gap-4 px-5 py-4 marker:content-none">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-[#18120d]">{title}</p>
+          <p className="text-sm font-semibold text-[var(--foreground)]">{title}</p>
           {description ? (
-            <p className="mt-1 text-xs text-[#7c6858]">{description}</p>
+            <p className="mt-1 text-xs text-[var(--muted)]">{description}</p>
           ) : null}
         </div>
 
-        <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/8 bg-[#ff6a00] text-sm text-white transition-transform duration-200 group-open:rotate-180">
+        <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--accent)] bg-[var(--accent)] text-sm text-white transition-transform duration-200 group-open:rotate-180">
           ▾
         </span>
       </summary>
 
-      <div className="border-t border-black/8 px-5 py-5">{children}</div>
+      <div className="border-t border-[var(--panel-border)] px-5 py-5">{children}</div>
     </details>
   );
 }
@@ -1320,12 +1320,12 @@ function CostGroupCard({
   tone?: FinancialTone;
 }) {
   return (
-    <div className="rounded-[24px] border border-black/8 bg-white p-5">
+    <div className="rounded-[24px] border border-[var(--panel-border)] bg-white p-5">
       <div>
-        <p className="text-sm font-semibold text-[#18120d]">{title}</p>
-        <p className="mt-1 text-xs text-[#7c6858]">{subtitle}</p>
+        <p className="text-sm font-semibold text-[var(--foreground)]">{title}</p>
+        <p className="mt-1 text-xs text-[var(--muted)]">{subtitle}</p>
         {expression ? (
-          <p className="mt-3 rounded-2xl border border-black/8 bg-[#fcfaf8] px-4 py-3 text-xs leading-6 text-[#5f4d40]">
+          <p className="mt-3 rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-soft)] px-4 py-3 text-xs leading-6 text-[var(--muted)]">
             {expression}
           </p>
         ) : null}
@@ -1343,13 +1343,13 @@ function CostGroupCard({
             />
           ))
         ) : (
-          <p className="rounded-2xl border border-dashed border-black/10 px-4 py-4 text-sm text-[#7c6858]">
+          <p className="rounded-2xl border border-dashed border-[var(--panel-border)] px-4 py-4 text-sm text-[var(--muted)]">
             Nenhum custo relevante registrado aqui para o cenário atual.
           </p>
         )}
       </div>
 
-      <div className="mt-4 border-t border-black/8 pt-4">
+      <div className="mt-4 border-t border-[var(--panel-border)] pt-4">
         <SimpleLine label={totalLabel} value={totalValue} tone={tone} />
       </div>
     </div>
@@ -1375,10 +1375,10 @@ function CostLine({
   }[tone];
 
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-black/6 py-4 last:border-b-0">
+    <div className="flex items-start justify-between gap-4 border-b border-[var(--panel-border)] py-4 last:border-b-0">
       <div>
-        <p className="text-sm text-[#18120d]">{label}</p>
-        {meta ? <p className="mt-1 text-xs text-[#7c6858]">{meta}</p> : null}
+        <p className="text-sm text-[var(--foreground)]">{label}</p>
+        {meta ? <p className="mt-1 text-xs text-[var(--muted)]">{meta}</p> : null}
       </div>
 
       <span
@@ -1401,10 +1401,10 @@ function ScenarioCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[24px] border border-black/8 bg-white p-5">
+    <div className="rounded-[24px] border border-[var(--panel-border)] bg-white p-5">
       <div>
-        <p className="text-sm font-semibold text-[#18120d]">{title}</p>
-        <p className="mt-1 text-xs text-[#7c6858]">{description}</p>
+        <p className="text-sm font-semibold text-[var(--foreground)]">{title}</p>
+        <p className="mt-1 text-xs text-[var(--muted)]">{description}</p>
       </div>
       <div className="mt-5">{children}</div>
     </div>
@@ -1425,16 +1425,16 @@ function MetricLine({
   return (
     <div className="flex items-end justify-between gap-4">
       <div>
-        <p className="text-sm text-[#18120d]">{label}</p>
+        <p className="text-sm text-[var(--foreground)]">{label}</p>
 
         {muted ? (
-          <p className="mt-1 text-xs text-[#7c6858]">{muted}</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">{muted}</p>
         ) : null}
       </div>
 
       <strong
         className={`text-right text-xl font-semibold tracking-[-0.04em] ${
-          highlight ? "text-[#d84f00]" : "text-[#18120d]"
+          highlight ? "text-[var(--accent)]" : "text-[var(--foreground)]"
         }`}
       >
         {value}
@@ -1459,14 +1459,14 @@ function SimpleLine({
   const valueClassName = tone
     ? financialToneTextClassName[tone]
     : highlight
-      ? "text-[#d84f00]"
+      ? "text-[var(--accent)]"
       : muted
-        ? "text-[#7c6858]"
-        : "text-[#18120d]";
+        ? "text-[var(--muted)]"
+        : "text-[var(--foreground)]";
 
   return (
     <div className="flex items-center justify-between gap-4">
-      <span className="text-sm text-[#18120d]">{label}</span>
+      <span className="text-sm text-[var(--foreground)]">{label}</span>
 
       <strong className={`font-mono text-sm ${valueClassName}`}>
         {value}
@@ -1477,11 +1477,11 @@ function SimpleLine({
 
 function SimpleBlock({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[18px] border border-black/8 bg-white p-4">
-      <p className="text-xs uppercase tracking-[0.2em] text-[#7c6858]">
+    <div className="rounded-[18px] border border-[var(--panel-border)] bg-white p-4">
+      <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
         {label}
       </p>
-      <strong className="mt-2 block text-sm font-semibold text-[#18120d]">
+      <strong className="mt-2 block text-sm font-semibold text-[var(--foreground)]">
         {value}
       </strong>
     </div>
@@ -1782,14 +1782,14 @@ function getSaleConditionBadge({
   if (marginPercentage < healthyMarginTarget) {
     return {
       label: "Ajustar",
-      className: "border-[#ff6a00] bg-[#ff6a00] text-white",
+      className: "border-[var(--accent)] bg-[var(--accent)] text-white",
     };
   }
 
   return {
     label: "Boa",
     className:
-      "border-[#ff6a00] bg-[#ff6a00] text-white",
+      "border-[var(--accent)] bg-[var(--accent)] text-white",
   };
 }
 
@@ -1869,14 +1869,14 @@ function FormulaCard({
   tone?: FinancialTone;
 }) {
   return (
-    <div className="rounded-[24px] border border-black/8 bg-white p-5">
-      <p className="text-sm font-semibold text-[#18120d]">{title}</p>
-      <p className="mt-1 text-xs text-[#7c6858]">{subtitle}</p>
-      <p className="mt-3 rounded-2xl border border-black/8 bg-[#fcfaf8] px-4 py-3 text-xs leading-6 text-[#5f4d40]">
+    <div className="rounded-[24px] border border-[var(--panel-border)] bg-white p-5">
+      <p className="text-sm font-semibold text-[var(--foreground)]">{title}</p>
+      <p className="mt-1 text-xs text-[var(--muted)]">{subtitle}</p>
+      <p className="mt-3 rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-soft)] px-4 py-3 text-xs leading-6 text-[var(--muted)]">
         {expression}
       </p>
       <div className="mt-4 space-y-3">{children}</div>
-      <div className="mt-4 border-t border-black/8 pt-4">
+      <div className="mt-4 border-t border-[var(--panel-border)] pt-4">
         <SimpleLine label={totalLabel} value={totalValue} tone={tone} />
       </div>
     </div>

@@ -15,9 +15,12 @@ const THEME_STORAGE_KEY = "dabi-price-theme";
 type ThemeMode = "light" | "dark";
 
 const navigationItems = [
-  { href: "/", label: "Precificadora" },
-  { href: "/historico", label: "Histórico" },
-  { href: "/preferencias", label: "Preferências" },
+  { href: "/app/precificacao", label: "Precificadora" },
+  { href: "/app/historico", label: "Histórico" },
+  { href: "/app/preferencias", label: "Preferências" },
+  { href: "/app/ajuda", label: "Ajuda" },
+  { href: "/app/suporte", label: "Suporte" },
+  { href: "/app/conta", label: "Conta" },
 ];
 
 export function AppSidebar() {
@@ -83,8 +86,8 @@ export function AppSidebar() {
   }
 
   return (
-    <aside className="hidden transition-[width] duration-300 lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:w-[var(--app-sidebar-width)] lg:flex-col lg:border-r lg:border-[color:var(--panel-border)] lg:bg-[var(--sidebar-bg)]">
-      <div className="border-b border-[color:var(--panel-border)] px-4 py-5">
+    <aside className="hidden transition-[width] duration-300 lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:w-[var(--app-sidebar-width)] lg:flex-col lg:bg-transparent lg:px-4 lg:py-4">
+      <div className="rounded-[32px] border border-[var(--panel-border)] bg-[var(--sidebar-bg)] px-4 py-5 shadow-[0_18px_48px_rgba(57,37,118,0.08)] backdrop-blur-xl">
         <div className="flex items-center justify-between gap-3">
           <div
             className={`min-w-0 transition-all duration-300 ${
@@ -93,11 +96,11 @@ export function AppSidebar() {
           >
             {isExpanded ? (
               <>
-                Dabi<span className="text-[#ff6a00]"> Price</span>
+                Dabi<span className="text-[var(--accent)]"> Price</span>
               </>
             ) : (
               <>
-                D<span className="text-[#ff6a00]">P</span>
+                D<span className="text-[var(--accent)]">P</span>
               </>
             )}
           </div>
@@ -105,7 +108,7 @@ export function AppSidebar() {
           <button
             type="button"
             onClick={() => setIsExpanded((current) => !current)}
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl border border-[color:var(--panel-border)] bg-[var(--panel)] text-[var(--foreground)] transition hover:border-[#ff6a00] hover:bg-[#ff6a00] hover:text-white"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl border border-[var(--panel-border)] bg-[rgba(255,255,255,0.78)] text-[var(--foreground)] transition hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-white"
             aria-label={isExpanded ? "Retrair menu lateral" : "Expandir menu lateral"}
             title={isExpanded ? "Retrair menu" : "Expandir menu"}
           >
@@ -114,19 +117,21 @@ export function AppSidebar() {
         </div>
       </div>
 
-      <nav className="flex-1 px-3 py-5">
+      <nav className="flex-1 px-2 py-5">
         <ul className="space-y-2">
           {navigationItems.map((item, index) => {
-            const isActive = pathname === item.href;
+            const isActive =
+              pathname === item.href ||
+              (item.href === "/app/precificacao" && pathname === "/app");
 
             return (
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className={`flex w-full items-center rounded-2xl px-4 py-3 text-sm transition ${
+                  className={`flex w-full items-center rounded-[22px] border px-4 py-3 text-sm transition ${
                     isActive
-                      ? "bg-[#ff6a00] font-medium text-white"
-                      : "text-[var(--muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--foreground)]"
+                      ? "border-[var(--accent)] bg-[var(--accent)] font-medium text-white shadow-[0_14px_30px_rgba(108,86,255,0.28)]"
+                      : "border-[var(--panel-border)] bg-[rgba(255,255,255,0.78)] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--foreground)]"
                   } ${isExpanded ? "justify-start" : "justify-center"}`}
                   title={isExpanded ? undefined : item.label}
                 >
@@ -147,7 +152,7 @@ export function AppSidebar() {
       </nav>
 
       <div
-        className={`border-t border-[color:var(--panel-border)] px-3 py-4 text-sm text-[var(--muted)] ${
+        className={`rounded-[32px] border border-[var(--panel-border)] bg-[var(--sidebar-bg)] px-3 py-4 text-sm text-[var(--muted)] shadow-[0_18px_48px_rgba(57,37,118,0.08)] backdrop-blur-xl ${
           isExpanded ? "" : "text-center"
         }`}
       >
@@ -163,7 +168,7 @@ export function AppSidebar() {
               {operatorLabel}
             </p>
 
-            <div className="mt-4 rounded-[24px] border border-[color:var(--panel-border)] bg-[var(--panel)] px-4 py-4">
+            <div className="mt-4 rounded-[24px] border border-[var(--panel-border)] bg-[var(--panel-soft)] px-4 py-4">
               <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
                 Tema
               </p>
@@ -193,15 +198,15 @@ export function AppSidebar() {
           <p>•</p>
         )}
 
-        <button
-          type="button"
-          className={`mt-4 rounded-full border border-[color:var(--panel-border)] px-4 py-2 text-[var(--foreground)] transition hover:border-[#ff6a00] hover:bg-[#ff6a00] hover:text-white ${
+        <Link
+          href="/login"
+          className={`mt-4 block rounded-full border border-[var(--panel-border)] bg-[rgba(255,255,255,0.84)] px-4 py-2 text-[var(--foreground)] transition hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-white ${
             isExpanded ? "w-full text-left" : "w-10 px-0 text-center"
           }`}
-          title={isExpanded ? undefined : "Sair"}
+          title={isExpanded ? undefined : "Trocar acesso"}
         >
-          {isExpanded ? "Sair" : "↗"}
-        </button>
+          {isExpanded ? "Trocar acesso" : "↗"}
+        </Link>
       </div>
     </aside>
   );

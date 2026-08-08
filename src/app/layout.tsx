@@ -13,8 +13,9 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "DaBi Price 3D",
-  description: "Precificadora para produtos impressos em 3D.",
+  title: "Dabi Price",
+  description:
+    "Precificação profissional para produtos físicos, impressão 3D e operações artesanais.",
 };
 
 export default function RootLayout({

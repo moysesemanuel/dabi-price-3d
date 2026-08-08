@@ -175,14 +175,16 @@ export function MercadoLivreCategoryPicker({
 
   return (
     <>
-      <div className="rounded-[22px] border border-black/8 bg-[#fff3ea] p-4">
+      <div className="rounded-[22px] border border-[var(--panel-border)] bg-[var(--panel-soft)] p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#7c6858]">
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
               Categoria oficial do ML
             </p>
-            <p className="mt-3 text-sm text-[#18120d]">{selectedCategoryLabel}</p>
-            <p className="mt-2 text-xs text-[#7c6858]">
+            <p className="mt-3 text-sm text-[var(--foreground)]">
+              {selectedCategoryLabel}
+            </p>
+            <p className="mt-2 text-xs text-[var(--muted)]">
               Selecione a categoria mais específica possível no catálogo oficial do
               Mercado Livre.
             </p>
@@ -193,7 +195,7 @@ export function MercadoLivreCategoryPicker({
               <button
                 type="button"
                 onClick={onClear}
-                className="rounded-xl border border-black/8 bg-white px-4 py-2 text-sm text-[#18120d] transition hover:border-[#ff6a00]/30 hover:bg-[#ff6a00]"
+                className="rounded-xl border border-[var(--panel-border)] bg-white px-4 py-2 text-sm text-[var(--foreground)] transition hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-white"
               >
                 Limpar
               </button>
@@ -214,7 +216,7 @@ export function MercadoLivreCategoryPicker({
                   void loadCategories(selectedCategoryId);
                 }
               }}
-              className="rounded-xl border border-[#ff6a00] bg-[#ff6a00] px-4 py-2 text-sm font-medium text-white transition hover:brightness-110"
+              className="rounded-xl border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition hover:brightness-110"
             >
               Selecionar categoria
             </button>
@@ -224,22 +226,22 @@ export function MercadoLivreCategoryPicker({
 
       {isOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/38 px-4 py-6 backdrop-blur-[3px]"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0f0a23]/58 px-4 py-6 backdrop-blur-[6px]"
           onClick={() => setIsOpen(false)}
         >
           <div
-            className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[28px] border border-black/8 bg-white shadow-[0_24px_80px_rgba(97,53,18,0.16)]"
+            className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[28px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.96)] shadow-[0_24px_80px_rgba(57,37,118,0.16)]"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-4 border-b border-black/8 px-5 py-5 sm:px-6">
+            <div className="flex items-start justify-between gap-4 border-b border-[var(--panel-border)] px-5 py-5 sm:px-6">
               <div>
-                <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#7c6858]">
+                <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
                   Categorias oficiais do Mercado Livre
                 </p>
-                <h3 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[#18120d]">
+                <h3 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[var(--foreground)]">
                   Escolha a categoria do anúncio
                 </h3>
-                <p className="mt-2 text-sm text-[#7c6858]">
+                <p className="mt-2 text-sm text-[var(--muted)]">
                   Busque a categoria oficial do Mercado Livre e expanda as
                   subcategorias quando necessário.
                 </p>
@@ -248,7 +250,7 @@ export function MercadoLivreCategoryPicker({
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="rounded-full border border-black/8 bg-white px-4 py-2 text-sm text-[#18120d] transition hover:border-[#ff6a00]/30 hover:bg-[#fff3ea]"
+                className="rounded-full border border-[var(--panel-border)] bg-white px-4 py-2 text-sm text-[var(--foreground)] transition hover:border-[var(--accent)] hover:bg-[var(--panel-soft)]"
               >
                 Fechar
               </button>
@@ -260,14 +262,14 @@ export function MercadoLivreCategoryPicker({
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Buscar categoria oficial"
-                  className="w-full rounded-[20px] border border-black/8 bg-white px-4 py-3 text-base text-[#18120d] outline-none transition placeholder:text-[#7c6858] focus:border-[#ff6a00]/40"
+                  className="w-full rounded-[20px] border border-[var(--panel-border)] bg-white px-4 py-3 text-base text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-[#6c56ff]/40"
                 />
 
                 <button
                   type="button"
                   onClick={() => void loadCategories()}
                   disabled={isSearching}
-                  className="rounded-[20px] border border-[#ff6a00] bg-[#ff6a00] px-4 py-3 text-sm font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-[20px] border border-[var(--accent)] bg-[var(--accent)] px-4 py-3 text-sm font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSearching ? "Buscando..." : "Buscar"}
                 </button>
@@ -280,15 +282,15 @@ export function MercadoLivreCategoryPicker({
               ) : null}
 
               {isSearching ? (
-                <div className="rounded-[22px] border border-black/8 bg-[#fff3ea] px-5 py-5 text-sm text-[#7c6858]">
+                <div className="rounded-[22px] border border-[var(--panel-border)] bg-[var(--panel-soft)] px-5 py-5 text-sm text-[var(--muted)]">
                   Buscando categorias do Mercado Livre...
                 </div>
               ) : !hasSearched && rootCategories.length === 0 ? (
-                <div className="rounded-[22px] border border-black/8 bg-[#fff3ea] px-5 py-5 text-sm text-[#7c6858]">
+                <div className="rounded-[22px] border border-[var(--panel-border)] bg-[var(--panel-soft)] px-5 py-5 text-sm text-[var(--muted)]">
                   Digite o nome do produto ou da categoria para buscar categorias oficiais.
                 </div>
               ) : rootCategories.length === 0 ? (
-                <div className="rounded-[22px] border border-dashed border-black/10 bg-[#fff3ea] px-5 py-5 text-sm text-[#7c6858]">
+                <div className="rounded-[22px] border border-dashed border-[var(--panel-border)] bg-[var(--panel-soft)] px-5 py-5 text-sm text-[var(--muted)]">
                   Nenhuma categoria foi encontrada para essa busca.
                 </div>
               ) : (
@@ -356,13 +358,15 @@ function CategoryAccordion({
 
   return (
     <div
-      className="rounded-[22px] border border-black/8 bg-white"
+      className="rounded-[22px] border border-[var(--panel-border)] bg-white"
       style={{ marginLeft: `${level * 12}px` }}
     >
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-[#18120d]">{category.name}</p>
-          <p className="mt-1 text-xs text-[#7c6858]">
+          <p className="text-sm font-medium text-[var(--foreground)]">
+            {category.name}
+          </p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
             {category.pathFromRoot.map((node) => node.name).join(" › ")}
           </p>
         </div>
@@ -371,7 +375,7 @@ function CategoryAccordion({
           <button
             type="button"
             onClick={() => onSelect(category)}
-            className="rounded-xl border border-[#ff6a00] bg-[#ff6a00] px-3 py-2 text-xs font-medium text-white transition hover:brightness-110"
+            className="rounded-xl border border-[var(--accent)] bg-[var(--accent)] px-3 py-2 text-xs font-medium text-white transition hover:brightness-110"
           >
             Usar esta categoria
           </button>
@@ -380,7 +384,7 @@ function CategoryAccordion({
             <button
               type="button"
               onClick={() => onToggle(category)}
-              className="rounded-xl border border-black/8 bg-[#faf6f2] px-3 py-2 text-xs text-[#18120d] transition hover:border-[#ff6a00]/30 hover:bg-[#fff3ea]"
+              className="rounded-xl border border-[var(--panel-border)] bg-[var(--panel-soft)] px-3 py-2 text-xs text-[var(--foreground)] transition hover:border-[#6c56ff]/30 hover:bg-[var(--panel-subtle)]"
             >
               {isLoading
                 ? "Carregando..."
@@ -393,7 +397,7 @@ function CategoryAccordion({
       </div>
 
       {isExpanded ? (
-        <div className="border-t border-black/8 px-3 py-3">
+        <div className="border-t border-[var(--panel-border)] px-3 py-3">
           {children.length > 0 ? (
             <div className="space-y-3">
               {children.map((child) => (
@@ -411,7 +415,7 @@ function CategoryAccordion({
               ))}
             </div>
           ) : !isLoading ? (
-            <div className="rounded-[18px] border border-dashed border-black/10 bg-[#faf6f2] px-4 py-4 text-xs text-[#7c6858]">
+            <div className="rounded-[18px] border border-dashed border-[var(--panel-border)] bg-[var(--panel-soft)] px-4 py-4 text-xs text-[var(--muted)]">
               Nenhuma subcategoria adicional foi retornada para este nível.
             </div>
           ) : null}
