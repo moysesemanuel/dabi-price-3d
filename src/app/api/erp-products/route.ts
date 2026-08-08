@@ -1,27 +1,61 @@
+import { requireCurrentAuthSession } from "@/lib/auth/session";
 import { resolvePricingTenantContext } from "@/lib/erp-products/context";
 import { normalizeErpProductSaveRequest } from "@/lib/erp-products/normalize-save-request";
+import { mapErpUpstreamFailure } from "@/lib/server/operational-messages";
+import {
+  createRouteRequestContext,
+  jsonWithRequestId,
+  logRouteEvent,
+  serializeError,
+} from "@/lib/server/route-observability";
 import type {
   ErpProductSaveRequest,
   ErpProductSaveResponse,
 } from "@/lib/erp-products/types";
 
 export async function POST(request: Request) {
+  const requestContext = createRouteRequestContext(request, "/api/erp-products");
+  const session = await requireCurrentAuthSession();
+
   let body: ErpProductSaveRequest;
 
   try {
     body = (await request.json()) as ErpProductSaveRequest;
   } catch {
-    return Response.json({ error: "Payload inválido." }, { status: 400 });
+    logRouteEvent(requestContext, "warn", "erp.invalid_json_payload", {
+      workspaceId: session.workspace.id,
+      userId: session.user.id,
+    });
+
+    return jsonWithRequestId(
+      requestContext,
+      {
+        error: "Payload inválido.",
+        code: "ERP_INVALID_JSON_PAYLOAD",
+      },
+      { status: 400 },
+    );
   }
 
   const erpAppUrl = process.env.ERP_APP_URL?.trim();
   const integrationToken = process.env.PRICING_INTEGRATION_TOKEN?.trim();
 
   if (!erpAppUrl || !integrationToken) {
-    return Response.json(
+    logRouteEvent(requestContext, "error", "erp.integration_not_configured", {
+      workspaceId: session.workspace.id,
+      userId: session.user.id,
+      missingEnv: [
+        !erpAppUrl ? "ERP_APP_URL" : null,
+        !integrationToken ? "PRICING_INTEGRATION_TOKEN" : null,
+      ].filter(Boolean),
+    });
+
+    return jsonWithRequestId(
+      requestContext,
       {
         error:
-          "Configure ERP_APP_URL e PRICING_INTEGRATION_TOKEN para salvar produtos no ERP.",
+          "Integração ERP indisponível neste ambiente. Configure ERP_APP_URL e PRICING_INTEGRATION_TOKEN para salvar produtos no ERP.",
+        code: "ERP_NOT_CONFIGURED",
       },
       { status: 500 },
     );
@@ -35,12 +69,22 @@ export async function POST(request: Request) {
       resolvePricingTenantContext(),
     );
   } catch (error) {
-    return Response.json(
+    logRouteEvent(requestContext, "warn", "erp.payload_validation_failed", {
+      workspaceId: session.workspace.id,
+      userId: session.user.id,
+      sku: body.sku ?? null,
+      slug: body.slug ?? null,
+      error: serializeError(error),
+    });
+
+    return jsonWithRequestId(
+      requestContext,
       {
         error:
           error instanceof Error
             ? error.message
             : "Os dados enviados ao ERP são inválidos.",
+        code: "ERP_INVALID_PAYLOAD",
       },
       { status: 400 },
     );
@@ -63,9 +107,23 @@ export async function POST(request: Request) {
         cache: "no-store",
       },
     );
-  } catch {
-    return Response.json(
-      { error: "Nao foi possivel conectar a precificadora ao ERP." },
+  } catch (error) {
+    logRouteEvent(requestContext, "error", "erp.upstream_network_failed", {
+      workspaceId: session.workspace.id,
+      userId: session.user.id,
+      erpAppUrl,
+      sku: payload.sku ?? null,
+      slug: payload.slug ?? null,
+      error: serializeError(error),
+    });
+
+    return jsonWithRequestId(
+      requestContext,
+      {
+        error:
+          "Não foi possível conectar a precificadora ao ERP. Verifique ERP_APP_URL, o token de integração e a disponibilidade do ERP.",
+        code: "ERP_UPSTREAM_UNREACHABLE",
+      },
       { status: 502 },
     );
   }
@@ -76,25 +134,72 @@ export async function POST(request: Request) {
     | null;
 
   if (!response.ok) {
-    return Response.json(
+    const upstreamMessage =
+      responsePayload && "error" in responsePayload
+        ? responsePayload.error ?? null
+        : null;
+    const mappedFailure = mapErpUpstreamFailure({
+      status: response.status || 500,
+      upstreamMessage,
+    });
+
+    logRouteEvent(requestContext, mappedFailure.severity, "erp.upstream_rejected", {
+      workspaceId: session.workspace.id,
+      userId: session.user.id,
+      erpAppUrl,
+      sku: payload.sku ?? null,
+      slug: payload.slug ?? null,
+      upstreamStatus: response.status,
+      upstreamMessage,
+    });
+
+    return jsonWithRequestId(
+      requestContext,
       {
-        error:
-          responsePayload && "error" in responsePayload
-            ? responsePayload.error ?? "Falha ao enviar produto para o ERP."
-            : "Falha ao enviar produto para o ERP.",
+        error: mappedFailure.message,
+        code: mappedFailure.code,
       },
       { status: response.status || 500 },
     );
   }
 
   if (!responsePayload || !("product" in responsePayload)) {
-    return Response.json(
-      { error: "O ERP retornou uma resposta inválida." },
+    logRouteEvent(requestContext, "error", "erp.invalid_response_shape", {
+      workspaceId: session.workspace.id,
+      userId: session.user.id,
+      erpAppUrl,
+      sku: payload.sku ?? null,
+      slug: payload.slug ?? null,
+      upstreamStatus: response.status,
+      responsePayload,
+    });
+
+    return jsonWithRequestId(
+      requestContext,
+      {
+        error:
+          "O ERP respondeu sem a estrutura esperada para confirmar o produto salvo.",
+        code: "ERP_INVALID_RESPONSE",
+      },
       { status: 502 },
     );
   }
 
-  return Response.json({
+  logRouteEvent(requestContext, "info", "erp.product_saved", {
+    workspaceId: session.workspace.id,
+    userId: session.user.id,
+    sku: payload.sku ?? null,
+    slug: payload.slug ?? null,
+    erpProductId:
+      typeof responsePayload.product === "object" &&
+      responsePayload.product &&
+      "id" in responsePayload.product
+        ? responsePayload.product.id
+        : null,
+    requestedMercadoLivrePublish: payload.publishToMercadoLivre ?? false,
+  });
+
+  return jsonWithRequestId(requestContext, {
     product: responsePayload.product,
     mercadoLivre:
       "mercadoLivre" in responsePayload ? responsePayload.mercadoLivre : undefined,

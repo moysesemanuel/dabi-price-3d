@@ -1,5 +1,6 @@
 "use client";
 
+import { buildApiErrorMessage } from "@/lib/client/api-feedback";
 import { useCallback, useMemo, useState } from "react";
 import type {
   MercadoLivreOfficialCategoryNode,
@@ -21,6 +22,7 @@ type MercadoLivreCategoriesResponse = {
   category: MercadoLivreOfficialCategoryNode | null;
   categories: MercadoLivreOfficialCategoryNode[];
   error?: string;
+  requestId?: string | null;
 };
 
 export function MercadoLivreCategoryPicker({
@@ -102,9 +104,11 @@ export function MercadoLivreCategoryPicker({
 
       if (!response.ok || !payload || !("categories" in payload)) {
         throw new Error(
-          payload && "error" in payload
-            ? payload.error ?? "Falha ao carregar categorias do Mercado Livre."
-            : "Falha ao carregar categorias do Mercado Livre.",
+          buildApiErrorMessage({
+            response,
+            payload: payload && "error" in payload ? payload : null,
+            fallback: "Falha ao carregar categorias do Mercado Livre.",
+          }),
         );
       }
 

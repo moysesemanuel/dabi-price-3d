@@ -1,7 +1,11 @@
+import { Suspense } from "react";
 import { BackLink } from "@/components/app/back-link";
 import { PreferencesPanel } from "@/components/preferences/preferences-panel";
+import { getMercadoLivreConnectionStatus } from "@/lib/marketplaces/mercado-livre-auth";
 
-export default function PreferencesPage() {
+export default async function PreferencesPage() {
+  const mercadoLivreStatus = await getMercadoLivreConnectionStatus();
+
   return (
     <div className="app-page">
       <header className="app-header">
@@ -14,7 +18,9 @@ export default function PreferencesPage() {
         </p>
       </header>
 
-      <PreferencesPanel />
+      <Suspense fallback={null}>
+        <PreferencesPanel initialMercadoLivreStatus={mercadoLivreStatus} />
+      </Suspense>
     </div>
   );
 }

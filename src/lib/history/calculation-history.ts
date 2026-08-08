@@ -3,11 +3,7 @@ import type {
   ExchangeRateSnapshot,
 } from "@/lib/currency/display-currency";
 import type { PricingFormState } from "@/lib/pricing/initial-pricing-form";
-import {
-  readAppPreferences,
-  resolveCalculationHistoryLimit,
-} from "@/lib/settings/app-preferences";
-import { appendWorkspaceAuditEvent } from "@/lib/workspace/audit-log";
+import { readAppPreferences, resolveCalculationHistoryLimit } from "@/lib/settings/app-preferences";
 
 export type SavedCalculation = {
   id: string;
@@ -44,85 +40,59 @@ const HISTORY_EVENT = "dabi-price-3d:calculation-history-updated";
 const MAX_ITEMS = 100;
 const EMPTY_HISTORY: SavedCalculation[] = [];
 
-let cachedHistoryRawValue: string | null | undefined;
 let cachedHistorySnapshot: SavedCalculation[] = EMPTY_HISTORY;
 
 function writeCalculationHistory(items: SavedCalculation[]) {
-  const serializedItems = JSON.stringify(items);
-
-  cachedHistoryRawValue = serializedItems;
   cachedHistorySnapshot = items;
-  window.localStorage.setItem(STORAGE_KEY, serializedItems);
-  window.dispatchEvent(new Event(HISTORY_EVENT));
-}
-
-function parseCalculationHistory(rawValue: string | null) {
-  if (!rawValue) {
-    return EMPTY_HISTORY;
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(HISTORY_EVENT));
   }
-
-  const parsedValue = JSON.parse(rawValue) as SavedCalculation[];
-
-  return Array.isArray(parsedValue) ? parsedValue : EMPTY_HISTORY;
 }
 
 export function readCalculationHistory() {
+  if (typeof window !== "undefined" && cachedHistorySnapshot === EMPTY_HISTORY) {
+    return readLocalCalculationHistory();
+  }
+
+  return cachedHistorySnapshot;
+}
+
+export function hydrateCalculationHistory(items: SavedCalculation[]) {
+  const normalizedItems = items.map((item) => ({
+    ...item,
+    productName: item.productName.trim() || "Sem nome",
+  }));
+
+  writeCalculationHistory(normalizedItems);
+  return normalizedItems;
+}
+
+export async function loadCalculationHistory() {
   if (typeof window === "undefined") {
-    return EMPTY_HISTORY;
+    return cachedHistorySnapshot;
   }
 
-  try {
-    const rawValue = window.localStorage.getItem(STORAGE_KEY);
+  const response = await fetch("/api/workspace/calculations", {
+    cache: "no-store",
+  });
 
-    if (rawValue === cachedHistoryRawValue) {
-      return cachedHistorySnapshot;
-    }
-
-    const parsedValue = parseCalculationHistory(rawValue);
-    cachedHistoryRawValue = rawValue;
-    cachedHistorySnapshot = parsedValue;
-
-    return parsedValue;
-  } catch {
-    cachedHistoryRawValue = null;
-    cachedHistorySnapshot = EMPTY_HISTORY;
-    return EMPTY_HISTORY;
+  if (!response.ok) {
+    return readLocalCalculationHistory();
   }
+
+  const payload = (await response.json()) as SavedCalculation[];
+  return hydrateCalculationHistory(Array.isArray(payload) ? payload : EMPTY_HISTORY);
 }
 
-export function saveCalculationToHistory(item: SavedCalculation) {
-  const currentItems = readCalculationHistory();
-  const nextItems = [item, ...currentItems].slice(0, resolveHistoryLimit());
-
-  writeCalculationHistory(nextItems);
-  appendWorkspaceAuditEvent({
-    type: "calculation-saved",
-    title: "Cálculo salvo no histórico",
-    description: `${item.productName} foi registrado para auditoria comercial e reaproveitamento.`,
-    tone: "success",
-  });
-
-  return nextItems;
+export async function saveCalculationToHistory(item: SavedCalculation) {
+  return persistCalculationItem(item);
 }
 
-export function upsertCalculationInHistory(item: SavedCalculation) {
-  const currentItems = readCalculationHistory().filter(
-    (currentItem) => currentItem.id !== item.id,
-  );
-  const nextItems = [item, ...currentItems].slice(0, resolveHistoryLimit());
-
-  writeCalculationHistory(nextItems);
-  appendWorkspaceAuditEvent({
-    type: "calculation-updated",
-    title: "Cálculo atualizado",
-    description: `${item.productName} teve dados comerciais ou operacionais revisados.`,
-    tone: "neutral",
-  });
-
-  return nextItems;
+export async function upsertCalculationInHistory(item: SavedCalculation) {
+  return persistCalculationItem(item);
 }
 
-export function attachSiteProductToCalculation(
+export async function attachSiteProductToCalculation(
   calculationId: string,
   siteProduct: NonNullable<SavedCalculation["siteProduct"]>,
 ) {
@@ -137,18 +107,12 @@ export function attachSiteProductToCalculation(
     siteProduct,
   };
 
-  upsertCalculationInHistory(nextItem);
-  appendWorkspaceAuditEvent({
-    type: "site-product-linked",
-    title: "Produto vinculado ao catálogo",
-    description: `${nextItem.productName} recebeu vínculo com o produto ${siteProduct.slug}.`,
-    tone: "success",
-  });
+  await upsertCalculationInHistory(nextItem);
 
   return nextItem;
 }
 
-export function attachErpProductToCalculation(
+export async function attachErpProductToCalculation(
   calculationId: string,
   erpProduct: NonNullable<SavedCalculation["erpProduct"]>,
 ) {
@@ -163,45 +127,48 @@ export function attachErpProductToCalculation(
     erpProduct,
   };
 
-  upsertCalculationInHistory(nextItem);
-  appendWorkspaceAuditEvent({
-    type: "erp-synced",
-    title: "Produto sincronizado com ERP",
-    description: `${nextItem.productName} foi associado ao ERP com referência ${erpProduct.sku || erpProduct.id || "sem SKU"}.`,
-    tone: "success",
-  });
+  await upsertCalculationInHistory(nextItem);
 
   return nextItem;
 }
 
-export function clearCalculationHistory() {
+export async function clearCalculationHistory() {
   if (typeof window === "undefined") {
     return;
   }
 
-  cachedHistoryRawValue = null;
-  cachedHistorySnapshot = EMPTY_HISTORY;
-  window.localStorage.removeItem(STORAGE_KEY);
-  window.dispatchEvent(new Event(HISTORY_EVENT));
-  appendWorkspaceAuditEvent({
-    type: "history-cleared",
-    title: "Histórico limpo",
-    description: "Os cálculos locais foram removidos desta máquina.",
-    tone: "warning",
+  const response = await fetch("/api/workspace/calculations", {
+    method: "DELETE",
   });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(payload?.error ?? "Falha ao limpar o histórico.");
+  }
+
+  cachedHistorySnapshot = EMPTY_HISTORY;
+  window.dispatchEvent(new Event(HISTORY_EVENT));
 }
 
-export function deleteCalculationFromHistory(id: string) {
-  const deletedItem = getCalculationFromHistory(id);
-  const nextItems = readCalculationHistory().filter((item) => item.id !== id);
+export async function deleteCalculationFromHistory(id: string) {
+  if (typeof window === "undefined") {
+    return cachedHistorySnapshot;
+  }
 
+  const response = await fetch(
+    `/api/workspace/calculations/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+    },
+  );
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(payload?.error ?? "Falha ao excluir o cálculo.");
+  }
+
+  const nextItems = readCalculationHistory().filter((item) => item.id !== id);
   writeCalculationHistory(nextItems);
-  appendWorkspaceAuditEvent({
-    type: "calculation-deleted",
-    title: "Cálculo excluído",
-    description: `${deletedItem?.productName ?? "Um cálculo"} foi removido do histórico local.`,
-    tone: "warning",
-  });
 
   return nextItems;
 }
@@ -255,4 +222,73 @@ function resolveHistoryLimit() {
   }
 
   return resolveCalculationHistoryLimit(readAppPreferences());
+}
+
+async function persistCalculationItem(item: SavedCalculation) {
+  if (typeof window === "undefined") {
+    return readCalculationHistory();
+  }
+
+  const normalizedItem = {
+    ...item,
+    productName: item.productName.trim() || "Sem nome",
+  };
+  const response = await fetch("/api/workspace/calculations", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(normalizedItem),
+  });
+  const payload = (await response.json().catch(() => null)) as
+    | SavedCalculation
+    | { error?: string }
+    | null;
+
+  if (!response.ok || !payload || ("error" in payload && payload.error)) {
+    return persistLocalCalculationItem(normalizedItem);
+  }
+
+  const nextItem = payload as SavedCalculation;
+  const currentItems = readCalculationHistory().filter(
+    (currentItem) => currentItem.id !== nextItem.id,
+  );
+  const nextItems = [nextItem, ...currentItems].slice(0, resolveHistoryLimit());
+
+  writeCalculationHistory(nextItems);
+
+  return nextItems;
+}
+
+function readLocalCalculationHistory() {
+  try {
+    const rawValue = window.localStorage.getItem(STORAGE_KEY);
+
+    if (!rawValue) {
+      return cachedHistorySnapshot;
+    }
+
+    const parsedValue = JSON.parse(rawValue) as SavedCalculation[];
+
+    if (!Array.isArray(parsedValue)) {
+      return cachedHistorySnapshot;
+    }
+
+    return hydrateCalculationHistory(parsedValue);
+  } catch {
+    return cachedHistorySnapshot;
+  }
+}
+
+function persistLocalCalculationItem(item: SavedCalculation) {
+  const currentItems = readLocalCalculationHistory().filter(
+    (currentItem) => currentItem.id !== item.id,
+  );
+  const nextItems = [item, ...currentItems].slice(0, resolveHistoryLimit());
+
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextItems));
+  writeCalculationHistory(nextItems);
+
+  return nextItems;
 }

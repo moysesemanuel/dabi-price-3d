@@ -242,10 +242,48 @@ export function PricingResult({
   const perKitItemCost = money(directSaleCostPerKitItem);
   const perKitItemProfit = money(directSaleProfitPerKitItem);
   const perKitItemNetProfit = money(profitPerKitItem);
+  const scopedCostTotalLabel = form.isKit ? "Custo total do kit" : "Custo total";
+  const scopedCustomerLabel = form.isKit ? "Cliente paga no kit" : "Cliente paga";
+  const scopedLaborLabel = form.isKit
+    ? "Pró-labore dentro do kit"
+    : "Pró-labore dentro do custo";
+  const scopedResultLabel =
+    unitProfit >= 0
+      ? form.isKit
+        ? "Lucro líquido do kit"
+        : "Lucro líquido"
+      : form.isKit
+        ? "Prejuízo do kit"
+        : "Prejuízo";
+  const scopedTotalChannelCostLabel = form.isKit
+    ? "Custo total do kit neste canal"
+    : "Custo total neste canal";
+  const scopedProtectedSubtotalLabel = form.isKit
+    ? "Subtotal protegido do kit"
+    : "Subtotal protegido";
+  const scopedChannelOutflowLabel = form.isKit
+    ? "Subtotal de saídas do kit"
+    : "Subtotal de saídas";
+  const scopedPricingRuleLabel =
+    form.pricingMode === "margin"
+      ? form.isKit
+        ? "Preço sugerido do kit"
+        : "Preço sugerido"
+      : form.isKit
+        ? "Preço analisado do kit"
+        : "Preço analisado";
+  const perKitItemReference = (amount: number) =>
+    form.isKit && kitQuantity > 0 ? `${money(amount / kitQuantity)} por item` : undefined;
+  const joinMeta = (...parts: Array<string | undefined>) => {
+    const filteredParts = parts.filter(Boolean);
+    return filteredParts.length > 0 ? filteredParts.join(" · ") : undefined;
+  };
+  const scopedMeta = (amount: number, baseMeta?: string) =>
+    joinMeta(baseMeta, perKitItemReference(amount));
 
   const businessProfitTone: FinancialTone =
     unitProfit > 0 ? "success" : "danger";
-  const resultLabel = unitProfit >= 0 ? "Lucro líquido" : "Prejuízo";
+  const resultLabel = scopedResultLabel;
   const activeWorthIt = unitProfit > 0;
   const suggestedGap = displayedSalePrice - activeChannelSuggestedMinimumPrice;
   const saleConditionBadge = getSaleConditionBadge({
@@ -300,23 +338,29 @@ export function PricingResult({
     {
       label: "Filamento",
       amount: unitMaterialCost,
-      meta: `${materialGrams}g`,
+      meta: scopedMeta(
+        unitMaterialCost,
+        form.isKit ? `${materialGrams}g por kit` : `${materialGrams}g`,
+      ),
       value: money(unitMaterialCost),
       tone: "danger" as const,
     },
     {
       label: "Energia elétrica",
       amount: unitEnergyCost,
-      meta:
+      meta: scopedMeta(
+        unitEnergyCost,
         displayedSalePrice > 0
           ? formatPercent((unitEnergyCost / displayedSalePrice) * 100)
           : undefined,
+      ),
       value: money(unitEnergyCost),
       tone: "danger" as const,
     },
     {
       label: "Embalagem e acabamento",
       amount: unitPackagingCost,
+      meta: scopedMeta(unitPackagingCost),
       value: money(unitPackagingCost),
       tone: "danger" as const,
     },
@@ -336,16 +380,23 @@ export function PricingResult({
               label: "Comissão percentual Shopee",
               amount:
                 displayedSalePrice * (shopeeFeeConfig.basePercentage / 100),
-              meta: `${formatPercent(shopeeFeeConfig.basePercentage)} sobre o valor vendido`,
+              meta: scopedMeta(
+                displayedSalePrice *
+                  (shopeeFeeConfig.basePercentage / 100),
+                `${formatPercent(shopeeFeeConfig.basePercentage)} sobre o valor vendido`,
+              ),
               value: money(
                 displayedSalePrice * (shopeeFeeConfig.basePercentage / 100),
               ),
               tone: "danger" as const,
             },
             {
-              label: "Tarifa fixa por item",
+              label: "Tarifa fixa marketplace",
               amount: shopeeFeeConfig.baseFixedFee,
-              meta: `Faixa atual: ${shopeeFeeConfig.priceRangeLabel} · cobrada por item vendido`,
+              meta: scopedMeta(
+                shopeeFeeConfig.baseFixedFee,
+                `Faixa atual: ${shopeeFeeConfig.priceRangeLabel} · cobrada por venda`,
+              ),
               value: money(shopeeFeeConfig.baseFixedFee),
               tone: "danger" as const,
             },
@@ -357,7 +408,11 @@ export function PricingResult({
               amount:
                 displayedSalePrice *
                 (shopeeFeeConfig.featuredCampaignFee / 100),
-              meta: `${formatPercent(shopeeFeeConfig.featuredCampaignFee)} adicional sobre o valor vendido`,
+              meta: scopedMeta(
+                displayedSalePrice *
+                  (shopeeFeeConfig.featuredCampaignFee / 100),
+                `${formatPercent(shopeeFeeConfig.featuredCampaignFee)} adicional sobre o valor vendido`,
+              ),
               value: money(
                 displayedSalePrice *
                   (shopeeFeeConfig.featuredCampaignFee / 100),
@@ -370,7 +425,10 @@ export function PricingResult({
             items.push({
               label: "Taxa vendedor CPF",
               amount: shopeeFeeConfig.cpfSellerFee,
-              meta: "Adicional fixo por item vendido no CPF",
+              meta: scopedMeta(
+                shopeeFeeConfig.cpfSellerFee,
+                "Adicional fixo por venda no CPF",
+              ),
               value: money(shopeeFeeConfig.cpfSellerFee),
               tone: "danger" as const,
             });
@@ -382,16 +440,19 @@ export function PricingResult({
           {
             label: feeLabel,
             amount: unitMarketplaceFee,
-            meta:
+            meta: scopedMeta(
+              unitMarketplaceFee,
               displayedSalePrice > 0
                 ? formatPercent((unitMarketplaceFee / displayedSalePrice) * 100)
                 : undefined,
+            ),
               value: money(unitMarketplaceFee),
               tone: "danger" as const,
             },
             {
               label: "Tarifa fixa marketplace",
               amount: unitMarketplaceFixedFee,
+              meta: scopedMeta(unitMarketplaceFixedFee),
               value: money(unitMarketplaceFixedFee),
               tone: "danger" as const,
             },
@@ -399,20 +460,24 @@ export function PricingResult({
     {
       label: "Imposto",
       amount: unitTaxCost,
-      meta:
+      meta: scopedMeta(
+        unitTaxCost,
         displayedSalePrice > 0
           ? formatPercent((unitTaxCost / displayedSalePrice) * 100)
           : undefined,
+      ),
       value: money(unitTaxCost),
       tone: "danger" as const,
     },
     {
       label: "Frete",
       amount: unitShippingCost,
-      meta:
+      meta: scopedMeta(
+        unitShippingCost,
         displayedSalePrice > 0
           ? formatPercent((unitShippingCost / displayedSalePrice) * 100)
           : undefined,
+      ),
       value: money(unitShippingCost),
       tone: "danger" as const,
     },
@@ -422,13 +487,17 @@ export function PricingResult({
     {
       label: "Manutenção",
       amount: unitMaintenanceCost,
+      meta: scopedMeta(unitMaintenanceCost),
       value: money(unitMaintenanceCost),
       tone: "accent" as const,
     },
     {
       label: "Reserva de perdas",
       amount: unitLossCost,
-      meta: `${formatPercent(form.lossPercentage)} sobre a base sujeita a reimpressão`,
+      meta: scopedMeta(
+        unitLossCost,
+        `${formatPercent(form.lossPercentage)} sobre a base sujeita a reimpressão`,
+      ),
       value: money(unitLossCost),
       tone: "accent" as const,
     },
@@ -438,20 +507,24 @@ export function PricingResult({
     {
       label: "Pró-labore",
       amount: unitLaborCost,
-      meta:
+      meta: joinMeta(
         result.laborTimeTotalHours > 0
           ? formatOperationalTime(result.laborTimeTotalHours)
           : undefined,
+        perKitItemReference(unitLaborCost),
+      ),
       value: money(unitLaborCost),
       tone: "success" as const,
     },
     {
       label: "Resultado final",
       amount: unitProfit,
-      meta:
+      meta: joinMeta(
         result.laborTimeTotalHours > 0
           ? `${money(profitPerHour)} / hora operacional`
           : undefined,
+        perKitItemReference(unitProfit),
+      ),
       value: money(unitProfit),
       tone: businessProfitTone,
     },
@@ -533,9 +606,13 @@ export function PricingResult({
               tone="accent"
             />
             <KeyMetricRow
-              label="Custo total neste canal"
+              label={scopedTotalChannelCostLabel}
               value={money(unitTotalCost)}
-              helper="Produção + marketplace + demais custos."
+              helper={
+                form.isKit
+                  ? "Produção do kit + marketplace + demais custos."
+                  : "Produção + marketplace + demais custos."
+              }
               tone="danger"
             />
             <KeyMetricRow
@@ -558,7 +635,7 @@ export function PricingResult({
 
           <div className="mt-4 divide-y divide-black/8 rounded-[24px] border border-black/8 bg-white">
             <QuickReadRow
-              label="Cliente paga"
+              label={scopedCustomerLabel}
               value={money(displayedSalePrice)}
               helper={
                 form.isKit ? `${perKitItemSalePrice} por item do kit` : undefined
@@ -566,13 +643,17 @@ export function PricingResult({
               tone="success"
             />
             <QuickReadRow
-              label="Custo total"
+              label={scopedCostTotalLabel}
               value={money(unitTotalCost)}
-              helper="Tudo que precisa ser coberto neste canal: produção, frete, taxas, pró-labore e proteção operacional."
+              helper={
+                form.isKit
+                  ? "Tudo que 1 kit precisa cobrir neste canal: produção, frete, taxas, pró-labore e proteção operacional."
+                  : "Tudo que precisa ser coberto neste canal: produção, frete, taxas, pró-labore e proteção operacional."
+              }
               tone="danger"
             />
             <QuickReadRow
-              label="Pró-labore dentro do custo"
+              label={scopedLaborLabel}
               value={money(unitLaborCost)}
               helper={
                 result.laborTimeTotalHours > 0
@@ -585,9 +666,16 @@ export function PricingResult({
               label={resultLabel}
               value={money(unitProfit)}
               helper={
-                result.laborTimeTotalHours > 0
-                  ? `${money(profitPerHour)} / hora operacional`
-                  : "Resultado final depois de todos os custos."
+                form.isKit
+                  ? joinMeta(
+                      result.laborTimeTotalHours > 0
+                        ? `${money(profitPerHour)} / hora operacional`
+                        : "Resultado final depois de todos os custos do kit.",
+                      `${perKitItemNetProfit} por item`,
+                    )
+                  : result.laborTimeTotalHours > 0
+                    ? `${money(profitPerHour)} / hora operacional`
+                    : "Resultado final depois de todos os custos."
               }
               tone={businessProfitTone}
             />
@@ -595,15 +683,27 @@ export function PricingResult({
 
           <AccordionSection
             title="Detalhamento dos valores"
-            description="Abra para ver cada linha que compõe o preço."
+            description={
+              form.isKit
+                ? "Abra para ver cada linha do kit e a referência por item."
+                : "Abra para ver cada linha que compõe o preço."
+            }
             compact
           >
             <div className="grid gap-4">
               <CostGroupCard
-                title="Como o custo total foi formado"
-                subtitle="Essas linhas já estão dentro do custo total acima. Não são cobranças extras."
+                title={
+                  form.isKit
+                    ? "Como o custo total do kit foi formado"
+                    : "Como o custo total foi formado"
+                }
+                subtitle={
+                  form.isKit
+                    ? "Essas linhas já estão dentro do custo total do kit mostrado acima. Não são cobranças extras."
+                    : "Essas linhas já estão dentro do custo total acima. Não são cobranças extras."
+                }
                 items={totalCostItems}
-                totalLabel="Custo total"
+                totalLabel={scopedCostTotalLabel}
                 totalValue={money(unitTotalCost)}
                 tone="danger"
               />
@@ -664,39 +764,83 @@ export function PricingResult({
           >
             <div className="grid gap-4">
               <FormulaCard
-                title="1. Custo protegido de produção"
-                subtitle="Tudo que precisa ser coberto antes de falar em lucro."
-                totalLabel="Subtotal protegido"
+                title={
+                  form.isKit
+                    ? "1. Custo protegido do kit"
+                    : "1. Custo protegido de produção"
+                }
+                subtitle={
+                  form.isKit
+                    ? "Tudo que 1 kit precisa cobrir antes de falar em lucro."
+                    : "Tudo que precisa ser coberto antes de falar em lucro."
+                }
+                totalLabel={scopedProtectedSubtotalLabel}
                 totalValue={money(unitProductionCost)}
                 tone="danger"
-                expression={`Filamento + energia + manutenção + embalagem + frete + pró-labore + perdas = ${money(unitProductionCost)}`}
+                expression={`Filamento + energia + manutenção + embalagem + frete + pró-labore + perdas = ${money(unitProductionCost)}${form.isKit ? " no kit" : ""}`}
               >
-                <SimpleLine label="Filamento" value={money(unitMaterialCost)} />
-                <SimpleLine label="Energia" value={money(unitEnergyCost)} />
-                <SimpleLine label="Manutenção" value={money(unitMaintenanceCost)} />
-                <SimpleLine label="Embalagem" value={money(unitPackagingCost)} />
-                <SimpleLine label="Frete" value={money(unitShippingCost)} />
-                <SimpleLine label="Pró-labore" value={money(unitLaborCost)} />
                 <SimpleLine
-                  label="Reserva de perdas"
+                  label={form.isKit ? "Filamento do kit" : "Filamento"}
+                  value={money(unitMaterialCost)}
+                  helper={perKitItemReference(unitMaterialCost)}
+                />
+                <SimpleLine
+                  label={form.isKit ? "Energia do kit" : "Energia"}
+                  value={money(unitEnergyCost)}
+                  helper={perKitItemReference(unitEnergyCost)}
+                />
+                <SimpleLine
+                  label={form.isKit ? "Manutenção do kit" : "Manutenção"}
+                  value={money(unitMaintenanceCost)}
+                  helper={perKitItemReference(unitMaintenanceCost)}
+                />
+                <SimpleLine
+                  label={form.isKit ? "Embalagem do kit" : "Embalagem"}
+                  value={money(unitPackagingCost)}
+                  helper={perKitItemReference(unitPackagingCost)}
+                />
+                <SimpleLine
+                  label={form.isKit ? "Frete do kit" : "Frete"}
+                  value={money(unitShippingCost)}
+                  helper={perKitItemReference(unitShippingCost)}
+                />
+                <SimpleLine
+                  label={form.isKit ? "Pró-labore do kit" : "Pró-labore"}
+                  value={money(unitLaborCost)}
+                  helper={perKitItemReference(unitLaborCost)}
+                />
+                <SimpleLine
+                  label={
+                    form.isKit ? "Reserva de perdas do kit" : "Reserva de perdas"
+                  }
                   value={money(unitLossCost)}
+                  helper={perKitItemReference(unitLossCost)}
                 />
               </FormulaCard>
 
               <FormulaCard
                 title="2. Saídas do canal e do fisco"
                 subtitle="Quanto o canal e o imposto retiram da venda."
-                totalLabel="Subtotal de saídas"
+                totalLabel={scopedChannelOutflowLabel}
                 totalValue={money(channelOutflowTotal)}
                 tone="danger"
-                expression={`Taxas variáveis ${formatPercent(result.variableFeesPercentage)} + tarifa fixa ${money(unitMarketplaceFixedFee)} = ${money(channelOutflowTotal)}`}
+                expression={`Taxas variáveis ${formatPercent(result.variableFeesPercentage)} + tarifa fixa ${money(unitMarketplaceFixedFee)} = ${money(channelOutflowTotal)}${form.isKit ? " no kit" : ""}`}
               >
-                <SimpleLine label={feeLabel} value={money(unitMarketplaceFee)} />
+                <SimpleLine
+                  label={feeLabel}
+                  value={money(unitMarketplaceFee)}
+                  helper={perKitItemReference(unitMarketplaceFee)}
+                />
                 <SimpleLine
                   label="Tarifa fixa"
                   value={money(unitMarketplaceFixedFee)}
+                  helper={perKitItemReference(unitMarketplaceFixedFee)}
                 />
-                <SimpleLine label="Imposto" value={money(unitTaxCost)} />
+                <SimpleLine
+                  label="Imposto"
+                  value={money(unitTaxCost)}
+                  helper={perKitItemReference(unitTaxCost)}
+                />
               </FormulaCard>
 
               <FormulaCard
@@ -707,9 +851,7 @@ export function PricingResult({
                     : "No preço manual, a ferramenta mede o que sobra de verdade depois das saídas."
                 }
                 totalLabel={
-                  form.pricingMode === "margin"
-                    ? "Preço sugerido"
-                    : "Preço analisado"
+                  scopedPricingRuleLabel
                 }
                 totalValue={money(displayedSalePrice)}
                 tone="success"
@@ -730,6 +872,7 @@ export function PricingResult({
                 <SimpleLine
                   label="Lucro empresarial estimado"
                   value={money(unitProfit)}
+                  helper={perKitItemReference(unitProfit)}
                   tone={businessProfitTone}
                 />
               </FormulaCard>
@@ -1446,12 +1589,14 @@ function MetricLine({
 function SimpleLine({
   label,
   value,
+  helper,
   highlight = false,
   muted = false,
   tone,
 }: {
   label: string;
   value: string;
+  helper?: string;
   highlight?: boolean;
   muted?: boolean;
   tone?: FinancialTone;
@@ -1465,9 +1610,13 @@ function SimpleLine({
         : "text-[var(--foreground)]";
 
   return (
-    <div className="flex items-center justify-between gap-4">
-      <span className="text-sm text-[var(--foreground)]">{label}</span>
-
+    <div className="flex items-start justify-between gap-4">
+      <div className="min-w-0">
+        <span className="text-sm text-[var(--foreground)]">{label}</span>
+        {helper ? (
+          <p className="mt-1 text-xs text-[var(--muted)]">{helper}</p>
+        ) : null}
+      </div>
       <strong className={`font-mono text-sm ${valueClassName}`}>
         {value}
       </strong>

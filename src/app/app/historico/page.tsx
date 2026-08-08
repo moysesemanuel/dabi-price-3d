@@ -2,11 +2,13 @@
 
 import { useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { BackLink } from "@/components/app/back-link";
 import { formatCurrency, formatPercent } from "@/lib/pricing/formatters";
 import {
   clearCalculationHistory,
   deleteCalculationFromHistory,
+  loadCalculationHistory,
   queueCalculationForEditing,
   readCalculationHistory,
   subscribeCalculationHistory,
@@ -14,18 +16,43 @@ import {
 
 export default function HistoryPage() {
   const router = useRouter();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const items = useSyncExternalStore(
     subscribeCalculationHistory,
     readCalculationHistory,
     () => [],
   );
 
-  function handleClearHistory() {
-    clearCalculationHistory();
+  useEffect(() => {
+    void loadCalculationHistory().catch((error) => {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Falha ao carregar o histórico.",
+      );
+    });
+  }, []);
+
+  async function handleClearHistory() {
+    setErrorMessage(null);
+
+    try {
+      await clearCalculationHistory();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Falha ao limpar o histórico.",
+      );
+    }
   }
 
-  function handleDeleteItem(id: string) {
-    deleteCalculationFromHistory(id);
+  async function handleDeleteItem(id: string) {
+    setErrorMessage(null);
+
+    try {
+      await deleteCalculationFromHistory(id);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Falha ao excluir o cálculo.",
+      );
+    }
   }
 
   function handleEditItem(id: string) {
@@ -39,10 +66,10 @@ export default function HistoryPage() {
         <div>
           <BackLink href="/app/precificacao" label="Voltar para a precificadora" />
           <p className="app-eyebrow">Histórico</p>
-          <h1 className="app-title">Cálculos salvos localmente</h1>
+          <h1 className="app-title">Cálculos persistidos do workspace</h1>
 
           <p className="app-copy max-w-[520px]">
-            Cálculos salvos localmente nesta máquina.
+            Histórico compartilhado do workspace, disponível com sessão autenticada.
           </p>
         </div>
 
@@ -58,6 +85,12 @@ export default function HistoryPage() {
       </header>
 
       <section className="app-card p-5 sm:p-6">
+        {errorMessage ? (
+          <div className="mb-4 rounded-[20px] border border-[#d45f5f]/30 bg-[#fff5f5] px-4 py-3 text-sm text-[#a53b3b]">
+            {errorMessage}
+          </div>
+        ) : null}
+
         {items.length === 0 ? (
           <div className="app-card-soft p-8 text-center">
             <p className="text-lg font-semibold text-[var(--foreground)]">

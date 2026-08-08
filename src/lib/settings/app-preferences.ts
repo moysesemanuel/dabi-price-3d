@@ -61,8 +61,8 @@ export type BusinessPreset = {
   defaults: PricingPolicyDefaults;
 };
 
-const STORAGE_KEY = "dabi-price-3d:app-preferences";
 const PREFERENCES_EVENT = "dabi-price-3d:app-preferences-updated";
+const STORAGE_KEY = "dabi-price-3d:app-preferences";
 export { getWorkspacePlan, workspaceRoleMeta, workspacePlans };
 
 export const businessPresets: readonly BusinessPreset[] = [
@@ -142,7 +142,6 @@ export const defaultAppPreferences: AppPreferences = {
   ),
 };
 
-let cachedPreferencesRawValue: string | null | undefined;
 let cachedPreferencesSnapshot = defaultAppPreferences;
 
 export function getBusinessPreset(presetId: BusinessPresetId) {
@@ -177,77 +176,72 @@ export function applyPreferencesToForm(
 }
 
 export function readAppPreferences() {
-  if (typeof window === "undefined") {
-    return defaultAppPreferences;
+  if (typeof window !== "undefined" && cachedPreferencesSnapshot === defaultAppPreferences) {
+    return readLocalAppPreferences();
   }
 
-  try {
-    const rawValue = window.localStorage.getItem(STORAGE_KEY);
-
-    if (rawValue === cachedPreferencesRawValue) {
-      return cachedPreferencesSnapshot;
-    }
-
-    const parsedPreferences = normalizeAppPreferences(
-      rawValue ? (JSON.parse(rawValue) as Partial<AppPreferences>) : null,
-    );
-
-    cachedPreferencesRawValue = rawValue;
-    cachedPreferencesSnapshot = parsedPreferences;
-
-    return parsedPreferences;
-  } catch {
-    cachedPreferencesRawValue = null;
-    cachedPreferencesSnapshot = defaultAppPreferences;
-    return defaultAppPreferences;
-  }
+  return cachedPreferencesSnapshot;
 }
 
-export function writeAppPreferences(preferences: AppPreferences) {
-  if (typeof window === "undefined") {
-    return preferences;
-  }
-
-  const previousPreferences = readAppPreferences();
+export function hydrateAppPreferences(preferences: AppPreferences) {
   const normalizedPreferences = normalizeAppPreferences(preferences);
-  const serializedPreferences = JSON.stringify(normalizedPreferences);
-
-  cachedPreferencesRawValue = serializedPreferences;
   cachedPreferencesSnapshot = normalizedPreferences;
-  window.localStorage.setItem(STORAGE_KEY, serializedPreferences);
-  window.dispatchEvent(new Event(PREFERENCES_EVENT));
-
-  if (!previousPreferences.onboardingCompleted && normalizedPreferences.onboardingCompleted) {
-    queueWorkspaceAuditEvent({
-      type: "onboarding-completed",
-      title: "Onboarding inicial concluído",
-      description:
-        "O workspace recebeu identidade, preset operacional e política padrão de precificação.",
-      tone: "success",
-    });
-  } else if (
-    previousPreferences.subscription.planId !==
-      normalizedPreferences.subscription.planId ||
-    previousPreferences.subscription.status !==
-      normalizedPreferences.subscription.status
-  ) {
-    queueWorkspaceAuditEvent({
-      type: "plan-updated",
-      title: "Plano comercial atualizado",
-      description: `Workspace ajustado para ${getWorkspacePlan(normalizedPreferences.subscription.planId).label} (${normalizedPreferences.subscription.status}).`,
-      tone: "success",
-    });
-  } else {
-    queueWorkspaceAuditEvent({
-      type: "preferences-updated",
-      title: "Preferências operacionais atualizadas",
-      description:
-        "Políticas comerciais, identidade do workspace ou parâmetros padrão foram revisados.",
-      tone: "neutral",
-    });
-  }
 
   return normalizedPreferences;
+}
+
+export async function loadAppPreferences() {
+  if (typeof window === "undefined") {
+    return cachedPreferencesSnapshot;
+  }
+
+  const response = await fetch("/api/workspace/preferences", {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    return readLocalAppPreferences();
+  }
+
+  const payload = (await response.json()) as Partial<AppPreferences>;
+  const normalizedPreferences = hydrateAppPreferences(
+    normalizeAppPreferences(payload),
+  );
+  window.dispatchEvent(new Event(PREFERENCES_EVENT));
+
+  return normalizedPreferences;
+}
+
+export async function writeAppPreferences(preferences: AppPreferences) {
+  if (typeof window === "undefined") {
+    return normalizeAppPreferences(preferences);
+  }
+
+  const normalizedPreferences = normalizeAppPreferences(preferences);
+  const response = await fetch("/api/workspace/preferences", {
+    method: "PUT",
+    headers: {
+      Accept: "application/json",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(normalizedPreferences),
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | Partial<AppPreferences>
+    | { error?: string }
+    | null;
+
+  if (!response.ok || !payload || ("error" in payload && payload.error)) {
+    return persistLocalAppPreferences(normalizedPreferences);
+  }
+
+  const savedPreferences = hydrateAppPreferences(
+    normalizeAppPreferences(payload as Partial<AppPreferences>),
+  );
+  window.dispatchEvent(new Event(PREFERENCES_EVENT));
+
+  return savedPreferences;
 }
 
 export function subscribeAppPreferences(onStoreChange: () => void) {
@@ -311,11 +305,7 @@ function normalizeAppPreferences(
     ),
     operatorName: sanitizeText(basePreferences.operatorName),
     operatorEmail: sanitizeText(basePreferences.operatorEmail),
-    operatorRole:
-      basePreferences.operatorRole &&
-      basePreferences.operatorRole in workspaceRoleMeta
-        ? basePreferences.operatorRole
-        : defaultAppPreferences.operatorRole,
+    operatorRole: normalizeOperatorRole(basePreferences.operatorRole),
     businessPresetId: fallbackPreset.id,
     defaultDisplayCurrency:
       basePreferences.defaultDisplayCurrency === "USD" ||
@@ -329,6 +319,47 @@ function normalizeAppPreferences(
     pricingDefaults,
     profitDestinations,
   };
+}
+
+export { normalizeAppPreferences };
+
+function normalizeOperatorRole(value: unknown): WorkspaceRole {
+  if (value === "finance") {
+    return "operator";
+  }
+
+  return typeof value === "string" && value in workspaceRoleMeta
+    ? (value as WorkspaceRole)
+    : defaultAppPreferences.operatorRole;
+}
+
+function readLocalAppPreferences() {
+  try {
+    const rawValue = window.localStorage.getItem(STORAGE_KEY);
+
+    if (!rawValue) {
+      return cachedPreferencesSnapshot;
+    }
+
+    const parsedPreferences = normalizeAppPreferences(
+      JSON.parse(rawValue) as Partial<AppPreferences>,
+    );
+
+    cachedPreferencesSnapshot = parsedPreferences;
+
+    return parsedPreferences;
+  } catch {
+    return cachedPreferencesSnapshot;
+  }
+}
+
+function persistLocalAppPreferences(preferences: AppPreferences) {
+  const normalizedPreferences = hydrateAppPreferences(preferences);
+
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizedPreferences));
+  window.dispatchEvent(new Event(PREFERENCES_EVENT));
+
+  return normalizedPreferences;
 }
 
 function normalizeWorkspaceSubscription(
@@ -405,21 +436,4 @@ function sanitizeText(value: unknown, fallback = "") {
 
 function sanitizeNumber(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-function queueWorkspaceAuditEvent(
-  event: {
-    type: "preferences-updated" | "onboarding-completed" | "plan-updated";
-    title: string;
-    description: string;
-    tone: "neutral" | "success";
-  },
-) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  void import("../workspace/audit-log").then(({ appendWorkspaceAuditEvent }) => {
-    appendWorkspaceAuditEvent(event);
-  });
 }

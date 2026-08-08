@@ -1,7 +1,16 @@
 import Link from "next/link";
 import { BackLink } from "@/components/app/back-link";
+import { LoginForm } from "@/components/auth/login-form";
+import { getPersistenceModeMeta } from "@/lib/server/persistence-mode";
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const params = await searchParams;
+  const persistenceMode = getPersistenceModeMeta();
+
   return (
     <main className="public-shell px-4 py-10 sm:px-6">
       <div className="mx-auto flex max-w-[1180px] flex-col gap-8 lg:grid lg:grid-cols-[minmax(0,1fr)_430px] lg:items-center">
@@ -22,23 +31,20 @@ export default function LoginPage() {
             Entre para continuar a operação do seu workspace.
           </h1>
           <p className="public-copy max-w-[620px]">
-            Esta tela já prepara a plataforma para autenticação real. Enquanto a
-            camada de usuários ainda entra em produção, o acesso ao workspace
-            atual segue aberto pelo botão abaixo.
+            {persistenceMode.mode === "database"
+              ? "Entre com seu usuario para abrir o workspace persistido, com sessao, historico e preferencias salvas no banco."
+              : "Entre com seu usuario para continuar no modo local de desenvolvimento, sem persistencia compartilhada entre maquinas."}
           </p>
 
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
-              href="/app/precificacao"
+              href="/recuperar-acesso"
               className="app-button app-button-primary"
             >
-              Entrar no ambiente atual
-            </Link>
-            <Link
-              href="/recuperar-acesso"
-              className="app-button app-button-secondary"
-            >
               Recuperar acesso
+            </Link>
+            <Link href="/" className="app-button app-button-secondary">
+              Voltar para a home
             </Link>
           </div>
         </section>
@@ -53,47 +59,34 @@ export default function LoginPage() {
             </h2>
           </div>
 
-          <form className="mt-8 space-y-4">
-            <Field label="E-mail" type="email" placeholder="voce@empresa.com" />
-            <Field label="Senha" type="password" placeholder="Sua senha" />
+          <LoginForm nextPath={params.next} />
 
-            <button
-              type="button"
-              className="app-button app-button-primary w-full rounded-2xl px-5 py-3"
+          <div
+            className={`mt-5 flex flex-wrap items-center gap-3 text-sm ${
+              persistenceMode.mode === "database"
+                ? "text-[var(--muted)]"
+                : "text-[color:var(--warning)]"
+            }`}
+          >
+            <span
+              className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${
+                persistenceMode.mode === "database"
+                  ? "border-[var(--panel-border)] bg-[var(--panel-soft)] text-[var(--muted)]"
+                  : "border-[color:var(--warning)]/24 bg-[color:var(--warning)]/10 text-[color:var(--warning)]"
+              }`}
+              title={persistenceMode.description}
             >
-              Continuar
-            </button>
-          </form>
-
-          <div className="mt-5 rounded-[24px] border border-[var(--panel-border)] bg-[var(--panel-soft)] px-4 py-4 text-sm leading-7 text-[var(--muted)]">
-            Autenticação persistida, banco de usuários e recuperação completa de
-            senha entram na próxima fase da plataforma.
+              {persistenceMode.mode === "database" ? "Banco" : "Local"}
+            </span>
+            {persistenceMode.mode === "local" ? (
+              <p>
+                Sem variaveis de bootstrap, o primeiro acesso administrativo usa
+                `admin@dabitech3d.com` / `admin123`.
+              </p>
+            ) : null}
           </div>
         </section>
       </div>
     </main>
-  );
-}
-
-function Field({
-  label,
-  type,
-  placeholder,
-}: {
-  label: string;
-  type: string;
-  placeholder: string;
-}) {
-  return (
-    <label className="block">
-      <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
-        {label}
-      </span>
-      <input
-        type={type}
-        placeholder={placeholder}
-        className="clay-input mt-2 w-full rounded-2xl px-4 py-3 text-base text-[var(--foreground)] outline-none transition focus:border-[#6c56ff] focus:ring-2 focus:ring-[#6c56ff]/20"
-      />
-    </label>
   );
 }

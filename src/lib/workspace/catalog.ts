@@ -1,4 +1,4 @@
-export type WorkspaceRole = "owner" | "manager" | "operator" | "finance";
+export type WorkspaceRole = "owner" | "manager" | "operator";
 export type WorkspacePlanId = "starter" | "growth" | "scale";
 export type SubscriptionStatus = "internal" | "trial" | "active";
 
@@ -35,10 +35,6 @@ export const workspaceRoleMeta: Record<
   operator: {
     label: "Operador",
     description: "Usa a precificadora no dia a dia sem mexer em governança.",
-  },
-  finance: {
-    label: "Financeiro",
-    description: "Valida margens, impostos operacionais e indicadores.",
   },
 };
 

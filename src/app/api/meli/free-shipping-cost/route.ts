@@ -1,6 +1,13 @@
 import type { NextRequest } from "next/server";
 import { getMercadoLivreApiCredentials } from "@/lib/marketplaces/mercado-livre-auth";
 import type { MercadoLivreListingTypeId } from "@/lib/marketplaces/mercado-livre";
+import { mapMercadoLivreOperationalError } from "@/lib/server/operational-messages";
+import {
+  createRouteRequestContext,
+  jsonWithRequestId,
+  logRouteEvent,
+  serializeError,
+} from "@/lib/server/route-observability";
 
 type PredictedCategory = {
   id: string;
@@ -8,6 +15,10 @@ type PredictedCategory = {
 };
 
 export async function GET(request: NextRequest) {
+  const requestContext = createRouteRequestContext(
+    request,
+    "/api/meli/free-shipping-cost",
+  );
   const searchParams = request.nextUrl.searchParams;
   const height = searchParams.get("height");
   const width = searchParams.get("width");
@@ -31,9 +42,11 @@ export async function GET(request: NextRequest) {
     .map(([key]) => key);
 
   if (missingDimensions.length > 0) {
-    return Response.json(
+    return jsonWithRequestId(
+      requestContext,
       {
-        error: `Missing required params: ${missingDimensions.join(", ")}.`,
+        error: `Parâmetros obrigatórios ausentes: ${missingDimensions.join(", ")}.`,
+        code: "MELI_FREE_SHIPPING_MISSING_PARAMS",
       },
       { status: 400 },
     );
@@ -51,16 +64,18 @@ export async function GET(request: NextRequest) {
     .map(([key]) => key);
 
   if (invalidDimensions.length > 0) {
-    return Response.json(
+    return jsonWithRequestId(
+      requestContext,
       {
-        error: `Invalid numeric params: ${invalidDimensions.join(", ")}.`,
+        error: `Parâmetros numéricos inválidos: ${invalidDimensions.join(", ")}.`,
+        code: "MELI_FREE_SHIPPING_INVALID_PARAMS",
       },
       { status: 400 },
     );
   }
 
   if (!freeShipping) {
-    return Response.json({
+    return jsonWithRequestId(requestContext, {
       freeShippingCost: 0,
       source: "free_shipping_disabled",
       shippingContext: null,
@@ -74,19 +89,23 @@ export async function GET(request: NextRequest) {
   const resolvedCategoryId = categoryId || predictedCategory?.id || null;
 
   if (!resolvedCategoryId) {
-    return Response.json(
+    return jsonWithRequestId(
+      requestContext,
       {
         error:
-          "Missing required category context: send categoryId or a productName with at least 3 characters.",
+          "Contexto de categoria ausente. Envie categoryId ou um productName com pelo menos 3 caracteres.",
+        code: "MELI_FREE_SHIPPING_MISSING_CATEGORY",
       },
       { status: 400 },
     );
   }
 
   if (!price) {
-    return Response.json(
+    return jsonWithRequestId(
+      requestContext,
       {
-        error: "Missing required param: price.",
+        error: "Parâmetro obrigatório ausente: price.",
+        code: "MELI_FREE_SHIPPING_MISSING_PRICE",
       },
       { status: 400 },
     );
@@ -97,12 +116,25 @@ export async function GET(request: NextRequest) {
   try {
     credentials = await getMercadoLivreApiCredentials();
   } catch (authError) {
-    return Response.json(
+    const mappedError = mapMercadoLivreOperationalError(authError);
+
+    logRouteEvent(
+      requestContext,
+      mappedError.severity,
+      "meli.free_shipping.auth_failed",
       {
-        error:
-          authError instanceof Error
-            ? authError.message
-            : "Mercado Livre authentication is not configured.",
+        categoryId: resolvedCategoryId,
+        listingTypeId,
+        error: serializeError(authError),
+        mappedCode: mappedError.code,
+      },
+    );
+
+    return jsonWithRequestId(
+      requestContext,
+      {
+        error: mappedError.message,
+        code: mappedError.code,
       },
       { status: 401 },
     );
@@ -116,10 +148,23 @@ export async function GET(request: NextRequest) {
     });
 
     if (!shippingContext.mode || !shippingContext.logisticType) {
-      return Response.json(
+      logRouteEvent(
+        requestContext,
+        "warn",
+        "meli.free_shipping.shipping_context_unavailable",
+        {
+          categoryId: resolvedCategoryId,
+          listingTypeId,
+          shippingContext,
+        },
+      );
+
+      return jsonWithRequestId(
+        requestContext,
         {
           error:
-            "The Mercado Livre account/category does not expose a compatible logistics context for free shipping estimation.",
+            "A conta ou categoria do Mercado Livre não expôs uma logística compatível para estimar o frete grátis neste cenário.",
+          code: "MELI_FREE_SHIPPING_CONTEXT_UNAVAILABLE",
           predictedCategory,
           categoryId: resolvedCategoryId,
           shippingContext,
@@ -145,10 +190,23 @@ export async function GET(request: NextRequest) {
     const extracted = extractFreeShippingCost(payload);
 
     if (extracted === null) {
-      return Response.json(
+      logRouteEvent(
+        requestContext,
+        "warn",
+        "meli.free_shipping.cost_missing_in_payload",
+        {
+          categoryId: resolvedCategoryId,
+          listingTypeId,
+          shippingContext,
+        },
+      );
+
+      return jsonWithRequestId(
+        requestContext,
         {
           error:
-            "Mercado Livre did not return coverage.all_country.list_cost for this scenario.",
+            "O Mercado Livre não retornou um custo nacional de frete grátis para este cenário.",
+          code: "MELI_FREE_SHIPPING_COST_MISSING",
           predictedCategory,
           categoryId: resolvedCategoryId,
           shippingContext,
@@ -158,7 +216,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return Response.json({
+    return jsonWithRequestId(requestContext, {
       freeShippingCost: extracted.value,
       source: extracted.source,
       predictedCategory,
@@ -167,12 +225,25 @@ export async function GET(request: NextRequest) {
       payload,
     });
   } catch (apiError) {
-    return Response.json(
+    const mappedError = mapMercadoLivreOperationalError(apiError);
+
+    logRouteEvent(
+      requestContext,
+      mappedError.severity,
+      "meli.free_shipping.lookup_failed",
       {
-        error:
-          apiError instanceof Error
-            ? apiError.message
-            : "Mercado Livre free shipping lookup failed.",
+        categoryId: resolvedCategoryId,
+        listingTypeId,
+        error: serializeError(apiError),
+        mappedCode: mappedError.code,
+      },
+    );
+
+    return jsonWithRequestId(
+      requestContext,
+      {
+        error: mappedError.message,
+        code: mappedError.code,
       },
       { status: 502 },
     );

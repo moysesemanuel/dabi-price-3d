@@ -4,6 +4,11 @@ import {
   type MercadoLivreOfficialCategoryPathNode,
 } from "@/lib/marketplaces/mercado-livre";
 import { getMercadoLivreApiCredentials } from "@/lib/marketplaces/mercado-livre-auth";
+import {
+  createRouteRequestContext,
+  jsonWithRequestId,
+  logRouteEvent,
+} from "@/lib/server/route-observability";
 
 type MercadoLivreDomainDiscoveryItem = {
   category_id?: string;
@@ -33,23 +38,41 @@ const GENERIC_CATEGORIES_ERROR =
   "Falha ao carregar categorias do Mercado Livre.";
 
 export async function GET(request: Request) {
+  const requestContext = createRouteRequestContext(
+    request,
+    "/api/marketplaces/mercado-livre/categories",
+  );
   const { searchParams } = new URL(request.url);
   const categoryId = searchParams.get("categoryId");
   const query = searchParams.get("q");
 
   try {
     const payload = categoryId
-      ? await fetchChildCategories(categoryId)
-      : await searchCategories(query);
+      ? await fetchChildCategories(categoryId, requestContext)
+      : await searchCategories(query, requestContext);
 
-    return Response.json(payload);
+    return jsonWithRequestId(requestContext, payload);
   } catch (error) {
-    return Response.json(
+    logRouteEvent(requestContext, "error", "meli.categories.lookup_failed", {
+      categoryId,
+      query,
+      error:
+        error instanceof Error
+          ? {
+              name: error.name,
+              message: error.message,
+            }
+          : String(error),
+    });
+
+    return jsonWithRequestId(
+      requestContext,
       {
         error:
           error instanceof Error
             ? error.message
             : "Falha ao carregar categorias do Mercado Livre.",
+        code: "MELI_CATEGORIES_LOOKUP_FAILED",
       },
       { status: 502 },
     );
@@ -58,6 +81,7 @@ export async function GET(request: Request) {
 
 async function searchCategories(
   query: string | null,
+  requestContext: ReturnType<typeof createRouteRequestContext>,
 ): Promise<MercadoLivreCategoriesResponse> {
   const sanitizedQuery = query?.trim() ?? "";
 
@@ -71,7 +95,7 @@ async function searchCategories(
   const discoveryQueries = buildDiscoveryQueries(sanitizedQuery);
   const discoveryResults = await Promise.allSettled(
     discoveryQueries.map((discoveryQuery) =>
-      fetchDomainDiscovery(discoveryQuery),
+      fetchDomainDiscovery(discoveryQuery, requestContext),
     ),
   );
   const discoveredItems = discoveryResults.flatMap((result) =>
@@ -102,7 +126,9 @@ async function searchCategories(
   }
 
   const detailResults = await Promise.allSettled(
-    uniqueCategoryIds.map((categoryId) => fetchCategoryDetail(categoryId)),
+    uniqueCategoryIds.map((categoryId) =>
+      fetchCategoryDetail(categoryId, requestContext),
+    ),
   );
   const rankedCategories = detailResults
     .flatMap((result) =>
@@ -122,7 +148,10 @@ async function searchCategories(
   };
 }
 
-async function fetchDomainDiscovery(query: string) {
+async function fetchDomainDiscovery(
+  query: string,
+  requestContext: ReturnType<typeof createRouteRequestContext>,
+) {
   const searchParams = new URLSearchParams({
     limit: "8",
     q: query,
@@ -131,23 +160,29 @@ async function fetchDomainDiscovery(query: string) {
     `https://api.mercadolibre.com/sites/MLB/domain_discovery/search?${searchParams.toString()}`,
     {
       revalidateSeconds: 60 * 30,
+      requestContext,
     },
   );
 }
 
-async function fetchCategoryDetail(categoryId: string) {
+async function fetchCategoryDetail(
+  categoryId: string,
+  requestContext: ReturnType<typeof createRouteRequestContext>,
+) {
   return fetchMercadoLivreJson<MercadoLivreCategoryDetail>(
     `https://api.mercadolibre.com/categories/${categoryId}`,
     {
       revalidateSeconds: 60 * 60 * 24,
+      requestContext,
     },
   );
 }
 
 async function fetchChildCategories(
   categoryId: string,
+  requestContext: ReturnType<typeof createRouteRequestContext>,
 ): Promise<MercadoLivreCategoriesResponse> {
-  const payload = await fetchCategoryDetail(categoryId);
+  const payload = await fetchCategoryDetail(categoryId, requestContext);
   const category = toCategoryDetailNode(payload);
 
   if (!category) {
@@ -391,6 +426,7 @@ async function fetchMercadoLivreJson<T>(
   url: string,
   input: {
     revalidateSeconds: number;
+    requestContext?: ReturnType<typeof createRouteRequestContext>;
   },
 ): Promise<T> {
   const optionalAccessToken = await getOptionalMercadoLivreAccessToken();
@@ -427,10 +463,17 @@ async function fetchMercadoLivreJson<T>(
     }
   }
 
-  console.error("[mercado-livre/categories] request failed", {
-    url,
-    failures,
-  });
+  if (input.requestContext) {
+    logRouteEvent(
+      input.requestContext,
+      "error",
+      "meli.categories.upstream_request_failed",
+      {
+        url,
+        failures,
+      },
+    );
+  }
 
   throw new Error(GENERIC_CATEGORIES_ERROR);
 }

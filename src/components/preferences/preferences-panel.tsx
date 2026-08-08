@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import { useSearchParams } from "next/navigation";
 import { currencyMeta } from "@/lib/currency/display-currency";
 import { validateProfitDestinationPercentages } from "@/lib/pricing/profit-destination";
 import {
   buildPreferencesFromPreset,
   businessPresets,
+  loadAppPreferences,
   readAppPreferences,
   type AppPreferences,
   type BusinessPresetId,
@@ -13,14 +15,56 @@ import {
   writeAppPreferences,
 } from "@/lib/settings/app-preferences";
 
-export function PreferencesPanel() {
+type MercadoLivreStatusSnapshot = {
+  mode: "persistent" | "legacy-env" | "missing";
+  connected: boolean;
+  userId: string | null;
+  expiresAt: string | null;
+  updatedAt: string | null;
+};
+
+export function PreferencesPanel({
+  initialMercadoLivreStatus,
+}: {
+  initialMercadoLivreStatus: MercadoLivreStatusSnapshot | null;
+}) {
+  const searchParams = useSearchParams();
   const [preferences, setPreferences] = useState<AppPreferences>(() =>
     readAppPreferences(),
   );
   const [saveState, setSaveState] = useState<"idle" | "saved">("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const profitDestinationValidation = validateProfitDestinationPercentages(
     preferences.profitDestinations,
   );
+  const mercadoLivreCallbackState = searchParams?.get("meli");
+  const mercadoLivreCallbackReason = searchParams?.get("reason");
+  const mercadoLivreCallbackRequestId = searchParams?.get("requestId");
+  const mercadoLivreStatus =
+    initialMercadoLivreStatus ??
+    ({
+      mode: "missing",
+      connected: false,
+      userId: null,
+      expiresAt: null,
+      updatedAt: null,
+    } satisfies MercadoLivreStatusSnapshot);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void loadAppPreferences()
+      .then((nextPreferences) => {
+        if (isMounted) {
+          setPreferences(nextPreferences);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (saveState !== "saved") {
@@ -32,13 +76,22 @@ export function PreferencesPanel() {
     return () => window.clearTimeout(timeoutId);
   }, [saveState]);
 
-  function handleSave() {
+  async function handleSave() {
     if (!profitDestinationValidation.isValid) {
       return;
     }
 
-    writeAppPreferences(preferences);
-    setSaveState("saved");
+    setErrorMessage(null);
+
+    try {
+      const savedPreferences = await writeAppPreferences(preferences);
+      setPreferences(savedPreferences);
+      setSaveState("saved");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Falha ao salvar preferências.",
+      );
+    }
   }
 
   function applyPreset(presetId: BusinessPresetId) {
@@ -60,6 +113,117 @@ export function PreferencesPanel() {
 
   return (
     <div className="space-y-6">
+      {mercadoLivreCallbackState === "connected" ? (
+        <section className="rounded-[26px] border border-[#1f8b4c]/20 bg-[#eef8f2] p-5 text-sm text-[#1f8b4c] shadow-[0_18px_40px_rgba(0,0,0,0.04)]">
+          <strong>Mercado Livre conectado.</strong> A autorização da conta foi
+          concluída com sucesso.
+        </section>
+      ) : null}
+
+      {mercadoLivreCallbackState === "error" ? (
+        <section className="rounded-[26px] border border-[#d45f5f]/30 bg-[#fff5f5] p-5 text-sm text-[#a53b3b] shadow-[0_18px_40px_rgba(0,0,0,0.04)]">
+          <strong>Falha ao conectar o Mercado Livre.</strong>{" "}
+          {mercadoLivreCallbackReason ||
+            "Não foi possível concluir a autorização da conta."}
+          {mercadoLivreCallbackRequestId ? (
+            <p className="mt-2 font-mono text-xs uppercase tracking-[0.18em] text-[#a53b3b]">
+              Ref: {mercadoLivreCallbackRequestId}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      <section className="rounded-[26px] border border-[#e9ddd4] bg-white p-6 shadow-[0_18px_40px_rgba(0,0,0,0.08)]">
+        <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#7c6858]">
+          Integrações
+        </p>
+
+        <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[#18120d]">
+          Mercado Livre
+        </h2>
+
+        <p className="mt-3 max-w-3xl text-sm leading-7 text-[#7c6858]">
+          Controle a conexão usada para categoria oficial, taxas e estimativas
+          automáticas do Mercado Livre dentro da precificadora.
+        </p>
+
+        <div className="mt-6 rounded-[22px] border border-black/8 bg-[#fcfaf8] p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-base font-semibold text-[#18120d]">
+                  {getMercadoLivreStatusTitle(mercadoLivreStatus)}
+                </p>
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                    mercadoLivreStatus.connected
+                      ? "bg-[#eef8f2] text-[#1f8b4c]"
+                      : mercadoLivreStatus.mode === "persistent"
+                        ? "bg-[#fff3ea] text-[#d84f00]"
+                        : "bg-[#f2ece7] text-[#7c6858]"
+                  }`}
+                >
+                  {getMercadoLivreStatusBadge(mercadoLivreStatus)}
+                </span>
+              </div>
+
+              <p className="mt-2 text-sm leading-7 text-[#7c6858]">
+                {getMercadoLivreStatusDescription(mercadoLivreStatus)}
+              </p>
+            </div>
+
+            {mercadoLivreStatus.mode === "persistent" ? (
+              <a
+                href="/api/auth/meli/start"
+                className="rounded-full bg-[#ff6a00] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110"
+              >
+                {mercadoLivreStatus.connected
+                  ? "Reconectar conta"
+                  : "Conectar conta"}
+              </a>
+            ) : null}
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <IntegrationStat
+              label="Modo"
+              value={getMercadoLivreModeLabel(mercadoLivreStatus.mode)}
+            />
+            <IntegrationStat
+              label="Conta conectada"
+              value={mercadoLivreStatus.userId ?? "Nenhuma"}
+            />
+            <IntegrationStat
+              label="Expira em"
+              value={formatOptionalDateTime(mercadoLivreStatus.expiresAt)}
+            />
+          </div>
+
+          {mercadoLivreStatus.updatedAt ? (
+            <p className="mt-4 text-xs leading-6 text-[#7c6858]">
+              Última atualização registrada em{" "}
+              {formatOptionalDateTime(mercadoLivreStatus.updatedAt)}.
+            </p>
+          ) : null}
+
+          {mercadoLivreStatus.mode === "legacy-env" ? (
+            <p className="mt-4 text-xs leading-6 text-[#7c6858]">
+              Esta conexão vem de variáveis de ambiente do servidor e não fica
+              vinculada ao workspace atual.
+            </p>
+          ) : null}
+
+          {mercadoLivreStatus.mode === "missing" ? (
+            <p className="mt-4 text-xs leading-6 text-[#7c6858]">
+              Para habilitar OAuth por workspace, configure `DATABASE_URL`,
+              `MELI_CLIENT_ID`, `MELI_CLIENT_SECRET` e `MELI_REDIRECT_URI`. Como
+              alternativa, o modo legado aceita `MELI_ACCESS_TOKEN` e
+              `MELI_USER_ID`.
+            </p>
+          ) : null}
+        </div>
+      </section>
+
       <section className="rounded-[26px] border border-[#e9ddd4] bg-white p-6 shadow-[0_18px_40px_rgba(0,0,0,0.08)]">
         <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#7c6858]">
           Workspace
@@ -124,6 +288,12 @@ export function PreferencesPanel() {
           />
         </div>
       </section>
+
+      {errorMessage ? (
+        <section className="rounded-[26px] border border-[#d45f5f]/30 bg-[#fff5f5] p-5 text-sm text-[#a53b3b] shadow-[0_18px_40px_rgba(0,0,0,0.04)]">
+          {errorMessage}
+        </section>
+      ) : null}
 
       <section className="rounded-[26px] border border-[#e9ddd4] bg-white p-6 shadow-[0_18px_40px_rgba(0,0,0,0.08)]">
         <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#7c6858]">
@@ -392,6 +562,91 @@ export function PreferencesPanel() {
           </p>
         </div>
       </section>
+    </div>
+  );
+}
+
+function getMercadoLivreStatusTitle(status: MercadoLivreStatusSnapshot) {
+  if (status.connected) {
+    return "Conta pronta para consulta oficial";
+  }
+
+  if (status.mode === "persistent") {
+    return "OAuth do workspace disponível";
+  }
+
+  return "Integração não disponível";
+}
+
+function getMercadoLivreStatusBadge(status: MercadoLivreStatusSnapshot) {
+  if (status.connected) {
+    return "Conectado";
+  }
+
+  if (status.mode === "persistent") {
+    return "Pronto para conectar";
+  }
+
+  return "Não configurado";
+}
+
+function getMercadoLivreStatusDescription(status: MercadoLivreStatusSnapshot) {
+  if (status.connected && status.mode === "persistent") {
+    return "A conta conectada pertence ao workspace atual e será usada nas consultas automáticas de taxas, categoria e frete.";
+  }
+
+  if (status.connected && status.mode === "legacy-env") {
+    return "A plataforma está usando credenciais legadas por ambiente. As consultas funcionam, mas a conexão não é separada por workspace.";
+  }
+
+  if (status.mode === "persistent") {
+    return "Este ambiente já suporta OAuth persistente por workspace. Falta apenas autorizar a conta do Mercado Livre.";
+  }
+
+  return "Este ambiente ainda não expõe uma conexão utilizável do Mercado Livre para a precificadora.";
+}
+
+function getMercadoLivreModeLabel(
+  mode: MercadoLivreStatusSnapshot["mode"],
+) {
+  if (mode === "persistent") {
+    return "OAuth por workspace";
+  }
+
+  if (mode === "legacy-env") {
+    return "Token legado";
+  }
+
+  return "Indisponível";
+}
+
+function formatOptionalDateTime(value: string | null) {
+  if (!value) {
+    return "Nao informado";
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date(value));
+}
+
+function IntegrationStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-[18px] border border-black/8 bg-white p-4">
+      <p className="text-xs uppercase tracking-[0.2em] text-[#7c6858]">
+        {label}
+      </p>
+      <strong className="mt-2 block text-sm font-semibold text-[#18120d]">
+        {value}
+      </strong>
     </div>
   );
 }

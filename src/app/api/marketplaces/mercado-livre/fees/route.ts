@@ -5,6 +5,13 @@ import {
   type MercadoLivreListingTypeId,
   type MercadoLivreRootCategoryKey,
 } from "@/lib/marketplaces/mercado-livre";
+import { mapMercadoLivreOperationalError } from "@/lib/server/operational-messages";
+import {
+  createRouteRequestContext,
+  jsonWithRequestId,
+  logRouteEvent,
+  serializeError,
+} from "@/lib/server/route-observability";
 
 type PredictedCategory = {
   id: string;
@@ -12,6 +19,10 @@ type PredictedCategory = {
 };
 
 export async function GET(request: NextRequest) {
+  const requestContext = createRouteRequestContext(
+    request,
+    "/api/marketplaces/mercado-livre/fees",
+  );
   const searchParams = request.nextUrl.searchParams;
   const rootCategoryKey = searchParams.get(
     "rootCategoryKey",
@@ -29,10 +40,12 @@ export async function GET(request: NextRequest) {
   const freeShipping = searchParams.get("freeShipping") !== "false";
 
   if (!rootCategoryKey || !listingTypeId) {
-    return Response.json(
+    return jsonWithRequestId(
+      requestContext,
       {
         error:
-          "Missing required params: rootCategoryKey and listingTypeId are required.",
+          "Parâmetros obrigatórios ausentes: rootCategoryKey e listingTypeId.",
+        code: "MELI_FEES_MISSING_PARAMS",
       },
       { status: 400 },
     );
@@ -52,7 +65,7 @@ export async function GET(request: NextRequest) {
 
   const resolvedCategoryId = officialCategoryId || predictedCategory?.id || null;
   if (!resolvedCategoryId || !price) {
-    return Response.json({
+    return jsonWithRequestId(requestContext, {
       mode: "local-preview",
       preview: localPreview,
       officialLookupReady: false,
@@ -76,7 +89,20 @@ export async function GET(request: NextRequest) {
       freeShipping &&
       (!shippingContext.mode || !shippingContext.logisticType)
     ) {
-      return Response.json({
+      logRouteEvent(
+        requestContext,
+        "warn",
+        "meli.fees.fallback_missing_shipping_context",
+        {
+          categoryId: resolvedCategoryId,
+          listingTypeId,
+          rootCategoryKey,
+          freeShipping,
+          shippingContext,
+        },
+      );
+
+      return jsonWithRequestId(requestContext, {
         mode: "local-preview",
         preview: localPreview,
         officialLookupReady: true,
@@ -88,7 +114,8 @@ export async function GET(request: NextRequest) {
         shippingEstimate: null,
         shippingContext,
         officialLookupError:
-          "O Mercado Livre não expôs uma logística compatível para calcular o frete automático desta conta/categoria.",
+          "O Mercado Livre não expôs uma logística compatível para calcular o frete automático desta conta/categoria. A prévia local foi mantida.",
+        officialLookupCode: "MELI_SHIPPING_CONTEXT_UNAVAILABLE",
       });
     }
 
@@ -120,7 +147,22 @@ export async function GET(request: NextRequest) {
 
     const shippingEstimate = extractShippingEstimate(shippingPayload);
 
-    return Response.json({
+    if (freeShipping && shippingEstimate === null) {
+      logRouteEvent(
+        requestContext,
+        "warn",
+        "meli.fees.fallback_missing_shipping_estimate",
+        {
+          categoryId: resolvedCategoryId,
+          listingTypeId,
+          rootCategoryKey,
+          freeShipping,
+          shippingContext,
+        },
+      );
+    }
+
+    return jsonWithRequestId(requestContext, {
       mode: shippingEstimate === null ? "local-preview" : "official-api",
       preview: localPreview,
       officialLookupReady: true,
@@ -134,24 +176,41 @@ export async function GET(request: NextRequest) {
       shippingPayload,
       officialLookupError:
         freeShipping && shippingEstimate === null
-          ? "O Mercado Livre não retornou uma estimativa de frete para este cenário."
+          ? "O Mercado Livre não retornou uma estimativa de frete para este cenário. A prévia local foi mantida."
+          : null,
+      officialLookupCode:
+        freeShipping && shippingEstimate === null
+          ? "MELI_SHIPPING_ESTIMATE_MISSING"
           : null,
     });
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown Mercado Livre error.";
-    const officialLookupReady = !errorMessage.includes("não conectado");
+    const mappedError = mapMercadoLivreOperationalError(error);
 
-    return Response.json({
+    logRouteEvent(
+      requestContext,
+      mappedError.severity,
+      "meli.fees.official_lookup_failed",
+      {
+        categoryId: resolvedCategoryId,
+        listingTypeId,
+        rootCategoryKey,
+        freeShipping,
+        error: serializeError(error),
+        mappedCode: mappedError.code,
+      },
+    );
+
+    return jsonWithRequestId(requestContext, {
       mode: "local-preview",
       preview: localPreview,
-      officialLookupReady,
+      officialLookupReady: mappedError.officialLookupReady ?? true,
       predictedCategory,
       feePercentage:
         localPreview.appliedFeePercentage ?? localPreview.officialRange.min,
       fixedFee: 0,
       shippingEstimate: null,
-      officialLookupError: errorMessage,
+      officialLookupError: mappedError.message,
+      officialLookupCode: mappedError.code,
     });
   }
 }

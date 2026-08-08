@@ -1,11 +1,14 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { requireCurrentAuthSession } from "@/lib/auth/session";
 import { getMercadoLivreAuthorizationUrl } from "@/lib/marketplaces/mercado-livre-auth";
 
 const OAUTH_STATE_COOKIE = "dabi-price-3d:meli-oauth-state";
 const OAUTH_CODE_VERIFIER_COOKIE = "dabi-price-3d:meli-oauth-code-verifier";
 
 export async function GET() {
+  await requireCurrentAuthSession();
+
   const { state, codeVerifier, authorizationUrl } =
     getMercadoLivreAuthorizationUrl();
   const cookieStore = await cookies();

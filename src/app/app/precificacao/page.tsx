@@ -6,6 +6,11 @@ import { PricingForm } from "@/components/pricing/pricing-form";
 import { PricingResult } from "@/components/pricing/pricing-result";
 import { SiteProductPublisher } from "@/components/pricing/site-product-publisher";
 import {
+  appendRequestIdToMessage,
+  buildApiErrorMessage,
+  extractApiRequestId,
+} from "@/lib/client/api-feedback";
+import {
   convertFromBRL,
   defaultExchangeRateSnapshot,
   type DisplayCurrency,
@@ -15,6 +20,7 @@ import {
   attachErpProductToCalculation,
   consumeQueuedCalculationEditId,
   getCalculationFromHistory,
+  loadCalculationHistory,
   saveCalculationToHistory,
   upsertCalculationInHistory,
 } from "@/lib/history/calculation-history";
@@ -46,6 +52,7 @@ import {
 import {
   applyPreferencesToForm,
   getBusinessPreset,
+  loadAppPreferences,
   readAppPreferences,
   subscribeAppPreferences,
   writeAppPreferences,
@@ -61,6 +68,7 @@ type MercadoLivreAutomationState = {
   predictedCategoryId: string | null;
   officialLookupReady: boolean;
   officialLookupError: string | null;
+  officialLookupRequestId: string | null;
 };
 
 type MercadoLivreManualOverrides = {
@@ -148,6 +156,7 @@ export default function Home() {
       predictedCategoryId: null,
       officialLookupReady: false,
       officialLookupError: null,
+      officialLookupRequestId: null,
     });
   const [mercadoLivreManualOverrides, setMercadoLivreManualOverrides] =
     useState<MercadoLivreManualOverrides>({
@@ -290,13 +299,37 @@ export default function Home() {
   ]);
 
   useEffect(() => {
-    return subscribeAppPreferences(() => {
+    let isMounted = true;
+
+    void loadAppPreferences()
+      .then((preferences) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setAppPreferences(preferences);
+        setDisplayCurrency(preferences.defaultDisplayCurrency);
+        setIsBusinessSetupOpen(!preferences.onboardingCompleted);
+        setForm((current) =>
+          editingCalculationId || current.productName.trim().length > 0
+            ? current
+            : applyPreferencesToForm(current, preferences),
+        );
+      })
+      .catch(() => undefined);
+
+    const unsubscribe = subscribeAppPreferences(() => {
       const preferences = readAppPreferences();
 
       setAppPreferences(preferences);
       setIsBusinessSetupOpen(!preferences.onboardingCompleted);
     });
-  }, []);
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, [editingCalculationId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -331,39 +364,49 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const queuedId = consumeQueuedCalculationEditId();
+    let isMounted = true;
 
-    if (!queuedId) {
-      return;
-    }
+    void (async () => {
+      const queuedId = consumeQueuedCalculationEditId();
 
-    const queuedCalculation = getCalculationFromHistory(queuedId);
+      if (!queuedId) {
+        return;
+      }
 
-    if (!queuedCalculation) {
-      return;
-    }
+      await loadCalculationHistory().catch(() => undefined);
 
-    queueMicrotask(() => {
-      const hydratedSnapshot = hydratePricingFormState(
-        queuedCalculation.formSnapshot,
-      );
+      const queuedCalculation = getCalculationFromHistory(queuedId);
 
-      setForm({
-        ...hydratedSnapshot,
-        filamentRequirements: normalizeFilamentRequirementInputs(
-          hydratedSnapshot.filamentRequirements,
-          hydratedSnapshot.weightGrams,
-        ),
+      if (!queuedCalculation || !isMounted) {
+        return;
+      }
+
+      queueMicrotask(() => {
+        const hydratedSnapshot = hydratePricingFormState(
+          queuedCalculation.formSnapshot,
+        );
+
+        setForm({
+          ...hydratedSnapshot,
+          filamentRequirements: normalizeFilamentRequirementInputs(
+            hydratedSnapshot.filamentRequirements,
+            hydratedSnapshot.weightGrams,
+          ),
+        });
+        setDisplayCurrency(queuedCalculation.displayCurrency);
+        setExchangeRateSnapshot(queuedCalculation.exchangeRateSnapshot);
+        setEditingCalculationId(queuedCalculation.id);
+        setMercadoLivreManualOverrides({
+          feePercentage: true,
+          shippingCost: true,
+        });
+        setSaveState("idle");
       });
-      setDisplayCurrency(queuedCalculation.displayCurrency);
-      setExchangeRateSnapshot(queuedCalculation.exchangeRateSnapshot);
-      setEditingCalculationId(queuedCalculation.id);
-      setMercadoLivreManualOverrides({
-        feePercentage: true,
-        shippingCost: true,
-      });
-      setSaveState("idle");
-    });
+    })();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -396,6 +439,7 @@ export default function Home() {
         ...current,
         isLoading: true,
         officialLookupError: null,
+        officialLookupRequestId: null,
       }));
 
       try {
@@ -433,6 +477,7 @@ export default function Home() {
           shippingEstimate?: number | null;
           officialLookupReady?: boolean;
           officialLookupError?: string | null;
+          requestId?: string | null;
           predictedCategory?: {
             id?: string;
             name?: string;
@@ -443,12 +488,14 @@ export default function Home() {
           ? ((await shippingResponse.json()) as {
               freeShippingCost?: number | null;
               categoryId?: string;
+              requestId?: string | null;
             })
           : null;
         const shippingErrorPayload = shippingResponse.ok
           ? null
           : ((await shippingResponse.json().catch(() => null)) as {
               error?: string;
+              requestId?: string | null;
             } | null);
         const shippingFreeCostFromDedicatedRoute =
           typeof shippingSuccessPayload?.freeShippingCost === "number"
@@ -469,6 +516,24 @@ export default function Home() {
             ? shippingSuccessPayload.categoryId
             : null;
         const shippingErrorMessage = shippingErrorPayload?.error ?? null;
+        const feesRequestId = extractApiRequestId(feesResponse, payload);
+        const shippingRequestId = shippingResponse.ok
+          ? extractApiRequestId(shippingResponse, shippingSuccessPayload)
+          : extractApiRequestId(shippingResponse, shippingErrorPayload);
+        const resolvedOfficialLookupError =
+          payload.officialLookupError
+            ? appendRequestIdToMessage(payload.officialLookupError, feesRequestId)
+            : shippingResponse.ok
+              ? null
+              : appendRequestIdToMessage(
+                  shippingErrorMessage ??
+                    "Falha ao consultar o frete grátis do Mercado Livre.",
+                  shippingRequestId,
+                );
+        const resolvedOfficialLookupRequestId =
+          (payload.officialLookupError ? feesRequestId : null) ??
+          (!shippingResponse.ok ? shippingRequestId : null) ??
+          null;
 
         setMercadoLivreAutomation({
           isLoading: false,
@@ -484,12 +549,8 @@ export default function Home() {
             null,
           officialLookupReady:
             payload.officialLookupReady === true || shippingResponse.ok,
-          officialLookupError:
-            payload.officialLookupError ??
-            (shippingResponse.ok
-              ? null
-              : shippingErrorMessage ??
-                "Falha ao consultar o frete grátis do Mercado Livre."),
+          officialLookupError: resolvedOfficialLookupError,
+          officialLookupRequestId: resolvedOfficialLookupRequestId,
         });
 
         setForm((current) => {
@@ -538,6 +599,7 @@ export default function Home() {
               current.feePercentage ??
               mercadoLivreFeePreview?.appliedFeePercentage ??
               null,
+            officialLookupRequestId: current.officialLookupRequestId,
             officialLookupError:
               current.officialLookupError ??
               "Falha ao consultar o Mercado Livre.",
@@ -808,10 +870,10 @@ export default function Home() {
   }
 
   function handleSaveCalculation() {
-    persistCalculation();
+    void persistCalculation();
   }
 
-  function persistCalculation() {
+  async function persistCalculation() {
     const existingCalculation = editingCalculationId
       ? getCalculationFromHistory(editingCalculationId)
       : null;
@@ -857,9 +919,9 @@ export default function Home() {
     };
 
     if (editingCalculationId) {
-      upsertCalculationInHistory(nextItem);
+      await upsertCalculationInHistory(nextItem);
     } else {
-      saveCalculationToHistory(nextItem);
+      await saveCalculationToHistory(nextItem);
       setEditingCalculationId(nextId);
     }
 
@@ -871,7 +933,7 @@ export default function Home() {
   async function saveProductToErp(
     payload: Omit<ErpProductSaveRequest, "sourceCalculationId">,
   ) {
-    const savedCalculation = persistCalculation();
+    const savedCalculation = await persistCalculation();
     const requestPayload: ErpProductSaveRequest = {
       ...payload,
       sourceCalculationId: savedCalculation.id,
@@ -904,18 +966,21 @@ export default function Home() {
 
     const responsePayload = (await response.json().catch(() => null)) as
       | ErpProductSaveResponse
-      | { error?: string }
+      | { error?: string; requestId?: string | null }
       | null;
 
     if (!response.ok || !responsePayload || !("product" in responsePayload)) {
       throw new Error(
-        responsePayload && "error" in responsePayload
-          ? responsePayload.error ?? "Falha ao enviar produto ao ERP."
-          : "Falha ao enviar produto ao ERP.",
+        buildApiErrorMessage({
+          response,
+          payload:
+            responsePayload && "error" in responsePayload ? responsePayload : null,
+          fallback: "Falha ao enviar produto ao ERP.",
+        }),
       );
     }
 
-    attachErpProductToCalculation(savedCalculation.id, {
+    await attachErpProductToCalculation(savedCalculation.id, {
       id:
         typeof responsePayload.product.id === "string"
           ? responsePayload.product.id
@@ -1053,12 +1118,14 @@ export default function Home() {
       <BusinessSetupModal
         open={isBusinessSetupOpen}
         onComplete={(preferences) => {
-          const savedPreferences = writeAppPreferences(preferences);
+          void (async () => {
+            const savedPreferences = await writeAppPreferences(preferences);
 
-          setAppPreferences(savedPreferences);
-          setDisplayCurrency(savedPreferences.defaultDisplayCurrency);
-          setForm((current) => applyPreferencesToForm(current, savedPreferences));
-          setIsBusinessSetupOpen(false);
+            setAppPreferences(savedPreferences);
+            setDisplayCurrency(savedPreferences.defaultDisplayCurrency);
+            setForm((current) => applyPreferencesToForm(current, savedPreferences));
+            setIsBusinessSetupOpen(false);
+          })();
         }}
       />
     </>

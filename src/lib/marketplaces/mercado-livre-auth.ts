@@ -1,13 +1,16 @@
 import "server-only";
 
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { getSql, hasDatabaseUrl } from "@/lib/server/neon";
-
-const TOKEN_ROW_ID = "default";
+import { getCurrentAuthSession } from "@/lib/auth/session";
+import {
+  getStoredMercadoLivreToken,
+  isPlatformPersistenceAvailable,
+  saveMercadoLivreToken,
+} from "@/lib/server/platform";
 const TOKEN_EXPIRY_SAFETY_WINDOW_MS = 5 * 60 * 1000;
 
 type StoredMercadoLivreTokenRow = {
-  id: string;
+  workspace_id: string;
   access_token: string;
   refresh_token: string;
   user_id: string;
@@ -65,7 +68,8 @@ export function getMercadoLivreAuthorizationUrl() {
 
 export async function getMercadoLivreConnectionStatus(): Promise<MercadoLivreConnectionStatus> {
   if (canUsePersistentOauth()) {
-    const row = await getStoredTokenRow();
+    const session = await getCurrentAuthSession();
+    const row = session ? await getStoredTokenRow(session.workspace.id) : null;
 
     return {
       mode: "persistent",
@@ -97,7 +101,13 @@ export async function getMercadoLivreConnectionStatus(): Promise<MercadoLivreCon
 
 export async function getMercadoLivreApiCredentials() {
   if (canUsePersistentOauth()) {
-    const row = await getStoredTokenRow();
+    const session = await getCurrentAuthSession();
+
+    if (!session) {
+      throw new Error("Sessão autenticada ausente para usar o Mercado Livre.");
+    }
+
+    const row = await getStoredTokenRow(session.workspace.id);
 
     if (!row) {
       throw new Error(
@@ -113,23 +123,23 @@ export async function getMercadoLivreApiCredentials() {
     }
 
     try {
-      const refreshedRow = await refreshStoredToken(row);
+      const refreshedRow = await refreshStoredToken(row, session.workspace.id);
 
       return {
         accessToken: refreshedRow.access_token,
         userId: refreshedRow.user_id,
       };
     } catch (error) {
-      const latestRow = await getStoredTokenRow();
+      const latestScopedRow = await getStoredTokenRow(session.workspace.id);
 
       if (
-        latestRow &&
-        latestRow.refresh_token !== row.refresh_token &&
-        !isTokenExpiringSoon(latestRow.expires_at)
+        latestScopedRow &&
+        latestScopedRow.refresh_token !== row.refresh_token &&
+        !isTokenExpiringSoon(latestScopedRow.expires_at)
       ) {
         return {
-          accessToken: latestRow.access_token,
-          userId: latestRow.user_id,
+          accessToken: latestScopedRow.access_token,
+          userId: latestScopedRow.user_id,
         };
       }
 
@@ -166,8 +176,14 @@ export async function exchangeMercadoLivreCode(
     );
   }
 
-  if (!hasDatabaseUrl()) {
+  if (!isPlatformPersistenceAvailable()) {
     throw new Error("DATABASE_URL is required for persistent Mercado Livre OAuth.");
+  }
+
+  const session = await getCurrentAuthSession();
+
+  if (!session) {
+    throw new Error("Sessão autenticada ausente para conectar o Mercado Livre.");
   }
 
   const response = await fetch("https://api.mercadolibre.com/oauth/token", {
@@ -197,10 +213,13 @@ export async function exchangeMercadoLivreCode(
 
   const payload = (await response.json()) as MercadoLivreTokenResponse;
 
-  return storeTokenPayload(payload);
+  return storeTokenPayload(payload, session.workspace.id);
 }
 
-async function refreshStoredToken(row: StoredMercadoLivreTokenRow) {
+async function refreshStoredToken(
+  row: StoredMercadoLivreTokenRow,
+  workspaceId: string,
+) {
   const clientId = process.env.MELI_CLIENT_ID;
   const clientSecret = process.env.MELI_CLIENT_SECRET;
 
@@ -235,49 +254,24 @@ async function refreshStoredToken(row: StoredMercadoLivreTokenRow) {
 
   const payload = (await response.json()) as MercadoLivreTokenResponse;
 
-  return storeTokenPayload(payload);
+  return storeTokenPayload(payload, workspaceId);
 }
 
-async function storeTokenPayload(payload: MercadoLivreTokenResponse) {
-  const sql = getSql();
-  await ensureMercadoLivreTokenTable();
-
+async function storeTokenPayload(
+  payload: MercadoLivreTokenResponse,
+  workspaceId: string,
+) {
   const expiresAt = new Date(Date.now() + payload.expires_in * 1000).toISOString();
   const scope = payload.scope ?? null;
   const userId = String(payload.user_id);
-
-  const rows = (await sql`
-    INSERT INTO meli_oauth_tokens (
-      id,
-      access_token,
-      refresh_token,
-      user_id,
-      scope,
-      expires_at,
-      created_at,
-      updated_at
-    )
-    VALUES (
-      ${TOKEN_ROW_ID},
-      ${payload.access_token},
-      ${payload.refresh_token},
-      ${userId},
-      ${scope},
-      ${expiresAt},
-      NOW(),
-      NOW()
-    )
-    ON CONFLICT (id) DO UPDATE SET
-      access_token = EXCLUDED.access_token,
-      refresh_token = EXCLUDED.refresh_token,
-      user_id = EXCLUDED.user_id,
-      scope = EXCLUDED.scope,
-      expires_at = EXCLUDED.expires_at,
-      updated_at = NOW()
-    RETURNING id, access_token, refresh_token, user_id, scope, expires_at, updated_at
-  `) as StoredMercadoLivreTokenRow[];
-
-  const row = rows[0];
+  const row = await saveMercadoLivreToken({
+    workspaceId,
+    accessToken: payload.access_token,
+    refreshToken: payload.refresh_token,
+    userId,
+    scope,
+    expiresAt,
+  });
 
   if (!row) {
     throw new Error("Failed to persist Mercado Livre OAuth tokens.");
@@ -286,48 +280,17 @@ async function storeTokenPayload(payload: MercadoLivreTokenResponse) {
   return row;
 }
 
-async function getStoredTokenRow() {
-  if (!hasDatabaseUrl()) {
+async function getStoredTokenRow(workspaceId: string) {
+  if (!isPlatformPersistenceAvailable()) {
     return null;
   }
 
-  const sql = getSql();
-  await ensureMercadoLivreTokenTable();
-
-  const rows = (await sql`
-    SELECT id, access_token, refresh_token, user_id, scope, expires_at, updated_at
-    FROM meli_oauth_tokens
-    WHERE id = ${TOKEN_ROW_ID}
-    LIMIT 1
-  `) as StoredMercadoLivreTokenRow[];
-
-  return rows[0] ?? null;
-}
-
-async function ensureMercadoLivreTokenTable() {
-  if (!hasDatabaseUrl()) {
-    return;
-  }
-
-  const sql = getSql();
-
-  await sql`
-    CREATE TABLE IF NOT EXISTS meli_oauth_tokens (
-      id TEXT PRIMARY KEY,
-      access_token TEXT NOT NULL,
-      refresh_token TEXT NOT NULL,
-      user_id TEXT NOT NULL,
-      scope TEXT NULL,
-      expires_at TIMESTAMPTZ NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `;
+  return getStoredMercadoLivreToken(workspaceId);
 }
 
 function canUsePersistentOauth() {
   return Boolean(
-    hasDatabaseUrl() &&
+    isPlatformPersistenceAvailable() &&
       process.env.MELI_CLIENT_ID &&
       process.env.MELI_CLIENT_SECRET &&
       process.env.MELI_REDIRECT_URI,
