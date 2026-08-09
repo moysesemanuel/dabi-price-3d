@@ -188,9 +188,9 @@ export function AppSidebar({
                       <Link
                         href={item.href}
                         onClick={() => setIsMobileOpen(false)}
-                        className={`flex w-full items-center rounded-[22px] border px-4 py-3 text-sm transition ${
+                        className={`flex w-full items-center rounded-[22px] border px-4 py-3 text-sm transition-colors duration-150 ${
                           isActive
-                            ? "border-[var(--accent)] bg-[var(--accent)] font-medium text-white shadow-[0_14px_30px_rgba(108,86,255,0.28)]"
+                            ? "border-[var(--accent)] bg-[var(--accent)] font-medium text-white"
                             : "border-[var(--panel-border)] bg-[rgba(255,255,255,0.78)] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--foreground)]"
                         }`}
                       >
@@ -307,9 +307,9 @@ export function AppSidebar({
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    className={`flex w-full items-center rounded-[22px] border px-4 py-3 text-sm transition ${
+                    className={`flex w-full items-center rounded-[22px] border px-4 py-3 text-sm transition-colors duration-150 ${
                       isActive
-                        ? "border-[var(--accent)] bg-[var(--accent)] font-medium text-white shadow-[0_14px_30px_rgba(108,86,255,0.28)]"
+                        ? "border-[var(--accent)] bg-[var(--accent)] font-medium text-white"
                         : "border-[var(--panel-border)] bg-[rgba(255,255,255,0.78)] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--foreground)]"
                     } ${isExpanded ? "justify-start" : "justify-center"}`}
                     title={isExpanded ? undefined : item.label}
