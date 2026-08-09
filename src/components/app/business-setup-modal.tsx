@@ -3,10 +3,12 @@
 import { useMemo, useState } from "react";
 import { currencyMeta, type DisplayCurrency } from "@/lib/currency/display-currency";
 import {
+  businessTypeMeta,
   buildPreferencesFromPreset,
   businessPresets,
   type AppPreferences,
   type BusinessPresetId,
+  type BusinessType,
 } from "@/lib/settings/app-preferences";
 
 type BusinessSetupModalProps = {
@@ -21,6 +23,7 @@ export function BusinessSetupModal({
   const [workspaceName, setWorkspaceName] = useState("Dabi Tech 3D");
   const [operatorName, setOperatorName] = useState("");
   const [operatorEmail, setOperatorEmail] = useState("");
+  const [businessType, setBusinessType] = useState<BusinessType | null>(null);
   const [presetId, setPresetId] = useState<BusinessPresetId>("studio");
   const [currency, setCurrency] = useState<DisplayCurrency>("BRL");
 
@@ -50,6 +53,47 @@ export function BusinessSetupModal({
         </div>
 
         <div className="px-6 py-6 sm:px-8">
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
+              Ramo principal
+            </p>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--muted)]">
+              Essa escolha estrutura a precificadora, os modelos e a linguagem do
+              workspace. Depois ela fica travada para o usuário final e só muda
+              via suporte/admin.
+            </p>
+
+            <div className="mt-4 grid gap-4 xl:grid-cols-2">
+              {Object.entries(businessTypeMeta).map(([value, meta]) => {
+                const typedValue = value as BusinessType;
+                const isActive = typedValue === businessType;
+
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setBusinessType(typedValue)}
+                    className={`rounded-[24px] border p-5 text-left transition ${
+                      isActive
+                        ? "border-[var(--accent)] bg-[var(--panel-soft)]"
+                        : "border-[var(--panel-border)] bg-white hover:border-[#6c56ff]/40"
+                    }`}
+                  >
+                    <p className="text-base font-semibold text-[var(--foreground)]">
+                      {meta.label}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                      {meta.description}
+                    </p>
+                    <p className="mt-3 text-xs text-[var(--muted)]">
+                      {meta.onboardingHint}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             <TextField
               label="Nome do workspace"
@@ -65,6 +109,7 @@ export function BusinessSetupModal({
               label="E-mail operacional"
               value={operatorEmail}
               onChange={setOperatorEmail}
+              type="email"
             />
             <SelectField
               label="Moeda padrão"
@@ -154,12 +199,14 @@ export function BusinessSetupModal({
                     workspaceName,
                     operatorName,
                     operatorEmail,
+                    businessType,
                     defaultDisplayCurrency: currency,
-                    onboardingCompleted: true,
+                    onboardingCompleted: businessType !== null,
                     applyPresetToNewCalculations: true,
                   }),
                 )
               }
+              disabled={businessType === null}
               className="rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110"
             >
               Salvar e começar
@@ -175,10 +222,12 @@ function TextField({
   label,
   value,
   onChange,
+  type = "text",
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  type?: "text" | "email";
 }) {
   return (
     <label>
@@ -186,7 +235,7 @@ function TextField({
         {label}
       </span>
       <input
-        type="text"
+        type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="mt-2 w-full rounded-2xl border border-[var(--panel-border)] bg-white px-4 py-3 text-base text-[var(--foreground)] outline-none transition focus:border-[#6c56ff] focus:ring-2 focus:ring-[#6c56ff]/20"

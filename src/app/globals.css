@@ -117,6 +117,34 @@ input[type="number"] {
     linear-gradient(180deg, #f8f6ff 0%, #f2eeff 100%);
 }
 
+.app-shell[data-business-type="confectionery"] {
+  --foreground: #284b3e;
+  --panel: rgba(255, 255, 255, 0.95);
+  --panel-strong: #ffffff;
+  --panel-soft: #f3fbf6;
+  --panel-subtle: #ecf7f0;
+  --panel-border: #d9ece1;
+  --muted: #6b8b7d;
+  --sidebar-bg: rgba(255, 255, 255, 0.9);
+  --sidebar-hover: rgba(111, 175, 141, 0.1);
+  --accent: #72b394;
+  --accent-strong: #5f9c81;
+  --accent-soft: #e9f7ef;
+  --accent-ink: #ffffff;
+  --success: #4f8a68;
+  --warning: #d58d64;
+  --danger: #d57f98;
+  --clay-shadow-color: rgba(92, 154, 131, 0.14);
+  --clay-shadow-raised: 0 20px 52px rgba(92, 154, 131, 0.1);
+  --clay-shadow-soft: 0 14px 34px rgba(92, 154, 131, 0.08);
+  --clay-shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  --clay-shadow-accent: 0 18px 36px rgba(114, 179, 148, 0.22);
+  background:
+    radial-gradient(circle at top left, rgba(179, 226, 202, 0.3), transparent 28%),
+    radial-gradient(circle at 85% 10%, rgba(246, 193, 214, 0.18), transparent 20%),
+    linear-gradient(180deg, #fafffb 0%, #f3fbf6 100%);
+}
+
 .clay-page {
   background:
     radial-gradient(circle at top left, rgba(171, 153, 255, 0.18), transparent 28%),
@@ -190,6 +218,35 @@ input[type="number"] {
     radial-gradient(circle at top left, rgba(143, 123, 255, 0.12), transparent 22%),
     linear-gradient(180deg, #0f0a23 0%, #090614 100%);
   color: var(--foreground);
+}
+
+:root[data-theme="dark"] .app-shell[data-business-type="confectionery"] {
+  --background: #081511;
+  --foreground: #eff9f3;
+  --panel: rgba(12, 31, 24, 0.94);
+  --panel-strong: #122d23;
+  --panel-soft: #10261e;
+  --panel-subtle: #0b1a14;
+  --panel-border: rgba(181, 225, 199, 0.16);
+  --muted: #a9c8b9;
+  --sidebar-bg: rgba(9, 24, 19, 0.9);
+  --sidebar-hover: rgba(255, 255, 255, 0.08);
+  --accent: #88c8a8;
+  --accent-strong: #a0d6b9;
+  --accent-soft: #183328;
+  --accent-ink: #0c1f18;
+  --success: #95d6ae;
+  --warning: #f2b990;
+  --danger: #f0a3bb;
+  --clay-shadow-color: rgba(2, 8, 6, 0.56);
+  --clay-shadow-raised: 0 22px 60px rgba(0, 0, 0, 0.36);
+  --clay-shadow-soft: 0 16px 38px rgba(0, 0, 0, 0.28);
+  --clay-shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --clay-shadow-accent: 0 18px 40px rgba(136, 200, 168, 0.16);
+  background:
+    radial-gradient(circle at top left, rgba(121, 193, 152, 0.16), transparent 24%),
+    radial-gradient(circle at 85% 12%, rgba(240, 163, 187, 0.1), transparent 18%),
+    linear-gradient(180deg, #081511 0%, #050d0a 100%);
 }
 
 :root[data-theme="dark"] .clay-page {
@@ -447,6 +504,10 @@ input[type="number"] {
   box-shadow: 0 18px 48px rgba(57, 37, 118, 0.08);
 }
 
+.app-shell[data-business-type="confectionery"] .app-card {
+  box-shadow: 0 18px 48px rgba(92, 154, 131, 0.08);
+}
+
 .app-card-soft {
   border-radius: 24px;
   border: 1px solid var(--panel-border);
@@ -572,6 +633,11 @@ input[type="number"] {
 :root[data-theme="dark"] .app-card,
 :root[data-theme="dark"] .public-panel {
   background: rgba(19, 14, 43, 0.94);
+}
+
+:root[data-theme="dark"] .app-shell[data-business-type="confectionery"] .app-card {
+  background: rgba(12, 31, 24, 0.94);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.3);
 }
 
 :root[data-theme="dark"] .app-card-soft {

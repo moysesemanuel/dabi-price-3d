@@ -3,37 +3,14 @@ import type {
   ExchangeRateSnapshot,
 } from "@/lib/currency/display-currency";
 import { isClientLocalPersistenceMode } from "@/lib/client/persistence-mode";
-import type { PricingFormState } from "@/lib/pricing/initial-pricing-form";
+import {
+  normalizeSavedCalculation,
+  type CalculationType,
+  type SavedCalculation,
+} from "@/lib/history/workspace-calculations";
 import { readAppPreferences, resolveCalculationHistoryLimit } from "@/lib/settings/app-preferences";
 
-export type SavedCalculation = {
-  id: string;
-  savedAt: string;
-  productName: string;
-  salesChannelId: PricingFormState["salesChannelId"];
-  salesChannelLabel: string;
-  displayCurrency: DisplayCurrency;
-  exchangeRateSnapshot: ExchangeRateSnapshot;
-  formSnapshot: PricingFormState;
-  summary: {
-    salePrice: number;
-    totalCost: number;
-    profit: number;
-    marginPercentage: number;
-    profitPerHour: number;
-  };
-  erpProduct?: {
-    id: string | null;
-    sku: string | null;
-    syncedAt: string;
-  };
-  siteProduct?: {
-    id: string;
-    slug: string;
-    url: string | null;
-    publishedAt: string;
-  };
-};
+export type { SavedCalculation } from "@/lib/history/workspace-calculations";
 
 const STORAGE_KEY = "dabi-price-3d:calculation-history";
 const EDITING_ID_STORAGE_KEY = "dabi-price-3d:editing-calculation-id";
@@ -58,11 +35,14 @@ export function readCalculationHistory() {
   return cachedHistorySnapshot;
 }
 
+export function readCalculationHistoryByKind(kind: CalculationType) {
+  return readCalculationHistory().filter((item) => item.kind === kind);
+}
+
 export function hydrateCalculationHistory(items: SavedCalculation[]) {
-  const normalizedItems = items.map((item) => ({
-    ...item,
-    productName: item.productName.trim() || "Sem nome",
-  }));
+  const normalizedItems = items
+    .map((item) => normalizeSavedCalculation(item))
+    .filter((item): item is SavedCalculation => item !== null);
 
   writeCalculationHistory(normalizedItems);
   return normalizedItems;
@@ -99,15 +79,20 @@ export async function upsertCalculationInHistory(item: SavedCalculation) {
 
 export async function attachSiteProductToCalculation(
   calculationId: string,
-  siteProduct: NonNullable<SavedCalculation["siteProduct"]>,
+  siteProduct: {
+    id: string;
+    slug: string;
+    url: string | null;
+    publishedAt: string;
+  },
 ) {
   const currentItem = getCalculationFromHistory(calculationId);
 
-  if (!currentItem) {
+  if (!currentItem || currentItem.kind !== "3d") {
     return null;
   }
 
-  const nextItem = {
+  const nextItem: SavedCalculation = {
     ...currentItem,
     siteProduct,
   };
@@ -119,15 +104,19 @@ export async function attachSiteProductToCalculation(
 
 export async function attachErpProductToCalculation(
   calculationId: string,
-  erpProduct: NonNullable<SavedCalculation["erpProduct"]>,
+  erpProduct: {
+    id: string | null;
+    sku: string | null;
+    syncedAt: string;
+  },
 ) {
   const currentItem = getCalculationFromHistory(calculationId);
 
-  if (!currentItem) {
+  if (!currentItem || currentItem.kind !== "3d") {
     return null;
   }
 
-  const nextItem = {
+  const nextItem: SavedCalculation = {
     ...currentItem,
     erpProduct,
   };
@@ -137,29 +126,60 @@ export async function attachErpProductToCalculation(
   return nextItem;
 }
 
-export async function clearCalculationHistory() {
+export async function clearCalculationHistory(kind?: CalculationType) {
   if (typeof window === "undefined") {
     return;
   }
 
   if (isClientLocalPersistenceMode()) {
-    cachedHistorySnapshot = EMPTY_HISTORY;
-    window.localStorage.removeItem(STORAGE_KEY);
-    window.dispatchEvent(new Event(HISTORY_EVENT));
+    const nextItems =
+      kind === undefined
+        ? EMPTY_HISTORY
+        : readLocalCalculationHistory().filter((item) => item.kind !== kind);
+
+    if (nextItems.length === 0) {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } else {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextItems));
+    }
+
+    writeCalculationHistory(nextItems);
     return;
   }
 
-  const response = await fetch("/api/workspace/calculations", {
-    method: "DELETE",
-  });
+  if (!kind) {
+    const response = await fetch("/api/workspace/calculations", {
+      method: "DELETE",
+    });
 
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(payload?.error ?? "Falha ao limpar o histórico.");
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(payload?.error ?? "Falha ao limpar o histórico.");
+    }
+
+    writeCalculationHistory(EMPTY_HISTORY);
+    return;
   }
 
-  cachedHistorySnapshot = EMPTY_HISTORY;
-  window.dispatchEvent(new Event(HISTORY_EVENT));
+  const matchingItems = readCalculationHistory().filter((item) => item.kind === kind);
+
+  for (const item of matchingItems) {
+    const response = await fetch(
+      `/api/workspace/calculations/${encodeURIComponent(item.id)}`,
+      {
+        method: "DELETE",
+      },
+    );
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(payload?.error ?? "Falha ao limpar o histórico.");
+    }
+  }
+
+  writeCalculationHistory(
+    readCalculationHistory().filter((item) => item.kind !== kind),
+  );
 }
 
 export async function deleteCalculationFromHistory(id: string) {
@@ -248,10 +268,11 @@ async function persistCalculationItem(item: SavedCalculation) {
     return readCalculationHistory();
   }
 
-  const normalizedItem = {
-    ...item,
-    productName: item.productName.trim() || "Sem nome",
-  };
+  const normalizedItem = normalizeSavedCalculation(item);
+
+  if (!normalizedItem) {
+    throw new Error("Cálculo inválido para persistência.");
+  }
 
   if (isClientLocalPersistenceMode()) {
     return persistLocalCalculationItem(normalizedItem);
@@ -274,7 +295,12 @@ async function persistCalculationItem(item: SavedCalculation) {
     return persistLocalCalculationItem(normalizedItem);
   }
 
-  const nextItem = payload as SavedCalculation;
+  const nextItem = normalizeSavedCalculation(payload);
+
+  if (!nextItem) {
+    return persistLocalCalculationItem(normalizedItem);
+  }
+
   const currentItems = readCalculationHistory().filter(
     (currentItem) => currentItem.id !== nextItem.id,
   );
@@ -316,3 +342,9 @@ function persistLocalCalculationItem(item: SavedCalculation) {
 
   return nextItems;
 }
+
+export type {
+  CalculationType,
+  DisplayCurrency,
+  ExchangeRateSnapshot,
+};

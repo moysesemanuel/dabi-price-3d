@@ -8,7 +8,10 @@ import {
   resolveCalculationHistoryLimit,
   type AppPreferences,
 } from "@/lib/settings/app-preferences";
-import type { SavedCalculation } from "@/lib/history/calculation-history";
+import {
+  normalizeSavedCalculation,
+  type SavedCalculation,
+} from "@/lib/history/workspace-calculations";
 import { hashPassword } from "@/lib/auth/password";
 import { getSql, hasDatabaseUrl } from "@/lib/server/neon";
 
@@ -1689,12 +1692,13 @@ function sanitizeMemberName(fullName: string, email: string) {
 }
 
 function normalizeCalculationInput(item: SavedCalculation): SavedCalculation {
-  return {
-    ...item,
-    id: item.id.trim(),
-    savedAt: item.savedAt,
-    productName: item.productName.trim() || "Sem nome",
-  };
+  const normalizedItem = normalizeSavedCalculation(item);
+
+  if (!normalizedItem) {
+    throw new Error("Cálculo inválido para persistência.");
+  }
+
+  return normalizedItem;
 }
 
 function normalizeCalculationPayload(
@@ -1706,11 +1710,7 @@ function normalizeCalculationPayload(
         ? (JSON.parse(value) as SavedCalculation)
         : value;
 
-    if (!parsedValue || typeof parsedValue !== "object") {
-      return null;
-    }
-
-    return normalizeCalculationInput(parsedValue);
+    return normalizeSavedCalculation(parsedValue);
   } catch {
     return null;
   }

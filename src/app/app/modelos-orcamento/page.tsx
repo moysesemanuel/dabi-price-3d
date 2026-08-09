@@ -6,7 +6,10 @@ import {
   getWorkspacePreferences,
   isPlatformPersistenceAvailable,
 } from "@/lib/server/platform";
-import { defaultAppPreferences } from "@/lib/settings/app-preferences";
+import {
+  businessTypeMeta,
+  defaultAppPreferences,
+} from "@/lib/settings/app-preferences";
 
 export default async function BudgetModelsPage() {
   const session = await getCurrentAuthSession();
@@ -16,6 +19,9 @@ export default async function BudgetModelsPage() {
           () => defaultAppPreferences,
         )
       : defaultAppPreferences;
+  const activeBusinessMeta = preferences.businessType
+    ? businessTypeMeta[preferences.businessType]
+    : null;
 
   return (
     <div className="app-page space-y-6">
@@ -25,9 +31,9 @@ export default async function BudgetModelsPage() {
           <p className="app-eyebrow">Modelos de orçamento</p>
           <h1 className="app-title">Estrutura comercial dos seus orçamentos</h1>
           <p className="app-copy max-w-[720px]">
-            Esta primeira versão organiza a ideia de modelos dentro da
-            precificadora, sem depender do ERP, e prepara a evolução para editor
-            visual e PDF completo.
+            Esta primeira versão organiza os modelos de orçamento do seu ramo
+            principal dentro da precificadora, sem depender do ERP, e prepara a
+            evolução para editor visual e PDF completo.
           </p>
         </div>
 
@@ -48,7 +54,8 @@ export default async function BudgetModelsPage() {
                   Modelo padrão
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--muted)]">
-                  Serve como base comercial para a fase inicial. A próxima etapa
+                  Serve como base comercial para a fase inicial do ramo{" "}
+                  {activeBusinessMeta?.label ?? "da conta"}. A próxima etapa
                   adiciona personalização visual mais profunda e geração de PDF.
                 </p>
               </div>
@@ -70,7 +77,11 @@ export default async function BudgetModelsPage() {
               />
               <ModelCard
                 title="Conteúdo"
-                description="Foco em nome do item, material, preço, custos e margem da venda."
+                description={
+                  activeBusinessMeta
+                    ? activeBusinessMeta.templatesSummary
+                    : "Foco em nome do item, composição do custo, preço e margem da venda."
+                }
                 footer="Pensado para caber bem na rotina comercial."
               />
             </div>
@@ -85,6 +96,15 @@ export default async function BudgetModelsPage() {
                 href="/app/perfil-empresa"
                 title="Adicionar dados da empresa"
                 description="Nome, responsável e contato já centralizados para alimentar os modelos."
+              />
+              <InlineLink
+                href="/app/precificacao"
+                title="Conferir ramo principal"
+                description={
+                  activeBusinessMeta
+                    ? `A conta está estruturada para ${activeBusinessMeta.label.toLowerCase()}.`
+                    : "Escolha o ramo principal da conta antes de avançar."
+                }
               />
               <InlineLink
                 href="/app/orcamentos"
@@ -137,7 +157,12 @@ export default async function BudgetModelsPage() {
             <div className="mt-6 space-y-4">
               <PreviewLine label="Cliente" value="Nome do cliente" />
               <PreviewLine label="Produto" value="Item precificado" />
-              <PreviewLine label="Material" value="Filamento / processo" />
+              <PreviewLine
+                label={activeBusinessMeta?.previewMaterialLabel ?? "Material"}
+                value={
+                  activeBusinessMeta?.previewMaterialValue ?? "Filamento / processo"
+                }
+              />
               <PreviewLine label="Valor" value="Preço calculado com base real" />
             </div>
 

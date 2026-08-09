@@ -26,13 +26,21 @@ npm install
 
 ## Desenvolvimento local
 
-Rodando com Turbopack:
+Padrão recomendado:
 
 ```bash
 npm run dev
 ```
 
-Rodando com Webpack:
+Esse script usa `webpack` por padrão, porque está mais estável localmente quando o `next dev` com Turbopack aproxima o limite de memória e reinicia o servidor.
+
+Rodando com Turbopack:
+
+```bash
+npm run dev:turbo
+```
+
+Rodando com Webpack explicitamente:
 
 ```bash
 npm run dev:webpack

@@ -6,12 +6,14 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { upload } from "@vercel/blob/client";
 import { currencyMeta } from "@/lib/currency/display-currency";
 import {
+  businessTypeMeta,
   companyPaymentMethodMeta,
   defaultAppPreferences,
   getCompanyProfileChecklist,
   getWorkspacePlan,
   isCompanyProfileComplete,
   type AppPreferences,
+  type BusinessType,
   type CompanyPaymentMethod,
   loadAppPreferences,
   readAppPreferences,
@@ -31,8 +33,10 @@ const brandAccentOptions = [
 
 export function CompanyProfilePanel({
   initialPreferences,
+  canEditBusinessType,
 }: {
   initialPreferences: AppPreferences;
+  canEditBusinessType: boolean;
 }) {
   const router = useRouter();
   const [preferences, setPreferences] = useState<AppPreferences>(initialPreferences);
@@ -178,6 +182,9 @@ export function CompanyProfilePanel({
   const workspaceInitials = buildInitials(
     preferences.workspaceName || defaultAppPreferences.workspaceName,
   );
+  const activeBusinessMeta = preferences.businessType
+    ? businessTypeMeta[preferences.businessType]
+    : null;
   const profileChecklist = getCompanyProfileChecklist(preferences);
   const profileComplete = isCompanyProfileComplete(preferences);
   const workspacePlan = getWorkspacePlan(preferences.subscription.planId);
@@ -199,6 +206,58 @@ export function CompanyProfilePanel({
             Nome, responsável, logo e cor principal ficam centralizados aqui para
             sustentar o início, os orçamentos e os próximos PDFs do workspace.
           </p>
+
+          <div className="mt-6 rounded-[24px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.72)] px-5 py-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-[var(--foreground)]">
+                  Ramo principal do workspace
+                </p>
+                <p className="mt-2 text-sm leading-7 text-[var(--muted)]">
+                  {activeBusinessMeta?.description ??
+                    "Escolha definida no primeiro acesso da precificadora."}
+                </p>
+              </div>
+              {canEditBusinessType ? (
+                <div className="min-w-[220px]">
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+                      Super admin
+                    </span>
+                    <select
+                      value={preferences.businessType ?? ""}
+                      onChange={(event) =>
+                        setPreferences((current) => ({
+                          ...current,
+                          businessType:
+                            event.target.value === ""
+                              ? null
+                              : (event.target.value as BusinessType),
+                        }))
+                      }
+                      className="mt-2 w-full rounded-[16px] border border-[var(--panel-border)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent)]"
+                    >
+                      <option value="">Selecione o ramo</option>
+                      {Object.entries(businessTypeMeta).map(([value, meta]) => (
+                        <option key={value} value={value}>
+                          {meta.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              ) : (
+                <span className="rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-3 py-1 text-xs font-semibold text-[var(--accent)]">
+                  {activeBusinessMeta?.label ?? "Pendente"}
+                </span>
+              )}
+            </div>
+            <p className="mt-4 text-xs leading-6 text-[var(--muted)]">
+              {canEditBusinessType
+                ? "Como super admin, voce pode trocar o ramo para validacao e suporte. Para o usuario final, essa escolha continua travada."
+                : "Para evitar mistura de regras entre nichos, essa escolha fica travada para o usuario final e so muda via suporte/admin."}
+            </p>
+          </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <ProfileField
@@ -580,6 +639,10 @@ export function CompanyProfilePanel({
               <PreviewStat
                 label="Recebimentos"
                 value={paymentMethodsSummary || "Sem meios definidos"}
+              />
+              <PreviewStat
+                label="Ramo"
+                value={activeBusinessMeta?.label ?? "Pendente"}
               />
             </div>
           </div>

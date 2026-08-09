@@ -18,6 +18,11 @@ import {
 } from "../workspace/catalog";
 
 export type BusinessPresetId = "maker" | "studio" | "farm";
+export type BusinessType =
+  | "3d_printing"
+  | "confectionery"
+  | "crafts"
+  | "resale";
 export type CompanyPaymentMethod =
   | "pix"
   | "credit_card"
@@ -52,6 +57,7 @@ export type AppPreferences = {
   operatorName: string;
   operatorEmail: string;
   operatorPhone: string;
+  businessType: BusinessType | null;
   companyLogoUrl: string;
   brandAccentHex: string;
   addressLine: string;
@@ -80,7 +86,9 @@ export type BusinessPreset = {
 
 const PREFERENCES_EVENT = "dabi-price-3d:app-preferences-updated";
 const STORAGE_KEY = "dabi-price-3d:app-preferences";
+const BUSINESS_TYPE_COOKIE = "dabi-price-3d:business-type";
 export { getWorkspacePlan, workspaceRoleMeta, workspacePlans };
+export const businessTypeCookieName = BUSINESS_TYPE_COOKIE;
 
 export const companyPaymentMethodMeta: Record<
   CompanyPaymentMethod,
@@ -109,6 +117,73 @@ export const companyPaymentMethodMeta: Record<
   bank_transfer: {
     label: "Transferência bancária",
     description: "TED, DOC ou transferência entre contas.",
+  },
+};
+
+export const businessTypeMeta: Record<
+  BusinessType,
+  {
+    label: string;
+    shortLabel: string;
+    description: string;
+    onboardingHint: string;
+    previewMaterialLabel: string;
+    previewMaterialValue: string;
+    templatesSummary: string;
+    calculatorReady: boolean;
+  }
+> = {
+  "3d_printing": {
+    label: "Impressão 3D",
+    shortLabel: "3D",
+    description:
+      "Cálculos baseados em filamento ou resina, tempo de máquina, energia, falha e acabamento.",
+    onboardingHint:
+      "Ideal para operações com STL, filamento, resina e produção por ciclo.",
+    previewMaterialLabel: "Processo",
+    previewMaterialValue: "Filamento / resina / acabamento",
+    templatesSummary:
+      "Modelos focados em peça, material, prazo, acabamento e valor final.",
+    calculatorReady: true,
+  },
+  confectionery: {
+    label: "Confeitaria",
+    shortLabel: "Confeitaria",
+    description:
+      "Custos por receita, insumos, rendimento, embalagem, tempo manual e entrega.",
+    onboardingHint:
+      "Pensado para doces, bolos, encomendas personalizadas e produção sob pedido.",
+    previewMaterialLabel: "Base de custo",
+    previewMaterialValue: "Receita / embalagem / tempo manual",
+    templatesSummary:
+      "Modelos pensados para itens sob encomenda, sabores, quantidade e entrega.",
+    calculatorReady: false,
+  },
+  crafts: {
+    label: "Artesanato",
+    shortLabel: "Artesanato",
+    description:
+      "Composição por matéria-prima, tempo manual, personalização, embalagem e frete.",
+    onboardingHint:
+      "Funciona bem para produção manual, peças personalizadas e pequenos lotes.",
+    previewMaterialLabel: "Base de custo",
+    previewMaterialValue: "Matéria-prima / mão de obra / personalização",
+    templatesSummary:
+      "Modelos preparados para peça manual, personalização e apresentação comercial.",
+    calculatorReady: false,
+  },
+  resale: {
+    label: "Produto normal",
+    shortLabel: "Revenda",
+    description:
+      "Margem sobre compra de fornecedor, frete, taxa de canal, impostos e comissão.",
+    onboardingHint:
+      "Indicado para revenda simples, catálogo comprado de fornecedor e operação comercial.",
+    previewMaterialLabel: "Base de custo",
+    previewMaterialValue: "Fornecedor / frete / comissão / impostos",
+    templatesSummary:
+      "Modelos orientados para revenda, quantidade, condições de pagamento e entrega.",
+    calculatorReady: false,
   },
 };
 
@@ -174,6 +249,7 @@ export const defaultAppPreferences: AppPreferences = {
   operatorName: "",
   operatorEmail: "",
   operatorPhone: "",
+  businessType: null,
   companyLogoUrl: "",
   brandAccentHex: "#ff6a00",
   addressLine: "",
@@ -213,6 +289,11 @@ export function resolveCalculationHistoryLimit(preferences: AppPreferences) {
 
 export function getCompanyProfileChecklist(preferences: AppPreferences) {
   return [
+    {
+      id: "businessType",
+      label: "Ramo principal",
+      done: preferences.businessType !== null,
+    },
     {
       id: "workspaceName",
       label: "Nome da empresa",
@@ -271,6 +352,7 @@ export function readAppPreferences() {
 export function hydrateAppPreferences(preferences: AppPreferences) {
   const normalizedPreferences = normalizeAppPreferences(preferences);
   cachedPreferencesSnapshot = normalizedPreferences;
+  syncBusinessTypeCookie(normalizedPreferences.businessType);
 
   return normalizedPreferences;
 }
@@ -420,6 +502,7 @@ function normalizeAppPreferences(
     operatorName: sanitizeText(basePreferences.operatorName),
     operatorEmail: sanitizeText(basePreferences.operatorEmail),
     operatorPhone: sanitizeText(basePreferences.operatorPhone),
+    businessType: normalizeBusinessType(basePreferences.businessType),
     companyLogoUrl: sanitizeText(basePreferences.companyLogoUrl),
     brandAccentHex: sanitizeColor(
       basePreferences.brandAccentHex,
@@ -448,6 +531,7 @@ function normalizeAppPreferences(
 }
 
 export { normalizeAppPreferences };
+export { normalizeBusinessType as normalizePersistedBusinessType };
 
 function normalizeOperatorRole(value: unknown): WorkspaceRole {
   if (value === "finance") {
@@ -457,6 +541,12 @@ function normalizeOperatorRole(value: unknown): WorkspaceRole {
   return typeof value === "string" && value in workspaceRoleMeta
     ? (value as WorkspaceRole)
     : defaultAppPreferences.operatorRole;
+}
+
+function normalizeBusinessType(value: unknown): BusinessType | null {
+  return typeof value === "string" && value in businessTypeMeta
+    ? (value as BusinessType)
+    : null;
 }
 
 function readLocalAppPreferences() {
@@ -472,6 +562,7 @@ function readLocalAppPreferences() {
     );
 
     cachedPreferencesSnapshot = parsedPreferences;
+    syncBusinessTypeCookie(parsedPreferences.businessType);
 
     return parsedPreferences;
   } catch {
@@ -486,6 +577,21 @@ function persistLocalAppPreferences(preferences: AppPreferences) {
   window.dispatchEvent(new Event(PREFERENCES_EVENT));
 
   return normalizedPreferences;
+}
+
+function syncBusinessTypeCookie(businessType: BusinessType | null) {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  if (!businessType) {
+    document.cookie = `${BUSINESS_TYPE_COOKIE}=; path=/; max-age=0; samesite=lax`;
+    return;
+  }
+
+  document.cookie = `${BUSINESS_TYPE_COOKIE}=${encodeURIComponent(
+    businessType,
+  )}; path=/; max-age=31536000; samesite=lax`;
 }
 
 function shouldUseLocalPreferencesFallback(

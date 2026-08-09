@@ -1,8 +1,7 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { BackLink } from "@/components/app/back-link";
 import { formatCurrency, formatPercent } from "@/lib/pricing/formatters";
 import {
@@ -13,17 +12,36 @@ import {
   readCalculationHistory,
   subscribeCalculationHistory,
 } from "@/lib/history/calculation-history";
+import {
+  isConfectioneryCalculation,
+  is3DCalculation,
+} from "@/lib/history/workspace-calculations";
+import {
+  loadAppPreferences,
+  readAppPreferences,
+  subscribeAppPreferences,
+} from "@/lib/settings/app-preferences";
 
 export default function BudgetsPage() {
   const router = useRouter();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const items = useSyncExternalStore(
+  const preferences = useSyncExternalStore(
+    subscribeAppPreferences,
+    readAppPreferences,
+    () => readAppPreferences(),
+  );
+  const history = useSyncExternalStore(
     subscribeCalculationHistory,
     readCalculationHistory,
     () => [],
   );
+  const isConfectionery = preferences.businessType === "confectionery";
+  const items = history.filter((item) =>
+    isConfectionery ? isConfectioneryCalculation(item) : is3DCalculation(item),
+  );
 
   useEffect(() => {
+    void loadAppPreferences().catch(() => undefined);
     void loadCalculationHistory().catch((error) => {
       setErrorMessage(
         error instanceof Error ? error.message : "Falha ao carregar os orçamentos.",
@@ -35,7 +53,7 @@ export default function BudgetsPage() {
     setErrorMessage(null);
 
     try {
-      await clearCalculationHistory();
+      await clearCalculationHistory(isConfectionery ? "confectionery" : "3d");
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Falha ao limpar os orçamentos.",
@@ -66,10 +84,15 @@ export default function BudgetsPage() {
         <div>
           <BackLink href="/app" label="Voltar para o início" />
           <p className="app-eyebrow">Orçamentos</p>
-          <h1 className="app-title">Orçamentos salvos do workspace</h1>
+          <h1 className="app-title">
+            {isConfectionery
+              ? "Receitas e cálculos salvos da confeitaria"
+              : "Orçamentos salvos do workspace"}
+          </h1>
           <p className="app-copy max-w-[620px]">
-            Reencontre cálculos já salvos, retome edições e mantenha a camada de
-            orçamento separada da montagem técnica da precificação.
+            {isConfectionery
+              ? "Reencontre receitas calculadas, retome edições e mantenha o histórico da confeitaria separado do fluxo 3D."
+              : "Reencontre cálculos já salvos, retome edições e mantenha a camada de orçamento separada da montagem técnica da precificação."}
           </p>
         </div>
 
@@ -94,11 +117,14 @@ export default function BudgetsPage() {
         {items.length === 0 ? (
           <div className="app-card-soft p-8 text-center">
             <p className="text-lg font-semibold text-[var(--foreground)]">
-              Nenhum orçamento salvo ainda.
+              {isConfectionery
+                ? "Nenhum cálculo da confeitaria salvo ainda."
+                : "Nenhum orçamento salvo ainda."}
             </p>
             <p className="mt-2 text-sm text-[var(--muted)]">
-              Use a precificadora e salve o primeiro cálculo para começar sua base
-              de orçamentos.
+              {isConfectionery
+                ? "Use a precificadora da confeitaria e salve a primeira receita para começar seu histórico."
+                : "Use a precificadora e salve o primeiro cálculo para começar sua base de orçamentos."}
             </p>
           </div>
         ) : (
@@ -109,13 +135,15 @@ export default function BudgetsPage() {
                   <tr className="border-b border-[var(--panel-border)] text-left">
                     <HeaderCell>Data</HeaderCell>
                     <HeaderCell>Produto</HeaderCell>
-                    <HeaderCell>Canal</HeaderCell>
-                    <HeaderCell>Moeda</HeaderCell>
-                    <HeaderCell>Venda</HeaderCell>
-                    <HeaderCell>Custos</HeaderCell>
-                    <HeaderCell>Lucro</HeaderCell>
+                    <HeaderCell>
+                      {isConfectionery ? "Unidades" : "Canal"}
+                    </HeaderCell>
+                    <HeaderCell>{isConfectionery ? "Ingredientes" : "Moeda"}</HeaderCell>
+                    <HeaderCell>{isConfectionery ? "Custo da receita" : "Venda"}</HeaderCell>
+                    <HeaderCell>{isConfectionery ? "Lucro da receita" : "Custos"}</HeaderCell>
                     <HeaderCell>Margem</HeaderCell>
-                    <HeaderCell>ERP</HeaderCell>
+                    <HeaderCell>{isConfectionery ? "Preço unitário" : "ERP"}</HeaderCell>
+                    {isConfectionery ? <HeaderCell>Valor de venda</HeaderCell> : null}
                     <HeaderCell>Ações</HeaderCell>
                   </tr>
                 </thead>
@@ -128,14 +156,18 @@ export default function BudgetsPage() {
                     >
                       <BodyCell>{formatSavedDate(item.savedAt)}</BodyCell>
                       <BodyCell>{item.productName}</BodyCell>
-                      <BodyCell>{item.salesChannelLabel}</BodyCell>
-                      <BodyCell>{item.displayCurrency}</BodyCell>
                       <BodyCell>
-                        {formatCurrency(item.summary.salePrice, item.displayCurrency)}
+                        {isConfectionery && isConfectioneryCalculation(item)
+                          ? `${item.confectionerySnapshot.unitsProduced} un`
+                          : item.salesChannelLabel}
                       </BodyCell>
                       <BodyCell className="text-[#c62828]">
-                        -{" "}
-                        {formatCurrency(item.summary.totalCost, item.displayCurrency)}
+                        {isConfectionery && isConfectioneryCalculation(item)
+                          ? `${item.confectionerySnapshot.ingredients.length} item(ns)`
+                          : item.displayCurrency}
+                      </BodyCell>
+                      <BodyCell className="text-[#c62828]">
+                        - {formatCurrency(item.summary.totalCost, item.displayCurrency)}
                       </BodyCell>
                       <BodyCell className="text-[#1f8b4c]">
                         {formatCurrency(item.summary.profit, item.displayCurrency)}
@@ -144,7 +176,13 @@ export default function BudgetsPage() {
                         {formatPercent(item.summary.marginPercentage)}
                       </BodyCell>
                       <BodyCell>
-                        {item.erpProduct ? (
+                        {isConfectionery && isConfectioneryCalculation(item) ? (
+                          formatCurrency(
+                            item.summary.salePrice /
+                              Math.max(item.confectionerySnapshot.unitsProduced, 1),
+                            item.displayCurrency,
+                          )
+                        ) : item.erpProduct ? (
                           <div className="space-y-1">
                             <div className="text-xs font-medium text-[var(--accent)]">
                               Sincronizado
@@ -157,6 +195,11 @@ export default function BudgetsPage() {
                           <span className="text-xs text-[var(--muted)]">Sem vínculo</span>
                         )}
                       </BodyCell>
+                      {isConfectionery ? (
+                        <BodyCell>
+                          {formatCurrency(item.summary.salePrice, item.displayCurrency)}
+                        </BodyCell>
+                      ) : null}
                       <BodyCell>
                         <div className="flex items-center gap-2">
                           <button
@@ -190,7 +233,7 @@ export default function BudgetsPage() {
 
 function HeaderCell({ children }: { children: React.ReactNode }) {
   return (
-    <th className="px-4 py-4 font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
+    <th className="px-6 py-4 font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
       {children}
     </th>
   );
@@ -204,7 +247,7 @@ function BodyCell({
   className?: string;
 }) {
   return (
-    <td className={`px-4 py-4 text-sm text-[var(--foreground)] ${className}`}>
+    <td className={`px-6 py-4 text-sm text-[var(--foreground)] ${className}`}>
       {children}
     </td>
   );

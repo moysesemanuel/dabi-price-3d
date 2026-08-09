@@ -1,5 +1,6 @@
 import { BackLink } from "@/components/app/back-link";
 import { CompanyProfilePanel } from "@/components/company/company-profile-panel";
+import { isSuperAdminRole } from "@/lib/auth/access-control";
 import { getCurrentAuthSession } from "@/lib/auth/session";
 import {
   getWorkspacePreferences,
@@ -15,6 +16,9 @@ export default async function CompanyProfilePage() {
           () => defaultAppPreferences,
         )
       : defaultAppPreferences;
+  const canEditBusinessType = session
+    ? isSuperAdminRole(session.user.platformRole)
+    : false;
 
   return (
     <div className="app-page">
@@ -28,7 +32,10 @@ export default async function CompanyProfilePage() {
         </p>
       </header>
 
-      <CompanyProfilePanel initialPreferences={initialPreferences} />
+      <CompanyProfilePanel
+        initialPreferences={initialPreferences}
+        canEditBusinessType={canEditBusinessType}
+      />
     </div>
   );
 }

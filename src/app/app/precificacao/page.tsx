@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { BusinessSetupModal } from "@/components/app/business-setup-modal";
+import { ConfectioneryPricingWorkspace } from "@/components/confectionery/confectionery-pricing-workspace";
 import { PricingForm } from "@/components/pricing/pricing-form";
 import { PricingResult } from "@/components/pricing/pricing-result";
 import { SiteProductPublisher } from "@/components/pricing/site-product-publisher";
@@ -24,6 +26,11 @@ import {
   saveCalculationToHistory,
   upsertCalculationInHistory,
 } from "@/lib/history/calculation-history";
+import {
+  is3DCalculation,
+  isConfectioneryCalculation,
+  type SavedConfectioneryCalculation,
+} from "@/lib/history/workspace-calculations";
 import { getMercadoLivreFeePreview } from "@/lib/marketplaces/mercado-livre";
 import { resolveShopeeFeeConfigForPrice } from "@/lib/marketplaces/shopee";
 import { calculate3DPrice } from "@/lib/pricing/calculate-3d-price";
@@ -51,6 +58,7 @@ import {
 } from "@/lib/erp-products/types";
 import {
   applyPreferencesToForm,
+  businessTypeMeta,
   getBusinessPreset,
   loadAppPreferences,
   readAppPreferences,
@@ -139,11 +147,15 @@ export default function Home() {
   const [editingCalculationId, setEditingCalculationId] = useState<
     string | null
   >(null);
+  const [editingConfectioneryCalculation, setEditingConfectioneryCalculation] =
+    useState<SavedConfectioneryCalculation | null>(null);
   const [appPreferences, setAppPreferences] = useState<AppPreferences>(() =>
     readAppPreferences(),
   );
   const [isBusinessSetupOpen, setIsBusinessSetupOpen] = useState(
-    () => !readAppPreferences().onboardingCompleted,
+    () =>
+      !readAppPreferences().onboardingCompleted ||
+      readAppPreferences().businessType === null,
   );
 
   const [mercadoLivreAutomation, setMercadoLivreAutomation] =
@@ -255,6 +267,10 @@ export default function Home() {
   const heroProductionValue = form.multiplePiecesEnabled
     ? `${form.quantity} peça(s) por ciclo`
     : "1 peça por ciclo";
+  const activeBusinessType = appPreferences.businessType;
+  const activeBusinessMeta = activeBusinessType
+    ? businessTypeMeta[activeBusinessType]
+    : null;
   const mercadoLivreLookupContext = useMemo<MercadoLivreLookupContext>(() => {
     const missingRequirements: string[] = [];
 
@@ -309,7 +325,9 @@ export default function Home() {
 
         setAppPreferences(preferences);
         setDisplayCurrency(preferences.defaultDisplayCurrency);
-        setIsBusinessSetupOpen(!preferences.onboardingCompleted);
+        setIsBusinessSetupOpen(
+          !preferences.onboardingCompleted || preferences.businessType === null,
+        );
         setForm((current) =>
           editingCalculationId || current.productName.trim().length > 0
             ? current
@@ -322,7 +340,9 @@ export default function Home() {
       const preferences = readAppPreferences();
 
       setAppPreferences(preferences);
-      setIsBusinessSetupOpen(!preferences.onboardingCompleted);
+      setIsBusinessSetupOpen(
+        !preferences.onboardingCompleted || preferences.businessType === null,
+      );
     });
 
     return () => {
@@ -382,6 +402,17 @@ export default function Home() {
       }
 
       queueMicrotask(() => {
+        if (isConfectioneryCalculation(queuedCalculation)) {
+          setEditingConfectioneryCalculation(queuedCalculation);
+          setEditingCalculationId(null);
+          setSaveState("idle");
+          return;
+        }
+
+        if (!is3DCalculation(queuedCalculation)) {
+          return;
+        }
+
         const hydratedSnapshot = hydratePricingFormState(
           queuedCalculation.formSnapshot,
         );
@@ -396,6 +427,7 @@ export default function Home() {
         setDisplayCurrency(queuedCalculation.displayCurrency);
         setExchangeRateSnapshot(queuedCalculation.exchangeRateSnapshot);
         setEditingCalculationId(queuedCalculation.id);
+        setEditingConfectioneryCalculation(null);
         setMercadoLivreManualOverrides({
           feePercentage: true,
           shippingCost: true,
@@ -884,6 +916,7 @@ export default function Home() {
         : `calc-${Date.now()}`);
     const nextItem = {
       id: nextId,
+      kind: "3d" as const,
       savedAt: new Date().toISOString(),
       productName: form.productName.trim() || "Sem nome",
       salesChannelId: form.salesChannelId,
@@ -914,8 +947,12 @@ export default function Home() {
           exchangeRateSnapshot.rates,
         ),
       },
-      erpProduct: existingCalculation?.erpProduct,
-      siteProduct: existingCalculation?.siteProduct,
+      erpProduct: is3DCalculation(existingCalculation)
+        ? existingCalculation.erpProduct
+        : undefined,
+      siteProduct: is3DCalculation(existingCalculation)
+        ? existingCalculation.siteProduct
+        : undefined,
     };
 
     if (editingCalculationId) {
@@ -1004,11 +1041,19 @@ export default function Home() {
               {appPreferences.workspaceName}
             </p>
             <h1 className="mt-3 text-3xl font-semibold tracking-[-0.06em] text-[var(--foreground)] sm:text-5xl">
-              Precificadora
+              {activeBusinessMeta
+                ? `Precificadora de ${activeBusinessMeta.label}`
+                : "Precificadora"}
             </h1>
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2">
+            {activeBusinessMeta ? (
+              <HeroChip
+                label={`Ramo: ${activeBusinessMeta.label}`}
+                tone="accent"
+              />
+            ) : null}
             <HeroChip
               label={`Perfil: ${getBusinessPreset(appPreferences.businessPresetId).label}`}
               tone="default"
@@ -1021,98 +1066,163 @@ export default function Home() {
           </div>
         </header>
 
-        <section className="grid gap-8 xl:grid-cols-[minmax(0,1.14fr)_minmax(420px,0.86fr)] 2xl:grid-cols-[minmax(0,1fr)_500px]">
-          <div className="space-y-6">
-            <PricingForm
-              form={form}
-              onChange={updateField}
-              onFilamentRequirementChange={updateFilamentRequirement}
-              onAddFilamentRequirement={addFilamentRequirement}
-              onRemoveFilamentRequirement={removeFilamentRequirement}
-              suggestedPrice={viewModel.displayedSalePrice}
-              effectiveMarketplaceFeePercentage={
-                effectiveMarketplaceFeePercentage
-              }
-              mercadoLivreSuggestedFeePercentage={
-                mercadoLivreAutomation.feePercentage ??
-                mercadoLivreFeePreview?.appliedFeePercentage ??
-                null
-              }
-              mercadoLivrePredictedCategoryName={resolvedMercadoLivreCategoryName}
-              mercadoLivreShippingEstimate={mercadoLivreAutomation.shippingEstimate}
-              mercadoLivreIsLoading={mercadoLivreAutomation.isLoading}
-              mercadoLivreCanRunLookup={mercadoLivreLookupContext.canRun}
-              mercadoLivreMissingLookupRequirements={
-                mercadoLivreLookupContext.missingRequirements
-              }
-              mercadoLivreOfficialLookupReady={
-                mercadoLivreAutomation.officialLookupReady
-              }
-              mercadoLivreOfficialLookupError={
-                mercadoLivreAutomation.officialLookupError
-              }
-              displayCurrency={displayCurrency}
-              onDisplayCurrencyChange={setDisplayCurrency}
-              exchangeRateSnapshot={exchangeRateSnapshot}
-              onMercadoLivreOfficialCategorySelect={
-                handleMercadoLivreOfficialCategorySelect
-              }
-              onMercadoLivreOfficialCategoryClear={
-                clearMercadoLivreOfficialCategory
-              }
-            />
-
-            <SiteProductPublisher
-              pricingContext={{
-                productName: form.productName.trim() || "Sem nome",
-                salePriceInCents: Math.round(viewModel.displayedSalePrice * 100),
-                totalCostInCents: Math.round(viewModel.unitTotalCost * 100),
-                profitInCents: Math.round(viewModel.unitProfit * 100),
-                marginPercentage: viewModel.realMarginPercentage,
-                salesChannelLabel: selectedChannelLabel,
-                salesChannelId: form.salesChannelId,
-                productType: form.productType,
-                displayCurrency,
-                exchangeRateDate: exchangeRateSnapshot.date,
-                filamentRequirements: filamentRequirementsForErp,
-                filamentRequirementsValidationMessage:
-                  filamentRequirementsValidationMessage,
-                filamentRequirementsInputWeightTotal:
-                  filamentRequirementsInputWeightTotal,
-                filamentWeightReferenceGrams: form.weightGrams,
-                preferredFilamentMaterial:
-                  preferredFilamentRequirement?.material ?? null,
-                mercadoLivreCategoryId: resolvedMercadoLivreCategoryId,
-                mercadoLivreCategoryName: resolvedMercadoLivreCategoryName,
-              }}
-              onSaveToErp={saveProductToErp}
-            />
-          </div>
-
-          <PricingResult
-            productName={form.productName}
-            form={form}
-            result={result}
-            profitDestinations={appPreferences.profitDestinations}
-            onFieldChange={updateField}
-            selectedChannelLabel={selectedChannelLabel}
-            effectiveMarketplaceFeePercentage={effectiveMarketplaceFeePercentage}
-            effectiveMarketplaceFixedFee={effectiveMarketplaceFixedFee}
-            mercadoLivrePredictedCategoryName={resolvedMercadoLivreCategoryName}
-            displayCurrency={displayCurrency}
-            exchangeRates={exchangeRateSnapshot.rates}
-            onSave={handleSaveCalculation}
-            saveButtonLabel={
-              saveState === "saved"
-                ? editingCalculationId
-                  ? "Cálculo atualizado"
-                  : "Cálculo salvo"
-                : editingCalculationId
-                  ? "Atualizar cálculo"
-                  : "Salvar cálculo"
+        {activeBusinessType === "confectionery" && activeBusinessMeta ? (
+          <ConfectioneryWorkspacePreview
+            key={editingConfectioneryCalculation?.id ?? "confectionery-new"}
+            workspaceName={appPreferences.workspaceName}
+            profileLabel={getBusinessPreset(appPreferences.businessPresetId).label}
+            defaultMarginPercentage={
+              appPreferences.pricingDefaults.profitMarginPercentage
             }
+            initialCalculation={editingConfectioneryCalculation}
+            onPersisted={(calculation) => {
+              setEditingConfectioneryCalculation(calculation);
+            }}
           />
-        </section>
+        ) : activeBusinessMeta && !activeBusinessMeta.calculatorReady ? (
+          <section className="grid gap-6 xl:grid-cols-[minmax(0,1.06fr)_360px]">
+            <div className="app-card p-6 sm:p-7">
+              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--accent)]">
+                Estrutura do ramo
+              </p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[var(--foreground)]">
+                {activeBusinessMeta.label} já está definido para esta conta
+              </h2>
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--muted)]">
+                O workspace foi configurado para {activeBusinessMeta.label.toLowerCase()}.
+                Como os nichos são distintos, eu preservo essa escolha e não mostro
+                a calculadora de impressão 3D em cima de um negócio de outro ramo.
+              </p>
+
+              <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                <BusinessTypeInfoCard
+                  label="Como este ramo precifica"
+                  value={activeBusinessMeta.description}
+                />
+                <BusinessTypeInfoCard
+                  label="Templates planejados"
+                  value={activeBusinessMeta.templatesSummary}
+                />
+              </div>
+            </div>
+
+            <aside className="app-card-soft p-6">
+              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
+                Próximos destinos
+              </p>
+              <div className="mt-4 grid gap-3">
+                <InlineActionCard
+                  href="/app/modelos-orcamento"
+                  title="Modelos do ramo"
+                  description="Os modelos da conta já podem seguir a linguagem do nicho escolhido."
+                />
+                <InlineActionCard
+                  href="/app/perfil-empresa"
+                  title="Perfil da empresa"
+                  description="Complete logo, contato, cidade e dados comerciais do negócio."
+                />
+                <InlineActionCard
+                  href="/app/preferencias"
+                  title="Política comercial"
+                  description="Ajuste moeda, preset e parâmetros operacionais padrão."
+                />
+              </div>
+            </aside>
+          </section>
+        ) : (
+          <section className="grid gap-8 xl:grid-cols-[minmax(0,1.14fr)_minmax(420px,0.86fr)] 2xl:grid-cols-[minmax(0,1fr)_500px]">
+            <div className="space-y-6">
+              <PricingForm
+                form={form}
+                onChange={updateField}
+                onFilamentRequirementChange={updateFilamentRequirement}
+                onAddFilamentRequirement={addFilamentRequirement}
+                onRemoveFilamentRequirement={removeFilamentRequirement}
+                suggestedPrice={viewModel.displayedSalePrice}
+                effectiveMarketplaceFeePercentage={
+                  effectiveMarketplaceFeePercentage
+                }
+                mercadoLivreSuggestedFeePercentage={
+                  mercadoLivreAutomation.feePercentage ??
+                  mercadoLivreFeePreview?.appliedFeePercentage ??
+                  null
+                }
+                mercadoLivrePredictedCategoryName={resolvedMercadoLivreCategoryName}
+                mercadoLivreShippingEstimate={mercadoLivreAutomation.shippingEstimate}
+                mercadoLivreIsLoading={mercadoLivreAutomation.isLoading}
+                mercadoLivreCanRunLookup={mercadoLivreLookupContext.canRun}
+                mercadoLivreMissingLookupRequirements={
+                  mercadoLivreLookupContext.missingRequirements
+                }
+                mercadoLivreOfficialLookupReady={
+                  mercadoLivreAutomation.officialLookupReady
+                }
+                mercadoLivreOfficialLookupError={
+                  mercadoLivreAutomation.officialLookupError
+                }
+                displayCurrency={displayCurrency}
+                onDisplayCurrencyChange={setDisplayCurrency}
+                exchangeRateSnapshot={exchangeRateSnapshot}
+                onMercadoLivreOfficialCategorySelect={
+                  handleMercadoLivreOfficialCategorySelect
+                }
+                onMercadoLivreOfficialCategoryClear={
+                  clearMercadoLivreOfficialCategory
+                }
+              />
+
+              <SiteProductPublisher
+                pricingContext={{
+                  productName: form.productName.trim() || "Sem nome",
+                  salePriceInCents: Math.round(viewModel.displayedSalePrice * 100),
+                  totalCostInCents: Math.round(viewModel.unitTotalCost * 100),
+                  profitInCents: Math.round(viewModel.unitProfit * 100),
+                  marginPercentage: viewModel.realMarginPercentage,
+                  salesChannelLabel: selectedChannelLabel,
+                  salesChannelId: form.salesChannelId,
+                  productType: form.productType,
+                  displayCurrency,
+                  exchangeRateDate: exchangeRateSnapshot.date,
+                  filamentRequirements: filamentRequirementsForErp,
+                  filamentRequirementsValidationMessage:
+                    filamentRequirementsValidationMessage,
+                  filamentRequirementsInputWeightTotal:
+                    filamentRequirementsInputWeightTotal,
+                  filamentWeightReferenceGrams: form.weightGrams,
+                  preferredFilamentMaterial:
+                    preferredFilamentRequirement?.material ?? null,
+                  mercadoLivreCategoryId: resolvedMercadoLivreCategoryId,
+                  mercadoLivreCategoryName: resolvedMercadoLivreCategoryName,
+                }}
+                onSaveToErp={saveProductToErp}
+              />
+            </div>
+
+            <PricingResult
+              productName={form.productName}
+              form={form}
+              result={result}
+              profitDestinations={appPreferences.profitDestinations}
+              onFieldChange={updateField}
+              selectedChannelLabel={selectedChannelLabel}
+              effectiveMarketplaceFeePercentage={effectiveMarketplaceFeePercentage}
+              effectiveMarketplaceFixedFee={effectiveMarketplaceFixedFee}
+              mercadoLivrePredictedCategoryName={resolvedMercadoLivreCategoryName}
+              displayCurrency={displayCurrency}
+              exchangeRates={exchangeRateSnapshot.rates}
+              onSave={handleSaveCalculation}
+              saveButtonLabel={
+                saveState === "saved"
+                  ? editingCalculationId
+                    ? "Cálculo atualizado"
+                    : "Cálculo salvo"
+                  : editingCalculationId
+                    ? "Atualizar cálculo"
+                    : "Salvar cálculo"
+              }
+            />
+          </section>
+        )}
       </div>
 
       <BusinessSetupModal
@@ -1152,5 +1262,66 @@ function HeroChip({
     >
       {label}
     </span>
+  );
+}
+
+function BusinessTypeInfoCard({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-[24px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.76)] px-5 py-5">
+      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--muted)]">
+        {label}
+      </p>
+      <p className="mt-3 text-sm leading-7 text-[var(--foreground)]">{value}</p>
+    </div>
+  );
+}
+
+function ConfectioneryWorkspacePreview({
+  workspaceName,
+  profileLabel,
+  defaultMarginPercentage,
+  initialCalculation,
+  onPersisted,
+}: {
+  workspaceName: string;
+  profileLabel: string;
+  defaultMarginPercentage: number;
+  initialCalculation?: SavedConfectioneryCalculation | null;
+  onPersisted?: (calculation: SavedConfectioneryCalculation) => void;
+}) {
+  return (
+    <ConfectioneryPricingWorkspace
+      workspaceName={workspaceName}
+      profileLabel={profileLabel}
+      defaultMarginPercentage={defaultMarginPercentage}
+      initialCalculation={initialCalculation}
+      onPersisted={onPersisted}
+    />
+  );
+}
+
+function InlineActionCard({
+  href,
+  title,
+  description,
+}: {
+  href: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="rounded-[22px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.72)] px-4 py-4 transition hover:border-[var(--accent)]"
+    >
+      <p className="text-base font-semibold text-[var(--foreground)]">{title}</p>
+      <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{description}</p>
+    </Link>
   );
 }
