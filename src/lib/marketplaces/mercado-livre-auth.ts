@@ -68,16 +68,31 @@ export function getMercadoLivreAuthorizationUrl() {
 
 export async function getMercadoLivreConnectionStatus(): Promise<MercadoLivreConnectionStatus> {
   if (canUsePersistentOauth()) {
-    const session = await getCurrentAuthSession();
-    const row = session ? await getStoredTokenRow(session.workspace.id) : null;
+    try {
+      const session = await getCurrentAuthSession();
+      const row = session ? await getStoredTokenRow(session.workspace.id) : null;
 
-    return {
-      mode: "persistent",
-      connected: Boolean(row),
-      userId: row?.user_id ?? null,
-      expiresAt: row?.expires_at ?? null,
-      updatedAt: row?.updated_at ?? null,
-    };
+      return {
+        mode: "persistent",
+        connected: Boolean(row),
+        userId: row?.user_id ?? null,
+        expiresAt: row?.expires_at ?? null,
+        updatedAt: row?.updated_at ?? null,
+      };
+    } catch (error) {
+      console.error(
+        "[mercado-livre] failed to resolve connection status for preferences",
+        error,
+      );
+
+      return {
+        mode: "persistent",
+        connected: false,
+        userId: null,
+        expiresAt: null,
+        updatedAt: null,
+      };
+    }
   }
 
   if (process.env.MELI_ACCESS_TOKEN && process.env.MELI_USER_ID) {

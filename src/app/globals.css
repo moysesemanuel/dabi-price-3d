@@ -74,6 +74,13 @@
   box-sizing: border-box;
 }
 
+button,
+a,
+[role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 html {
   background: var(--background);
   color: var(--foreground);

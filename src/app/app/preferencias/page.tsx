@@ -4,7 +4,16 @@ import { PreferencesPanel } from "@/components/preferences/preferences-panel";
 import { getMercadoLivreConnectionStatus } from "@/lib/marketplaces/mercado-livre-auth";
 
 export default async function PreferencesPage() {
-  const mercadoLivreStatus = await getMercadoLivreConnectionStatus();
+  let mercadoLivreStatus = null;
+
+  try {
+    mercadoLivreStatus = await getMercadoLivreConnectionStatus();
+  } catch (error) {
+    console.error(
+      "[preferences] failed to load Mercado Livre status for page render",
+      error,
+    );
+  }
 
   return (
     <div className="app-page">
