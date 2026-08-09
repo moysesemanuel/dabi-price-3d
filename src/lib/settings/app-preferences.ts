@@ -1,4 +1,5 @@
 import type { DisplayCurrency } from "@/lib/currency/display-currency";
+import { isClientLocalPersistenceMode } from "@/lib/client/persistence-mode";
 import {
   defaultProfitDestinationPercentages,
   normalizeProfitDestinationPercentages,
@@ -17,6 +18,13 @@ import {
 } from "../workspace/catalog";
 
 export type BusinessPresetId = "maker" | "studio" | "farm";
+export type CompanyPaymentMethod =
+  | "pix"
+  | "credit_card"
+  | "debit_card"
+  | "boleto"
+  | "cash"
+  | "bank_transfer";
 export type {
   SubscriptionStatus,
   WorkspacePlan,
@@ -43,6 +51,15 @@ export type AppPreferences = {
   workspaceName: string;
   operatorName: string;
   operatorEmail: string;
+  operatorPhone: string;
+  companyLogoUrl: string;
+  brandAccentHex: string;
+  addressLine: string;
+  city: string;
+  state: string;
+  paymentMethods: CompanyPaymentMethod[];
+  websiteUrl: string;
+  instagramHandle: string;
   operatorRole: WorkspaceRole;
   businessPresetId: BusinessPresetId;
   defaultDisplayCurrency: DisplayCurrency;
@@ -64,6 +81,36 @@ export type BusinessPreset = {
 const PREFERENCES_EVENT = "dabi-price-3d:app-preferences-updated";
 const STORAGE_KEY = "dabi-price-3d:app-preferences";
 export { getWorkspacePlan, workspaceRoleMeta, workspacePlans };
+
+export const companyPaymentMethodMeta: Record<
+  CompanyPaymentMethod,
+  { label: string; description: string }
+> = {
+  pix: {
+    label: "PIX",
+    description: "Pagamento instantâneo para pedidos rápidos e aprovação ágil.",
+  },
+  credit_card: {
+    label: "Cartão de crédito",
+    description: "Venda parcelada ou à vista no cartão.",
+  },
+  debit_card: {
+    label: "Cartão de débito",
+    description: "Recebimento imediato no débito.",
+  },
+  boleto: {
+    label: "Boleto",
+    description: "Cobrança bancária para clientes PJ e faturamento.",
+  },
+  cash: {
+    label: "Dinheiro",
+    description: "Pagamento presencial em espécie.",
+  },
+  bank_transfer: {
+    label: "Transferência bancária",
+    description: "TED, DOC ou transferência entre contas.",
+  },
+};
 
 export const businessPresets: readonly BusinessPreset[] = [
   {
@@ -126,6 +173,15 @@ export const defaultAppPreferences: AppPreferences = {
   workspaceName: "Dabi Tech 3D",
   operatorName: "",
   operatorEmail: "",
+  operatorPhone: "",
+  companyLogoUrl: "",
+  brandAccentHex: "#ff6a00",
+  addressLine: "",
+  city: "",
+  state: "",
+  paymentMethods: ["pix"],
+  websiteUrl: "",
+  instagramHandle: "",
   operatorRole: "owner",
   businessPresetId: "studio",
   defaultDisplayCurrency: "BRL",
@@ -153,6 +209,35 @@ export function getBusinessPreset(presetId: BusinessPresetId) {
 
 export function resolveCalculationHistoryLimit(preferences: AppPreferences) {
   return getWorkspacePlan(preferences.subscription.planId).historyLimit;
+}
+
+export function getCompanyProfileChecklist(preferences: AppPreferences) {
+  return [
+    {
+      id: "workspaceName",
+      label: "Nome da empresa",
+      done: preferences.workspaceName.trim().length > 0,
+    },
+    {
+      id: "operatorEmail",
+      label: "E-mail operacional",
+      done: preferences.operatorEmail.trim().length > 0,
+    },
+    {
+      id: "operatorPhone",
+      label: "Telefone / WhatsApp",
+      done: preferences.operatorPhone.trim().length > 0,
+    },
+    {
+      id: "city",
+      label: "Cidade",
+      done: preferences.city.trim().length > 0,
+    },
+  ] as const;
+}
+
+export function isCompanyProfileComplete(preferences: AppPreferences) {
+  return getCompanyProfileChecklist(preferences).every((item) => item.done);
 }
 
 export function clonePricingPolicyDefaults(
@@ -195,17 +280,33 @@ export async function loadAppPreferences() {
     return cachedPreferencesSnapshot;
   }
 
+  if (isClientLocalPersistenceMode()) {
+    return readLocalAppPreferences();
+  }
+
   const response = await fetch("/api/workspace/preferences", {
     cache: "no-store",
   });
 
+  const payload = (await response.json().catch(() => null)) as
+    | Partial<AppPreferences>
+    | { error?: string }
+    | null;
+
   if (!response.ok) {
-    return readLocalAppPreferences();
+    if (shouldUseLocalPreferencesFallback(response.status, payload)) {
+      return readLocalAppPreferences();
+    }
+
+    throw new Error(
+      isPreferencesErrorPayload(payload)
+        ? payload.error ?? "Falha ao carregar preferências do workspace."
+        : "Falha ao carregar preferências do workspace.",
+    );
   }
 
-  const payload = (await response.json()) as Partial<AppPreferences>;
   const normalizedPreferences = hydrateAppPreferences(
-    normalizeAppPreferences(payload),
+    normalizeAppPreferences(payload as Partial<AppPreferences>),
   );
   window.dispatchEvent(new Event(PREFERENCES_EVENT));
 
@@ -218,6 +319,11 @@ export async function writeAppPreferences(preferences: AppPreferences) {
   }
 
   const normalizedPreferences = normalizeAppPreferences(preferences);
+
+  if (isClientLocalPersistenceMode()) {
+    return persistLocalAppPreferences(normalizedPreferences);
+  }
+
   const response = await fetch("/api/workspace/preferences", {
     method: "PUT",
     headers: {
@@ -233,7 +339,15 @@ export async function writeAppPreferences(preferences: AppPreferences) {
     | null;
 
   if (!response.ok || !payload || ("error" in payload && payload.error)) {
-    return persistLocalAppPreferences(normalizedPreferences);
+    if (shouldUseLocalPreferencesFallback(response.status, payload)) {
+      return persistLocalAppPreferences(normalizedPreferences);
+    }
+
+    throw new Error(
+      isPreferencesErrorPayload(payload)
+        ? payload.error ?? "Falha ao salvar preferências do workspace."
+        : "Falha ao salvar preferências do workspace.",
+    );
   }
 
   const savedPreferences = hydrateAppPreferences(
@@ -305,6 +419,18 @@ function normalizeAppPreferences(
     ),
     operatorName: sanitizeText(basePreferences.operatorName),
     operatorEmail: sanitizeText(basePreferences.operatorEmail),
+    operatorPhone: sanitizeText(basePreferences.operatorPhone),
+    companyLogoUrl: sanitizeText(basePreferences.companyLogoUrl),
+    brandAccentHex: sanitizeColor(
+      basePreferences.brandAccentHex,
+      defaultAppPreferences.brandAccentHex,
+    ),
+    addressLine: sanitizeText(basePreferences.addressLine),
+    city: sanitizeText(basePreferences.city),
+    state: sanitizeState(basePreferences.state),
+    paymentMethods: normalizePaymentMethods(basePreferences.paymentMethods),
+    websiteUrl: sanitizeText(basePreferences.websiteUrl),
+    instagramHandle: sanitizeText(basePreferences.instagramHandle),
     operatorRole: normalizeOperatorRole(basePreferences.operatorRole),
     businessPresetId: fallbackPreset.id,
     defaultDisplayCurrency:
@@ -360,6 +486,26 @@ function persistLocalAppPreferences(preferences: AppPreferences) {
   window.dispatchEvent(new Event(PREFERENCES_EVENT));
 
   return normalizedPreferences;
+}
+
+function shouldUseLocalPreferencesFallback(
+  status: number,
+  payload: Partial<AppPreferences> | { error?: string } | null,
+) {
+  if (status !== 503) {
+    return false;
+  }
+
+  return (
+    isPreferencesErrorPayload(payload) &&
+    payload.error === "Persistência de workspace indisponível sem DATABASE_URL."
+  );
+}
+
+function isPreferencesErrorPayload(
+  payload: Partial<AppPreferences> | { error?: string } | null,
+): payload is { error?: string } {
+  return !!payload && typeof payload === "object" && "error" in payload;
 }
 
 function normalizeWorkspaceSubscription(
@@ -432,6 +578,38 @@ function normalizePricingPolicyDefaults(
 
 function sanitizeText(value: unknown, fallback = "") {
   return typeof value === "string" ? value.trim() : fallback;
+}
+
+function sanitizeColor(value: unknown, fallback: string) {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalizedValue = value.trim();
+  return /^#[0-9a-fA-F]{6}$/.test(normalizedValue) ? normalizedValue : fallback;
+}
+
+function sanitizeState(value: unknown) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim().slice(0, 2).toUpperCase();
+}
+
+function normalizePaymentMethods(
+  value: unknown,
+): CompanyPaymentMethod[] {
+  if (!Array.isArray(value)) {
+    return defaultAppPreferences.paymentMethods;
+  }
+
+  const validMethods = value.filter(
+    (item): item is CompanyPaymentMethod =>
+      typeof item === "string" && item in companyPaymentMethodMeta,
+  );
+
+  return validMethods.length > 0 ? validMethods : defaultAppPreferences.paymentMethods;
 }
 
 function sanitizeNumber(value: unknown, fallback: number) {

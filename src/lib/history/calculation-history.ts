@@ -2,6 +2,7 @@ import type {
   DisplayCurrency,
   ExchangeRateSnapshot,
 } from "@/lib/currency/display-currency";
+import { isClientLocalPersistenceMode } from "@/lib/client/persistence-mode";
 import type { PricingFormState } from "@/lib/pricing/initial-pricing-form";
 import { readAppPreferences, resolveCalculationHistoryLimit } from "@/lib/settings/app-preferences";
 
@@ -72,6 +73,10 @@ export async function loadCalculationHistory() {
     return cachedHistorySnapshot;
   }
 
+  if (isClientLocalPersistenceMode()) {
+    return readLocalCalculationHistory();
+  }
+
   const response = await fetch("/api/workspace/calculations", {
     cache: "no-store",
   });
@@ -137,6 +142,13 @@ export async function clearCalculationHistory() {
     return;
   }
 
+  if (isClientLocalPersistenceMode()) {
+    cachedHistorySnapshot = EMPTY_HISTORY;
+    window.localStorage.removeItem(STORAGE_KEY);
+    window.dispatchEvent(new Event(HISTORY_EVENT));
+    return;
+  }
+
   const response = await fetch("/api/workspace/calculations", {
     method: "DELETE",
   });
@@ -153,6 +165,13 @@ export async function clearCalculationHistory() {
 export async function deleteCalculationFromHistory(id: string) {
   if (typeof window === "undefined") {
     return cachedHistorySnapshot;
+  }
+
+  if (isClientLocalPersistenceMode()) {
+    const nextItems = readLocalCalculationHistory().filter((item) => item.id !== id);
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextItems));
+    writeCalculationHistory(nextItems);
+    return nextItems;
   }
 
   const response = await fetch(
@@ -233,6 +252,11 @@ async function persistCalculationItem(item: SavedCalculation) {
     ...item,
     productName: item.productName.trim() || "Sem nome",
   };
+
+  if (isClientLocalPersistenceMode()) {
+    return persistLocalCalculationItem(normalizedItem);
+  }
+
   const response = await fetch("/api/workspace/calculations", {
     method: "POST",
     headers: {

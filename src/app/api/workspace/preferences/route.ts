@@ -47,7 +47,22 @@ export async function PUT(request: Request) {
   }
 
   const previousPreferences = await getWorkspacePreferences(session.workspace.id);
-  const nextPreferences = normalizeAppPreferences(body);
+  const nextPreferences = normalizeAppPreferences({
+    ...previousPreferences,
+    ...body,
+    subscription: {
+      ...previousPreferences.subscription,
+      ...body.subscription,
+    },
+    pricingDefaults: {
+      ...previousPreferences.pricingDefaults,
+      ...body.pricingDefaults,
+    },
+    profitDestinations: {
+      ...previousPreferences.profitDestinations,
+      ...body.profitDestinations,
+    },
+  });
   const savedPreferences = await saveWorkspacePreferences({
     workspaceId: session.workspace.id,
     updatedByUserId: session.user.id,

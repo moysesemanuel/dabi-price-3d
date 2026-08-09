@@ -7,18 +7,19 @@ import { useEffect, useState, type ComponentType, type SVGProps } from "react";
 import horizontalLogo from "@/app/dabi-price-horizontal.svg";
 import whiteLogo from "@/app/logo-dabi-branco.svg";
 import blackLogo from "@/app/logo-dabi-preto.svg";
-import type { PersistenceMode } from "@/lib/server/persistence-mode";
 import type { PlatformRole } from "@/lib/server/platform";
 import {
   defaultAppPreferences,
+  getWorkspacePlan,
   loadAppPreferences,
   readAppPreferences,
   subscribeAppPreferences,
 } from "@/lib/settings/app-preferences";
 
-const EXPANDED_WIDTH = 215;
-const COLLAPSED_WIDTH = 88;
+const EXPANDED_WIDTH = 262;
+const COLLAPSED_WIDTH = 96;
 const THEME_STORAGE_KEY = "dabi-price-theme";
+
 type ThemeMode = "light" | "dark";
 type SidebarIconProps = SVGProps<SVGSVGElement>;
 type NavigationItem = {
@@ -27,6 +28,19 @@ type NavigationItem = {
   icon: ComponentType<SidebarIconProps>;
   superAdminOnly?: boolean;
 };
+type NavigationSection = {
+  id: string;
+  label: string;
+  items: NavigationItem[];
+};
+
+function HouseDoorFillIcon(props: SidebarIconProps) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 2 8h.5v6A1.5 1.5 0 0 0 4 15.5h2A1.5 1.5 0 0 0 7.5 14v-2.5h1V14A1.5 1.5 0 0 0 10 15.5h2a1.5 1.5 0 0 0 1.5-1.5V8h.5a.5.5 0 0 0 .354-.854z" />
+    </svg>
+  );
+}
 
 function CalculatorFillIcon(props: SidebarIconProps) {
   return (
@@ -36,12 +50,11 @@ function CalculatorFillIcon(props: SidebarIconProps) {
   );
 }
 
-function ClockHistoryIcon(props: SidebarIconProps) {
+function FileEarmarkTextIcon(props: SidebarIconProps) {
   return (
     <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" {...props}>
-      <path d="M8.515 1.019A7 7 0 0 0 8 1V0a8 8 0 0 1 .589.022zm2.004.45a7 7 0 0 0-.985-.299l.219-.976q.576.129 1.126.342zm1.37.71a7 7 0 0 0-.439-.27l.493-.87a8 8 0 0 1 .979.654l-.615.789a7 7 0 0 0-.418-.302zm1.834 1.79a7 7 0 0 0-.653-.796l.724-.69q.406.429.747.91zm.744 1.352a7 7 0 0 0-.214-.468l.893-.45a8 8 0 0 1 .45 1.088l-.95.313a7 7 0 0 0-.179-.483m.53 2.507a7 7 0 0 0-.1-1.025l.985-.17q.1.58.116 1.17zm-.131 1.538q.05-.254.081-.51l.993.123a8 8 0 0 1-.23 1.155l-.964-.267q.069-.247.12-.501m-.952 2.379q.276-.436.486-.908l.914.405q-.24.54-.555 1.038zm-.964 1.205q.183-.183.35-.378l.758.653a8 8 0 0 1-.401.432z" />
-      <path d="M8 1a7 7 0 1 0 4.95 11.95l.707.707A8.001 8.001 0 1 1 8 0z" />
-      <path d="M7.5 3a.5.5 0 0 1 .5.5v5.21l3.248 1.856a.5.5 0 0 1-.496.868l-3.5-2A.5.5 0 0 1 7 9V3.5a.5.5 0 0 1 .5-.5" />
+      <path d="M5.5 7a.5.5 0 0 0 0 1H10a.5.5 0 0 0 0-1zM5 9.5a.5.5 0 0 1 .5-.5H10a.5.5 0 0 1 0 1H5.5a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5H8a.5.5 0 0 1 0 1H5.5a.5.5 0 0 1-.5-.5" />
+      <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5z" />
     </svg>
   );
 }
@@ -53,6 +66,14 @@ function SlidersIcon(props: SidebarIconProps) {
         fillRule="evenodd"
         d="M11.5 2a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M9.05 3a2.5 2.5 0 0 1 4.9 0H16v1h-2.05a2.5 2.5 0 0 1-4.9 0H0V3zM4.5 7a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M2.05 8a2.5 2.5 0 0 1 4.9 0H16v1H6.95a2.5 2.5 0 0 1-4.9 0H0V8zm9.45 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3m-2.45 1a2.5 2.5 0 0 1 4.9 0H16v1h-2.05a2.5 2.5 0 0 1-4.9 0H0v-1z"
       />
+    </svg>
+  );
+}
+
+function BuildingIcon(props: SidebarIconProps) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M6.5 15V1h3v14zm-1 0V7h-4v8zm5 0h4V4h-4zM4 2a1 1 0 0 1 1-1h6.5a1 1 0 0 1 1 1V3H15a1 1 0 0 1 1 1v11h-1V4h-2.5v11h-9V8H1V7h2.5V2zM8 3.5A.5.5 0 0 0 7.5 4v1A.5.5 0 0 0 8 5.5h1a.5.5 0 0 0 .5-.5V4a.5.5 0 0 0-.5-.5zm0 3A.5.5 0 0 0 7.5 7v1A.5.5 0 0 0 8 8.5h1a.5.5 0 0 0 .5-.5V7a.5.5 0 0 0-.5-.5z" />
     </svg>
   );
 }
@@ -94,32 +115,64 @@ function PeopleIcon(props: SidebarIconProps) {
   );
 }
 
-const navigationItems: NavigationItem[] = [
+const navigationSections: NavigationSection[] = [
   {
-    href: "/app/precificacao",
-    label: "Precificadora",
-    icon: CalculatorFillIcon,
+    id: "workspace",
+    label: "Operação",
+    items: [
+      { href: "/app", label: "Início", icon: HouseDoorFillIcon },
+      {
+        href: "/app/precificacao",
+        label: "Precificadora",
+        icon: CalculatorFillIcon,
+      },
+      {
+        href: "/app/orcamentos",
+        label: "Orçamentos",
+        icon: FileEarmarkTextIcon,
+      },
+      {
+        href: "/app/modelos-orcamento",
+        label: "Modelos de orçamento",
+        icon: SlidersIcon,
+      },
+    ],
   },
-  { href: "/app/historico", label: "Histórico", icon: ClockHistoryIcon },
-  { href: "/app/preferencias", label: "Preferências", icon: SlidersIcon },
-  { href: "/app/ajuda", label: "Ajuda", icon: QuestionCircleIcon },
-  { href: "/app/suporte", label: "Suporte", icon: HeadsetIcon },
-  { href: "/app/conta", label: "Conta", icon: PersonCircleIcon },
   {
-    href: "/app/usuarios",
-    label: "Usuários",
-    icon: PeopleIcon,
-    superAdminOnly: true,
+    id: "company",
+    label: "Empresa",
+    items: [
+      {
+        href: "/app/perfil-empresa",
+        label: "Perfil da empresa",
+        icon: BuildingIcon,
+      },
+      { href: "/app/equipe", label: "Equipe", icon: PeopleIcon },
+      {
+        href: "/app/preferencias",
+        label: "Preferências",
+        icon: SlidersIcon,
+      },
+    ],
+  },
+  {
+    id: "support",
+    label: "Ajuda",
+    items: [
+      { href: "/app/ajuda", label: "Ajuda", icon: QuestionCircleIcon },
+      { href: "/app/suporte", label: "Suporte", icon: HeadsetIcon },
+      { href: "/app/conta", label: "Conta", icon: PersonCircleIcon },
+      {
+        href: "/app/usuarios",
+        label: "Usuários",
+        icon: PeopleIcon,
+        superAdminOnly: true,
+      },
+    ],
   },
 ];
 
-export function AppSidebar({
-  persistenceMode,
-  platformRole,
-}: {
-  persistenceMode: PersistenceMode;
-  platformRole: PlatformRole;
-}) {
+export function AppSidebar({ platformRole }: { platformRole: PlatformRole }) {
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -127,6 +180,12 @@ export function AppSidebar({
     defaultAppPreferences.workspaceName,
   );
   const [operatorLabel, setOperatorLabel] = useState("Configuração pendente");
+  const [planLabel, setPlanLabel] = useState(
+    getWorkspacePlan(defaultAppPreferences.subscription.planId).label,
+  );
+  const [planPriceLabel, setPlanPriceLabel] = useState(
+    getWorkspacePlan(defaultAppPreferences.subscription.planId).monthlyPriceLabel,
+  );
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
     if (typeof window !== "undefined") {
@@ -137,9 +196,15 @@ export function AppSidebar({
 
     return "light";
   });
-  const visibleNavigationItems = navigationItems.filter(
-    (item) => !item.superAdminOnly || platformRole === "super_admin",
-  );
+
+  const visibleSections = navigationSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter(
+        (item) => !item.superAdminOnly || platformRole === "super_admin",
+      ),
+    }))
+    .filter((section) => section.items.length > 0);
 
   useEffect(() => {
     document.documentElement.style.setProperty(
@@ -156,6 +221,7 @@ export function AppSidebar({
   useEffect(() => {
     const syncPreferences = () => {
       const preferences = readAppPreferences();
+      const plan = getWorkspacePlan(preferences.subscription.planId);
 
       setWorkspaceName(preferences.workspaceName || "Dabi Price");
       setOperatorLabel(
@@ -163,19 +229,12 @@ export function AppSidebar({
           preferences.operatorName ||
           "Configuração pendente",
       );
+      setPlanLabel(plan.label);
+      setPlanPriceLabel(plan.monthlyPriceLabel);
     };
 
     syncPreferences();
-    void loadAppPreferences()
-      .then((preferences) => {
-        setWorkspaceName(preferences.workspaceName || "Dabi Price");
-        setOperatorLabel(
-          preferences.operatorEmail ||
-            preferences.operatorName ||
-            "Configuração pendente",
-        );
-      })
-      .catch(() => undefined);
+    void loadAppPreferences().then(syncPreferences).catch(() => undefined);
 
     return subscribeAppPreferences(syncPreferences);
   }, []);
@@ -193,14 +252,6 @@ export function AppSidebar({
     };
   }, [isMobileOpen]);
 
-  function applyTheme(themeMode: ThemeMode) {
-    setThemeMode(themeMode);
-  }
-
-  function toggleTheme() {
-    applyTheme(themeMode === "dark" ? "light" : "dark");
-  }
-
   async function handleSignOut() {
     setIsSigningOut(true);
 
@@ -213,20 +264,17 @@ export function AppSidebar({
     }
   }
 
-  const sidebarCollapsedLogoSrc =
-    themeMode === "dark"
-      ? whiteLogo
-      : blackLogo;
+  function toggleTheme() {
+    setThemeMode((current) => (current === "dark" ? "light" : "dark"));
+  }
+
+  const sidebarCollapsedLogoSrc = themeMode === "dark" ? whiteLogo : blackLogo;
 
   return (
     <>
       <div className="fixed inset-x-0 top-0 z-40 border-b border-[var(--panel-border)] bg-[rgba(255,255,255,0.86)] px-4 py-3 shadow-[0_12px_34px_rgba(57,37,118,0.08)] backdrop-blur-xl lg:hidden">
         <div className="mx-auto flex max-w-[1488px] items-center justify-between gap-3">
-          <Link
-            href="/app/precificacao"
-            className="min-w-0"
-            aria-label="Dabi Price"
-          >
+          <Link href="/app" className="min-w-0" aria-label="Dabi Price">
             {themeMode === "dark" ? (
               <Image
                 src={whiteLogo}
@@ -271,7 +319,7 @@ export function AppSidebar({
           <div className="absolute inset-y-0 left-0 flex w-[88vw] max-w-[360px] flex-col border-r border-[var(--panel-border)] bg-[var(--sidebar-bg)] px-4 py-4 shadow-[0_24px_70px_rgba(12,8,32,0.24)] backdrop-blur-xl">
             <div className="rounded-[32px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.52)] px-4 py-5">
               <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0 text-2xl font-semibold leading-none tracking-[-0.08em] text-[var(--foreground)]">
+                <div className="min-w-0">
                   {themeMode === "dark" ? (
                     <Image
                       src={whiteLogo}
@@ -304,103 +352,52 @@ export function AppSidebar({
               </div>
             </div>
 
-            <nav className="flex-1 px-1 py-5">
-              <ul className="space-y-2">
-                {visibleNavigationItems.map((item) => {
-                  const isActive =
-                    pathname === item.href ||
-                    (item.href === "/app/precificacao" && pathname === "/app");
-                  const Icon = item.icon;
-
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        onClick={() => setIsMobileOpen(false)}
-                        className={`flex w-full items-center rounded-[22px] border px-4 py-3 text-sm transition-colors duration-150 ${
-                          isActive
-                            ? "border-[var(--accent)] bg-[var(--accent)] font-medium text-white"
-                            : "border-[var(--panel-border)] bg-[rgba(255,255,255,0.78)] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--foreground)]"
-                        }`}
-                      >
-                        <span className="mr-3 inline-flex size-9 shrink-0 items-center justify-center rounded-2xl bg-current/12">
-                          <Icon className="size-4" />
-                        </span>
-                        {item.label}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+            <nav className="flex-1 overflow-y-auto px-1 py-5">
+              <div className="space-y-6">
+                {visibleSections.map((section) => (
+                  <div key={section.id}>
+                    <p className="px-3 font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--muted)]">
+                      {section.label}
+                    </p>
+                    <ul className="mt-2 space-y-2">
+                      {section.items.map((item) => (
+                        <li key={item.href}>
+                          <NavigationLink
+                            item={item}
+                            pathname={pathname}
+                            isExpanded
+                            onClick={() => setIsMobileOpen(false)}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
             </nav>
 
-            <div className="rounded-[32px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.52)] px-3 py-4 text-sm text-[var(--muted)]">
-              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
-                Workspace
-              </p>
-              <p className="mt-2 truncate text-[var(--foreground)]">
-                {workspaceName}
-              </p>
-              <p className="mt-1 truncate text-xs text-[var(--muted)]">
-                {operatorLabel}
-              </p>
-              <p
-                className={`mt-3 inline-flex rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.18em] ${
-                  persistenceMode === "database"
-                    ? "border-[var(--panel-border)] bg-[rgba(255,255,255,0.76)] text-[var(--muted)]"
-                    : "border-[color:var(--warning)]/24 bg-[color:var(--warning)]/10 text-[color:var(--warning)]"
-                }`}
-                title={
-                  persistenceMode === "database"
-                    ? "Persistencia compartilhada ativa."
-                    : "Modo local sem DATABASE_URL."
-                }
-              >
-                {persistenceMode === "database" ? "Banco" : "Local"}
-              </p>
-
-              <div className="mt-4 rounded-[24px] border border-[var(--panel-border)] bg-[var(--panel-soft)] px-4 py-4">
-                <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
-                  Tema
-                </p>
-
-                <div className="mt-3 flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-[var(--foreground)]">
-                    Claro / Escuro
-                  </p>
-
-                  <button
-                    type="button"
-                    data-theme-switch
-                    onClick={toggleTheme}
-                    aria-label="Alternar entre modo claro e escuro"
-                    aria-pressed={themeMode === "dark"}
-                    className="relative h-7 w-12 shrink-0 rounded-full border border-[color:var(--panel-border)] bg-[var(--foreground)] transition"
-                  >
-                    <span className="absolute top-1 left-1 size-5 rounded-full bg-white shadow-sm transition" />
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="mt-4 block rounded-full border border-[var(--panel-border)] bg-[rgba(255,255,255,0.84)] px-4 py-2 text-[var(--foreground)] transition hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-white"
-              >
-                {isSigningOut ? "Saindo..." : "Sair"}
-              </button>
-            </div>
+            <SidebarFooter
+              isExpanded
+              workspaceName={workspaceName}
+              operatorLabel={operatorLabel}
+              planLabel={planLabel}
+              planPriceLabel={planPriceLabel}
+              themeMode={themeMode}
+              onToggleTheme={toggleTheme}
+              onSignOut={() => void handleSignOut()}
+              isSigningOut={isSigningOut}
+            />
           </div>
         </div>
       ) : null}
 
       <aside className="hidden transition-[width] duration-300 lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:w-[var(--app-sidebar-width)] lg:flex-col lg:bg-transparent lg:px-4 lg:py-4">
         <div className="rounded-[32px] border border-[var(--panel-border)] bg-[var(--sidebar-bg)] px-4 py-5 shadow-[0_18px_48px_rgba(57,37,118,0.08)] backdrop-blur-xl">
-          <div className="flex flex-col gap-3">
-            <div
-              className={`min-w-0 whitespace-nowrap text-[var(--foreground)] ${
-                isExpanded ? "" : "flex justify-center"
-              }`}
+          <div className="flex items-center justify-between gap-3">
+            <Link
+              href="/app"
+              className={`min-w-0 ${isExpanded ? "" : "mx-auto"}`}
+              aria-label="Dabi Price"
             >
               {isExpanded ? (
                 themeMode === "dark" ? (
@@ -432,130 +429,252 @@ export function AppSidebar({
                   className="h-10 w-auto"
                 />
               )}
-            </div>
+            </Link>
 
-            <div className={isExpanded ? "flex justify-end" : "flex justify-center"}>
+            {isExpanded ? (
               <button
                 type="button"
-                onClick={() => setIsExpanded((current) => !current)}
+                onClick={() => setIsExpanded(false)}
                 className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl border border-[var(--panel-border)] bg-[rgba(255,255,255,0.78)] text-[var(--foreground)] transition hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-white"
-                aria-label={isExpanded ? "Retrair menu lateral" : "Expandir menu lateral"}
-                title={isExpanded ? "Retrair menu" : "Expandir menu"}
+                aria-label="Retrair menu lateral"
+                title="Retrair menu"
               >
-                {isExpanded ? "←" : "→"}
+                ←
+              </button>
+            ) : null}
+          </div>
+
+          {!isExpanded ? (
+            <div className="mt-4 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setIsExpanded(true)}
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl border border-[var(--panel-border)] bg-[rgba(255,255,255,0.78)] text-[var(--foreground)] transition hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-white"
+                aria-label="Expandir menu lateral"
+                title="Expandir menu"
+              >
+                →
               </button>
             </div>
-          </div>
+          ) : null}
         </div>
 
-        <nav className="flex-1 px-2 py-5">
-          <ul className="space-y-2">
-            {visibleNavigationItems.map((item) => {
-              const isActive =
-                pathname === item.href ||
-                (item.href === "/app/precificacao" && pathname === "/app");
-              const Icon = item.icon;
-
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={`flex w-full items-center rounded-[22px] border text-sm transition-colors duration-150 ${
-                      isActive
-                        ? "border-[var(--accent)] bg-[var(--accent)] font-medium text-white"
-                        : "border-[var(--panel-border)] bg-[rgba(255,255,255,0.78)] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--foreground)]"
-                    } ${isExpanded ? "justify-start px-4 py-3" : "justify-center px-2 py-2.5"}`}
-                    title={isExpanded ? undefined : item.label}
-                  >
-                    <span
-                      className={`inline-flex shrink-0 items-center justify-center bg-current/12 ${
-                        isExpanded
-                          ? "mr-3 size-9 rounded-2xl"
-                          : "size-8 rounded-[18px]"
-                      }`}
-                    >
-                      <Icon className="size-4" />
-                    </span>
-
-                    {isExpanded ? item.label : null}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+        <nav className="flex-1 overflow-y-auto px-2 py-5">
+          <div className="space-y-6">
+            {visibleSections.map((section) => (
+              <div key={section.id}>
+                {isExpanded ? (
+                  <p className="px-3 font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--muted)]">
+                    {section.label}
+                  </p>
+                ) : null}
+                <ul className="mt-2 space-y-2">
+                  {section.items.map((item) => (
+                    <li key={item.href}>
+                      <NavigationLink
+                        item={item}
+                        pathname={pathname}
+                        isExpanded={isExpanded}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </nav>
 
-        <div
-          className={`rounded-[32px] border border-[var(--panel-border)] bg-[var(--sidebar-bg)] px-3 py-4 text-sm text-[var(--muted)] shadow-[0_18px_48px_rgba(57,37,118,0.08)] backdrop-blur-xl ${
-            isExpanded ? "" : "text-center"
-          }`}
-        >
-          {isExpanded ? (
-            <>
-              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
-                Workspace
-              </p>
-              <p className="mt-2 truncate text-[var(--foreground)]">
-                {workspaceName}
-              </p>
-              <p className="mt-1 truncate text-xs text-[var(--muted)]">
-                {operatorLabel}
-              </p>
-              <p
-                className={`mt-3 inline-flex rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.18em] ${
-                  persistenceMode === "database"
-                    ? "border-[var(--panel-border)] bg-[rgba(255,255,255,0.76)] text-[var(--muted)]"
-                    : "border-[color:var(--warning)]/24 bg-[color:var(--warning)]/10 text-[color:var(--warning)]"
-                }`}
-                title={
-                  persistenceMode === "database"
-                    ? "Persistencia compartilhada ativa."
-                    : "Modo local sem DATABASE_URL."
-                }
-              >
-                {persistenceMode === "database" ? "Banco" : "Local"}
-              </p>
-
-              <div className="mt-4 rounded-[24px] border border-[var(--panel-border)] bg-[var(--panel-soft)] px-4 py-4">
-                <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
-                  Tema
-                </p>
-
-                <div className="mt-3 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-[var(--foreground)]">
-                      Claro / Escuro
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    data-theme-switch
-                    onClick={toggleTheme}
-                    aria-label="Alternar entre modo claro e escuro"
-                    aria-pressed={themeMode === "dark"}
-                    className="relative h-7 w-12 shrink-0 rounded-full border border-[color:var(--panel-border)] bg-[var(--foreground)] transition"
-                  >
-                    <span className="absolute top-1 left-1 size-5 rounded-full bg-white shadow-sm transition" />
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <p>•</p>
-          )}
-
-          <Link
-            href="/login"
-            className={`mt-4 block rounded-full border border-[var(--panel-border)] bg-[rgba(255,255,255,0.84)] px-4 py-2 text-[var(--foreground)] transition hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-white ${
-              isExpanded ? "w-full text-left" : "w-10 px-0 text-center"
-            }`}
-            title={isExpanded ? undefined : "Trocar acesso"}
-          >
-            {isExpanded ? "Trocar acesso" : "↗"}
-          </Link>
-        </div>
+        <SidebarFooter
+          isExpanded={isExpanded}
+          workspaceName={workspaceName}
+          operatorLabel={operatorLabel}
+          planLabel={planLabel}
+          planPriceLabel={planPriceLabel}
+          themeMode={themeMode}
+          onToggleTheme={toggleTheme}
+          onSignOut={() => void handleSignOut()}
+          isSigningOut={isSigningOut}
+        />
       </aside>
     </>
   );
+}
+
+function NavigationLink({
+  item,
+  pathname,
+  isExpanded,
+  onClick,
+}: {
+  item: NavigationItem;
+  pathname: string;
+  isExpanded: boolean;
+  onClick?: () => void;
+}) {
+  const isActive = isNavigationItemActive(pathname, item.href);
+  const Icon = item.icon;
+
+  return (
+    <Link
+      href={item.href}
+      onClick={onClick}
+      className={`flex w-full items-center rounded-[22px] border text-sm transition-colors duration-150 ${
+        isActive
+          ? "border-[var(--accent)] bg-[var(--accent)] font-medium text-white"
+          : "border-[var(--panel-border)] bg-[rgba(255,255,255,0.78)] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--foreground)]"
+      } ${isExpanded ? "justify-start px-4 py-3" : "justify-center px-2 py-2.5"}`}
+      title={isExpanded ? undefined : item.label}
+    >
+      <span
+        className={`inline-flex shrink-0 items-center justify-center bg-current/12 ${
+          isExpanded ? "mr-3 size-9 rounded-2xl" : "size-9 rounded-2xl"
+        }`}
+      >
+        <Icon className="size-4" />
+      </span>
+      {isExpanded ? item.label : null}
+    </Link>
+  );
+}
+
+function SidebarFooter({
+  isExpanded,
+  workspaceName,
+  operatorLabel,
+  planLabel,
+  planPriceLabel,
+  themeMode,
+  onToggleTheme,
+  onSignOut,
+  isSigningOut,
+}: {
+  isExpanded: boolean;
+  workspaceName: string;
+  operatorLabel: string;
+  planLabel: string;
+  planPriceLabel: string;
+  themeMode: ThemeMode;
+  onToggleTheme: () => void;
+  onSignOut: () => void;
+  isSigningOut: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-[32px] border border-[var(--panel-border)] bg-[var(--sidebar-bg)] px-3 py-4 text-sm text-[var(--muted)] shadow-[0_18px_48px_rgba(57,37,118,0.08)] backdrop-blur-xl ${
+        isExpanded ? "" : "text-center"
+      }`}
+    >
+      {isExpanded ? (
+        <>
+          <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
+            Workspace
+          </p>
+          <p className="mt-2 truncate text-[var(--foreground)]">{workspaceName}</p>
+          <p className="mt-1 truncate text-xs text-[var(--muted)]">
+            {operatorLabel}
+          </p>
+
+          <div className="mt-4 rounded-[24px] border border-[var(--panel-border)] bg-[var(--panel-soft)] px-4 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
+                  Plano atual
+                </p>
+                <p className="mt-2 text-base font-semibold text-[var(--foreground)]">
+                  {planLabel}
+                </p>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  {planPriceLabel}/mês
+                </p>
+              </div>
+
+              <Link
+                href="/app/planos"
+                className="rounded-full border border-[var(--panel-border)] bg-[rgba(255,255,255,0.82)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-white"
+              >
+                Ver planos
+              </Link>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-[24px] border border-[var(--panel-border)] bg-[var(--panel-soft)] px-4 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
+                  Tema
+                </p>
+                <p className="mt-2 text-sm font-medium text-[var(--foreground)]">
+                  Claro / Escuro
+                </p>
+              </div>
+
+              <button
+                type="button"
+                data-theme-switch
+                onClick={onToggleTheme}
+                aria-label="Alternar entre modo claro e escuro"
+                aria-pressed={themeMode === "dark"}
+                className="relative h-7 w-12 shrink-0 rounded-full border border-[color:var(--panel-border)] bg-[var(--foreground)] transition"
+              >
+                <span
+                  className={`absolute top-1 size-5 rounded-full bg-white shadow-sm transition ${
+                    themeMode === "dark" ? "left-6" : "left-1"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="mt-4 block rounded-full border border-[var(--panel-border)] bg-[rgba(255,255,255,0.84)] px-4 py-2 text-[var(--foreground)] transition hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-white"
+          >
+            {isSigningOut ? "Saindo..." : "Sair"}
+          </button>
+        </>
+      ) : (
+        <div className="space-y-3">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-soft)] text-center">
+            <span className="text-xs font-semibold uppercase text-[var(--foreground)]">
+              {planLabel.slice(0, 2)}
+            </span>
+          </div>
+          <Link
+            href="/app/planos"
+            className="block rounded-full border border-[var(--panel-border)] bg-[rgba(255,255,255,0.84)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-white"
+            title="Ver planos"
+          >
+            Planos
+          </Link>
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            className="inline-flex h-10 w-full items-center justify-center rounded-full border border-[var(--panel-border)] bg-[rgba(255,255,255,0.84)] text-[var(--foreground)] transition hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-white"
+            aria-label="Alternar entre modo claro e escuro"
+            title="Alternar tema"
+          >
+            {themeMode === "dark" ? "☾" : "☀"}
+          </button>
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="inline-flex h-10 w-full items-center justify-center rounded-full border border-[var(--panel-border)] bg-[rgba(255,255,255,0.84)] text-[var(--foreground)] transition hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-white"
+            aria-label="Sair"
+            title="Sair"
+          >
+            ⇢
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function isNavigationItemActive(pathname: string, href: string) {
+  if (href === "/app") {
+    return pathname === href;
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
