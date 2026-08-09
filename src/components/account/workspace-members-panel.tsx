@@ -32,6 +32,7 @@ type MembersApiSnapshot = {
   permissions: {
     isSuperAdmin: boolean;
     workspaceRole: string;
+    canEditUserProfiles: boolean;
     canManageMembers: boolean;
     canInviteManagers: boolean;
     canInviteOperators: boolean;

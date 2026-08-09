@@ -73,6 +73,21 @@ type WorkspaceMemberLookupRow = {
   workspace_owner_user_id: string;
 };
 
+type PlatformUserLookupRow = {
+  user_id: string;
+  email: string;
+  full_name: string;
+  platform_role: string;
+  status: string;
+  created_at: string;
+  last_login_at: string | null;
+  workspace_count: number;
+  primary_workspace_id: string | null;
+  primary_workspace_name: string | null;
+  primary_workspace_slug: string | null;
+  primary_workspace_role: string | null;
+};
+
 type PreferencesRow = {
   data: AppPreferences | string;
 };
@@ -131,6 +146,21 @@ export type WorkspaceMemberRecord = {
   isWorkspaceOwner: boolean;
 };
 
+export type PlatformUserRecord = {
+  userId: string;
+  email: string;
+  fullName: string;
+  platformRole: PlatformRole;
+  userStatus: string;
+  createdAt: string;
+  lastLoginAt: string | null;
+  workspaceCount: number;
+  primaryWorkspaceId: string | null;
+  primaryWorkspaceName: string | null;
+  primaryWorkspaceSlug: string | null;
+  primaryWorkspaceRole: string | null;
+};
+
 let platformReadyPromise: Promise<void> | null = null;
 
 export function isPlatformPersistenceAvailable() {
@@ -160,6 +190,20 @@ export async function findUserByEmail(email: string) {
     SELECT id, email, password_hash, full_name, platform_role, status
     FROM users
     WHERE email = ${normalizedEmail}
+    LIMIT 1
+  `) as UserRow[];
+
+  return rows[0] ?? null;
+}
+
+export async function findUserById(userId: string) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT id, email, password_hash, full_name, platform_role, status
+    FROM users
+    WHERE id = ${userId}
     LIMIT 1
   `) as UserRow[];
 
@@ -495,6 +539,111 @@ export async function listWorkspaceMembers(workspaceId: string) {
   return rows.map(mapWorkspaceMemberRow);
 }
 
+export async function listPlatformUsers() {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      u.id AS user_id,
+      u.email,
+      u.full_name,
+      u.platform_role,
+      u.status,
+      u.created_at,
+      u.last_login_at,
+      COALESCE(workspace_counts.workspace_count, 0)::int AS workspace_count,
+      primary_membership.workspace_id AS primary_workspace_id,
+      primary_membership.workspace_name AS primary_workspace_name,
+      primary_membership.workspace_slug AS primary_workspace_slug,
+      primary_membership.workspace_role AS primary_workspace_role
+    FROM users u
+    LEFT JOIN LATERAL (
+      SELECT COUNT(*)::int AS workspace_count
+      FROM workspace_memberships m
+      WHERE m.user_id = u.id
+    ) workspace_counts ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT
+        m.workspace_id,
+        w.name AS workspace_name,
+        w.slug AS workspace_slug,
+        m.workspace_role
+      FROM workspace_memberships m
+      JOIN workspaces w ON w.id = m.workspace_id
+      WHERE m.user_id = u.id
+      ORDER BY
+        CASE m.workspace_role
+          WHEN 'owner' THEN 0
+          WHEN 'manager' THEN 1
+          ELSE 2
+        END,
+        m.created_at ASC
+      LIMIT 1
+    ) primary_membership ON TRUE
+    ORDER BY
+      CASE u.platform_role
+        WHEN 'super_admin' THEN 0
+        WHEN 'platform_admin' THEN 1
+        WHEN 'support_agent' THEN 2
+        WHEN 'developer' THEN 3
+        ELSE 4
+      END,
+      u.created_at ASC
+  `) as PlatformUserLookupRow[];
+
+  return rows.map(mapPlatformUserRow);
+}
+
+export async function findPlatformUserById(userId: string) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      u.id AS user_id,
+      u.email,
+      u.full_name,
+      u.platform_role,
+      u.status,
+      u.created_at,
+      u.last_login_at,
+      COALESCE(workspace_counts.workspace_count, 0)::int AS workspace_count,
+      primary_membership.workspace_id AS primary_workspace_id,
+      primary_membership.workspace_name AS primary_workspace_name,
+      primary_membership.workspace_slug AS primary_workspace_slug,
+      primary_membership.workspace_role AS primary_workspace_role
+    FROM users u
+    LEFT JOIN LATERAL (
+      SELECT COUNT(*)::int AS workspace_count
+      FROM workspace_memberships m
+      WHERE m.user_id = u.id
+    ) workspace_counts ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT
+        m.workspace_id,
+        w.name AS workspace_name,
+        w.slug AS workspace_slug,
+        m.workspace_role
+      FROM workspace_memberships m
+      JOIN workspaces w ON w.id = m.workspace_id
+      WHERE m.user_id = u.id
+      ORDER BY
+        CASE m.workspace_role
+          WHEN 'owner' THEN 0
+          WHEN 'manager' THEN 1
+          ELSE 2
+        END,
+        m.created_at ASC
+      LIMIT 1
+    ) primary_membership ON TRUE
+    WHERE u.id = ${userId}
+    LIMIT 1
+  `) as PlatformUserLookupRow[];
+
+  return rows[0] ? mapPlatformUserRow(rows[0]) : null;
+}
+
 export async function findWorkspaceMemberById(input: {
   workspaceId: string;
   membershipId: string;
@@ -774,6 +923,110 @@ export async function removeWorkspaceMember(input: {
   await syncWorkspaceSeatUsage(input.workspaceId, input.removedByUserId);
 
   return member;
+}
+
+export async function updateWorkspaceMemberProfile(input: {
+  workspaceId: string;
+  membershipId: string;
+  email: string;
+  fullName: string;
+}) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const member = await findWorkspaceMemberById({
+    workspaceId: input.workspaceId,
+    membershipId: input.membershipId,
+  });
+
+  if (!member) {
+    return null;
+  }
+
+  const normalizedEmail = normalizeEmail(input.email);
+  const normalizedFullName = sanitizeMemberName(input.fullName, normalizedEmail);
+  const existingUser = await findUserByEmail(normalizedEmail);
+
+  if (existingUser && existingUser.id !== member.userId) {
+    throw new Error("EMAIL_ALREADY_IN_USE");
+  }
+
+  await sql`
+    UPDATE users
+    SET
+      email = ${normalizedEmail},
+      full_name = ${normalizedFullName},
+      updated_at = NOW()
+    WHERE id = ${member.userId}
+  `;
+
+  return findWorkspaceMemberById({
+    workspaceId: input.workspaceId,
+    membershipId: input.membershipId,
+  });
+}
+
+export async function updatePlatformUserProfile(input: {
+  userId: string;
+  email: string;
+  fullName: string;
+}) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const user = await findUserById(input.userId);
+
+  if (!user) {
+    return null;
+  }
+
+  const normalizedEmail = normalizeEmail(input.email);
+  const normalizedFullName = sanitizeMemberName(input.fullName, normalizedEmail);
+  const existingUser = await findUserByEmail(normalizedEmail);
+
+  if (existingUser && existingUser.id !== user.id) {
+    throw new Error("EMAIL_ALREADY_IN_USE");
+  }
+
+  await sql`
+    UPDATE users
+    SET
+      email = ${normalizedEmail},
+      full_name = ${normalizedFullName},
+      updated_at = NOW()
+    WHERE id = ${user.id}
+  `;
+
+  return findPlatformUserById(user.id);
+}
+
+export async function deletePlatformUser(input: { userId: string }) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const user = await findPlatformUserById(input.userId);
+
+  if (!user) {
+    return null;
+  }
+
+  const ownerRows = (await sql`
+    SELECT id
+    FROM workspaces
+    WHERE owner_user_id = ${input.userId}
+    LIMIT 1
+  `) as Array<{ id: string }>;
+
+  if (ownerRows[0]) {
+    throw new Error("OWNER_USER_DELETE_FORBIDDEN");
+  }
+
+  await sql`
+    DELETE FROM users
+    WHERE id = ${input.userId}
+  `;
+
+  return user;
 }
 
 export async function getWorkspacePreferences(workspaceId: string) {
@@ -1403,6 +1656,25 @@ function mapWorkspaceMemberRow(row: WorkspaceMemberLookupRow): WorkspaceMemberRe
     joinedAt: row.membership_created_at,
     lastLoginAt: row.last_login_at,
     isWorkspaceOwner: row.workspace_owner_user_id === row.user_id,
+  };
+}
+
+function mapPlatformUserRow(row: PlatformUserLookupRow): PlatformUserRecord {
+  return {
+    userId: row.user_id,
+    email: row.email,
+    fullName: row.full_name,
+    platformRole: normalizePlatformRole(row.platform_role),
+    userStatus: row.status,
+    createdAt: row.created_at,
+    lastLoginAt: row.last_login_at,
+    workspaceCount: Number(row.workspace_count ?? 0),
+    primaryWorkspaceId: row.primary_workspace_id,
+    primaryWorkspaceName: row.primary_workspace_name,
+    primaryWorkspaceSlug: row.primary_workspace_slug,
+    primaryWorkspaceRole: row.primary_workspace_role
+      ? normalizeWorkspaceRole(row.primary_workspace_role)
+      : null,
   };
 }
 

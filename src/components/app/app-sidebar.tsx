@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { PersistenceMode } from "@/lib/server/persistence-mode";
+import type { PlatformRole } from "@/lib/server/platform";
 import {
   defaultAppPreferences,
   loadAppPreferences,
@@ -23,12 +24,15 @@ const navigationItems = [
   { href: "/app/ajuda", label: "Ajuda" },
   { href: "/app/suporte", label: "Suporte" },
   { href: "/app/conta", label: "Conta" },
+  { href: "/app/usuarios", label: "Usuários", superAdminOnly: true },
 ];
 
 export function AppSidebar({
   persistenceMode,
+  platformRole,
 }: {
   persistenceMode: PersistenceMode;
+  platformRole: PlatformRole;
 }) {
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(true);
@@ -47,6 +51,9 @@ export function AppSidebar({
 
     return "light";
   });
+  const visibleNavigationItems = navigationItems.filter(
+    (item) => !item.superAdminOnly || platformRole === "super_admin",
+  );
 
   useEffect(() => {
     document.documentElement.style.setProperty(
@@ -171,7 +178,7 @@ export function AppSidebar({
 
             <nav className="flex-1 px-1 py-5">
               <ul className="space-y-2">
-                {navigationItems.map((item, index) => {
+                {visibleNavigationItems.map((item, index) => {
                   const isActive =
                     pathname === item.href ||
                     (item.href === "/app/precificacao" && pathname === "/app");
@@ -291,7 +298,7 @@ export function AppSidebar({
 
         <nav className="flex-1 px-2 py-5">
           <ul className="space-y-2">
-            {navigationItems.map((item, index) => {
+            {visibleNavigationItems.map((item, index) => {
               const isActive =
                 pathname === item.href ||
                 (item.href === "/app/precificacao" && pathname === "/app");

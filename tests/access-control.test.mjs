@@ -70,6 +70,17 @@ test("super admin ignora limites de convite do papel do workspace", () => {
 
   assert.deepEqual(getAllowedInviteRoles(session), ["manager", "operator"]);
   assert.equal(getMemberManagementPermissions(session).canManageMembers, true);
+  assert.equal(getMemberManagementPermissions(session).canEditUserProfiles, true);
+});
+
+test("owner nao recebe permissao de editar dados cadastrais de usuario", () => {
+  const session = createSession({
+    workspace: {
+      role: "owner",
+    },
+  });
+
+  assert.equal(getMemberManagementPermissions(session).canEditUserProfiles, false);
 });
 
 test("owner nao pode rebaixar owner atual, mas pode promover manager para owner", () => {

@@ -38,6 +38,21 @@ export type LocalDevWorkspaceMember = {
   isWorkspaceOwner: boolean;
 };
 
+export type LocalDevPlatformUser = {
+  userId: string;
+  email: string;
+  fullName: string;
+  platformRole: PlatformRole;
+  userStatus: LocalDevUserStatus;
+  createdAt: string;
+  lastLoginAt: string | null;
+  workspaceCount: number;
+  primaryWorkspaceId: string | null;
+  primaryWorkspaceName: string | null;
+  primaryWorkspaceSlug: string | null;
+  primaryWorkspaceRole: LocalDevWorkspaceRole | null;
+};
+
 const LOCAL_DEV_RESET_TOKEN_TTL_MS = 1000 * 60 * 30;
 
 const localDevUsers = new Map<string, LocalDevUserRecord>();
@@ -175,6 +190,28 @@ export function listLocalDevelopmentWorkspaceMembers() {
     .sort((left, right) => compareWorkspaceRoles(left.workspaceRole, right.workspaceRole));
 }
 
+export function listLocalDevelopmentPlatformUsers() {
+  ensureLocalDevelopmentBootstrapState();
+  const config = getLocalDevelopmentBootstrapConfig();
+
+  return Array.from(localDevUsers.values())
+    .map((user) => ({
+      userId: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      platformRole: user.platformRole,
+      userStatus: user.status,
+      createdAt: user.createdAt,
+      lastLoginAt: user.lastLoginAt,
+      workspaceCount: 1,
+      primaryWorkspaceId: "local-dev-workspace",
+      primaryWorkspaceName: config.workspaceName,
+      primaryWorkspaceSlug: slugify(config.workspaceName),
+      primaryWorkspaceRole: user.workspaceRole,
+    }))
+    .sort((left, right) => comparePlatformUsers(left, right));
+}
+
 export function findLocalDevelopmentWorkspaceMemberById(membershipId: string) {
   return (
     listLocalDevelopmentWorkspaceMembers().find(
@@ -240,6 +277,90 @@ export function updateLocalDevelopmentWorkspaceMemberRole(input: {
   localDevUsers.set(user.email, user);
 
   return toLocalDevelopmentWorkspaceMember(user);
+}
+
+export function updateLocalDevelopmentWorkspaceMemberProfile(input: {
+  membershipId: string;
+  fullName: string;
+  email: string;
+}) {
+  ensureLocalDevelopmentBootstrapState();
+
+  const user = findLocalDevelopmentUserById(input.membershipId);
+
+  if (!user) {
+    return null;
+  }
+
+  const normalizedEmail = normalizeEmail(input.email);
+  const nextFullName = sanitizeMemberName(input.fullName, normalizedEmail);
+  const existingUser = getLocalDevelopmentUser(normalizedEmail);
+
+  if (existingUser && existingUser.id !== user.id) {
+    throw new Error("EMAIL_ALREADY_IN_USE");
+  }
+
+  const previousEmail = user.email;
+
+  if (user.email !== normalizedEmail) {
+    localDevUsers.delete(user.email);
+  }
+
+  user.email = normalizedEmail;
+  user.fullName = nextFullName;
+  localDevUsers.set(user.email, user);
+
+  for (const resetToken of localDevResetTokens.values()) {
+    if (resetToken.email === previousEmail) {
+      resetToken.email = user.email;
+    }
+  }
+
+  return toLocalDevelopmentWorkspaceMember(user);
+}
+
+export function updateLocalDevelopmentPlatformUserProfile(input: {
+  userId: string;
+  fullName: string;
+  email: string;
+}) {
+  const updatedMember = updateLocalDevelopmentWorkspaceMemberProfile({
+    membershipId: input.userId,
+    fullName: input.fullName,
+    email: input.email,
+  });
+
+  if (!updatedMember) {
+    return null;
+  }
+
+  return toLocalDevelopmentPlatformUser(
+    findLocalDevelopmentUserById(updatedMember.userId) ?? null,
+  );
+}
+
+export function removeLocalDevelopmentPlatformUser(input: { userId: string }) {
+  ensureLocalDevelopmentBootstrapState();
+
+  const user = findLocalDevelopmentUserById(input.userId);
+
+  if (!user) {
+    return null;
+  }
+
+  if (user.workspaceRole === "owner") {
+    throw new Error("OWNER_USER_DELETE_FORBIDDEN");
+  }
+
+  localDevUsers.delete(user.email);
+
+  for (const [token, resetToken] of localDevResetTokens.entries()) {
+    if (resetToken.email === user.email) {
+      localDevResetTokens.delete(token);
+    }
+  }
+
+  return toLocalDevelopmentPlatformUser(user);
 }
 
 export function removeLocalDevelopmentWorkspaceMember(input: {
@@ -429,6 +550,31 @@ function toLocalDevelopmentWorkspaceMember(
   };
 }
 
+function toLocalDevelopmentPlatformUser(
+  user: LocalDevUserRecord | null,
+): LocalDevPlatformUser | null {
+  if (!user) {
+    return null;
+  }
+
+  const config = getLocalDevelopmentBootstrapConfig();
+
+  return {
+    userId: user.id,
+    email: user.email,
+    fullName: user.fullName,
+    platformRole: user.platformRole,
+    userStatus: user.status,
+    createdAt: user.createdAt,
+    lastLoginAt: user.lastLoginAt,
+    workspaceCount: 1,
+    primaryWorkspaceId: "local-dev-workspace",
+    primaryWorkspaceName: config.workspaceName,
+    primaryWorkspaceSlug: slugify(config.workspaceName),
+    primaryWorkspaceRole: user.workspaceRole,
+  };
+}
+
 function compareWorkspaceRoles(
   left: LocalDevWorkspaceRole,
   right: LocalDevWorkspaceRole,
@@ -441,6 +587,21 @@ const roleRank: Record<LocalDevWorkspaceRole, number> = {
   manager: 1,
   operator: 2,
 };
+
+const platformRoleRank: Record<PlatformRole, number> = {
+  super_admin: 0,
+  platform_admin: 1,
+  support_agent: 2,
+  developer: 3,
+  user: 4,
+};
+
+function comparePlatformUsers(left: LocalDevPlatformUser, right: LocalDevPlatformUser) {
+  return (
+    platformRoleRank[left.platformRole] - platformRoleRank[right.platformRole] ||
+    Date.parse(left.createdAt) - Date.parse(right.createdAt)
+  );
+}
 
 function sanitizeMemberName(fullName: string, email: string) {
   const trimmedName = fullName.trim();

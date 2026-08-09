@@ -26,6 +26,7 @@ export function getMemberManagementPermissions(
   return {
     isSuperAdmin,
     workspaceRole,
+    canEditUserProfiles: isSuperAdmin,
     canManageMembers:
       isSuperAdmin || workspaceRole === "owner" || workspaceRole === "manager",
     canInviteManagers: isSuperAdmin || workspaceRole === "owner",

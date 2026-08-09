@@ -6,6 +6,7 @@ import {
   describeWorkspaceAccessLevel,
   getAllowedInviteRoles,
   getMemberManagementPermissions,
+  isSuperAdminSession,
   normalizeWorkspaceRole,
 } from "@/lib/auth/access-control";
 import {
@@ -14,6 +15,7 @@ import {
   inviteLocalDevelopmentWorkspaceMember,
   listLocalDevelopmentWorkspaceMembers,
   removeLocalDevelopmentWorkspaceMember,
+  updateLocalDevelopmentWorkspaceMemberProfile,
   updateLocalDevelopmentWorkspaceMemberRole,
   type LocalDevWorkspaceMember,
 } from "@/lib/auth/local-dev-auth";
@@ -27,6 +29,7 @@ import {
   removeWorkspaceMember,
   type AuthenticatedWorkspaceSession,
   type WorkspaceMemberRecord,
+  updateWorkspaceMemberProfile,
   updateWorkspaceMemberRole,
 } from "@/lib/server/platform";
 import { sendTransactionalEmail } from "@/lib/server/email";
@@ -271,6 +274,47 @@ export async function removeWorkspaceMemberForSession(input: {
   }
 
   return removedMember;
+}
+
+export async function updateWorkspaceMemberProfileForSession(input: {
+  session: AuthenticatedWorkspaceSession;
+  membershipId: string;
+  fullName: string;
+  email: string;
+}) {
+  if (!isSuperAdminSession(input.session)) {
+    throw new Error("FORBIDDEN_PROFILE_EDIT");
+  }
+
+  const updatedMember = isPlatformPersistenceAvailable()
+    ? await updateWorkspaceMemberProfile({
+        workspaceId: input.session.workspace.id,
+        membershipId: input.membershipId,
+        fullName: input.fullName,
+        email: input.email,
+      })
+    : updateLocalDevelopmentWorkspaceMemberProfile({
+        membershipId: input.membershipId,
+        fullName: input.fullName,
+        email: input.email,
+      });
+
+  if (!updatedMember) {
+    return null;
+  }
+
+  if (isPlatformPersistenceAvailable()) {
+    await appendAuditEvent({
+      workspaceId: input.session.workspace.id,
+      userId: input.session.user.id,
+      type: "workspace-member-profile-updated",
+      title: "Perfil do membro atualizado",
+      description: `${updatedMember.email} teve nome ou e-mail ajustado por suporte administrativo.`,
+      tone: "neutral",
+    });
+  }
+
+  return updatedMember;
 }
 
 function buildWorkspaceMembersSummary(
