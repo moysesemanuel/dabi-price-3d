@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentType, type SVGProps } from "react";
 import type { PersistenceMode } from "@/lib/server/persistence-mode";
 import type { PlatformRole } from "@/lib/server/platform";
 import {
@@ -16,15 +16,97 @@ const EXPANDED_WIDTH = 215;
 const COLLAPSED_WIDTH = 88;
 const THEME_STORAGE_KEY = "dabi-price-theme";
 type ThemeMode = "light" | "dark";
+type SidebarIconProps = SVGProps<SVGSVGElement>;
+type NavigationItem = {
+  href: string;
+  label: string;
+  icon: ComponentType<SidebarIconProps>;
+  superAdminOnly?: boolean;
+};
 
-const navigationItems = [
-  { href: "/app/precificacao", label: "Precificadora" },
-  { href: "/app/historico", label: "Histórico" },
-  { href: "/app/preferencias", label: "Preferências" },
-  { href: "/app/ajuda", label: "Ajuda" },
-  { href: "/app/suporte", label: "Suporte" },
-  { href: "/app/conta", label: "Conta" },
-  { href: "/app/usuarios", label: "Usuários", superAdminOnly: true },
+function CalculatorFillIcon(props: SidebarIconProps) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zm2 .5v2a.5.5 0 0 0 .5.5h7a.5.5 0 0 0 .5-.5v-2a.5.5 0 0 0-.5-.5h-7a.5.5 0 0 0-.5.5m0 4v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5M4.5 9a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zM4 12.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5M7.5 6a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zM7 9.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5m.5 2.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zM10 6.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5m.5 2.5a.5.5 0 0 0-.5.5v4a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-4a.5.5 0 0 0-.5-.5z" />
+    </svg>
+  );
+}
+
+function ClockHistoryIcon(props: SidebarIconProps) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M8.515 1.019A7 7 0 0 0 8 1V0a8 8 0 0 1 .589.022zm2.004.45a7 7 0 0 0-.985-.299l.219-.976q.576.129 1.126.342zm1.37.71a7 7 0 0 0-.439-.27l.493-.87a8 8 0 0 1 .979.654l-.615.789a7 7 0 0 0-.418-.302zm1.834 1.79a7 7 0 0 0-.653-.796l.724-.69q.406.429.747.91zm.744 1.352a7 7 0 0 0-.214-.468l.893-.45a8 8 0 0 1 .45 1.088l-.95.313a7 7 0 0 0-.179-.483m.53 2.507a7 7 0 0 0-.1-1.025l.985-.17q.1.58.116 1.17zm-.131 1.538q.05-.254.081-.51l.993.123a8 8 0 0 1-.23 1.155l-.964-.267q.069-.247.12-.501m-.952 2.379q.276-.436.486-.908l.914.405q-.24.54-.555 1.038zm-.964 1.205q.183-.183.35-.378l.758.653a8 8 0 0 1-.401.432z" />
+      <path d="M8 1a7 7 0 1 0 4.95 11.95l.707.707A8.001 8.001 0 1 1 8 0z" />
+      <path d="M7.5 3a.5.5 0 0 1 .5.5v5.21l3.248 1.856a.5.5 0 0 1-.496.868l-3.5-2A.5.5 0 0 1 7 9V3.5a.5.5 0 0 1 .5-.5" />
+    </svg>
+  );
+}
+
+function SlidersIcon(props: SidebarIconProps) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" {...props}>
+      <path
+        fillRule="evenodd"
+        d="M11.5 2a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M9.05 3a2.5 2.5 0 0 1 4.9 0H16v1h-2.05a2.5 2.5 0 0 1-4.9 0H0V3zM4.5 7a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M2.05 8a2.5 2.5 0 0 1 4.9 0H16v1H6.95a2.5 2.5 0 0 1-4.9 0H0V8zm9.45 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3m-2.45 1a2.5 2.5 0 0 1 4.9 0H16v1h-2.05a2.5 2.5 0 0 1-4.9 0H0v-1z"
+      />
+    </svg>
+  );
+}
+
+function QuestionCircleIcon(props: SidebarIconProps) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16" />
+      <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286m1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94" />
+    </svg>
+  );
+}
+
+function HeadsetIcon(props: SidebarIconProps) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M8 1a5 5 0 0 0-5 5v1h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a6 6 0 1 1 12 0v6a2.5 2.5 0 0 1-2.5 2.5H9.366a1 1 0 0 1-.866.5h-1a1 1 0 1 1 0-2h1a1 1 0 0 1 .866.5H11.5A1.5 1.5 0 0 0 13 12h-1a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h1V6a5 5 0 0 0-5-5" />
+    </svg>
+  );
+}
+
+function PersonCircleIcon(props: SidebarIconProps) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0" />
+      <path
+        fillRule="evenodd"
+        d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1"
+      />
+    </svg>
+  );
+}
+
+function PeopleIcon(props: SidebarIconProps) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M15 14s1 0 1-1-1-4-5-4-5 3-5 4 1 1 1 1zm-7.978-1L7 12.996c.001-.264.167-1.03.76-1.72C8.312 10.629 9.282 10 11 10c1.717 0 2.687.63 3.24 1.276.593.69.758 1.457.76 1.72l-.008.002-.014.002zM11 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4m3-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0M6.936 9.28a6 6 0 0 0-1.23-.247A7 7 0 0 0 5 9c-4 0-5 3-5 4q0 1 1 1h4.216A2.24 2.24 0 0 1 5 13c0-1.01.377-2.042 1.09-2.904.243-.294.526-.569.846-.816M4.92 10A5.5 5.5 0 0 0 4 13H1c0-.26.164-1.03.76-1.724.545-.636 1.492-1.256 3.16-1.275ZM1.5 5.5a3 3 0 1 1 6 0 3 3 0 0 1-6 0m3-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4" />
+    </svg>
+  );
+}
+
+const navigationItems: NavigationItem[] = [
+  {
+    href: "/app/precificacao",
+    label: "Precificadora",
+    icon: CalculatorFillIcon,
+  },
+  { href: "/app/historico", label: "Histórico", icon: ClockHistoryIcon },
+  { href: "/app/preferencias", label: "Preferências", icon: SlidersIcon },
+  { href: "/app/ajuda", label: "Ajuda", icon: QuestionCircleIcon },
+  { href: "/app/suporte", label: "Suporte", icon: HeadsetIcon },
+  { href: "/app/conta", label: "Conta", icon: PersonCircleIcon },
+  {
+    href: "/app/usuarios",
+    label: "Usuários",
+    icon: PeopleIcon,
+    superAdminOnly: true,
+  },
 ];
 
 export function AppSidebar({
@@ -178,10 +260,11 @@ export function AppSidebar({
 
             <nav className="flex-1 px-1 py-5">
               <ul className="space-y-2">
-                {visibleNavigationItems.map((item, index) => {
+                {visibleNavigationItems.map((item) => {
                   const isActive =
                     pathname === item.href ||
                     (item.href === "/app/precificacao" && pathname === "/app");
+                  const Icon = item.icon;
 
                   return (
                     <li key={item.href}>
@@ -194,8 +277,8 @@ export function AppSidebar({
                             : "border-[var(--panel-border)] bg-[rgba(255,255,255,0.78)] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--foreground)]"
                         }`}
                       >
-                        <span className="mr-3 inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-current/20 text-[10px]">
-                          {isActive ? String(index + 1) : "."}
+                        <span className="mr-3 inline-flex size-9 shrink-0 items-center justify-center rounded-2xl bg-current/12">
+                          <Icon className="size-4" />
                         </span>
                         {item.label}
                       </Link>
@@ -298,10 +381,11 @@ export function AppSidebar({
 
         <nav className="flex-1 px-2 py-5">
           <ul className="space-y-2">
-            {visibleNavigationItems.map((item, index) => {
+            {visibleNavigationItems.map((item) => {
               const isActive =
                 pathname === item.href ||
                 (item.href === "/app/precificacao" && pathname === "/app");
+              const Icon = item.icon;
 
               return (
                 <li key={item.href}>
@@ -315,11 +399,11 @@ export function AppSidebar({
                     title={isExpanded ? undefined : item.label}
                   >
                     <span
-                      className={`inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-current/20 text-[10px] ${
+                      className={`inline-flex size-9 shrink-0 items-center justify-center rounded-2xl bg-current/12 ${
                         isExpanded ? "mr-3" : ""
                       }`}
                     >
-                      {isActive ? String(index + 1) : "."}
+                      <Icon className="size-4" />
                     </span>
 
                     {isExpanded ? item.label : null}

@@ -202,7 +202,7 @@ input[type="number"] {
 :root[data-theme="dark"] .clay-surface-soft,
 :root[data-theme="dark"] .clay-pill,
 :root[data-theme="dark"] .clay-input {
-  background: linear-gradient(145deg, #1a1613 0%, #0f0d0b 100%);
+  background: linear-gradient(145deg, #1b143f 0%, #110b2b 100%);
   border-color: var(--panel-border);
   box-shadow: var(--clay-shadow-soft);
 }
@@ -213,7 +213,7 @@ input[type="number"] {
 }
 
 :root[data-theme="dark"] .clay-inset {
-  background: linear-gradient(145deg, #181412 0%, #100e0d 100%);
+  background: linear-gradient(145deg, #171136 0%, #0d0921 100%);
   border-color: var(--panel-border);
   box-shadow: var(--clay-shadow-inset);
 }
@@ -287,19 +287,19 @@ input[type="number"] {
 
 :root[data-theme="dark"] .pricing-suggestion-stat {
   border-color: var(--panel-border);
-  background: linear-gradient(145deg, #1a1613 0%, #0f0d0b 100%);
+  background: linear-gradient(145deg, #1b143f 0%, #110b2b 100%);
   box-shadow: var(--clay-shadow-soft);
 }
 
 :root[data-theme="dark"] .pricing-input-shell {
   border-color: var(--panel-border);
-  background: linear-gradient(145deg, #181412 0%, #100e0d 100%);
+  background: linear-gradient(145deg, #171136 0%, #0d0921 100%);
   box-shadow: var(--clay-shadow-inset);
 }
 
 :root[data-theme="dark"] .pricing-input-addon {
   border-color: var(--panel-border);
-  background: linear-gradient(145deg, #1a1613 0%, #100e0d 100%);
+  background: linear-gradient(145deg, #1b143f 0%, #110b2b 100%);
 }
 
 :root[data-theme="dark"] .pricing-input-control {
@@ -581,4 +581,47 @@ input[type="number"] {
 :root[data-theme="dark"] .app-button-secondary,
 :root[data-theme="dark"] .public-pill {
   background: rgba(19, 14, 43, 0.94);
+}
+
+:root[data-theme="dark"] .app-shell [class~="bg-[#eef8f2]"] {
+  background-color: rgba(30, 92, 62, 0.2) !important;
+}
+
+:root[data-theme="dark"] .app-shell [class~="bg-[#fff5f5]"],
+:root[data-theme="dark"] .app-shell [class~="bg-[#fff1f1]"] {
+  background-color: rgba(122, 43, 58, 0.2) !important;
+}
+
+:root[data-theme="dark"] .app-shell [class~="bg-[#f2ece7]"] {
+  background-color: rgba(26, 20, 55, 0.96) !important;
+}
+
+:root[data-theme="dark"] .app-shell [class~="bg-[#d9cec4]"] {
+  background-color: #3b315e !important;
+}
+
+:root[data-theme="dark"] .app-shell [class~="text-[#1f8b4c]"] {
+  color: var(--success) !important;
+}
+
+:root[data-theme="dark"] .app-shell [class~="text-[#a53b3b]"],
+:root[data-theme="dark"] .app-shell [class~="text-[#c1372b]"] {
+  color: var(--danger) !important;
+}
+
+:root[data-theme="dark"] .app-shell [class~="text-[#d84f00]"] {
+  color: #ffb27a !important;
+}
+
+:root[data-theme="dark"] .app-shell [class~="border-[#1f8b4c]/20"] {
+  border-color: color-mix(in srgb, var(--success) 32%, transparent) !important;
+}
+
+:root[data-theme="dark"] .app-shell [class~="border-[#d45f5f]/30"],
+:root[data-theme="dark"] .app-shell [class~="border-[#c1372b]/20"] {
+  border-color: color-mix(in srgb, var(--danger) 34%, transparent) !important;
+}
+
+:root[data-theme="dark"] .app-shell [class~="border-[#bdaa99]"] {
+  border-color: rgba(220, 213, 255, 0.2) !important;
 }
