@@ -2,9 +2,16 @@ import { Suspense } from "react";
 import { BackLink } from "@/components/app/back-link";
 import { PreferencesPanel } from "@/components/preferences/preferences-panel";
 import { getMercadoLivreConnectionStatus } from "@/lib/marketplaces/mercado-livre-auth";
+import { getCurrentAuthSession } from "@/lib/auth/session";
+import {
+  getWorkspacePreferences,
+  isPlatformPersistenceAvailable,
+} from "@/lib/server/platform";
+import { defaultAppPreferences, type AppPreferences } from "@/lib/settings/app-preferences";
 
 export default async function PreferencesPage() {
   let mercadoLivreStatus = null;
+  let initialPreferences: AppPreferences = defaultAppPreferences;
 
   try {
     mercadoLivreStatus = await getMercadoLivreConnectionStatus();
@@ -13,6 +20,21 @@ export default async function PreferencesPage() {
       "[preferences] failed to load Mercado Livre status for page render",
       error,
     );
+  }
+
+  if (isPlatformPersistenceAvailable()) {
+    const session = await getCurrentAuthSession();
+
+    if (session) {
+      try {
+        initialPreferences = await getWorkspacePreferences(session.workspace.id);
+      } catch (error) {
+        console.error(
+          "[preferences] failed to load workspace preferences for page render",
+          error,
+        );
+      }
+    }
   }
 
   return (
@@ -28,7 +50,10 @@ export default async function PreferencesPage() {
       </header>
 
       <Suspense fallback={null}>
-        <PreferencesPanel initialMercadoLivreStatus={mercadoLivreStatus} />
+        <PreferencesPanel
+          initialMercadoLivreStatus={mercadoLivreStatus}
+          initialPreferences={initialPreferences}
+        />
       </Suspense>
     </div>
   );

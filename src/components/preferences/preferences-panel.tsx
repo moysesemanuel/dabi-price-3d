@@ -7,8 +7,8 @@ import { validateProfitDestinationPercentages } from "@/lib/pricing/profit-desti
 import {
   buildPreferencesFromPreset,
   businessPresets,
+  defaultAppPreferences,
   loadAppPreferences,
-  readAppPreferences,
   type AppPreferences,
   type BusinessPresetId,
   workspaceRoleMeta,
@@ -25,12 +25,14 @@ type MercadoLivreStatusSnapshot = {
 
 export function PreferencesPanel({
   initialMercadoLivreStatus,
+  initialPreferences,
 }: {
   initialMercadoLivreStatus: MercadoLivreStatusSnapshot | null;
+  initialPreferences?: AppPreferences;
 }) {
   const searchParams = useSearchParams();
-  const [preferences, setPreferences] = useState<AppPreferences>(() =>
-    readAppPreferences(),
+  const [preferences, setPreferences] = useState<AppPreferences>(
+    initialPreferences ?? defaultAppPreferences,
   );
   const [saveState, setSaveState] = useState<"idle" | "saved">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
