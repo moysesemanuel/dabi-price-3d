@@ -5,11 +5,17 @@ import "./globals.css";
 const geistSans = localFont({
   src: "./fonts/geist-latin.woff2",
   variable: "--font-sans-ui",
+  display: "swap",
+  preload: true,
+  fallback: ["Segoe UI", "Arial", "sans-serif"],
 });
 
 const geistMono = localFont({
   src: "./fonts/geist-mono-latin.woff2",
   variable: "--font-mono-ui",
+  display: "swap",
+  preload: true,
+  fallback: ["SFMono-Regular", "Menlo", "monospace"],
 });
 
 export const metadata: Metadata = {

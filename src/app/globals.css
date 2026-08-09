@@ -404,6 +404,7 @@ input[type="number"] {
   margin: 0 auto;
   max-width: 1488px;
   padding: 2rem;
+  contain: layout style;
 }
 
 .app-header {
@@ -426,7 +427,9 @@ input[type="number"] {
   font-size: clamp(2rem, 4vw, 3rem);
   font-weight: 600;
   letter-spacing: -0.06em;
+  line-height: 1.02;
   color: var(--foreground);
+  text-wrap: balance;
 }
 
 .app-copy {
