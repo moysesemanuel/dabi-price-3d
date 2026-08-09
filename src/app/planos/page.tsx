@@ -116,7 +116,16 @@ export const metadata: Metadata = {
     "Página pública de planos da Dabi Price para escolha comercial antes do acesso à plataforma.",
 };
 
-export default function PublicPlansPage() {
+export default async function PublicPlansPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{
+    origin?: string;
+  }>;
+}) {
+  const params = (await searchParams) ?? {};
+  const origin = params.origin ?? "site";
+
   return (
     <main className="min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#fffefc_0%,#f6fbf7_36%,#fff6fa_100%)] text-[#274338]">
       <section className="border-b border-[#dcebe3] bg-[radial-gradient(circle_at_top_left,rgba(207,234,219,0.78),transparent_30%),radial-gradient(circle_at_90%_8%,rgba(247,203,221,0.42),transparent_20%),linear-gradient(180deg,#fffefd_0%,#f8fcfa_100%)]">
@@ -231,7 +240,13 @@ export default function PublicPlansPage() {
 
                 <div className="mt-8 grid gap-3">
                   <Link
-                    href="/contato"
+                    href={{
+                      pathname: "/contato",
+                      query: {
+                        plan: plan.id,
+                        origin,
+                      },
+                    }}
                     className={`inline-flex items-center justify-center rounded-[16px] px-5 py-3 text-sm font-semibold transition ${
                       isHighlighted
                         ? "bg-[#24473c] text-white hover:bg-[#1d3a31]"
@@ -241,7 +256,14 @@ export default function PublicPlansPage() {
                     Garantir meu acesso
                   </Link>
                   <Link
-                    href="/contato"
+                    href={{
+                      pathname: "/contato",
+                      query: {
+                        plan: plan.id,
+                        origin,
+                        intent: "consultor",
+                      },
+                    }}
                     className="inline-flex items-center justify-center rounded-[16px] border border-[#f2d6e3] bg-[#fff5f9] px-5 py-3 text-sm font-semibold text-[#c8618b] transition hover:bg-[#fff0f6]"
                   >
                     Falar com consultor
@@ -368,14 +390,26 @@ export default function PublicPlansPage() {
 
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Link
-              href="/contato"
+              href={{
+                pathname: "/contato",
+                query: {
+                  plan: "growth",
+                  origin,
+                },
+              }}
               className="inline-flex items-center justify-center rounded-[16px] bg-white px-6 py-4 text-sm font-semibold text-[#cf6f94] transition hover:bg-[#fff7fa]"
             >
               Garantir meu acesso
               <span className="ml-3 text-base">→</span>
             </Link>
             <Link
-              href="/contato"
+              href={{
+                pathname: "/contato",
+                query: {
+                  origin,
+                  intent: "consultor",
+                },
+              }}
               className="inline-flex items-center justify-center rounded-[16px] border border-white/38 bg-transparent px-6 py-4 text-sm font-semibold text-white transition hover:bg-white/8"
             >
               Falar com consultor

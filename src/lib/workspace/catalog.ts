@@ -41,8 +41,8 @@ export const workspaceRoleMeta: Record<
 export const workspacePlans: readonly WorkspacePlan[] = [
   {
     id: "starter",
-    label: "Starter",
-    description: "Operação enxuta com controle essencial de preço e histórico.",
+    label: "DaBi Essencial",
+    description: "Entrada comercial da DaBi para operar com preço e histórico sem complicação.",
     monthlyPriceLabel: "R$ 49",
     historyLimit: 50,
     seatsIncluded: 1,
@@ -52,8 +52,8 @@ export const workspacePlans: readonly WorkspacePlan[] = [
   },
   {
     id: "growth",
-    label: "Growth",
-    description: "Plano equilibrado para quem já opera recorrência e catálogo.",
+    label: "DaBi Pro",
+    description: "Plano principal da DaBi para quem já vende com recorrência e quer crescer com mais controle.",
     monthlyPriceLabel: "R$ 149",
     historyLimit: 200,
     seatsIncluded: 3,
@@ -63,8 +63,8 @@ export const workspacePlans: readonly WorkspacePlan[] = [
   },
   {
     id: "scale",
-    label: "Scale",
-    description: "Estrutura para operação com volume, equipe e integração forte.",
+    label: "DaBi Equipe",
+    description: "Estrutura DaBi para operação com time, volume, integração forte e acompanhamento consultivo.",
     monthlyPriceLabel: "Sob consulta",
     historyLimit: 1000,
     seatsIncluded: 10,

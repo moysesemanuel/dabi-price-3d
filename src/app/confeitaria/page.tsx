@@ -168,7 +168,7 @@ export default function ConfectioneryLandingPage() {
           </p>
           <div className="mt-[22px] flex flex-col justify-center gap-3 sm:flex-row">
             <Link
-              href="/planos"
+              href="/planos?origin=confeitaria"
               className="inline-flex items-center justify-center rounded-[14px] bg-white px-[24px] py-[14px] text-sm font-black text-[#d8648f] transition hover:-translate-y-px hover:bg-[#fff6fa]"
             >
               Garantir meu acesso
