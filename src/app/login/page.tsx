@@ -1,4 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
+import horizontalLogo from "@/app/dabi-price-horizontal.svg";
 import { BackLink } from "@/components/app/back-link";
 import { LoginForm } from "@/components/auth/login-form";
 import { getPersistenceModeMeta } from "@/lib/server/persistence-mode";
@@ -18,11 +20,15 @@ export default async function LoginPage({
           <BackLink href="/" label="Voltar para a home" />
 
           <div className="public-pill mt-8">
-            <Link
-              href="/"
-              className="text-xl font-semibold tracking-[-0.06em] text-[var(--foreground)]"
-            >
-              Dabi<span className="text-[var(--accent)]"> Price</span>
+            <Link href="/" className="inline-flex" aria-label="Dabi Price">
+              <Image
+                src={horizontalLogo}
+                alt="Dabi Price"
+                width={176}
+                height={42}
+                unoptimized
+                className="h-8 w-auto"
+              />
             </Link>
           </div>
 

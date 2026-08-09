@@ -1,8 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ComponentType, type SVGProps } from "react";
+import horizontalLogo from "@/app/dabi-price-horizontal.svg";
+import whiteLogo from "@/app/logo-dabi-branco.svg";
+import blackLogo from "@/app/logo-dabi-preto.svg";
 import type { PersistenceMode } from "@/lib/server/persistence-mode";
 import type { PlatformRole } from "@/lib/server/platform";
 import {
@@ -209,15 +213,39 @@ export function AppSidebar({
     }
   }
 
+  const sidebarCollapsedLogoSrc =
+    themeMode === "dark"
+      ? whiteLogo
+      : blackLogo;
+
   return (
     <>
       <div className="fixed inset-x-0 top-0 z-40 border-b border-[var(--panel-border)] bg-[rgba(255,255,255,0.86)] px-4 py-3 shadow-[0_12px_34px_rgba(57,37,118,0.08)] backdrop-blur-xl lg:hidden">
         <div className="mx-auto flex max-w-[1488px] items-center justify-between gap-3">
           <Link
             href="/app/precificacao"
-            className="min-w-0 text-xl font-semibold tracking-[-0.08em] text-[var(--foreground)]"
+            className="min-w-0"
+            aria-label="Dabi Price"
           >
-            Dabi<span className="text-[var(--accent)]"> Price</span>
+            {themeMode === "dark" ? (
+              <Image
+                src={whiteLogo}
+                alt="Dabi Price"
+                width={84}
+                height={84}
+                unoptimized
+                className="h-8 w-auto"
+              />
+            ) : (
+              <Image
+                src={horizontalLogo}
+                alt="Dabi Price"
+                width={176}
+                height={42}
+                unoptimized
+                className="h-8 w-auto"
+              />
+            )}
           </Link>
 
           <button
@@ -244,7 +272,25 @@ export function AppSidebar({
             <div className="rounded-[32px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.52)] px-4 py-5">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0 text-2xl font-semibold leading-none tracking-[-0.08em] text-[var(--foreground)]">
-                  Dabi<span className="text-[var(--accent)]"> Price</span>
+                  {themeMode === "dark" ? (
+                    <Image
+                      src={whiteLogo}
+                      alt="Dabi Price"
+                      width={96}
+                      height={96}
+                      unoptimized
+                      className="h-9 w-auto"
+                    />
+                  ) : (
+                    <Image
+                      src={horizontalLogo}
+                      alt="Dabi Price"
+                      width={198}
+                      height={47}
+                      unoptimized
+                      className="h-9 w-auto"
+                    />
+                  )}
                 </div>
                 <button
                   type="button"
@@ -350,32 +396,55 @@ export function AppSidebar({
 
       <aside className="hidden transition-[width] duration-300 lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:w-[var(--app-sidebar-width)] lg:flex-col lg:bg-transparent lg:px-4 lg:py-4">
         <div className="rounded-[32px] border border-[var(--panel-border)] bg-[var(--sidebar-bg)] px-4 py-5 shadow-[0_18px_48px_rgba(57,37,118,0.08)] backdrop-blur-xl">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col gap-3">
             <div
-              className={`min-w-0 transition-all duration-300 ${
-                isExpanded ? "text-2xl" : "text-xl"
-              } whitespace-nowrap font-semibold leading-none tracking-[-0.08em] text-[var(--foreground)]`}
+              className={`min-w-0 whitespace-nowrap text-[var(--foreground)] ${
+                isExpanded ? "" : "flex justify-center"
+              }`}
             >
               {isExpanded ? (
-                <>
-                  Dabi<span className="text-[var(--accent)]"> Price</span>
-                </>
+                themeMode === "dark" ? (
+                  <Image
+                    src={whiteLogo}
+                    alt="Dabi Price"
+                    width={96}
+                    height={96}
+                    unoptimized
+                    className="h-9 w-auto"
+                  />
+                ) : (
+                  <Image
+                    src={horizontalLogo}
+                    alt="Dabi Price"
+                    width={198}
+                    height={47}
+                    unoptimized
+                    className="h-9 w-auto"
+                  />
+                )
               ) : (
-                <>
-                  D<span className="text-[var(--accent)]">P</span>
-                </>
+                <Image
+                  src={sidebarCollapsedLogoSrc}
+                  alt="Dabi Price"
+                  width={64}
+                  height={64}
+                  unoptimized
+                  className="h-10 w-auto"
+                />
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={() => setIsExpanded((current) => !current)}
-              className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl border border-[var(--panel-border)] bg-[rgba(255,255,255,0.78)] text-[var(--foreground)] transition hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-white"
-              aria-label={isExpanded ? "Retrair menu lateral" : "Expandir menu lateral"}
-              title={isExpanded ? "Retrair menu" : "Expandir menu"}
-            >
-              {isExpanded ? "←" : "→"}
-            </button>
+            <div className={isExpanded ? "flex justify-end" : "flex justify-center"}>
+              <button
+                type="button"
+                onClick={() => setIsExpanded((current) => !current)}
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl border border-[var(--panel-border)] bg-[rgba(255,255,255,0.78)] text-[var(--foreground)] transition hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-white"
+                aria-label={isExpanded ? "Retrair menu lateral" : "Expandir menu lateral"}
+                title={isExpanded ? "Retrair menu" : "Expandir menu"}
+              >
+                {isExpanded ? "←" : "→"}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -391,16 +460,18 @@ export function AppSidebar({
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    className={`flex w-full items-center rounded-[22px] border px-4 py-3 text-sm transition-colors duration-150 ${
+                    className={`flex w-full items-center rounded-[22px] border text-sm transition-colors duration-150 ${
                       isActive
                         ? "border-[var(--accent)] bg-[var(--accent)] font-medium text-white"
                         : "border-[var(--panel-border)] bg-[rgba(255,255,255,0.78)] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--foreground)]"
-                    } ${isExpanded ? "justify-start" : "justify-center"}`}
+                    } ${isExpanded ? "justify-start px-4 py-3" : "justify-center px-2 py-2.5"}`}
                     title={isExpanded ? undefined : item.label}
                   >
                     <span
-                      className={`inline-flex size-9 shrink-0 items-center justify-center rounded-2xl bg-current/12 ${
-                        isExpanded ? "mr-3" : ""
+                      className={`inline-flex shrink-0 items-center justify-center bg-current/12 ${
+                        isExpanded
+                          ? "mr-3 size-9 rounded-2xl"
+                          : "size-8 rounded-[18px]"
                       }`}
                     >
                       <Icon className="size-4" />

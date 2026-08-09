@@ -1,4 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
+import horizontalLogo from "@/app/dabi-price-horizontal.svg";
+import whiteLogo from "@/app/logo-dabi-branco.svg";
 
 const heroPortraits = [
   {
@@ -202,9 +205,17 @@ export default function LandingPage() {
           <header className="flex flex-wrap items-center justify-between gap-4">
             <Link
               href="/"
-              className="text-xl font-semibold tracking-[-0.06em] text-[#22144f]"
+              className="inline-flex"
+              aria-label="Dabi Price"
             >
-              Dabi<span className="text-[#ff6a00]"> Price</span>
+              <Image
+                src={horizontalLogo}
+                alt="Dabi Price"
+                width={176}
+                height={42}
+                unoptimized
+                className="h-8 w-auto"
+              />
             </Link>
 
             <nav className="hidden items-center gap-7 text-sm text-[#625688] md:flex">
@@ -613,9 +624,14 @@ export default function LandingPage() {
 
           <footer className="mt-10 grid gap-10 border-t border-white/10 pt-10 lg:grid-cols-[280px_repeat(4,minmax(0,1fr))]">
             <div>
-              <p className="text-2xl font-semibold tracking-[-0.06em]">
-                Dabi<span className="text-[#ffb07a]"> Price</span>
-              </p>
+              <Image
+                src={whiteLogo}
+                alt="Dabi Price"
+                width={84}
+                height={84}
+                unoptimized
+                className="h-14 w-auto"
+              />
               <p className="mt-4 max-w-[220px] text-sm leading-7 text-white/72">
                 Software de precificação comercial para produtos físicos e
                 decisões de canal mais inteligentes.
