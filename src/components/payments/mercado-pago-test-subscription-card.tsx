@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 
 type WorkspacePlanId = "starter" | "growth";
+type PlanUrlMap = Record<WorkspacePlanId, string | null>;
 type MercadoPagoGeneratedTestUser = {
   id: number;
   nickname: string;
@@ -17,7 +18,11 @@ const planOptions: Array<{ id: WorkspacePlanId; label: string }> = [
   { id: "growth", label: "DaBi Pro" },
 ];
 
-export function MercadoPagoTestSubscriptionCard() {
+export function MercadoPagoTestSubscriptionCard({
+  planUrls,
+}: {
+  planUrls: PlanUrlMap;
+}) {
   const [planId, setPlanId] = useState<WorkspacePlanId>("starter");
   const [payerEmail, setPayerEmail] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -76,66 +81,29 @@ export function MercadoPagoTestSubscriptionCard() {
             type="button"
             disabled={!canSubmit}
             onClick={() => {
-              const checkoutWindow = window.open("", "_blank");
+              setFeedback(null);
+              const checkoutUrl = planUrls[planId];
 
-              if (checkoutWindow) {
-                checkoutWindow.document.title = "Abrindo checkout do Mercado Pago...";
-                checkoutWindow.document.body.innerHTML =
-                  "<p style=\"font-family: sans-serif; padding: 24px; color: #333;\">Abrindo checkout do Mercado Pago...</p>";
+              if (!checkoutUrl) {
+                setFeedback(
+                  "Esse plano ainda não tem URL de assinatura configurada no Mercado Pago.",
+                );
+                return;
               }
 
+              const checkoutWindow = window.open(checkoutUrl, "_blank", "noopener,noreferrer");
+
               startTransition(async () => {
-                setFeedback(null);
-                try {
-                  const response = await fetch(
-                    "/api/payments/mercado-pago/subscriptions/start",
-                    {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                      },
-                      body: JSON.stringify({
-                        planId,
-                        payerEmail,
-                      }),
-                    },
-                  );
-
-                  const payload = (await response.json().catch(() => null)) as
-                    | {
-                        initPoint?: string;
-                        error?: string;
-                        requestId?: string;
-                      }
-                    | null;
-
-                  if (!response.ok || !payload?.initPoint) {
-                    checkoutWindow?.close();
-                    setFeedback(
-                      payload?.error
-                        ? `${payload.error}${payload.requestId ? ` · requestId ${payload.requestId}` : ""}`
-                        : "Não foi possível gerar a assinatura de teste.",
-                    );
-                    return;
-                  }
-
-                  if (checkoutWindow) {
-                    checkoutWindow.location.assign(payload.initPoint);
-                    return;
-                  }
-
-                  window.location.assign(payload.initPoint);
-                } catch {
-                  checkoutWindow?.close();
-                  setFeedback(
-                    "Não foi possível comunicar com o Mercado Pago agora. Tente novamente em instantes.",
-                  );
+                if (checkoutWindow) {
+                  return;
                 }
+
+                window.location.assign(checkoutUrl);
               });
             }}
             className="app-button app-button-primary w-full justify-center disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isPending ? "Gerando..." : "Abrir checkout de teste"}
+            {isPending ? "Abrindo..." : "Abrir checkout de teste"}
           </button>
         </div>
       </div>
@@ -194,10 +162,11 @@ export function MercadoPagoTestSubscriptionCard() {
       </div>
 
       <div className="mt-6 rounded-[22px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.72)] px-5 py-4 text-sm text-[var(--muted)]">
-        Use comprador de teste do Mercado Pago e cartão de teste. O checkout aberto aqui
-        já leva `external_reference` do workspace para o webhook conseguir vincular a assinatura.
-        Se a lista de contas de teste mostrar só `User ID` e `Usuário`, use o botão acima:
-        a API do Mercado Pago devolve o `email` do comprador de teste, que é o dado exigido pela assinatura.
+        Use comprador de teste do Mercado Pago e cartão de teste. Este botão abre a
+        URL de assinatura já configurada para o plano, igual ao fluxo público. Se a lista
+        de contas de teste mostrar só `User ID` e `Usuário`, use o botão acima:
+        a API do Mercado Pago devolve o `email` do comprador de teste, que é o dado exigido
+        pela assinatura.
       </div>
 
       {generatedTestUser ? (

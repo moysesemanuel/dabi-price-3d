@@ -4,6 +4,7 @@ import { BackLink } from "@/components/app/back-link";
 import { MercadoPagoTestSubscriptionCard } from "@/components/payments/mercado-pago-test-subscription-card";
 import { isSuperAdminSession } from "@/lib/auth/access-control";
 import { getCurrentAuthSession } from "@/lib/auth/session";
+import { getMercadoPagoSubscriptionUrl } from "@/lib/payments/mercado-pago";
 import {
   getWorkspacePreferences,
   isPlatformPersistenceAvailable,
@@ -100,6 +101,10 @@ export default async function PlansPage() {
         )
       : defaultAppPreferences;
   const currentPlan = getWorkspacePlan(preferences.subscription.planId);
+  const testPlanUrls = {
+    starter: getMercadoPagoSubscriptionUrl("starter"),
+    growth: getMercadoPagoSubscriptionUrl("growth"),
+  };
 
   return (
     <div className="app-page space-y-6">
@@ -306,7 +311,7 @@ export default async function PlansPage() {
       </section>
 
       {session && isSuperAdminSession(session) ? (
-        <MercadoPagoTestSubscriptionCard />
+        <MercadoPagoTestSubscriptionCard planUrls={testPlanUrls} />
       ) : null}
     </div>
   );
