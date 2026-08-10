@@ -76,6 +76,14 @@ export function MercadoPagoTestSubscriptionCard() {
             type="button"
             disabled={!canSubmit}
             onClick={() => {
+              const checkoutWindow = window.open("", "_blank");
+
+              if (checkoutWindow) {
+                checkoutWindow.document.title = "Abrindo checkout do Mercado Pago...";
+                checkoutWindow.document.body.innerHTML =
+                  "<p style=\"font-family: sans-serif; padding: 24px; color: #333;\">Abrindo checkout do Mercado Pago...</p>";
+              }
+
               startTransition(async () => {
                 setFeedback(null);
                 try {
@@ -102,6 +110,7 @@ export function MercadoPagoTestSubscriptionCard() {
                     | null;
 
                   if (!response.ok || !payload?.initPoint) {
+                    checkoutWindow?.close();
                     setFeedback(
                       payload?.error
                         ? `${payload.error}${payload.requestId ? ` · requestId ${payload.requestId}` : ""}`
@@ -110,8 +119,14 @@ export function MercadoPagoTestSubscriptionCard() {
                     return;
                   }
 
-                  window.open(payload.initPoint, "_blank", "noopener,noreferrer");
+                  if (checkoutWindow) {
+                    checkoutWindow.location.assign(payload.initPoint);
+                    return;
+                  }
+
+                  window.location.assign(payload.initPoint);
                 } catch {
+                  checkoutWindow?.close();
                   setFeedback(
                     "Não foi possível comunicar com o Mercado Pago agora. Tente novamente em instantes.",
                   );
