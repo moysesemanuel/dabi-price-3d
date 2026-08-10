@@ -296,6 +296,21 @@ Observação importante:
 - se você estiver usando apenas links manuais de `Planos de Assinatura`, sem `external_reference` e sem um identificador confiável do workspace, a rota pode receber o evento mas não conseguir vincular automaticamente a compra a um workspace específico
 - para automação completa, o próximo passo ideal é criar a assinatura via API com `external_reference` controlado pela plataforma
 
+### Teste autenticado via integração
+
+Para validar com comprador e cartão de teste do Mercado Pago sem depender do link manual:
+
+- entre com um `super_admin`
+- abra `/app/planos`
+- use o card `Assinatura de teste com integração`
+
+Esse fluxo:
+
+- cria a assinatura via API `/preapproval`
+- reutiliza o `preapproval_plan_id` extraído da URL pública configurada
+- envia `external_reference` com o `workspaceId`
+- devolve o `init_point` para abrir o checkout hospedado do Mercado Pago
+
 ### Observabilidade operacional
 
 As rotas críticas de ERP e Mercado Livre agora retornam `requestId` em erros operacionais.

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { BackLink } from "@/components/app/back-link";
+import { MercadoPagoTestSubscriptionCard } from "@/components/payments/mercado-pago-test-subscription-card";
+import { isSuperAdminSession } from "@/lib/auth/access-control";
 import { getCurrentAuthSession } from "@/lib/auth/session";
 import {
   getWorkspacePreferences,
@@ -302,6 +304,10 @@ export default async function PlansPage() {
           </article>
         ))}
       </section>
+
+      {session && isSuperAdminSession(session) ? (
+        <MercadoPagoTestSubscriptionCard />
+      ) : null}
     </div>
   );
 }

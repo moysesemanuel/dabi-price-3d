@@ -34,6 +34,7 @@ export type MercadoPagoSubscription = {
   back_url?: string | null;
   reason?: string | null;
   payer_email?: string | null;
+  init_point?: string | null;
 };
 
 export type MercadoPagoAuthorizedPayment = {
@@ -66,6 +67,25 @@ export function getMercadoPagoSubscriptionUrl(planId: WorkspacePlanId) {
 
 export function hasMercadoPagoSubscription(planId: WorkspacePlanId) {
   return Boolean(getMercadoPagoSubscriptionUrl(planId));
+}
+
+export function getMercadoPagoSubscriptionPlanId(planId: WorkspacePlanId) {
+  const subscriptionUrl = getMercadoPagoSubscriptionUrl(planId);
+
+  if (!subscriptionUrl) {
+    return null;
+  }
+
+  try {
+    const url = new URL(subscriptionUrl);
+
+    return (
+      normalizeOptionalString(url.searchParams.get("preapproval_plan_id")) ??
+      normalizeOptionalString(url.searchParams.get("preapprovalPlanId"))
+    );
+  } catch {
+    return null;
+  }
 }
 
 export function getMercadoPagoAccessToken() {
@@ -119,6 +139,31 @@ export async function getMercadoPagoAuthorizedPayment(authorizedPaymentId: strin
   return mercadoPagoApiRequest<MercadoPagoAuthorizedPayment>(
     `/authorized_payments/${authorizedPaymentId}`,
   );
+}
+
+export async function createMercadoPagoSubscriptionCheckout(input: {
+  planId: WorkspacePlanId;
+  payerEmail: string;
+  workspaceId: string;
+  workspaceName: string;
+  reason: string;
+  backUrl: string;
+}) {
+  const preapprovalPlanId = getMercadoPagoSubscriptionPlanId(input.planId);
+
+  if (!preapprovalPlanId) {
+    throw new Error(
+      `NEXT_PUBLIC_MP_SUBSCRIPTION_${input.planId.toUpperCase()}_URL must include preapproval_plan_id.`,
+    );
+  }
+
+  return mercadoPagoApiMutation<MercadoPagoSubscription>("/preapproval", {
+    preapproval_plan_id: preapprovalPlanId,
+    payer_email: input.payerEmail,
+    external_reference: `workspace:${input.workspaceId}`,
+    reason: input.reason,
+    back_url: input.backUrl,
+  });
 }
 
 export function extractMercadoPagoWebhookTopic(input: {
@@ -249,6 +294,37 @@ async function mercadoPagoApiRequest<T>(path: string) {
 
     throw new Error(
       `Mercado Pago API request failed (${response.status}) for ${path}: ${responseText || "empty response"}`,
+    );
+  }
+
+  return (await response.json()) as T;
+}
+
+async function mercadoPagoApiMutation<T>(path: string, body: Record<string, unknown>) {
+  const accessToken = getMercadoPagoAccessToken();
+
+  if (!accessToken) {
+    throw new Error(
+      "MERCADO_PAGO_ACCESS_TOKEN is required to criar assinaturas do Mercado Pago.",
+    );
+  }
+
+  const response = await fetch(`https://api.mercadopago.com${path}`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const responseText = await response.text().catch(() => "");
+
+    throw new Error(
+      `Mercado Pago API mutation failed (${response.status}) for ${path}: ${responseText || "empty response"}`,
     );
   }
 
