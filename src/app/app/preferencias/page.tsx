@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { BackLink } from "@/components/app/back-link";
 import { PreferencesPanel } from "@/components/preferences/preferences-panel";
 import { getMercadoLivreConnectionStatus } from "@/lib/marketplaces/mercado-livre-auth";
@@ -10,6 +11,8 @@ import {
 import { defaultAppPreferences, type AppPreferences } from "@/lib/settings/app-preferences";
 
 export default async function PreferencesPage() {
+  await connection();
+
   let mercadoLivreStatus = null;
   let initialPreferences: AppPreferences = defaultAppPreferences;
 
