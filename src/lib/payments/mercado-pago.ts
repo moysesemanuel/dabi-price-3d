@@ -52,6 +52,16 @@ export type MercadoPagoAuthorizedPayment = {
   } | null;
 };
 
+export type MercadoPagoTestUser = {
+  id: number;
+  nickname: string;
+  password: string;
+  site_status?: string | null;
+  site_id?: string | null;
+  description?: string | null;
+  email: string;
+};
+
 export function getMercadoPagoSubscriptionUrl(planId: WorkspacePlanId) {
   const envKey = SUBSCRIPTION_ENV_BY_PLAN[planId];
   const value = process.env[envKey]?.trim();
@@ -93,6 +103,14 @@ export function getMercadoPagoSubscriptionPlanId(planId: WorkspacePlanId) {
 
 export function getMercadoPagoAccessToken() {
   return process.env.MERCADO_PAGO_ACCESS_TOKEN?.trim() ?? "";
+}
+
+export function getMercadoPagoTestAccessToken() {
+  return process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN?.trim() ?? "";
+}
+
+export function getMercadoPagoTestSiteId() {
+  return process.env.MERCADO_PAGO_TEST_SITE_ID?.trim() || "MLB";
 }
 
 export function getMercadoPagoWebhookSecret() {
@@ -172,6 +190,25 @@ export async function createMercadoPagoSubscriptionCheckout(input: {
       currency_id: "BRL",
     },
   });
+}
+
+export async function createMercadoPagoTestUser(input: { description: string }) {
+  const accessToken = getMercadoPagoTestAccessToken();
+
+  if (!accessToken) {
+    throw new Error(
+      "MERCADO_PAGO_TEST_ACCESS_TOKEN is required to criar comprador de teste do Mercado Pago.",
+    );
+  }
+
+  return mercadoPagoApiMutation<MercadoPagoTestUser>(
+    "/users/test",
+    {
+      site_id: getMercadoPagoTestSiteId(),
+      description: input.description,
+    },
+    accessToken,
+  );
 }
 
 export function extractMercadoPagoWebhookTopic(input: {
@@ -308,8 +345,12 @@ async function mercadoPagoApiRequest<T>(path: string) {
   return (await response.json()) as T;
 }
 
-async function mercadoPagoApiMutation<T>(path: string, body: Record<string, unknown>) {
-  const accessToken = getMercadoPagoAccessToken();
+async function mercadoPagoApiMutation<T>(
+  path: string,
+  body: Record<string, unknown>,
+  accessTokenOverride?: string,
+) {
+  const accessToken = accessTokenOverride ?? getMercadoPagoAccessToken();
 
   if (!accessToken) {
     throw new Error(

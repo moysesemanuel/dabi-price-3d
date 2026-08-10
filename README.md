@@ -268,6 +268,8 @@ NEXT_PUBLIC_MP_SUBSCRIPTION_GROWTH_URL=
 NEXT_PUBLIC_MP_SUBSCRIPTION_SCALE_URL=
 MERCADO_PAGO_ACCESS_TOKEN=
 MERCADO_PAGO_WEBHOOK_SECRET=
+MERCADO_PAGO_TEST_ACCESS_TOKEN=
+MERCADO_PAGO_TEST_SITE_ID=MLB
 ```
 
 Com isso:
@@ -303,11 +305,12 @@ Para validar com comprador e cartão de teste do Mercado Pago sem depender do li
 - entre com um `super_admin`
 - abra `/app/planos`
 - use o card `Assinatura de teste com integração`
+- se o painel do Mercado Pago não mostrar o e-mail do comprador de teste, use o botão `Criar comprador de teste`
 
 Esse fluxo:
 
+- cria um comprador de teste via API quando necessário
 - cria a assinatura via API `/preapproval`
-- reutiliza o `preapproval_plan_id` extraído da URL pública configurada
 - envia `external_reference` com o `workspaceId`
 - devolve o `init_point` para abrir o checkout hospedado do Mercado Pago
 

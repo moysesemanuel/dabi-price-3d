@@ -3,6 +3,13 @@
 import { useState, useTransition } from "react";
 
 type WorkspacePlanId = "starter" | "growth";
+type MercadoPagoGeneratedTestUser = {
+  id: number;
+  nickname: string;
+  password: string;
+  email: string;
+  siteId: string | null;
+};
 
 const planOptions: Array<{ id: WorkspacePlanId; label: string }> = [
   { id: "starter", label: "DaBi Essencial" },
@@ -13,6 +20,8 @@ export function MercadoPagoTestSubscriptionCard() {
   const [planId, setPlanId] = useState<WorkspacePlanId>("starter");
   const [payerEmail, setPayerEmail] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [generatedTestUser, setGeneratedTestUser] =
+    useState<MercadoPagoGeneratedTestUser | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const canSubmit = payerEmail.trim().length > 0 && !isPending;
@@ -110,12 +119,68 @@ export function MercadoPagoTestSubscriptionCard() {
         </div>
       </div>
 
+      <div className="mt-4">
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={() => {
+            startTransition(async () => {
+              setFeedback(null);
+
+              const response = await fetch(
+                "/api/payments/mercado-pago/test-users/create",
+                {
+                  method: "POST",
+                },
+              );
+
+              const payload = (await response.json().catch(() => null)) as
+                | {
+                    error?: string;
+                    requestId?: string;
+                    testUser?: MercadoPagoGeneratedTestUser;
+                  }
+                | null;
+
+              if (!response.ok || !payload?.testUser) {
+                setFeedback(
+                  payload?.error
+                    ? `${payload.error}${payload.requestId ? ` · requestId ${payload.requestId}` : ""}`
+                    : "Não foi possível criar o comprador de teste.",
+                );
+                return;
+              }
+
+              setGeneratedTestUser(payload.testUser);
+              setPayerEmail(payload.testUser.email);
+            });
+          }}
+          className="app-button app-button-secondary"
+        >
+          {isPending ? "Processando..." : "Criar comprador de teste"}
+        </button>
+      </div>
+
       <div className="mt-6 rounded-[22px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.72)] px-5 py-4 text-sm text-[var(--muted)]">
         Use comprador de teste do Mercado Pago e cartão de teste. O checkout aberto aqui
         já leva `external_reference` do workspace para o webhook conseguir vincular a assinatura.
-        Se a lista de contas de teste mostrar só `User ID` e `Usuário`, o campo correto aqui é o e-mail
-        de teste vinculado ao comprador, não o ID numérico.
+        Se a lista de contas de teste mostrar só `User ID` e `Usuário`, use o botão acima:
+        a API do Mercado Pago devolve o `email` do comprador de teste, que é o dado exigido pela assinatura.
       </div>
+
+      {generatedTestUser ? (
+        <div className="mt-4 rounded-[22px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.84)] px-5 py-4">
+          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--accent)]">
+            Comprador de teste gerado
+          </p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <InfoLine label="User ID" value={String(generatedTestUser.id)} />
+            <InfoLine label="Usuário" value={generatedTestUser.nickname} />
+            <InfoLine label="Senha" value={generatedTestUser.password} />
+            <InfoLine label="E-mail" value={generatedTestUser.email} />
+          </div>
+        </div>
+      ) : null}
 
       {feedback ? (
         <div className="mt-4 rounded-[18px] border border-[#f2d6e3] bg-[#fff5f9] px-4 py-3 text-sm text-[#b85178]">
@@ -123,5 +188,16 @@ export function MercadoPagoTestSubscriptionCard() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+function InfoLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[18px] border border-[var(--panel-border)] bg-white px-4 py-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+        {label}
+      </p>
+      <p className="mt-2 text-sm text-[var(--foreground)]">{value}</p>
+    </div>
   );
 }
