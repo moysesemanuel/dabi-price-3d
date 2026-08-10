@@ -1,8 +1,9 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-type WorkspacePlanId = "starter" | "growth";
+type WorkspacePlanId = "starter" | "growth" | "scale";
 type PlanUrlMap = Record<WorkspacePlanId, string | null>;
 type MercadoPagoGeneratedTestUser = {
   id: number;
@@ -16,6 +17,7 @@ type MercadoPagoGeneratedTestUser = {
 const planOptions: Array<{ id: WorkspacePlanId; label: string }> = [
   { id: "starter", label: "DaBi Essencial" },
   { id: "growth", label: "DaBi Pro" },
+  { id: "scale", label: "DaBi Equipe" },
 ];
 
 export function MercadoPagoTestSubscriptionCard({
@@ -23,6 +25,7 @@ export function MercadoPagoTestSubscriptionCard({
 }: {
   planUrls: PlanUrlMap;
 }) {
+  const router = useRouter();
   const [planId, setPlanId] = useState<WorkspacePlanId>("starter");
   const [payerEmail, setPayerEmail] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -108,7 +111,7 @@ export function MercadoPagoTestSubscriptionCard({
         </div>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-4 flex flex-wrap gap-3">
         <button
           type="button"
           disabled={isPending}
@@ -159,6 +162,63 @@ export function MercadoPagoTestSubscriptionCard({
         >
           {isPending ? "Processando..." : "Criar comprador de teste"}
         </button>
+
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={() => {
+            startTransition(async () => {
+              setFeedback(null);
+
+              try {
+                const response = await fetch(
+                  "/api/payments/mercado-pago/subscriptions/simulate",
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      planId,
+                    }),
+                  },
+                );
+
+                const payload = (await response.json().catch(() => null)) as
+                  | {
+                      ok?: boolean;
+                      error?: string;
+                      requestId?: string;
+                      changed?: boolean;
+                    }
+                  | null;
+
+                if (!response.ok || !payload?.ok) {
+                  setFeedback(
+                    payload?.error
+                      ? `${payload.error}${payload.requestId ? ` · requestId ${payload.requestId}` : ""}`
+                      : "Não foi possível simular a assinatura do workspace.",
+                  );
+                  return;
+                }
+
+                setFeedback(
+                  payload.changed
+                    ? "Assinatura simulada com sucesso. O plano atual do workspace foi atualizado."
+                    : "A simulação foi executada, mas o workspace já estava nesse mesmo plano.",
+                );
+                router.refresh();
+              } catch {
+                setFeedback(
+                  "Não foi possível simular a assinatura agora. Tente novamente em instantes.",
+                );
+              }
+            });
+          }}
+          className="app-button app-button-secondary"
+        >
+          {isPending ? "Aplicando..." : "Simular ativação interna"}
+        </button>
       </div>
 
       <div className="mt-6 rounded-[22px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.72)] px-5 py-4 text-sm text-[var(--muted)]">
@@ -167,6 +227,11 @@ export function MercadoPagoTestSubscriptionCard({
         de contas de teste mostrar só `User ID` e `Usuário`, use o botão acima:
         a API do Mercado Pago devolve o `email` do comprador de teste, que é o dado exigido
         pela assinatura.
+      </div>
+
+      <div className="mt-4 rounded-[22px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.72)] px-5 py-4 text-sm text-[var(--muted)]">
+        Se o sandbox do Mercado Pago bloquear o checkout, use `Simular ativação interna`
+        para validar o upgrade do workspace sem depender do ambiente externo.
       </div>
 
       {generatedTestUser ? (

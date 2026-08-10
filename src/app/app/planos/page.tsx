@@ -104,6 +104,7 @@ export default async function PlansPage() {
   const testPlanUrls = {
     starter: getMercadoPagoSubscriptionUrl("starter"),
     growth: getMercadoPagoSubscriptionUrl("growth"),
+    scale: getMercadoPagoSubscriptionUrl("scale"),
   };
 
   return (
