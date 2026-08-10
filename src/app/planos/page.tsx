@@ -3,6 +3,7 @@ import Link from "next/link";
 import horizontalLogo from "@/app/dabi-price-horizontal.svg";
 import Image from "next/image";
 import { workspacePlans } from "@/lib/settings/app-preferences";
+import { getMercadoPagoSubscriptionUrl } from "@/lib/payments/mercado-pago";
 
 const planFeatureRows = [
   {
@@ -91,7 +92,7 @@ const faqItems = [
   {
     question: "Como funciona a contratação do acesso?",
     answer:
-      "Você escolhe o plano ideal para a operação. Nesta etapa, o checkout ainda está em implantação, então a contratação segue por contato comercial e ativação manual.",
+      "Você escolhe o plano ideal para a operação e avança para a assinatura do Mercado Pago quando ela estiver liberada para essa faixa. Planos sob medida continuam com atendimento comercial.",
   },
   {
     question: "O acesso ao projeto muda conforme o plano?",
@@ -106,7 +107,7 @@ const faqItems = [
   {
     question: "A página já substitui o checkout?",
     answer:
-      "Ainda não. Ela organiza a decisão comercial e prepara o fluxo certo: escolher o plano, avançar para contratação e só então liberar o acesso ao projeto.",
+      "Ela organiza a decisão comercial e entrega o fluxo certo: escolher o plano, abrir a assinatura do Mercado Pago quando houver autoatendimento, ou cair no contato consultivo quando o plano exigir análise.",
   },
 ] as const;
 
@@ -199,6 +200,7 @@ export default async function PublicPlansPage({
         <div className="grid gap-4 lg:grid-cols-3">
           {workspacePlans.map((plan) => {
             const isHighlighted = plan.id === "growth";
+            const subscriptionUrl = getMercadoPagoSubscriptionUrl(plan.id);
 
             return (
               <article
@@ -239,22 +241,35 @@ export default async function PublicPlansPage({
                 </div>
 
                 <div className="mt-8 grid gap-3">
-                  <Link
-                    href={{
-                      pathname: "/contato",
-                      query: {
-                        plan: plan.id,
-                        origin,
-                      },
-                    }}
-                    className={`inline-flex items-center justify-center rounded-[16px] px-5 py-3 text-sm font-semibold transition ${
-                      isHighlighted
-                        ? "bg-[#24473c] text-white hover:bg-[#1d3a31]"
-                        : "border border-[#dcebe3] bg-white text-[#274338] hover:bg-[#f8fcfa]"
-                    }`}
-                  >
-                    Garantir meu acesso
-                  </Link>
+                  {subscriptionUrl ? (
+                    <a
+                      href={subscriptionUrl}
+                      className={`inline-flex items-center justify-center rounded-[16px] px-5 py-3 text-sm font-semibold transition ${
+                        isHighlighted
+                          ? "bg-[#24473c] text-white hover:bg-[#1d3a31]"
+                          : "border border-[#dcebe3] bg-white text-[#274338] hover:bg-[#f8fcfa]"
+                      }`}
+                    >
+                      Garantir meu acesso
+                    </a>
+                  ) : (
+                    <Link
+                      href={{
+                        pathname: "/contato",
+                        query: {
+                          plan: plan.id,
+                          origin,
+                        },
+                      }}
+                      className={`inline-flex items-center justify-center rounded-[16px] px-5 py-3 text-sm font-semibold transition ${
+                        isHighlighted
+                          ? "bg-[#24473c] text-white hover:bg-[#1d3a31]"
+                          : "border border-[#dcebe3] bg-white text-[#274338] hover:bg-[#f8fcfa]"
+                      }`}
+                    >
+                      Garantir meu acesso
+                    </Link>
+                  )}
                   <Link
                     href={{
                       pathname: "/contato",
@@ -275,9 +290,9 @@ export default async function PublicPlansPage({
         </div>
 
         <div className="mt-8 rounded-[28px] border border-[#f2d6e3] bg-[#fff5f9] px-5 py-4 text-center text-sm text-[#7d6872]">
-          O checkout ainda não está conectado. Esta página já prepara o fluxo
-          comercial correto; a etapa de pagamento pode ser ligada depois sem
-          refazer a navegação pública.
+          Quando a URL do plano estiver configurada, o CTA abre a assinatura do
+          Mercado Pago. Nos demais casos, o fluxo continua pelo contato
+          consultivo sem quebrar a navegação pública.
         </div>
       </section>
 
@@ -389,19 +404,29 @@ export default async function PublicPlansPage({
           </p>
 
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link
-              href={{
-                pathname: "/contato",
-                query: {
-                  plan: "growth",
-                  origin,
-                },
-              }}
-              className="inline-flex items-center justify-center rounded-[16px] bg-white px-6 py-4 text-sm font-semibold text-[#cf6f94] transition hover:bg-[#fff7fa]"
-            >
-              Garantir meu acesso
-              <span className="ml-3 text-base">→</span>
-            </Link>
+            {getMercadoPagoSubscriptionUrl("growth") ? (
+              <a
+                href={getMercadoPagoSubscriptionUrl("growth")!}
+                className="inline-flex items-center justify-center rounded-[16px] bg-white px-6 py-4 text-sm font-semibold text-[#cf6f94] transition hover:bg-[#fff7fa]"
+              >
+                Garantir meu acesso
+                <span className="ml-3 text-base">→</span>
+              </a>
+            ) : (
+              <Link
+                href={{
+                  pathname: "/contato",
+                  query: {
+                    plan: "growth",
+                    origin,
+                  },
+                }}
+                className="inline-flex items-center justify-center rounded-[16px] bg-white px-6 py-4 text-sm font-semibold text-[#cf6f94] transition hover:bg-[#fff7fa]"
+              >
+                Garantir meu acesso
+                <span className="ml-3 text-base">→</span>
+              </Link>
+            )}
             <Link
               href={{
                 pathname: "/contato",

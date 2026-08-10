@@ -1,0 +1,412 @@
+import {
+  findPrimaryWorkspaceForUser,
+  findUserByEmail,
+  getWorkspacePreferences,
+  isPlatformPersistenceAvailable,
+  applyWorkspaceSubscriptionUpdate,
+} from "@/lib/server/platform";
+import {
+  createRouteRequestContext,
+  jsonWithRequestId,
+  logRouteEvent,
+  serializeError,
+} from "@/lib/server/route-observability";
+import {
+  extractMercadoPagoWebhookDataId,
+  extractMercadoPagoWebhookTopic,
+  getMercadoPagoAccessToken,
+  getMercadoPagoAuthorizedPayment,
+  getMercadoPagoSubscription,
+  getMercadoPagoWebhookSecret,
+  resolveMercadoPagoWorkspaceHint,
+  resolveWorkspacePlanIdFromMercadoPagoPlanId,
+  verifyMercadoPagoWebhookSignature,
+  type MercadoPagoAuthorizedPayment,
+  type MercadoPagoSubscription,
+  type MercadoPagoWebhookPayload,
+  type MercadoPagoWebhookTopic,
+} from "@/lib/payments/mercado-pago";
+
+export async function POST(request: Request) {
+  const requestContext = createRouteRequestContext(
+    request,
+    "/api/payments/mercado-pago/webhook",
+  );
+
+  if (!isPlatformPersistenceAvailable()) {
+    logRouteEvent(requestContext, "error", "mercado_pago_webhook.persistence_missing");
+
+    return jsonWithRequestId(
+      requestContext,
+      {
+        error: "Persistência de workspace indisponível sem DATABASE_URL.",
+        code: "MP_WEBHOOK_PERSISTENCE_UNAVAILABLE",
+      },
+      { status: 503 },
+    );
+  }
+
+  if (!getMercadoPagoAccessToken()) {
+    logRouteEvent(requestContext, "error", "mercado_pago_webhook.access_token_missing");
+
+    return jsonWithRequestId(
+      requestContext,
+      {
+        error:
+          "MERCADO_PAGO_ACCESS_TOKEN é obrigatório para consultar o status da assinatura após o webhook.",
+        code: "MP_WEBHOOK_ACCESS_TOKEN_MISSING",
+      },
+      { status: 503 },
+    );
+  }
+
+  let payload: MercadoPagoWebhookPayload | null = null;
+
+  try {
+    payload = (await request.json()) as MercadoPagoWebhookPayload;
+  } catch {
+    payload = null;
+  }
+
+  const requestUrl = new URL(request.url);
+  const topic = extractMercadoPagoWebhookTopic({ requestUrl, payload });
+  const dataId = extractMercadoPagoWebhookDataId({ requestUrl, payload });
+
+  if (!topic || !dataId) {
+    logRouteEvent(requestContext, "warn", "mercado_pago_webhook.invalid_payload", {
+      topic,
+      dataId,
+      payload,
+    });
+
+    return jsonWithRequestId(
+      requestContext,
+      {
+        error: "Webhook do Mercado Pago sem topic ou data.id.",
+        code: "MP_WEBHOOK_INVALID_PAYLOAD",
+      },
+      { status: 400 },
+    );
+  }
+
+  const webhookSecret = getMercadoPagoWebhookSecret();
+  const xSignature = request.headers.get("x-signature");
+  const xRequestId = request.headers.get("x-request-id");
+
+  if (
+    webhookSecret &&
+    !verifyMercadoPagoWebhookSignature({
+      xSignature,
+      xRequestId,
+      dataId,
+      secret: webhookSecret,
+    })
+  ) {
+    logRouteEvent(requestContext, "warn", "mercado_pago_webhook.signature_rejected", {
+      topic,
+      dataId,
+      xRequestId,
+      hasSignature: Boolean(xSignature),
+    });
+
+    return jsonWithRequestId(
+      requestContext,
+      {
+        error: "Assinatura do webhook do Mercado Pago inválida.",
+        code: "MP_WEBHOOK_INVALID_SIGNATURE",
+      },
+      { status: 401 },
+    );
+  }
+
+  try {
+    const outcome = await processMercadoPagoWebhookTopic({ topic, dataId });
+
+    logRouteEvent(requestContext, outcome.logLevel, outcome.event, outcome.details);
+
+    return jsonWithRequestId(
+      requestContext,
+      {
+        ok: true,
+        topic,
+        dataId,
+        outcome: outcome.body,
+      },
+      { status: outcome.status },
+    );
+  } catch (error) {
+    logRouteEvent(requestContext, "error", "mercado_pago_webhook.processing_failed", {
+      topic,
+      dataId,
+      error: serializeError(error),
+    });
+
+    return jsonWithRequestId(
+      requestContext,
+      {
+        error:
+          "Falha ao processar a notificação do Mercado Pago. Revise o token, os tópicos configurados e os logs operacionais.",
+        code: "MP_WEBHOOK_PROCESSING_FAILED",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+async function processMercadoPagoWebhookTopic(input: {
+  topic: MercadoPagoWebhookTopic;
+  dataId: string;
+}) {
+  switch (input.topic) {
+    case "subscription_preapproval": {
+      const subscription = await getMercadoPagoSubscription(input.dataId);
+      return syncWorkspaceFromSubscription({
+        sourceTopic: input.topic,
+        sourceDataId: input.dataId,
+        subscription,
+        recurringChargeApproved: false,
+      });
+    }
+
+    case "subscription_authorized_payment": {
+      const authorizedPayment = await getMercadoPagoAuthorizedPayment(input.dataId);
+      const preapprovalId = authorizedPayment.preapproval_id?.trim();
+
+      if (!preapprovalId) {
+        return {
+          status: 202,
+          logLevel: "warn" as const,
+          event: "mercado_pago_webhook.authorized_payment_without_preapproval",
+          details: {
+            authorizedPaymentId: input.dataId,
+          },
+          body: {
+            handled: false,
+            reason: "authorized_payment_without_preapproval_id",
+          },
+        };
+      }
+
+      const subscription = await getMercadoPagoSubscription(preapprovalId);
+
+      return syncWorkspaceFromSubscription({
+        sourceTopic: input.topic,
+        sourceDataId: input.dataId,
+        subscription,
+        authorizedPayment,
+        recurringChargeApproved:
+          authorizedPayment.payment?.status?.trim().toLowerCase() === "approved",
+      });
+    }
+
+    case "subscription_preapproval_plan": {
+      const workspacePlanId = resolveWorkspacePlanIdFromMercadoPagoPlanId(input.dataId);
+
+      return {
+        status: 200,
+        logLevel: "info" as const,
+        event: "mercado_pago_webhook.subscription_plan_received",
+        details: {
+          mercadoPagoPlanId: input.dataId,
+          workspacePlanId,
+        },
+        body: {
+          handled: true,
+          kind: "subscription_plan",
+          workspacePlanId,
+        },
+      };
+    }
+
+    case "payment":
+    default:
+      return {
+        status: 202,
+        logLevel: "info" as const,
+        event: "mercado_pago_webhook.topic_ignored",
+        details: {
+          topic: input.topic,
+          dataId: input.dataId,
+        },
+        body: {
+          handled: false,
+          reason: "topic_not_implemented",
+        },
+      };
+  }
+}
+
+async function syncWorkspaceFromSubscription(input: {
+  sourceTopic: MercadoPagoWebhookTopic;
+  sourceDataId: string;
+  subscription: MercadoPagoSubscription;
+  authorizedPayment?: MercadoPagoAuthorizedPayment;
+  recurringChargeApproved: boolean;
+}) {
+  const workspacePlanId = resolveWorkspacePlanIdFromMercadoPagoPlanId(
+    input.subscription.preapproval_plan_id,
+  );
+
+  if (!workspacePlanId) {
+    return {
+      status: 202,
+      logLevel: "warn" as const,
+      event: "mercado_pago_webhook.plan_not_mapped",
+      details: {
+        topic: input.sourceTopic,
+        sourceDataId: input.sourceDataId,
+        mercadoPagoPlanId: input.subscription.preapproval_plan_id ?? null,
+      },
+      body: {
+        handled: false,
+        reason: "plan_not_mapped",
+      },
+    };
+  }
+
+  const subscriptionStatus = normalizeMercadoPagoSubscriptionStatus(
+    input.subscription.status,
+  );
+  const shouldActivate = input.recurringChargeApproved || subscriptionStatus === "active";
+
+  if (!shouldActivate) {
+    return {
+      status: 202,
+      logLevel: "info" as const,
+      event: "mercado_pago_webhook.subscription_not_active",
+      details: {
+        topic: input.sourceTopic,
+        sourceDataId: input.sourceDataId,
+        workspacePlanId,
+        subscriptionStatus,
+        recurringChargeApproved: input.recurringChargeApproved,
+      },
+      body: {
+        handled: false,
+        reason: "subscription_not_active",
+        workspacePlanId,
+        subscriptionStatus,
+      },
+    };
+  }
+
+  const workspaceTarget = await resolveWorkspaceTarget(input.subscription);
+
+  if (!workspaceTarget?.workspaceId) {
+    return {
+      status: 202,
+      logLevel: "warn" as const,
+      event: "mercado_pago_webhook.workspace_not_resolved",
+      details: {
+        topic: input.sourceTopic,
+        sourceDataId: input.sourceDataId,
+        workspacePlanId,
+        externalReference: input.subscription.external_reference ?? null,
+        backUrl: input.subscription.back_url ?? null,
+      },
+      body: {
+        handled: false,
+        reason: "workspace_not_resolved",
+        workspacePlanId,
+      },
+    };
+  }
+
+  await getWorkspacePreferences(workspaceTarget.workspaceId);
+
+  const syncResult = await applyWorkspaceSubscriptionUpdate({
+    workspaceId: workspaceTarget.workspaceId,
+    planId: workspacePlanId,
+    status: "active",
+    source: "mercado-pago-webhook",
+    mercadoPagoSubscriptionId: input.subscription.id,
+    description: `Assinatura Mercado Pago aprovada via ${input.sourceTopic}. Plano sincronizado para ${workspacePlanId}.`,
+  });
+
+  return {
+    status: 200,
+    logLevel: "info" as const,
+    event: "mercado_pago_webhook.subscription_synced",
+    details: {
+      topic: input.sourceTopic,
+      sourceDataId: input.sourceDataId,
+      workspaceId: workspaceTarget.workspaceId,
+      workspacePlanId,
+      changed: syncResult.changed,
+      subscriptionId: input.subscription.id,
+      authorizedPaymentId: input.authorizedPayment?.id ?? null,
+    },
+    body: {
+      handled: true,
+      workspaceId: workspaceTarget.workspaceId,
+      workspacePlanId,
+      changed: syncResult.changed,
+    },
+  };
+}
+
+async function resolveWorkspaceTarget(subscription: MercadoPagoSubscription) {
+  const hint = resolveMercadoPagoWorkspaceHint({
+    externalReference: subscription.external_reference,
+    backUrl: subscription.back_url,
+  });
+
+  if (hint?.workspaceId) {
+    return {
+      workspaceId: hint.workspaceId,
+    };
+  }
+
+  if (hint?.email) {
+    const userByHintEmail = await findUserByEmail(hint.email);
+
+    if (userByHintEmail) {
+      const primaryWorkspace = await findPrimaryWorkspaceForUser(userByHintEmail.id);
+
+      if (primaryWorkspace) {
+        return {
+          workspaceId: primaryWorkspace.workspace_id,
+        };
+      }
+    }
+  }
+
+  const payerEmail =
+    typeof subscription.payer_email === "string"
+      ? subscription.payer_email.trim().toLowerCase()
+      : "";
+
+  if (!payerEmail) {
+    return null;
+  }
+
+  const user = await findUserByEmail(payerEmail);
+
+  if (!user) {
+    return null;
+  }
+
+  const primaryWorkspace = await findPrimaryWorkspaceForUser(user.id);
+
+  if (!primaryWorkspace) {
+    return null;
+  }
+
+  return {
+    workspaceId: primaryWorkspace.workspace_id,
+  };
+}
+
+function normalizeMercadoPagoSubscriptionStatus(status: string | null | undefined) {
+  const normalized = status?.trim().toLowerCase();
+
+  if (!normalized) {
+    return "unknown";
+  }
+
+  if (normalized === "authorized") {
+    return "active";
+  }
+
+  return normalized;
+}

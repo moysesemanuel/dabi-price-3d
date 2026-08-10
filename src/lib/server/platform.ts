@@ -1131,6 +1131,91 @@ export async function saveWorkspacePreferences(input: {
   return normalizedPreferences;
 }
 
+export async function applyWorkspaceSubscriptionUpdate(input: {
+  workspaceId: string;
+  planId: AppPreferences["subscription"]["planId"];
+  status: AppPreferences["subscription"]["status"];
+  source: string;
+  mercadoPagoSubscriptionId?: string | null;
+  description?: string | null;
+}) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const currentPreferences = await getWorkspacePreferences(input.workspaceId);
+  const nextPreferences = normalizeAppPreferences({
+    ...currentPreferences,
+    subscription: {
+      ...currentPreferences.subscription,
+      planId: input.planId,
+      status: input.status,
+      seatsUsed: await getWorkspaceSeatUsageCount(input.workspaceId),
+    },
+  });
+
+  const changed =
+    currentPreferences.subscription.planId !== nextPreferences.subscription.planId ||
+    currentPreferences.subscription.status !== nextPreferences.subscription.status;
+
+  if (!changed) {
+    return {
+      changed: false,
+      previousPreferences: currentPreferences,
+      nextPreferences,
+    };
+  }
+
+  const nextSlug = slugify(nextPreferences.workspaceName);
+
+  await sql`
+    INSERT INTO workspace_preferences (
+      workspace_id,
+      data,
+      updated_by_user_id,
+      updated_at
+    )
+    VALUES (
+      ${input.workspaceId},
+      CAST(${JSON.stringify(nextPreferences)} AS JSONB),
+      NULL,
+      NOW()
+    )
+    ON CONFLICT (workspace_id) DO UPDATE SET
+      data = EXCLUDED.data,
+      updated_by_user_id = EXCLUDED.updated_by_user_id,
+      updated_at = NOW()
+  `;
+
+  await sql`
+    UPDATE workspaces
+    SET
+      name = ${nextPreferences.workspaceName},
+      slug = ${nextSlug},
+      updated_at = NOW()
+    WHERE id = ${input.workspaceId}
+  `;
+
+  await appendAuditEvent({
+    workspaceId: input.workspaceId,
+    userId: null,
+    type: "subscription-synced",
+    title: "Assinatura sincronizada",
+    description:
+      input.description?.trim() ||
+      `Assinatura sincronizada via ${input.source} para ${nextPreferences.subscription.planId} (${nextPreferences.subscription.status}).` +
+        (input.mercadoPagoSubscriptionId
+          ? ` Assinatura Mercado Pago: ${input.mercadoPagoSubscriptionId}.`
+          : ""),
+    tone: "success",
+  });
+
+  return {
+    changed: true,
+    previousPreferences: currentPreferences,
+    nextPreferences,
+  };
+}
+
 export async function listCalculationSnapshots(workspaceId: string) {
   await ensurePlatformReady();
 

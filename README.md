@@ -12,6 +12,7 @@ Hoje o app cobre:
 - recuperação de acesso por token
 - integração com ERP
 - integração do Mercado Livre com status em `/app/preferencias`
+- página pública de planos com saída para assinatura por plano
 
 ## Requisitos
 
@@ -250,6 +251,50 @@ Hoje o fluxo oficial é:
 1. preparar o produto na precificadora
 2. salvar no ERP
 3. publicar a partir do ERP
+
+## Planos públicos e assinatura
+
+O funil público principal hoje passa por:
+
+- `/confeitaria`
+- `/planos`
+- `/contato`
+
+Para ligar um plano diretamente à assinatura do Mercado Pago, configure:
+
+```env
+NEXT_PUBLIC_MP_SUBSCRIPTION_STARTER_URL=
+NEXT_PUBLIC_MP_SUBSCRIPTION_GROWTH_URL=
+NEXT_PUBLIC_MP_SUBSCRIPTION_SCALE_URL=
+MERCADO_PAGO_ACCESS_TOKEN=
+MERCADO_PAGO_WEBHOOK_SECRET=
+```
+
+Com isso:
+
+- o CTA `Garantir meu acesso` da página pública de planos abre a assinatura do plano configurado
+- a página `/contato` passa a mostrar o botão `Assinar com Mercado Pago` quando o plano tiver URL
+- planos sem URL continuam no fluxo consultivo
+
+### Webhook de assinatura
+
+O projeto agora expõe:
+
+```text
+POST /api/payments/mercado-pago/webhook
+```
+
+Uso atual:
+
+- consulta a assinatura ou cobrança recorrente na API do Mercado Pago
+- mapeia `preapproval_plan_id` para os planos configurados nas URLs públicas
+- tenta localizar o workspace por `external_reference`, `back_url` ou e-mail do assinante
+- ativa o plano no workspace quando a assinatura entra em estado ativo ou quando a cobrança recorrente retorna pagamento aprovado
+
+Observação importante:
+
+- se você estiver usando apenas links manuais de `Planos de Assinatura`, sem `external_reference` e sem um identificador confiável do workspace, a rota pode receber o evento mas não conseguir vincular automaticamente a compra a um workspace específico
+- para automação completa, o próximo passo ideal é criar a assinatura via API com `external_reference` controlado pela plataforma
 
 ### Observabilidade operacional
 

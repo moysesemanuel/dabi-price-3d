@@ -75,7 +75,7 @@ const planFaq = [
   {
     question: "Já existe cobrança dentro do app?",
     answer:
-      "Ainda não. Enquanto o checkout não entra, a página de planos serve para deixar o posicionamento comercial claro e orientar upgrades.",
+      "A cobrança está sendo organizada pelo fluxo público de assinatura com Mercado Pago. Aqui dentro, a página continua servindo para comparação e orientação de upgrade.",
   },
   {
     question: "Posso mudar o plano depois?",
@@ -156,8 +156,8 @@ export default async function PlansPage() {
             Evolua quando fizer sentido
           </h2>
           <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
-            Como ainda não existe checkout no produto, a mudança de faixa continua
-            sendo orientada pelo contato comercial.
+            O upgrade pode seguir pelo fluxo público de assinatura com Mercado
+            Pago ou, quando for um plano consultivo, pelo atendimento comercial.
           </p>
           <div className="mt-5 grid gap-3">
             <Link href="/contato" className="app-button app-button-primary w-full">
