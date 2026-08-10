@@ -3,6 +3,7 @@ import { requireCurrentAuthSession } from "@/lib/auth/session";
 import {
   createMercadoPagoTestUser,
   getMercadoPagoTestAccessToken,
+  resolveMercadoPagoTestUserEmail,
 } from "@/lib/payments/mercado-pago";
 import {
   createRouteRequestContext,
@@ -62,13 +63,15 @@ export async function POST(request: Request) {
     const testUser = await createMercadoPagoTestUser({
       description: `Comprador de teste - ${session.workspace.name} - ${new Date().toISOString()}`,
     });
+    const resolvedEmail = resolveMercadoPagoTestUserEmail(testUser);
 
     logRouteEvent(requestContext, "info", "mercado_pago_test_user_created", {
       workspaceId: session.workspace.id,
       userId: session.user.id,
       mercadoPagoTestUserId: testUser.id,
       nickname: testUser.nickname,
-      email: testUser.email,
+      email: resolvedEmail.email,
+      emailSource: resolvedEmail.source,
     });
 
     return jsonWithRequestId(requestContext, {
@@ -77,7 +80,8 @@ export async function POST(request: Request) {
         id: testUser.id,
         nickname: testUser.nickname,
         password: testUser.password,
-        email: testUser.email,
+        email: resolvedEmail.email,
+        emailSource: resolvedEmail.source,
         siteId: testUser.site_id ?? null,
       },
     });

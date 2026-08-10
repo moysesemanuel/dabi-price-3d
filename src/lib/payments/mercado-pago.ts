@@ -59,7 +59,7 @@ export type MercadoPagoTestUser = {
   site_status?: string | null;
   site_id?: string | null;
   description?: string | null;
-  email: string;
+  email?: string | null;
 };
 
 export function getMercadoPagoSubscriptionUrl(planId: WorkspacePlanId) {
@@ -209,6 +209,25 @@ export async function createMercadoPagoTestUser(input: { description: string }) 
     },
     accessToken,
   );
+}
+
+export function resolveMercadoPagoTestUserEmail(testUser: {
+  id: number;
+  email?: string | null;
+}) {
+  const providedEmail = normalizeOptionalString(testUser.email);
+
+  if (providedEmail) {
+    return {
+      email: providedEmail,
+      source: "mercado_pago" as const,
+    };
+  }
+
+  return {
+    email: `test_payer_${testUser.id}@testuser.com`,
+    source: "derived_fallback" as const,
+  };
 }
 
 export function extractMercadoPagoWebhookTopic(input: {

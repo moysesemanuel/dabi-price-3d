@@ -8,6 +8,7 @@ type MercadoPagoGeneratedTestUser = {
   nickname: string;
   password: string;
   email: string;
+  emailSource: "mercado_pago" | "derived_fallback";
   siteId: string | null;
 };
 
@@ -157,7 +158,13 @@ export function MercadoPagoTestSubscriptionCard() {
                 }
 
                 setGeneratedTestUser(payload.testUser);
-                setPayerEmail(payload.testUser.email);
+                setPayerEmail(payload.testUser.email ?? "");
+
+                if (payload.testUser.emailSource === "derived_fallback") {
+                  setFeedback(
+                    `O Mercado Pago não devolveu o e-mail desse comprador. Usei o fallback ${payload.testUser.email} para seguir com o teste.`,
+                  );
+                }
               } catch {
                 setFeedback(
                   "Não foi possível criar o comprador de teste agora. Tente novamente em instantes.",
@@ -189,6 +196,12 @@ export function MercadoPagoTestSubscriptionCard() {
             <InfoLine label="Senha" value={generatedTestUser.password} />
             <InfoLine label="E-mail" value={generatedTestUser.email} />
           </div>
+          {generatedTestUser.emailSource === "derived_fallback" ? (
+            <p className="mt-3 text-xs leading-6 text-[var(--muted)]">
+              Esse e-mail foi gerado pela aplicação porque a resposta do Mercado Pago
+              veio sem `email`. Ele já é preenchido automaticamente no campo acima.
+            </p>
+          ) : null}
         </div>
       ) : null}
 
