@@ -22,8 +22,24 @@ export async function POST(request: Request) {
     request,
     "/api/payments/mercado-pago/subscriptions/start",
   );
+  let session;
 
-  const session = await requireCurrentAuthSession();
+  try {
+    session = await requireCurrentAuthSession();
+  } catch (error) {
+    if (isAuthenticationRequiredError(error)) {
+      return jsonWithRequestId(
+        requestContext,
+        {
+          error: "Faça login para iniciar a assinatura de teste.",
+          code: "AUTHENTICATION_REQUIRED",
+        },
+        { status: 401 },
+      );
+    }
+
+    throw error;
+  }
 
   if (!isSuperAdminSession(session)) {
     return jsonWithRequestId(
@@ -168,4 +184,8 @@ function normalizePlanId(value?: string): WorkspacePlanId | null {
 function normalizeEmail(value?: string) {
   const normalized = value?.trim().toLowerCase();
   return normalized || null;
+}
+
+function isAuthenticationRequiredError(error: unknown) {
+  return error instanceof Error && error.message === "AUTHENTICATION_REQUIRED";
 }

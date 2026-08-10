@@ -16,7 +16,24 @@ export async function POST(request: Request) {
     request,
     "/api/payments/mercado-pago/test-users/create",
   );
-  const session = await requireCurrentAuthSession();
+  let session;
+
+  try {
+    session = await requireCurrentAuthSession();
+  } catch (error) {
+    if (isAuthenticationRequiredError(error)) {
+      return jsonWithRequestId(
+        requestContext,
+        {
+          error: "Faça login para criar compradores de teste do Mercado Pago.",
+          code: "AUTHENTICATION_REQUIRED",
+        },
+        { status: 401 },
+      );
+    }
+
+    throw error;
+  }
 
   if (!isSuperAdminSession(session)) {
     return jsonWithRequestId(
@@ -83,4 +100,8 @@ export async function POST(request: Request) {
       { status: 502 },
     );
   }
+}
+
+function isAuthenticationRequiredError(error: unknown) {
+  return error instanceof Error && error.message === "AUTHENTICATION_REQUIRED";
 }

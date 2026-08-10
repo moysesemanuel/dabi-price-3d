@@ -77,39 +77,44 @@ export function MercadoPagoTestSubscriptionCard() {
             onClick={() => {
               startTransition(async () => {
                 setFeedback(null);
-
-                const response = await fetch(
-                  "/api/payments/mercado-pago/subscriptions/start",
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
+                try {
+                  const response = await fetch(
+                    "/api/payments/mercado-pago/subscriptions/start",
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({
+                        planId,
+                        payerEmail,
+                      }),
                     },
-                    body: JSON.stringify({
-                      planId,
-                      payerEmail,
-                    }),
-                  },
-                );
-
-                const payload = (await response.json().catch(() => null)) as
-                  | {
-                      initPoint?: string;
-                      error?: string;
-                      requestId?: string;
-                    }
-                  | null;
-
-                if (!response.ok || !payload?.initPoint) {
-                  setFeedback(
-                    payload?.error
-                      ? `${payload.error}${payload.requestId ? ` · requestId ${payload.requestId}` : ""}`
-                      : "Não foi possível gerar a assinatura de teste.",
                   );
-                  return;
-                }
 
-                window.open(payload.initPoint, "_blank", "noopener,noreferrer");
+                  const payload = (await response.json().catch(() => null)) as
+                    | {
+                        initPoint?: string;
+                        error?: string;
+                        requestId?: string;
+                      }
+                    | null;
+
+                  if (!response.ok || !payload?.initPoint) {
+                    setFeedback(
+                      payload?.error
+                        ? `${payload.error}${payload.requestId ? ` · requestId ${payload.requestId}` : ""}`
+                        : "Não foi possível gerar a assinatura de teste.",
+                    );
+                    return;
+                  }
+
+                  window.open(payload.initPoint, "_blank", "noopener,noreferrer");
+                } catch {
+                  setFeedback(
+                    "Não foi possível comunicar com o Mercado Pago agora. Tente novamente em instantes.",
+                  );
+                }
               });
             }}
             className="app-button app-button-primary w-full justify-center disabled:cursor-not-allowed disabled:opacity-60"
@@ -126,33 +131,38 @@ export function MercadoPagoTestSubscriptionCard() {
           onClick={() => {
             startTransition(async () => {
               setFeedback(null);
-
-              const response = await fetch(
-                "/api/payments/mercado-pago/test-users/create",
-                {
-                  method: "POST",
-                },
-              );
-
-              const payload = (await response.json().catch(() => null)) as
-                | {
-                    error?: string;
-                    requestId?: string;
-                    testUser?: MercadoPagoGeneratedTestUser;
-                  }
-                | null;
-
-              if (!response.ok || !payload?.testUser) {
-                setFeedback(
-                  payload?.error
-                    ? `${payload.error}${payload.requestId ? ` · requestId ${payload.requestId}` : ""}`
-                    : "Não foi possível criar o comprador de teste.",
+              try {
+                const response = await fetch(
+                  "/api/payments/mercado-pago/test-users/create",
+                  {
+                    method: "POST",
+                  },
                 );
-                return;
-              }
 
-              setGeneratedTestUser(payload.testUser);
-              setPayerEmail(payload.testUser.email);
+                const payload = (await response.json().catch(() => null)) as
+                  | {
+                      error?: string;
+                      requestId?: string;
+                      testUser?: MercadoPagoGeneratedTestUser;
+                    }
+                  | null;
+
+                if (!response.ok || !payload?.testUser) {
+                  setFeedback(
+                    payload?.error
+                      ? `${payload.error}${payload.requestId ? ` · requestId ${payload.requestId}` : ""}`
+                      : "Não foi possível criar o comprador de teste.",
+                  );
+                  return;
+                }
+
+                setGeneratedTestUser(payload.testUser);
+                setPayerEmail(payload.testUser.email);
+              } catch {
+                setFeedback(
+                  "Não foi possível criar o comprador de teste agora. Tente novamente em instantes.",
+                );
+              }
             });
           }}
           className="app-button app-button-secondary"
