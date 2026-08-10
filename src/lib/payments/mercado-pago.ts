@@ -191,11 +191,26 @@ export async function createMercadoPagoSubscriptionCheckout(input: {
   accessTokenOverride?: string;
 }) {
   const plan = getWorkspacePlan(input.planId);
+  const preapprovalPlanId = getMercadoPagoSubscriptionPlanId(input.planId);
   const transactionAmount = parseWorkspacePlanMonthlyAmount(plan.monthlyPriceLabel);
 
-  if (!transactionAmount) {
+  if (!preapprovalPlanId && !transactionAmount) {
     throw new Error(
       `Não foi possível resolver o valor mensal do plano ${input.planId} para criar a assinatura de teste.`,
+    );
+  }
+
+  if (preapprovalPlanId) {
+    return mercadoPagoApiMutation<MercadoPagoSubscription>(
+      "/preapproval",
+      {
+        preapproval_plan_id: preapprovalPlanId,
+        payer_email: input.payerEmail,
+        external_reference: `workspace:${input.workspaceId}`,
+        back_url: input.backUrl,
+        status: "pending",
+      },
+      input.accessTokenOverride,
     );
   }
 
@@ -416,9 +431,12 @@ async function mercadoPagoApiMutation<T>(
 
   if (!response.ok) {
     const responseText = await response.text().catch(() => "");
+    const mercadoPagoRequestId = response.headers.get("x-request-id");
 
     throw new Error(
-      `Mercado Pago API mutation failed (${response.status}) for ${path}: ${responseText || "empty response"}`,
+      `Mercado Pago API mutation failed (${response.status}) for ${path}: ${responseText || "empty response"}${
+        mercadoPagoRequestId ? ` · mpRequestId ${mercadoPagoRequestId}` : ""
+      }`,
     );
   }
 
