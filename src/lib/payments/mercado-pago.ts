@@ -156,9 +156,29 @@ export async function getMercadoPagoSubscription(subscriptionId: string) {
   return mercadoPagoApiRequest<MercadoPagoSubscription>(`/preapproval/${subscriptionId}`);
 }
 
+export async function getMercadoPagoSubscriptionWithToken(
+  subscriptionId: string,
+  accessTokenOverride: string,
+) {
+  return mercadoPagoApiRequest<MercadoPagoSubscription>(
+    `/preapproval/${subscriptionId}`,
+    accessTokenOverride,
+  );
+}
+
 export async function getMercadoPagoAuthorizedPayment(authorizedPaymentId: string) {
   return mercadoPagoApiRequest<MercadoPagoAuthorizedPayment>(
     `/authorized_payments/${authorizedPaymentId}`,
+  );
+}
+
+export async function getMercadoPagoAuthorizedPaymentWithToken(
+  authorizedPaymentId: string,
+  accessTokenOverride: string,
+) {
+  return mercadoPagoApiRequest<MercadoPagoAuthorizedPayment>(
+    `/authorized_payments/${authorizedPaymentId}`,
+    accessTokenOverride,
   );
 }
 
@@ -168,6 +188,7 @@ export async function createMercadoPagoSubscriptionCheckout(input: {
   workspaceId: string;
   reason: string;
   backUrl: string;
+  accessTokenOverride?: string;
 }) {
   const plan = getWorkspacePlan(input.planId);
   const transactionAmount = parseWorkspacePlanMonthlyAmount(plan.monthlyPriceLabel);
@@ -178,6 +199,9 @@ export async function createMercadoPagoSubscriptionCheckout(input: {
     );
   }
 
+  const endDate = new Date();
+  endDate.setFullYear(endDate.getFullYear() + 5);
+
   return mercadoPagoApiMutation<MercadoPagoSubscription>("/preapproval", {
     payer_email: input.payerEmail,
     external_reference: `workspace:${input.workspaceId}`,
@@ -186,10 +210,12 @@ export async function createMercadoPagoSubscriptionCheckout(input: {
     auto_recurring: {
       frequency: 1,
       frequency_type: "months",
+      end_date: endDate.toISOString(),
       transaction_amount: transactionAmount,
       currency_id: "BRL",
     },
-  });
+    status: "pending",
+  }, input.accessTokenOverride);
 }
 
 export async function createMercadoPagoTestUser(input: { description: string }) {
@@ -334,8 +360,8 @@ export function resolveMercadoPagoWorkspaceHint(input: {
   }
 }
 
-async function mercadoPagoApiRequest<T>(path: string) {
-  const accessToken = getMercadoPagoAccessToken();
+async function mercadoPagoApiRequest<T>(path: string, accessTokenOverride?: string) {
+  const accessToken = accessTokenOverride ?? getMercadoPagoAccessToken();
 
   if (!accessToken) {
     throw new Error(

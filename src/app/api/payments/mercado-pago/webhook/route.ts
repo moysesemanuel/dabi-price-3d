@@ -15,8 +15,9 @@ import {
   extractMercadoPagoWebhookDataId,
   extractMercadoPagoWebhookTopic,
   getMercadoPagoAccessToken,
-  getMercadoPagoAuthorizedPayment,
-  getMercadoPagoSubscription,
+  getMercadoPagoAuthorizedPaymentWithToken,
+  getMercadoPagoSubscriptionWithToken,
+  getMercadoPagoTestAccessToken,
   getMercadoPagoWebhookSecret,
   resolveMercadoPagoWorkspaceHint,
   resolveWorkspacePlanIdFromMercadoPagoPlanId,
@@ -41,20 +42,6 @@ export async function POST(request: Request) {
       {
         error: "Persistência de workspace indisponível sem DATABASE_URL.",
         code: "MP_WEBHOOK_PERSISTENCE_UNAVAILABLE",
-      },
-      { status: 503 },
-    );
-  }
-
-  if (!getMercadoPagoAccessToken()) {
-    logRouteEvent(requestContext, "error", "mercado_pago_webhook.access_token_missing");
-
-    return jsonWithRequestId(
-      requestContext,
-      {
-        error:
-          "MERCADO_PAGO_ACCESS_TOKEN é obrigatório para consultar o status da assinatura após o webhook.",
-        code: "MP_WEBHOOK_ACCESS_TOKEN_MISSING",
       },
       { status: 503 },
     );
@@ -92,6 +79,28 @@ export async function POST(request: Request) {
   const webhookSecret = getMercadoPagoWebhookSecret();
   const xSignature = request.headers.get("x-signature");
   const xRequestId = request.headers.get("x-request-id");
+  const accessToken = resolveWebhookAccessToken(payload?.live_mode);
+
+  if (!accessToken) {
+    logRouteEvent(requestContext, "error", "mercado_pago_webhook.access_token_missing", {
+      liveMode: payload?.live_mode ?? null,
+    });
+
+    return jsonWithRequestId(
+      requestContext,
+      {
+        error:
+          payload?.live_mode === false
+            ? "MERCADO_PAGO_TEST_ACCESS_TOKEN é obrigatório para consultar webhooks de sandbox do Mercado Pago."
+            : "MERCADO_PAGO_ACCESS_TOKEN é obrigatório para consultar o status da assinatura após o webhook.",
+        code:
+          payload?.live_mode === false
+            ? "MP_WEBHOOK_TEST_ACCESS_TOKEN_MISSING"
+            : "MP_WEBHOOK_ACCESS_TOKEN_MISSING",
+      },
+      { status: 503 },
+    );
+  }
 
   if (
     webhookSecret &&
@@ -120,7 +129,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const outcome = await processMercadoPagoWebhookTopic({ topic, dataId });
+    const outcome = await processMercadoPagoWebhookTopic({ topic, dataId, accessToken });
 
     logRouteEvent(requestContext, outcome.logLevel, outcome.event, outcome.details);
 
@@ -156,10 +165,14 @@ export async function POST(request: Request) {
 async function processMercadoPagoWebhookTopic(input: {
   topic: MercadoPagoWebhookTopic;
   dataId: string;
+  accessToken: string;
 }) {
   switch (input.topic) {
     case "subscription_preapproval": {
-      const subscription = await getMercadoPagoSubscription(input.dataId);
+      const subscription = await getMercadoPagoSubscriptionWithToken(
+        input.dataId,
+        input.accessToken,
+      );
       return syncWorkspaceFromSubscription({
         sourceTopic: input.topic,
         sourceDataId: input.dataId,
@@ -169,7 +182,10 @@ async function processMercadoPagoWebhookTopic(input: {
     }
 
     case "subscription_authorized_payment": {
-      const authorizedPayment = await getMercadoPagoAuthorizedPayment(input.dataId);
+      const authorizedPayment = await getMercadoPagoAuthorizedPaymentWithToken(
+        input.dataId,
+        input.accessToken,
+      );
       const preapprovalId = authorizedPayment.preapproval_id?.trim();
 
       if (!preapprovalId) {
@@ -187,7 +203,10 @@ async function processMercadoPagoWebhookTopic(input: {
         };
       }
 
-      const subscription = await getMercadoPagoSubscription(preapprovalId);
+      const subscription = await getMercadoPagoSubscriptionWithToken(
+        preapprovalId,
+        input.accessToken,
+      );
 
       return syncWorkspaceFromSubscription({
         sourceTopic: input.topic,
@@ -234,6 +253,14 @@ async function processMercadoPagoWebhookTopic(input: {
         },
       };
   }
+}
+
+function resolveWebhookAccessToken(liveMode?: boolean) {
+  if (liveMode === false) {
+    return getMercadoPagoTestAccessToken();
+  }
+
+  return getMercadoPagoAccessToken();
 }
 
 async function syncWorkspaceFromSubscription(input: {

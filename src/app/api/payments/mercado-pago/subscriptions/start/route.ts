@@ -2,7 +2,7 @@ import { isSuperAdminSession } from "@/lib/auth/access-control";
 import { requireCurrentAuthSession } from "@/lib/auth/session";
 import {
   createMercadoPagoSubscriptionCheckout,
-  getMercadoPagoAccessToken,
+  getMercadoPagoTestAccessToken,
 } from "@/lib/payments/mercado-pago";
 import {
   createRouteRequestContext,
@@ -52,13 +52,15 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!getMercadoPagoAccessToken()) {
+  const sandboxAccessToken = getMercadoPagoTestAccessToken();
+
+  if (!sandboxAccessToken) {
     return jsonWithRequestId(
       requestContext,
       {
         error:
-          "MERCADO_PAGO_ACCESS_TOKEN é obrigatório para iniciar a assinatura por integração.",
-        code: "MP_ACCESS_TOKEN_MISSING",
+          "MERCADO_PAGO_TEST_ACCESS_TOKEN é obrigatório para iniciar a assinatura de sandbox com comprador de teste.",
+        code: "MP_TEST_ACCESS_TOKEN_MISSING",
       },
       { status: 503 },
     );
@@ -119,6 +121,7 @@ export async function POST(request: Request) {
       workspaceId: session.workspace.id,
       reason: `${selectedPlan.label} - ${session.workspace.name}`,
       backUrl: backUrl.toString(),
+      accessTokenOverride: sandboxAccessToken,
     });
 
     if (!subscription.init_point) {
@@ -139,6 +142,7 @@ export async function POST(request: Request) {
       planId,
       payerEmail,
       subscriptionId: subscription.id,
+      accessTokenSource: "test",
     });
 
     return jsonWithRequestId(requestContext, {
