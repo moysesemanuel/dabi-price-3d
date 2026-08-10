@@ -10,6 +10,7 @@ import {
 } from "@/lib/server/platform";
 import {
   businessTypeCookieName,
+  defaultAppPreferences,
   normalizePersistedBusinessType,
 } from "@/lib/settings/app-preferences";
 
@@ -24,12 +25,17 @@ export default async function ProductLayout({
   const fallbackBusinessType = normalizePersistedBusinessType(
     cookieStore.get(businessTypeCookieName)?.value ?? null,
   );
-  const serverBusinessType =
+  const serverPreferences =
     session && isPlatformPersistenceAvailable()
-      ? await getWorkspacePreferences(session.workspace.id)
-          .then((preferences) => preferences.businessType)
-          .catch(() => null)
-      : fallbackBusinessType;
+      ? await getWorkspacePreferences(session.workspace.id).catch(
+          () => defaultAppPreferences,
+        )
+      : {
+          ...defaultAppPreferences,
+          businessType: fallbackBusinessType,
+          onboardingCompleted: fallbackBusinessType !== null,
+        };
+  const serverBusinessType = serverPreferences.businessType;
 
   if (!session) {
     redirect("/login");
@@ -42,7 +48,10 @@ export default async function ProductLayout({
       data-business-type={serverBusinessType ?? "default"}
     >
       <div className="min-h-screen pt-[76px] lg:pl-[var(--app-sidebar-width)] lg:pt-0">
-        <AppSidebar platformRole={session.user.platformRole} />
+        <AppSidebar
+          platformRole={session.user.platformRole}
+          initialBusinessType={serverBusinessType}
+        />
         <div>
           <div>{children}</div>
         </div>

@@ -355,7 +355,13 @@ const confectioneryNavigationSections: NavigationSection[] = [
   },
 ];
 
-export function AppSidebar({ platformRole }: { platformRole: PlatformRole }) {
+export function AppSidebar({
+  platformRole,
+  initialBusinessType = null,
+}: {
+  platformRole: PlatformRole;
+  initialBusinessType?: BusinessType | null;
+}) {
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -363,7 +369,9 @@ export function AppSidebar({ platformRole }: { platformRole: PlatformRole }) {
     defaultAppPreferences.workspaceName,
   );
   const [operatorLabel, setOperatorLabel] = useState("Configuração pendente");
-  const [businessType, setBusinessType] = useState<BusinessType | null>(null);
+  const [businessType, setBusinessType] = useState<BusinessType | null>(
+    initialBusinessType,
+  );
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     calculadora: true,
     cadastros: true,
