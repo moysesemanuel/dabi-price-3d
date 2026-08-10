@@ -3,7 +3,6 @@ import { requireCurrentAuthSession } from "@/lib/auth/session";
 import {
   createMercadoPagoSubscriptionCheckout,
   getMercadoPagoAccessToken,
-  hasMercadoPagoSubscription,
 } from "@/lib/payments/mercado-pago";
 import {
   createRouteRequestContext,
@@ -78,17 +77,6 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!hasMercadoPagoSubscription(planId)) {
-    return jsonWithRequestId(
-      requestContext,
-      {
-        error: `O plano ${planId} ainda não tem URL pública de assinatura configurada.`,
-        code: "MP_TEST_SUBSCRIPTION_PLAN_NOT_CONFIGURED",
-      },
-      { status: 503 },
-    );
-  }
-
   const selectedPlan = workspacePlans.find((plan) => plan.id === planId);
 
   if (!selectedPlan) {
@@ -113,7 +101,6 @@ export async function POST(request: Request) {
       planId,
       payerEmail,
       workspaceId: session.workspace.id,
-      workspaceName: session.workspace.name,
       reason: `${selectedPlan.label} - ${session.workspace.name}`,
       backUrl: backUrl.toString(),
     });

@@ -1,4 +1,7 @@
-import type { WorkspacePlanId } from "@/lib/workspace/catalog";
+import {
+  getWorkspacePlan,
+  type WorkspacePlanId,
+} from "@/lib/workspace/catalog";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 const SUBSCRIPTION_ENV_BY_PLAN: Record<WorkspacePlanId, string> = {
@@ -145,24 +148,29 @@ export async function createMercadoPagoSubscriptionCheckout(input: {
   planId: WorkspacePlanId;
   payerEmail: string;
   workspaceId: string;
-  workspaceName: string;
   reason: string;
   backUrl: string;
 }) {
-  const preapprovalPlanId = getMercadoPagoSubscriptionPlanId(input.planId);
+  const plan = getWorkspacePlan(input.planId);
+  const transactionAmount = parseWorkspacePlanMonthlyAmount(plan.monthlyPriceLabel);
 
-  if (!preapprovalPlanId) {
+  if (!transactionAmount) {
     throw new Error(
-      `NEXT_PUBLIC_MP_SUBSCRIPTION_${input.planId.toUpperCase()}_URL must include preapproval_plan_id.`,
+      `Não foi possível resolver o valor mensal do plano ${input.planId} para criar a assinatura de teste.`,
     );
   }
 
   return mercadoPagoApiMutation<MercadoPagoSubscription>("/preapproval", {
-    preapproval_plan_id: preapprovalPlanId,
     payer_email: input.payerEmail,
     external_reference: `workspace:${input.workspaceId}`,
     reason: input.reason,
     back_url: input.backUrl,
+    auto_recurring: {
+      frequency: 1,
+      frequency_type: "months",
+      transaction_amount: transactionAmount,
+      currency_id: "BRL",
+    },
   });
 }
 
@@ -398,4 +406,11 @@ function safeCompare(left: string, right: string) {
   }
 
   return timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function parseWorkspacePlanMonthlyAmount(monthlyPriceLabel: string) {
+  const normalized = monthlyPriceLabel.replace(/[^\d,.-]/g, "").replace(",", ".");
+  const parsed = Number.parseFloat(normalized);
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }

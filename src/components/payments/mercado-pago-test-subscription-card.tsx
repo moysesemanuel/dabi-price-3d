@@ -27,7 +27,7 @@ export function MercadoPagoTestSubscriptionCard() {
       </h2>
       <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--muted)]">
         Gere um checkout de assinatura pelo backend já vinculado ao workspace.
-        Use aqui o e-mail do comprador de teste do Mercado Pago, não o seu e-mail real.
+        Use aqui o e-mail do comprador de teste do Mercado Pago, não o ID e nem o seu e-mail real.
       </p>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)_220px]">
@@ -113,6 +113,8 @@ export function MercadoPagoTestSubscriptionCard() {
       <div className="mt-6 rounded-[22px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.72)] px-5 py-4 text-sm text-[var(--muted)]">
         Use comprador de teste do Mercado Pago e cartão de teste. O checkout aberto aqui
         já leva `external_reference` do workspace para o webhook conseguir vincular a assinatura.
+        Se a lista de contas de teste mostrar só `User ID` e `Usuário`, o campo correto aqui é o e-mail
+        de teste vinculado ao comprador, não o ID numérico.
       </div>
 
       {feedback ? (
