@@ -286,7 +286,16 @@ export function getBusinessPreset(presetId: BusinessPresetId) {
 }
 
 export function resolveCalculationHistoryLimit(preferences: AppPreferences) {
-  return getWorkspacePlan(preferences.subscription.planId).historyLimit;
+  const { subscription } = preferences;
+
+  if (
+    subscription.status === "trial" ||
+    subscription.status === "pending"
+  ) {
+    return getWorkspacePlan("starter").historyLimit;
+  }
+
+  return getWorkspacePlan(subscription.planId).historyLimit;
 }
 
 export function getCompanyProfileChecklist(preferences: AppPreferences) {

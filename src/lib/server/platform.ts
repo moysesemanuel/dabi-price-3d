@@ -230,12 +230,19 @@ export async function registerWorkspaceOwner(
   );
 
   const preferences = normalizeAppPreferences({
-    ...defaultAppPreferences,
-    workspaceName: normalizedWorkspaceName,
-    operatorName: normalizedFullName,
-    operatorEmail: normalizedEmail,
-    onboardingCompleted: false,
-  });
+  ...defaultAppPreferences,
+  workspaceName: normalizedWorkspaceName,
+  operatorName: normalizedFullName,
+  operatorEmail: normalizedEmail,
+  onboardingCompleted: false,
+  subscription: {
+    ...defaultAppPreferences.subscription,
+    planId: "starter",
+    status: "trial",
+    mercadoPagoSubscriptionId: null,
+    checkoutStartedAt: null,
+  },
+});
 
   try {
     await sql.transaction([
@@ -1796,12 +1803,10 @@ async function ensureBootstrapAdmin(sql: ReturnType<typeof getSql>) {
   const workspaceName = bootstrapConfig.workspaceName;
   const workspaceSlug = slugify(workspaceName);
   const preferences = normalizeAppPreferences({
-    ...defaultAppPreferences,
-    workspaceName,
-    operatorName: bootstrapConfig.fullName,
-    operatorEmail: bootstrapConfig.email,
-    onboardingCompleted: true,
-  });
+  ...defaultAppPreferences,
+  workspaceName,
+  onboardingCompleted: true,
+});
 
   await sql`
     INSERT INTO users (

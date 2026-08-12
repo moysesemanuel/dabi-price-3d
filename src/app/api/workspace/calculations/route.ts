@@ -6,6 +6,7 @@ import type { SavedCalculation } from "@/lib/history/calculation-history";
 import {
   appendAuditEvent,
   clearCalculationSnapshots,
+  getWorkspacePreferences,
   isPlatformPersistenceAvailable,
   listCalculationSnapshots,
   saveCalculationSnapshot,
@@ -39,6 +40,23 @@ export async function POST(request: Request) {
   }
 
   const session = await requireCurrentAuthSession();
+  const preferences = await getWorkspacePreferences(session.workspace.id);
+
+  if (
+    preferences.subscription.status === "paused" ||
+    preferences.subscription.status === "canceled"
+  ) {
+    return Response.json(
+      {
+        error:
+          preferences.subscription.status === "paused"
+            ? "A assinatura está pausada. Reative o plano para salvar novos cálculos."
+            : "A assinatura está cancelada. Contrate um plano para salvar novos cálculos.",
+        code: "SUBSCRIPTION_REQUIRED",
+      },
+      { status: 403 },
+    );
+  }
   let body: SavedCalculation;
 
   try {

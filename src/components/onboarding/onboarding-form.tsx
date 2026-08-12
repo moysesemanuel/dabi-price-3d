@@ -10,9 +10,13 @@ import {
 
 type OnboardingFormProps = {
   initialPreferences: AppPreferences;
+  selectedPlan?: "starter" | "growth";
 };
 
-export function OnboardingForm({ initialPreferences }: OnboardingFormProps) {
+export function OnboardingForm({
+  initialPreferences,
+  selectedPlan,
+}: OnboardingFormProps) {
   const router = useRouter();
 
   const [businessType, setBusinessType] = useState(
@@ -67,7 +71,12 @@ export function OnboardingForm({ initialPreferences }: OnboardingFormProps) {
         );
       }
 
-      router.push("/app/precificacao");
+      if (selectedPlan) {
+        router.push(`/app/planos?plan=${selectedPlan}&origin=onboarding`);
+      } else {
+        router.push("/app/precificacao");
+      }
+
       router.refresh();
     } catch (error) {
       setErrorMessage(
@@ -100,11 +109,10 @@ export function OnboardingForm({ initialPreferences }: OnboardingFormProps) {
                     value as NonNullable<AppPreferences["businessType"]>,
                   )
                 }
-                className={`rounded-[24px] border p-5 text-left transition ${
-                  isSelected
+                className={`rounded-[24px] border p-5 text-left transition ${isSelected
                     ? "border-[#6c56ff] bg-[#6c56ff]/10"
                     : "border-[var(--panel-border)] bg-[var(--panel-soft)]"
-                }`}
+                  }`}
               >
                 <strong className="block text-[var(--foreground)]">
                   {meta.label}
@@ -133,11 +141,10 @@ export function OnboardingForm({ initialPreferences }: OnboardingFormProps) {
                 key={preset.id}
                 type="button"
                 onClick={() => setBusinessPresetId(preset.id)}
-                className={`rounded-[24px] border p-5 text-left transition ${
-                  isSelected
+                className={`rounded-[24px] border p-5 text-left transition ${isSelected
                     ? "border-[#6c56ff] bg-[#6c56ff]/10"
                     : "border-[var(--panel-border)] bg-[var(--panel-soft)]"
-                }`}
+                  }`}
               >
                 <strong className="block text-[var(--foreground)]">
                   {preset.label}

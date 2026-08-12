@@ -3,7 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export function RegisterForm() {
+export function RegisterForm({
+  selectedPlan,
+}: {
+  selectedPlan?: "starter" | "growth";
+}) {
   const router = useRouter();
 
   const [fullName, setFullName] = useState("");
@@ -51,7 +55,13 @@ export function RegisterForm() {
         throw new Error(payload?.error ?? "Não foi possível criar sua conta.");
       }
 
-      router.push(payload?.redirectTo ?? "/app/onboarding");
+      const redirectTo = payload?.redirectTo ?? "/app/onboarding";
+
+      const destination = selectedPlan
+        ? `${redirectTo}?plan=${selectedPlan}`
+        : redirectTo;
+
+      router.push(destination);
       router.refresh();
     } catch (error) {
       setErrorMessage(

@@ -3,7 +3,6 @@ import Link from "next/link";
 import horizontalLogo from "@/app/dabi-price-horizontal.svg";
 import Image from "next/image";
 import { workspacePlans } from "@/lib/settings/app-preferences";
-import { getMercadoPagoSubscriptionUrl } from "@/lib/payments/mercado-pago";
 
 const planFeatureRows = [
   {
@@ -200,16 +199,14 @@ export default async function PublicPlansPage({
         <div className="grid gap-4 lg:grid-cols-3">
           {workspacePlans.map((plan) => {
             const isHighlighted = plan.id === "growth";
-            const subscriptionUrl = getMercadoPagoSubscriptionUrl(plan.id);
 
             return (
               <article
                 key={plan.id}
-                className={`rounded-[30px] border px-6 py-6 shadow-[0_18px_44px_rgba(99,144,126,0.08)] ${
-                  isHighlighted
-                    ? "border-[#f2d6e3] bg-[#fff8fb]"
-                    : "border-[#dcebe3] bg-white/94"
-                }`}
+                className={`rounded-[30px] border px-6 py-6 shadow-[0_18px_44px_rgba(99,144,126,0.08)] ${isHighlighted
+                  ? "border-[#f2d6e3] bg-[#fff8fb]"
+                  : "border-[#dcebe3] bg-white/94"
+                  }`}
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -241,18 +238,7 @@ export default async function PublicPlansPage({
                 </div>
 
                 <div className="mt-8 grid gap-3">
-                  {subscriptionUrl ? (
-                    <a
-                      href={subscriptionUrl}
-                      className={`inline-flex items-center justify-center rounded-[16px] px-5 py-3 text-sm font-semibold transition ${
-                        isHighlighted
-                          ? "bg-[#24473c] text-white hover:bg-[#1d3a31]"
-                          : "border border-[#dcebe3] bg-white text-[#274338] hover:bg-[#f8fcfa]"
-                      }`}
-                    >
-                      Garantir meu acesso
-                    </a>
-                  ) : (
+                  {plan.id === "scale" ? (
                     <Link
                       href={{
                         pathname: "/contato",
@@ -261,13 +247,27 @@ export default async function PublicPlansPage({
                           origin,
                         },
                       }}
-                      className={`inline-flex items-center justify-center rounded-[16px] px-5 py-3 text-sm font-semibold transition ${
-                        isHighlighted
-                          ? "bg-[#24473c] text-white hover:bg-[#1d3a31]"
-                          : "border border-[#dcebe3] bg-white text-[#274338] hover:bg-[#f8fcfa]"
-                      }`}
+                      className={`inline-flex items-center justify-center rounded-[16px] px-5 py-3 text-sm font-semibold transition ${isHighlighted
+                        ? "bg-[#24473c] text-white hover:bg-[#1d3a31]"
+                        : "border border-[#dcebe3] bg-white text-[#274338] hover:bg-[#f8fcfa]"
+                        }`}
                     >
-                      Garantir meu acesso
+                      Falar sobre o DaBi Equipe
+                    </Link>
+                  ) : (
+                    <Link
+                      href={{
+                        pathname: "/cadastro",
+                        query: {
+                          plan: plan.id,
+                        },
+                      }}
+                      className={`inline-flex items-center justify-center rounded-[16px] px-5 py-3 text-sm font-semibold transition ${isHighlighted
+                        ? "bg-[#24473c] text-white hover:bg-[#1d3a31]"
+                        : "border border-[#dcebe3] bg-white text-[#274338] hover:bg-[#f8fcfa]"
+                        }`}
+                    >
+                      Começar com {plan.label}
                     </Link>
                   )}
                   <Link
@@ -325,11 +325,10 @@ export default async function PublicPlansPage({
                     {workspacePlans.map((plan) => (
                       <th
                         key={plan.id}
-                        className={`border-b px-6 py-4 font-semibold ${
-                          plan.id === "growth"
-                            ? "border-[#f2d6e3] bg-[#fff8fb] text-[#c8618b]"
-                            : "border-[#dcebe3] text-[#274338]"
-                        }`}
+                        className={`border-b px-6 py-4 font-semibold ${plan.id === "growth"
+                          ? "border-[#f2d6e3] bg-[#fff8fb] text-[#c8618b]"
+                          : "border-[#dcebe3] text-[#274338]"
+                          }`}
                       >
                         {plan.label}
                       </th>
@@ -345,11 +344,10 @@ export default async function PublicPlansPage({
                       {workspacePlans.map((plan) => (
                         <td
                           key={`${row.label}-${plan.id}`}
-                          className={`border-b px-6 py-4 ${
-                            plan.id === "growth"
-                              ? "border-[#f2d6e3] font-semibold text-[#b85178]"
-                              : "border-[#dcebe3] text-[#6c897b]"
-                          }`}
+                          className={`border-b px-6 py-4 ${plan.id === "growth"
+                            ? "border-[#f2d6e3] font-semibold text-[#b85178]"
+                            : "border-[#dcebe3] text-[#6c897b]"
+                            }`}
                         >
                           {row.values[plan.id]}
                         </td>
@@ -404,29 +402,18 @@ export default async function PublicPlansPage({
           </p>
 
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            {getMercadoPagoSubscriptionUrl("growth") ? (
-              <a
-                href={getMercadoPagoSubscriptionUrl("growth")!}
-                className="inline-flex items-center justify-center rounded-[16px] bg-white px-6 py-4 text-sm font-semibold text-[#cf6f94] transition hover:bg-[#fff7fa]"
-              >
-                Garantir meu acesso
-                <span className="ml-3 text-base">→</span>
-              </a>
-            ) : (
-              <Link
-                href={{
-                  pathname: "/contato",
-                  query: {
-                    plan: "growth",
-                    origin,
-                  },
-                }}
-                className="inline-flex items-center justify-center rounded-[16px] bg-white px-6 py-4 text-sm font-semibold text-[#cf6f94] transition hover:bg-[#fff7fa]"
-              >
-                Garantir meu acesso
-                <span className="ml-3 text-base">→</span>
-              </Link>
-            )}
+            <Link
+              href={{
+                pathname: "/cadastro",
+                query: {
+                  plan: "growth",
+                },
+              }}
+              className="inline-flex items-center justify-center rounded-[16px] bg-white px-6 py-4 text-sm font-semibold text-[#cf6f94] transition hover:bg-[#fff7fa]"
+            >
+              Começar com DaBi Pro
+              <span className="ml-3 text-base">→</span>
+            </Link>
             <Link
               href={{
                 pathname: "/contato",

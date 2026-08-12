@@ -3,7 +3,21 @@ import { OnboardingForm } from "@/components/onboarding/onboarding-form";
 import { requireCurrentAuthSession } from "@/lib/auth/session";
 import { getWorkspacePreferences } from "@/lib/server/platform";
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{
+    plan?: string;
+  }>;
+}) {
+
+  const params = (await searchParams) ?? {};
+
+  const selectedPlan =
+    params.plan === "starter" || params.plan === "growth"
+      ? params.plan
+      : undefined;
+
   const session = await requireCurrentAuthSession();
 
   const preferences = await getWorkspacePreferences(session.workspace.id);
@@ -30,7 +44,10 @@ export default async function OnboardingPage() {
       </div>
 
       <div className="rounded-[36px] border border-[var(--panel-border)] bg-[var(--panel)] p-6 sm:p-8">
-        <OnboardingForm initialPreferences={preferences} />
+        <OnboardingForm
+          initialPreferences={preferences}
+          selectedPlan={selectedPlan}
+        />
       </div>
     </div>
   );

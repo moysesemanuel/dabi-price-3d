@@ -5,7 +5,18 @@ import { BackLink } from "@/components/app/back-link";
 import { RegisterForm } from "@/components/auth/register-form";
 import { getPersistenceModeMeta } from "@/lib/server/persistence-mode";
 
-export default function CadastroPage() {
+export default async function CadastroPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{
+    plan?: string;
+  }>;
+}) {
+  const params = (await searchParams) ?? {};
+  const selectedPlan =
+    params.plan === "starter" || params.plan === "growth"
+      ? params.plan
+      : undefined;
   const persistenceMode = getPersistenceModeMeta();
 
   return (
@@ -65,7 +76,7 @@ export default function CadastroPage() {
             </p>
           </div>
 
-          <RegisterForm />
+          <RegisterForm selectedPlan={selectedPlan} />
 
           {persistenceMode.mode === "local" ? (
             <div className="mt-5 rounded-[24px] border border-[color:var(--warning)]/24 bg-[color:var(--warning)]/10 px-4 py-4 text-sm leading-7 text-[color:var(--warning)]">
