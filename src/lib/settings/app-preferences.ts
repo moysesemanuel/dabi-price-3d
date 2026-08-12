@@ -157,7 +157,7 @@ export const businessTypeMeta: Record<
     previewMaterialValue: "Receita / embalagem / tempo manual",
     templatesSummary:
       "Modelos pensados para itens sob encomenda, sabores, quantidade e entrega.",
-    calculatorReady: false,
+    calculatorReady: true,
   },
   crafts: {
     label: "Artesanato",
