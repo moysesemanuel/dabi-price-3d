@@ -1244,6 +1244,74 @@ export async function getWorkspacePreferences(workspaceId: string) {
   return preferences;
 }
 
+export async function claimWorkspaceSubscriptionCheckout(input: {
+  workspaceId: string;
+  startedAt: string;
+}) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+
+  const rows = (await sql`
+    UPDATE workspace_preferences
+    SET
+      data = jsonb_set(
+        data,
+        '{subscription,checkoutStartedAt}',
+        to_jsonb(${input.startedAt}::text),
+        true
+      ),
+      updated_at = NOW()
+    WHERE workspace_id = ${input.workspaceId}
+      AND (
+        data #>> '{subscription,checkoutStartedAt}' IS NULL
+        OR data #>> '{subscription,checkoutStartedAt}' = ''
+        OR (
+          data #>> '{subscription,checkoutStartedAt}'
+        )::timestamptz < NOW() - INTERVAL '10 minutes'
+      )
+    RETURNING data
+  `) as PreferencesRow[];
+
+  if (!rows[0]) {
+    return {
+      claimed: false,
+      preferences: await getWorkspacePreferences(input.workspaceId),
+    };
+  }
+
+  return {
+    claimed: true,
+    preferences: normalizePreferencesPayload(rows[0].data),
+  };
+}
+
+export async function releaseWorkspaceSubscriptionCheckout(input: {
+  workspaceId: string;
+}) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+
+  const rows = (await sql`
+    UPDATE workspace_preferences
+    SET
+      data = jsonb_set(
+        data,
+        '{subscription,checkoutStartedAt}',
+        'null'::jsonb,
+        true
+      ),
+      updated_at = NOW()
+    WHERE workspace_id = ${input.workspaceId}
+    RETURNING data
+  `) as PreferencesRow[];
+
+  return rows[0]
+    ? normalizePreferencesPayload(rows[0].data)
+    : null;
+}
+
 export async function saveWorkspacePreferences(input: {
   workspaceId: string;
   updatedByUserId: string;
@@ -1260,9 +1328,9 @@ export async function saveWorkspacePreferences(input: {
     },
   });
   const nextSlug = await createUniqueWorkspaceSlug(
-  normalizedPreferences.workspaceName,
-  input.workspaceId,
-);
+    normalizedPreferences.workspaceName,
+    input.workspaceId,
+  );
 
   await sql`
     INSERT INTO workspace_preferences (
@@ -1314,12 +1382,18 @@ export async function applyWorkspaceSubscriptionUpdate(input: {
       planId: input.planId,
       status: input.status,
       seatsUsed: await getWorkspaceSeatUsageCount(input.workspaceId),
+      mercadoPagoSubscriptionId:
+        input.mercadoPagoSubscriptionId ??
+        currentPreferences.subscription.mercadoPagoSubscriptionId,
+      checkoutStartedAt: null,
     },
   });
 
   const changed =
     currentPreferences.subscription.planId !== nextPreferences.subscription.planId ||
-    currentPreferences.subscription.status !== nextPreferences.subscription.status;
+    currentPreferences.subscription.status !== nextPreferences.subscription.status ||
+    currentPreferences.subscription.mercadoPagoSubscriptionId !==
+    nextPreferences.subscription.mercadoPagoSubscriptionId;
 
   if (!changed) {
     return {

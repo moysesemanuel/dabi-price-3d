@@ -27,6 +27,7 @@ import {
   type MercadoPagoWebhookPayload,
   type MercadoPagoWebhookTopic,
 } from "@/lib/payments/mercado-pago";
+import { resolveWorkspacePlanIdForSubscription } from "@/lib/payments/subscription-plan-resolution";
 
 export async function POST(request: Request) {
   const requestContext = createRouteRequestContext(
@@ -270,52 +271,9 @@ async function syncWorkspaceFromSubscription(input: {
   authorizedPayment?: MercadoPagoAuthorizedPayment;
   recurringChargeApproved: boolean;
 }) {
-  const workspacePlanId = resolveWorkspacePlanIdFromMercadoPagoPlanId(
-    input.subscription.preapproval_plan_id,
-  );
-
-  if (!workspacePlanId) {
-    return {
-      status: 202,
-      logLevel: "warn" as const,
-      event: "mercado_pago_webhook.plan_not_mapped",
-      details: {
-        topic: input.sourceTopic,
-        sourceDataId: input.sourceDataId,
-        mercadoPagoPlanId: input.subscription.preapproval_plan_id ?? null,
-      },
-      body: {
-        handled: false,
-        reason: "plan_not_mapped",
-      },
-    };
-  }
-
   const subscriptionStatus = normalizeMercadoPagoSubscriptionStatus(
     input.subscription.status,
   );
-  const shouldActivate = input.recurringChargeApproved || subscriptionStatus === "active";
-
-  if (!shouldActivate) {
-    return {
-      status: 202,
-      logLevel: "info" as const,
-      event: "mercado_pago_webhook.subscription_not_active",
-      details: {
-        topic: input.sourceTopic,
-        sourceDataId: input.sourceDataId,
-        workspacePlanId,
-        subscriptionStatus,
-        recurringChargeApproved: input.recurringChargeApproved,
-      },
-      body: {
-        handled: false,
-        reason: "subscription_not_active",
-        workspacePlanId,
-        subscriptionStatus,
-      },
-    };
-  }
 
   const workspaceTarget = await resolveWorkspaceTarget(input.subscription);
 
@@ -327,27 +285,89 @@ async function syncWorkspaceFromSubscription(input: {
       details: {
         topic: input.sourceTopic,
         sourceDataId: input.sourceDataId,
-        workspacePlanId,
         externalReference: input.subscription.external_reference ?? null,
         backUrl: input.subscription.back_url ?? null,
       },
       body: {
         handled: false,
         reason: "workspace_not_resolved",
-        workspacePlanId,
       },
     };
   }
 
-  await getWorkspacePreferences(workspaceTarget.workspaceId);
+  const workspacePreferences = await getWorkspacePreferences(
+    workspaceTarget.workspaceId,
+  );
+
+  const workspacePlanId = resolveWorkspacePlanIdForSubscription({
+  mercadoPagoPlanId: input.subscription.preapproval_plan_id,
+  mercadoPagoSubscriptionId: input.subscription.id,
+  savedMercadoPagoSubscriptionId:
+    workspacePreferences.subscription.mercadoPagoSubscriptionId,
+  savedWorkspacePlanId: workspacePreferences.subscription.planId,
+  mappedWorkspacePlanId: resolveWorkspacePlanIdFromMercadoPagoPlanId(
+    input.subscription.preapproval_plan_id,
+  ),
+});
+
+  if (!workspacePlanId) {
+    return {
+      status: 202,
+      logLevel: "warn" as const,
+      event: "mercado_pago_webhook.plan_not_mapped",
+      details: {
+        topic: input.sourceTopic,
+        sourceDataId: input.sourceDataId,
+        workspaceId: workspaceTarget.workspaceId,
+        mercadoPagoPlanId:
+          input.subscription.preapproval_plan_id ?? null,
+        subscriptionId: input.subscription.id,
+      },
+      body: {
+        handled: false,
+        reason: "plan_not_mapped",
+      },
+    };
+  }
+
+  const workspaceSubscriptionStatus =
+    input.recurringChargeApproved || subscriptionStatus === "active"
+      ? "active"
+      : subscriptionStatus === "pending" ||
+        subscriptionStatus === "paused" ||
+        subscriptionStatus === "canceled"
+        ? subscriptionStatus
+        : null;
+
+  if (!workspaceSubscriptionStatus) {
+    return {
+      status: 202,
+      logLevel: "info" as const,
+      event: "mercado_pago_webhook.subscription_status_ignored",
+      details: {
+        topic: input.sourceTopic,
+        sourceDataId: input.sourceDataId,
+        workspaceId: workspaceTarget.workspaceId,
+        workspacePlanId,
+        subscriptionStatus,
+        recurringChargeApproved: input.recurringChargeApproved,
+      },
+      body: {
+        handled: false,
+        reason: "subscription_status_ignored",
+        workspacePlanId,
+        subscriptionStatus,
+      },
+    };
+  }
 
   const syncResult = await applyWorkspaceSubscriptionUpdate({
     workspaceId: workspaceTarget.workspaceId,
     planId: workspacePlanId,
-    status: "active",
+    status: workspaceSubscriptionStatus,
     source: "mercado-pago-webhook",
     mercadoPagoSubscriptionId: input.subscription.id,
-    description: `Assinatura Mercado Pago aprovada via ${input.sourceTopic}. Plano sincronizado para ${workspacePlanId}.`,
+    description: `Assinatura Mercado Pago sincronizada via ${input.sourceTopic}. Plano ${workspacePlanId}, status ${workspaceSubscriptionStatus}.`,
   });
 
   return {
@@ -424,7 +444,9 @@ async function resolveWorkspaceTarget(subscription: MercadoPagoSubscription) {
   };
 }
 
-function normalizeMercadoPagoSubscriptionStatus(status: string | null | undefined) {
+function normalizeMercadoPagoSubscriptionStatus(
+  status: string | null | undefined,
+) {
   const normalized = status?.trim().toLowerCase();
 
   if (!normalized) {
@@ -435,5 +457,14 @@ function normalizeMercadoPagoSubscriptionStatus(status: string | null | undefine
     return "active";
   }
 
-  return normalized;
+  if (
+    normalized === "pending" ||
+    normalized === "active" ||
+    normalized === "paused" ||
+    normalized === "canceled"
+  ) {
+    return normalized;
+  }
+
+  return "unknown";
 }

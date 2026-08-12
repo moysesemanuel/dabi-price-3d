@@ -1,11 +1,13 @@
 export type WorkspaceRole = "owner" | "manager" | "operator";
 export type WorkspacePlanId = "starter" | "growth" | "scale";
-export type SubscriptionStatus = "internal" | "trial" | "active";
+export type SubscriptionStatus = "internal"  | "trial"  | "pending"  | "active"  | "paused" | "canceled";
 
 export type WorkspaceSubscription = {
   planId: WorkspacePlanId;
   status: SubscriptionStatus;
   seatsUsed: number;
+  mercadoPagoSubscriptionId: string | null;
+  checkoutStartedAt: string | null;
 };
 
 export type WorkspacePlan = {

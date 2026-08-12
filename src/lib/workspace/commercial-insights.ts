@@ -121,7 +121,10 @@ const statusScore: Record<WorkspaceReadinessStatus, number> = {
 const subscriptionStatusMeta = {
   internal: "Uso interno",
   trial: "Trial",
+  pending: "Aguardando pagamento",
   active: "Ativo",
+  paused: "Pausado",
+  canceled: "Cancelado",
 } as const;
 
 function buildWorkspaceReadinessItems(input: {
