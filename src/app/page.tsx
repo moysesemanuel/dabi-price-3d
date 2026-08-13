@@ -759,8 +759,7 @@ export default function LandingPage() {
           </div>
 
           <p className="mt-5 text-center text-base text-[#4f6259]">
-            Economize tempo, preserve margem e leve o visitante direto para o
-            fluxo comercial certo.
+            Escolha o plano ideal para o momento do seu negócio e comece a precificar com mais segurança.
           </p>
         </div>
       </section>
