@@ -1382,6 +1382,10 @@ export async function applyWorkspaceSubscriptionUpdate(input: {
 
   const sql = getSql();
   const currentPreferences = await getWorkspacePreferences(input.workspaceId);
+  const hasMercadoPagoSubscriptionIdOverride = Object.prototype.hasOwnProperty.call(
+    input,
+    "mercadoPagoSubscriptionId",
+  );
   const nextPreferences = normalizeAppPreferences({
     ...currentPreferences,
     subscription: {
@@ -1389,9 +1393,9 @@ export async function applyWorkspaceSubscriptionUpdate(input: {
       planId: input.planId,
       status: input.status,
       seatsUsed: await getWorkspaceSeatUsageCount(input.workspaceId),
-      mercadoPagoSubscriptionId:
-        input.mercadoPagoSubscriptionId ??
-        currentPreferences.subscription.mercadoPagoSubscriptionId,
+      mercadoPagoSubscriptionId: hasMercadoPagoSubscriptionIdOverride
+        ? input.mercadoPagoSubscriptionId ?? null
+        : currentPreferences.subscription.mercadoPagoSubscriptionId,
       checkoutStartedAt: null,
     },
   });

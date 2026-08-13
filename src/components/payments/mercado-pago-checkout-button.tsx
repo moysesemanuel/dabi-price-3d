@@ -1,18 +1,22 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 type MercadoPagoCheckoutButtonProps = {
   planId: "starter" | "growth";
   label?: string;
   className?: string;
+  loadingLabel?: string;
 };
 
 export function MercadoPagoCheckoutButton({
   planId,
   label = "Assinar este plano",
   className = "app-button app-button-primary w-full",
+  loadingLabel = "Abrindo pagamento...",
 }: MercadoPagoCheckoutButtonProps) {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,9 +45,15 @@ export function MercadoPagoCheckoutButton({
       const payload = (await response.json().catch(() => null)) as {
         initPoint?: string;
         error?: string;
+        refresh?: boolean;
       } | null;
 
       if (!response.ok) {
+        if (payload?.refresh) {
+          router.refresh();
+          return;
+        }
+
         setError(
           payload?.error ??
             "Não foi possível iniciar a assinatura. Tente novamente.",
@@ -76,7 +86,7 @@ export function MercadoPagoCheckoutButton({
         disabled={isLoading}
         className={className}
       >
-        {isLoading ? "Abrindo Mercado Pago..." : label}
+        {isLoading ? loadingLabel : label}
       </button>
 
       {error ? (

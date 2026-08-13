@@ -2,7 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import horizontalLogo from "@/app/dabi-price-horizontal.svg";
 import Image from "next/image";
-import { workspacePlans } from "@/lib/settings/app-preferences";
+import { getCurrentAuthSession } from "@/lib/auth/session";
+import {
+  defaultAppPreferences,
+  workspacePlans,
+} from "@/lib/settings/app-preferences";
+import {
+  getWorkspacePreferences,
+  isPlatformPersistenceAvailable,
+} from "@/lib/server/platform";
 
 const planFeatureRows = [
   {
@@ -125,6 +133,36 @@ export default async function PublicPlansPage({
 }) {
   const params = (await searchParams) ?? {};
   const origin = params.origin ?? "site";
+  const session = await getCurrentAuthSession();
+  const preferences =
+    session && isPlatformPersistenceAvailable()
+      ? await getWorkspacePreferences(session.workspace.id).catch(
+          () => defaultAppPreferences,
+        )
+      : defaultAppPreferences;
+
+  const resolveStarterOrGrowthHref = (planId: "starter" | "growth") =>
+    session
+      ? preferences.onboardingCompleted
+        ? {
+            pathname: "/app/planos",
+            query: {
+              plan: planId,
+              origin,
+            },
+          }
+        : {
+            pathname: "/app/onboarding",
+            query: {
+              plan: planId,
+            },
+          }
+      : {
+          pathname: "/cadastro",
+          query: {
+            plan: planId,
+          },
+        };
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#fffefc_0%,#f6fbf7_36%,#fff6fa_100%)] text-[#274338]">
@@ -256,12 +294,7 @@ export default async function PublicPlansPage({
                     </Link>
                   ) : (
                     <Link
-                      href={{
-                        pathname: "/cadastro",
-                        query: {
-                          plan: plan.id,
-                        },
-                      }}
+                      href={resolveStarterOrGrowthHref(plan.id)}
                       className={`inline-flex items-center justify-center rounded-[16px] px-5 py-3 text-sm font-semibold transition ${isHighlighted
                         ? "bg-[#24473c] text-white hover:bg-[#1d3a31]"
                         : "border border-[#dcebe3] bg-white text-[#274338] hover:bg-[#f8fcfa]"
@@ -403,12 +436,7 @@ export default async function PublicPlansPage({
 
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Link
-              href={{
-                pathname: "/cadastro",
-                query: {
-                  plan: "growth",
-                },
-              }}
+              href={resolveStarterOrGrowthHref("growth")}
               className="inline-flex items-center justify-center rounded-[16px] bg-white px-6 py-4 text-sm font-semibold text-[#cf6f94] transition hover:bg-[#fff7fa]"
             >
               Começar com DaBi Pro

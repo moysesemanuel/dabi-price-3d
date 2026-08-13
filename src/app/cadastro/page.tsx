@@ -1,8 +1,15 @@
+import { redirect } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import horizontalLogo from "@/app/dabi-price-horizontal.svg";
 import { BackLink } from "@/components/app/back-link";
 import { RegisterForm } from "@/components/auth/register-form";
+import { getCurrentAuthSession } from "@/lib/auth/session";
+import { defaultAppPreferences } from "@/lib/settings/app-preferences";
+import {
+  getWorkspacePreferences,
+  isPlatformPersistenceAvailable,
+} from "@/lib/server/platform";
 import { getPersistenceModeMeta } from "@/lib/server/persistence-mode";
 
 export default async function CadastroPage({
@@ -17,6 +24,26 @@ export default async function CadastroPage({
     params.plan === "starter" || params.plan === "growth"
       ? params.plan
       : undefined;
+  const session = await getCurrentAuthSession();
+  const preferences =
+    session && isPlatformPersistenceAvailable()
+      ? await getWorkspacePreferences(session.workspace.id).catch(
+          () => defaultAppPreferences,
+        )
+      : defaultAppPreferences;
+
+  if (session) {
+    redirect(
+      preferences.onboardingCompleted
+        ? selectedPlan
+          ? `/app/planos?plan=${selectedPlan}&origin=public-cadastro`
+          : "/app/planos"
+        : selectedPlan
+          ? `/app/onboarding?plan=${selectedPlan}`
+          : "/app/onboarding",
+    );
+  }
+
   const persistenceMode = getPersistenceModeMeta();
 
   return (
