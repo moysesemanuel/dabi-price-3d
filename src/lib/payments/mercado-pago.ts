@@ -1,7 +1,7 @@
 import {
   getWorkspacePlan,
   type WorkspacePlanId,
-} from "@/lib/workspace/catalog";
+} from "../workspace/catalog.ts";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 const SUBSCRIPTION_ENV_BY_PLAN: Record<WorkspacePlanId, string> = {
@@ -291,9 +291,9 @@ export function extractMercadoPagoWebhookTopic(input: {
   payload: MercadoPagoWebhookPayload | null;
 }) {
   const topic =
-    normalizeOptionalString(input.requestUrl.searchParams.get("topic")) ??
+    normalizeOptionalString(input.payload?.type) ??
     normalizeOptionalString(input.requestUrl.searchParams.get("type")) ??
-    normalizeOptionalString(input.payload?.type);
+    normalizeOptionalString(input.requestUrl.searchParams.get("topic"));
 
   return topic as MercadoPagoWebhookTopic | null;
 }
