@@ -289,6 +289,7 @@ export function resolveCalculationHistoryLimit(preferences: AppPreferences) {
   const { subscription } = preferences;
 
   if (
+    subscription.status === "unpaid" ||
     subscription.status === "trial" ||
     subscription.status === "pending"
   ) {
@@ -633,6 +634,7 @@ function normalizeWorkspaceSubscription(
   );
 
   const status =
+    subscription?.status === "unpaid" ||
     subscription?.status === "trial" ||
     subscription?.status === "pending" ||
     subscription?.status === "active" ||

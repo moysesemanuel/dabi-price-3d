@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { OnboardingForm } from "@/components/onboarding/onboarding-form";
 import { requireCurrentAuthSession } from "@/lib/auth/session";
 import { getWorkspacePreferences } from "@/lib/server/platform";
+import { resolveDefaultWorkspaceAppPath } from "@/lib/workspace/subscription-access";
 
 export default async function OnboardingPage({
   searchParams,
@@ -23,7 +24,12 @@ export default async function OnboardingPage({
   const preferences = await getWorkspacePreferences(session.workspace.id);
 
   if (preferences.onboardingCompleted) {
-    redirect("/app/precificacao");
+    redirect(
+      resolveDefaultWorkspaceAppPath({
+        onboardingCompleted: preferences.onboardingCompleted,
+        subscriptionStatus: preferences.subscription.status,
+      }),
+    );
   }
 
   return (

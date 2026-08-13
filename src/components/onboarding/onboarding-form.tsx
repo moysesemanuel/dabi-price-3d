@@ -7,6 +7,7 @@ import {
   businessTypeMeta,
   type AppPreferences,
 } from "@/lib/settings/app-preferences";
+import { resolveDefaultWorkspaceAppPath } from "@/lib/workspace/subscription-access";
 
 type OnboardingFormProps = {
   initialPreferences: AppPreferences;
@@ -71,11 +72,16 @@ export function OnboardingForm({
         );
       }
 
-      if (selectedPlan) {
-        router.push(`/app/planos?plan=${selectedPlan}&origin=onboarding`);
-      } else {
-        router.push("/app/precificacao");
-      }
+      const defaultDestination = resolveDefaultWorkspaceAppPath({
+        onboardingCompleted: true,
+        subscriptionStatus: initialPreferences.subscription.status,
+      });
+
+      router.push(
+        selectedPlan
+          ? `/app/planos?plan=${selectedPlan}&origin=onboarding`
+          : defaultDestination,
+      );
 
       router.refresh();
     } catch (error) {

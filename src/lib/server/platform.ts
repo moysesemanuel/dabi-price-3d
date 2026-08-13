@@ -238,7 +238,7 @@ export async function registerWorkspaceOwner(
   subscription: {
     ...defaultAppPreferences.subscription,
     planId: "starter",
-    status: "trial",
+    status: "unpaid",
     mercadoPagoSubscriptionId: null,
     checkoutStartedAt: null,
   },

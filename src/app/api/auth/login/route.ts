@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
 import { loginWithEmailPassword, setSessionCookie } from "@/lib/auth/session";
+import { getWorkspacePreferences } from "@/lib/server/platform";
+import { resolveDefaultWorkspaceAppPath } from "@/lib/workspace/subscription-access";
 
 type LoginRequestPayload = {
   email?: string;
@@ -37,17 +39,29 @@ export async function POST(request: Request) {
 
   const cookieStore = await cookies();
   setSessionCookie(cookieStore, authResult.sessionToken, authResult.expiresAt);
+  const preferences = await getWorkspacePreferences(authResult.session.workspace.id);
 
   return Response.json({
     session: authResult.session,
-    redirectTo: resolveNextPath(body.next),
+    redirectTo: resolveNextPath(body.next, {
+      onboardingCompleted: preferences.onboardingCompleted,
+      subscriptionStatus: preferences.subscription.status,
+    }),
   });
 }
 
-function resolveNextPath(nextPath: string | undefined) {
+function resolveNextPath(
+  nextPath: string | undefined,
+  fallbackState: {
+    onboardingCompleted: boolean;
+    subscriptionStatus: Parameters<typeof resolveDefaultWorkspaceAppPath>[0]["subscriptionStatus"];
+  },
+) {
   if (typeof nextPath !== "string") {
-    return "/app/precificacao";
+    return resolveDefaultWorkspaceAppPath(fallbackState);
   }
 
-  return nextPath.startsWith("/app") ? nextPath : "/app/precificacao";
+  return nextPath.startsWith("/app")
+    ? nextPath
+    : resolveDefaultWorkspaceAppPath(fallbackState);
 }

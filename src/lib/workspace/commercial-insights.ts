@@ -1,5 +1,6 @@
 import type { SavedCalculation } from "../history/calculation-history";
 import type { AppPreferences } from "../settings/app-preferences";
+import { getSubscriptionStatusLabel } from "./subscription-access.ts";
 import { getWorkspacePlan, workspaceRoleMeta } from "./catalog.ts";
 import type { WorkspaceAuditEvent } from "./audit-log";
 
@@ -83,7 +84,7 @@ export function buildWorkspaceCommercialSnapshot(input: {
 
   return {
     planLabel: plan.label,
-    planStatusLabel: subscriptionStatusMeta[preferences.subscription.status],
+    planStatusLabel: getSubscriptionStatusLabel(preferences.subscription.status),
     planSupportLabel: plan.supportLabel,
     readinessScore,
     readinessTone,
@@ -117,15 +118,6 @@ const statusScore: Record<WorkspaceReadinessStatus, number> = {
   attention: 60,
   pending: 20,
 };
-
-const subscriptionStatusMeta = {
-  internal: "Uso interno",
-  trial: "Trial",
-  pending: "Aguardando pagamento",
-  active: "Ativo",
-  paused: "Pausado",
-  canceled: "Cancelado",
-} as const;
 
 function buildWorkspaceReadinessItems(input: {
   preferences: AppPreferences;

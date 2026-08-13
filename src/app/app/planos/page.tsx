@@ -13,6 +13,10 @@ import {
   getWorkspacePlan,
   workspacePlans,
 } from "@/lib/settings/app-preferences";
+import {
+  canAccessPaidWorkspaceFeatures,
+  getSubscriptionStatusLabel,
+} from "@/lib/workspace/subscription-access";
 
 const planFeatureRows = [
   {
@@ -116,15 +120,8 @@ export default async function PlansPage({
   const currentPlan = getWorkspacePlan(preferences.subscription.planId);
 
   const subscriptionStatus = preferences.subscription.status;
-
-  const subscriptionStatusLabel = {
-    internal: "Plano interno",
-    trial: "Período de avaliação",
-    pending: "Aguardando pagamento",
-    active: "Plano ativo",
-    paused: "Assinatura pausada",
-    canceled: "Assinatura cancelada",
-  }[subscriptionStatus];
+  const hasPaidAccess = canAccessPaidWorkspaceFeatures(preferences.subscription);
+  const subscriptionStatusLabel = getSubscriptionStatusLabel(subscriptionStatus);
 
   return (
     <div className="app-page space-y-6">
@@ -143,9 +140,13 @@ export default async function PlansPage({
           <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--accent)]">
             {subscriptionStatus === "trial"
               ? "Plano de avaliação"
+              : subscriptionStatus === "unpaid"
+                ? "Contratação pendente"
               : subscriptionStatus === "pending"
                 ? "Plano em contratação"
-                : "Plano em uso"}
+                : hasPaidAccess
+                  ? "Plano em uso"
+                  : "Acesso bloqueado"}
           </p>
           <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -186,8 +187,9 @@ export default async function PlansPage({
             Evolua quando fizer sentido
           </h2>
           <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
-            O upgrade pode seguir pelo fluxo público de assinatura com Mercado
-            Pago ou, quando for um plano consultivo, pelo atendimento comercial.
+            {subscriptionStatus === "unpaid"
+              ? "Conclua a contratação para liberar a precificadora e os demais módulos pagos do workspace."
+              : "O upgrade pode seguir pelo fluxo público de assinatura com Mercado Pago ou, quando for um plano consultivo, pelo atendimento comercial."}
           </p>
           <div className="mt-5 grid gap-3">
             <Link href="/contato" className="app-button app-button-primary w-full">
@@ -212,6 +214,7 @@ export default async function PlansPage({
           const isCurrent =
             isSubscriptionPlan &&
             (subscriptionStatus === "internal" ||
+              subscriptionStatus === "trial" ||
               subscriptionStatus === "active");
 
           const isPending =
