@@ -62,6 +62,71 @@ export type MercadoPagoTestUser = {
   email?: string | null;
 };
 
+export type NormalizedMercadoPagoSubscriptionStatus =
+  | "pending"
+  | "active"
+  | "paused"
+  | "canceled"
+  | "unknown";
+
+export type MercadoPagoCheckoutAction =
+  | "create_new_checkout"
+  | "resume_pending_checkout"
+  | "block_active_subscription"
+  | "block_paused_subscription";
+
+export type PendingSubscriptionRecoveryDecision =
+  | {
+      type: "resume_checkout";
+      initPoint: string;
+      remoteStatus: "pending";
+    }
+  | {
+      type: "missing_init_point";
+      remoteStatus: "pending";
+    }
+  | {
+      type: "sync_local_status";
+      nextStatus: "active" | "paused";
+      remoteStatus: "active" | "paused";
+    }
+  | {
+      type: "allow_new_checkout";
+      nextStatus: "unpaid" | "canceled";
+      clearSubscriptionId: boolean;
+      remoteStatus: "not_found" | "canceled";
+    }
+  | {
+      type: "unrecoverable_status";
+      remoteStatus: "unknown";
+    };
+
+export class MercadoPagoApiError extends Error {
+  status: number;
+  path: string;
+  responseText: string;
+  requestId: string | null;
+
+  constructor(input: {
+    status: number;
+    path: string;
+    responseText: string;
+    requestId?: string | null;
+    mode: "request" | "mutation";
+  }) {
+    super(
+      `Mercado Pago API ${input.mode} failed (${input.status}) for ${input.path}: ${
+        input.responseText || "empty response"
+      }${input.requestId ? ` · mpRequestId ${input.requestId}` : ""}`,
+    );
+    this.name = "MercadoPagoApiError";
+    this.status = input.status;
+    this.path = input.path;
+    this.responseText = input.responseText;
+    this.requestId = input.requestId ?? null;
+  }
+}
+
 export function getMercadoPagoSubscriptionUrl(planId: WorkspacePlanId) {
   const envKey = SUBSCRIPTION_ENV_BY_PLAN[planId];
   const value = process.env[envKey]?.trim();
@@ -314,6 +379,111 @@ export function extractMercadoPagoWebhookDataId(input: {
   return normalizeOptionalString(input.payload?.data?.id ?? input.payload?.id);
 }
 
+export function isMercadoPagoApiError(error: unknown): error is MercadoPagoApiError {
+  return error instanceof MercadoPagoApiError;
+}
+
+export function normalizeMercadoPagoSubscriptionStatus(
+  status: string | null | undefined,
+): NormalizedMercadoPagoSubscriptionStatus {
+  const normalized = status?.trim().toLowerCase();
+
+  if (!normalized) {
+    return "unknown";
+  }
+
+  if (normalized === "authorized") {
+    return "active";
+  }
+
+  if (
+    normalized === "pending" ||
+    normalized === "active" ||
+    normalized === "paused" ||
+    normalized === "canceled"
+  ) {
+    return normalized;
+  }
+
+  return "unknown";
+}
+
+export function resolveMercadoPagoCheckoutAction(input: {
+  subscriptionStatus: string;
+  mercadoPagoSubscriptionId: string | null;
+}): MercadoPagoCheckoutAction {
+  if (input.subscriptionStatus === "active") {
+    return "block_active_subscription";
+  }
+
+  if (input.subscriptionStatus === "paused") {
+    return "block_paused_subscription";
+  }
+
+  if (
+    input.subscriptionStatus === "pending" &&
+    normalizeOptionalString(input.mercadoPagoSubscriptionId)
+  ) {
+    return "resume_pending_checkout";
+  }
+
+  return "create_new_checkout";
+}
+
+export function resolvePendingSubscriptionRecovery(input: {
+  remoteStatus: NormalizedMercadoPagoSubscriptionStatus;
+  initPoint?: string | null;
+  remoteFound?: boolean;
+}): PendingSubscriptionRecoveryDecision {
+  if (input.remoteFound === false) {
+    return {
+      type: "allow_new_checkout",
+      nextStatus: "unpaid",
+      clearSubscriptionId: true,
+      remoteStatus: "not_found",
+    };
+  }
+
+  if (input.remoteStatus === "pending") {
+    const initPoint = normalizeOptionalString(input.initPoint);
+
+    if (!initPoint) {
+      return {
+        type: "missing_init_point",
+        remoteStatus: "pending",
+      };
+    }
+
+    return {
+      type: "resume_checkout",
+      initPoint,
+      remoteStatus: "pending",
+    };
+  }
+
+  if (input.remoteStatus === "active" || input.remoteStatus === "paused") {
+    return {
+      type: "sync_local_status",
+      nextStatus: input.remoteStatus,
+      remoteStatus: input.remoteStatus,
+    };
+  }
+
+  if (input.remoteStatus === "canceled") {
+    return {
+      type: "allow_new_checkout",
+      nextStatus: "canceled",
+      clearSubscriptionId: false,
+      remoteStatus: "canceled",
+    };
+  }
+
+  return {
+    type: "unrecoverable_status",
+    remoteStatus: "unknown",
+  };
+}
+
 export function verifyMercadoPagoWebhookSignature(input: {
   xSignature: string | null;
   xRequestId: string | null;
@@ -411,10 +581,15 @@ async function mercadoPagoApiRequest<T>(path: string, accessTokenOverride?: stri
 
   if (!response.ok) {
     const responseText = await response.text().catch(() => "");
+    const requestId = response.headers.get("x-request-id");
 
-    throw new Error(
-      `Mercado Pago API request failed (${response.status}) for ${path}: ${responseText || "empty response"}`,
-    );
+    throw new MercadoPagoApiError({
+      status: response.status,
+      path,
+      responseText,
+      requestId,
+      mode: "request",
+    });
   }
 
   return (await response.json()) as T;
@@ -448,12 +623,15 @@ async function mercadoPagoApiMutation<T>(
 
   if (!response.ok) {
     const responseText = await response.text().catch(() => "");
-    const mercadoPagoRequestId = response.headers.get("x-request-id");
+    const requestId = response.headers.get("x-request-id");
 
-    throw new Error(
-      `Mercado Pago API mutation failed (${response.status}) for ${path}: ${responseText || "empty response"}${mercadoPagoRequestId ? ` · mpRequestId ${mercadoPagoRequestId}` : ""
-      }`,
-    );
+    throw new MercadoPagoApiError({
+      status: response.status,
+      path,
+      responseText,
+      requestId,
+      mode: "mutation",
+    });
   }
 
   return (await response.json()) as T;

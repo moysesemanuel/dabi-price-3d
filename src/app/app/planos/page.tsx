@@ -143,7 +143,7 @@ export default async function PlansPage({
               : subscriptionStatus === "unpaid"
                 ? "Contratação pendente"
               : subscriptionStatus === "pending"
-                ? "Plano em contratação"
+                ? "Pagamento pendente"
                 : hasPaidAccess
                   ? "Plano em uso"
                   : "Acesso bloqueado"}
@@ -189,6 +189,8 @@ export default async function PlansPage({
           <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
             {subscriptionStatus === "unpaid"
               ? "Conclua a contratação para liberar a precificadora e os demais módulos pagos do workspace."
+              : subscriptionStatus === "pending"
+                ? "Você iniciou a contratação deste plano, mas o pagamento ainda não foi concluído."
               : "O upgrade pode seguir pelo fluxo público de assinatura com Mercado Pago ou, quando for um plano consultivo, pelo atendimento comercial."}
           </p>
           <div className="mt-5 grid gap-3">
@@ -225,6 +227,9 @@ export default async function PlansPage({
 
           const isCanceled =
             isSubscriptionPlan && subscriptionStatus === "canceled";
+
+          const checkoutPlanId =
+            plan.id === "starter" || plan.id === "growth" ? plan.id : null;
 
           const isSelected = selectedPlan === plan.id;
 
@@ -294,9 +299,18 @@ export default async function PlansPage({
                     Plano atual
                   </div>
                 ) : isPending ? (
-                  <div className="app-button app-button-secondary w-full justify-center text-center">
-                    Aguardando confirmação do pagamento
-                  </div>
+                  checkoutPlanId ? (
+                    <MercadoPagoCheckoutButton
+                      planId={checkoutPlanId}
+                      label="Continuar pagamento"
+                      loadingLabel="Abrindo pagamento..."
+                      className="app-button app-button-secondary w-full"
+                    />
+                  ) : (
+                    <div className="app-button app-button-secondary w-full justify-center text-center">
+                      Aguardando confirmação do pagamento
+                    </div>
+                  )
                 ) : isPaused ? (
                   <MercadoPagoSubscriptionManageButton
                     action="resume"

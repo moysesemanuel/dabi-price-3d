@@ -19,6 +19,7 @@ import {
   getMercadoPagoSubscriptionWithToken,
   getMercadoPagoTestAccessToken,
   getMercadoPagoWebhookSecret,
+  normalizeMercadoPagoSubscriptionStatus,
   resolveMercadoPagoWorkspaceHint,
   resolveWorkspacePlanIdFromMercadoPagoPlanId,
   verifyMercadoPagoWebhookSignature,
@@ -442,29 +443,4 @@ async function resolveWorkspaceTarget(subscription: MercadoPagoSubscription) {
   return {
     workspaceId: primaryWorkspace.workspace_id,
   };
-}
-
-function normalizeMercadoPagoSubscriptionStatus(
-  status: string | null | undefined,
-) {
-  const normalized = status?.trim().toLowerCase();
-
-  if (!normalized) {
-    return "unknown";
-  }
-
-  if (normalized === "authorized") {
-    return "active";
-  }
-
-  if (
-    normalized === "pending" ||
-    normalized === "active" ||
-    normalized === "paused" ||
-    normalized === "canceled"
-  ) {
-    return normalized;
-  }
-
-  return "unknown";
 }
