@@ -89,3 +89,17 @@ export function resolveDefaultWorkspaceAppPath(input: {
     ? "/app/precificacao"
     : "/app/planos";
 }
+
+export function resolveHistoryLimitPlanId(
+  subscription: Pick<WorkspaceSubscription, "planId" | "status">,
+) {
+  if (
+    subscription.status === "unpaid" ||
+    subscription.status === "trial" ||
+    subscription.status === "pending"
+  ) {
+    return "starter";
+  }
+
+  return subscription.planId;
+}
