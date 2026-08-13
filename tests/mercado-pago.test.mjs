@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { extractMercadoPagoWebhookTopic } from "../src/lib/payments/mercado-pago.ts";
 import {
   resolveWorkspacePlanIdForSubscription,
 } from "../src/lib/payments/subscription-plan-resolution.ts";
@@ -36,4 +37,20 @@ test("não usa fallback quando não existe assinatura Mercado Pago salva", () =>
   });
 
   assert.equal(result, null);
+});
+
+test("prioriza o tipo do payload quando query string e payload divergem", () => {
+  const topic = extractMercadoPagoWebhookTopic({
+    requestUrl: new URL(
+      "https://dabi-price-3d.vercel.app/api/payments/mercado-pago/webhook?type=subscription_authorized_payment",
+    ),
+    payload: {
+      type: "subscription_preapproval",
+      data: {
+        id: "123456",
+      },
+    },
+  });
+
+  assert.equal(topic, "subscription_preapproval");
 });
