@@ -16,6 +16,10 @@ import {
   readAppPreferences,
   subscribeAppPreferences,
 } from "@/lib/settings/app-preferences";
+import {
+  canAccessAppPathWithoutPaidWorkspace,
+  canAccessPaidWorkspaceFeatures,
+} from "@/lib/workspace/subscription-access";
 
 const EXPANDED_WIDTH = 262;
 const COLLAPSED_WIDTH = 96;
@@ -400,6 +404,10 @@ export function AppSidebar({
     sidebarVariant === "confectionery"
       ? confectioneryNavigationSections
       : navigationSections;
+  const workspacePreferences = readAppPreferences();
+  const hasPaidWorkspaceAccess = canAccessPaidWorkspaceFeatures(
+    workspacePreferences.subscription,
+  );
 
   const visibleSections = activeNavigationSections
     .map((section) => ({
@@ -418,6 +426,13 @@ export function AppSidebar({
         }
 
         if (!entry.superAdminOnly || platformRole === "super_admin") {
+          if (
+            !hasPaidWorkspaceAccess &&
+            !canAccessAppPathWithoutPaidWorkspace(entry.href)
+          ) {
+            return entries;
+          }
+
           entries.push(entry);
         }
 

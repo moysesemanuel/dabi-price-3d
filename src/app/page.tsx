@@ -2,212 +2,207 @@ import Image from "next/image";
 import Link from "next/link";
 import horizontalLogo from "@/app/dabi-price-horizontal.svg";
 import whiteLogo from "@/app/logo-dabi-branco.svg";
+import { workspacePlans } from "@/lib/settings/app-preferences";
+import { segmentCards } from "@/lib/public/segment-landings";
 
-const heroPortraits = [
+const hiddenCostItems = [
+  "Mão de obra",
+  "Embalagem",
+  "Energia",
+  "Manutenção",
+  "Impostos",
+  "Taxas de marketplace",
+  "Perdas",
+  "Frete",
+  "Despesas do negócio",
+  "Reservas",
+  "Comissões",
+];
+
+const resultCards = [
+  { label: "Custo do produto", value: "R$ 24,80", tone: "bg-[#f6f1ff] text-[#3b2d73]" },
+  { label: "Preço sugerido", value: "R$ 49,90", tone: "bg-[#eef8f3] text-[#20543f]" },
+  { label: "Lucro por venda", value: "R$ 14,32", tone: "bg-[#fff3ea] text-[#a04f15]" },
+  { label: "Margem", value: "28,7%", tone: "bg-[#eef4ff] text-[#1f4d9a]" },
+];
+
+const howItWorks = [
   {
-    name: "Maya",
-    role: "Precificação",
-    palette: "from-[#d8e4ff] via-[#f5f7ff] to-[#c8d2f7]",
-    accent: "bg-[#4d5cff]",
-    height: "h-[188px]",
+    step: "1. Informe o produto",
+    description:
+      "Cadastre material, embalagem, mão de obra, tempo de produção e outros custos envolvidos.",
   },
   {
-    name: "Alicia",
-    role: "Operações",
-    palette: "from-[#ffe7d5] via-[#fff4ee] to-[#ffd0ab]",
-    accent: "bg-[#ff6a00]",
-    height: "h-[214px]",
+    step: "2. Escolha como você vende",
+    description:
+      "Venda direta, marketplace, kit, atacado ou outros cenários.",
   },
   {
-    name: "Rina",
-    role: "Marketplace",
-    palette: "from-[#d9f3ef] via-[#f4fffd] to-[#bde5dd]",
-    accent: "bg-[#1f8b83]",
-    height: "h-[196px]",
+    step: "3. Defina sua estratégia",
+    description:
+      "Escolha margem, lucro, reservas e regras comerciais.",
   },
   {
-    name: "Victor",
-    role: "Fundador",
-    palette: "from-[#e8ebf5] via-[#f8faff] to-[#d2d8ea]",
-    accent: "bg-[#252847]",
-    height: "h-[226px]",
-  },
-  {
-    name: "Noah",
-    role: "Análises",
-    palette: "from-[#e8e2ff] via-[#faf8ff] to-[#cec2ff]",
-    accent: "bg-[#6c56ff]",
-    height: "h-[174px]",
-  },
-  {
-    name: "Caio",
-    role: "Produção",
-    palette: "from-[#dff1ff] via-[#f4fbff] to-[#c5e2fb]",
-    accent: "bg-[#0f87d8]",
-    height: "h-[204px]",
-  },
-  {
-    name: "Sara",
-    role: "Financeiro",
-    palette: "from-[#ffe8e0] via-[#fff5f0] to-[#ffd0bf]",
-    accent: "bg-[#e45e2c]",
-    height: "h-[184px]",
-  },
-  {
-    name: "Lina",
-    role: "Comercial",
-    palette: "from-[#deebff] via-[#f7fbff] to-[#bed8f6]",
-    accent: "bg-[#4f7cff]",
-    height: "h-[210px]",
+    step: "4. Veja o preço ideal",
+    description:
+      "O DaBi Price calcula custos, taxas, resultado esperado e mostra quanto você realmente ganha.",
   },
 ];
 
-const logoMarks = [
-  "Mercado Livre",
-  "Shopee",
-  "ERP DaBi",
-  "E-commerce 3D",
-  "Venda Direta",
-  "Consignado",
+const practicalCaseRows = [
+  { label: "Material", value: "R$ 8,20" },
+  { label: "Embalagem", value: "R$ 1,50" },
+  { label: "Mão de obra", value: "R$ 6,00" },
+  { label: "Energia e produção", value: "R$ 1,20" },
+  { label: "Taxas de venda", value: "R$ 6,78" },
+  { label: "Despesas e reservas", value: "R$ 4,30" },
 ];
 
-const capabilityGroups = [
-  "Precificação 3D",
-  "Venda por canal",
-  "Histórico operacional",
-  "Kits e múltiplas peças",
-  "Pró-labore e lucro",
-  "Regras de margem",
-  "Produto artesanal",
-  "Comparativo comercial",
-  "Integrações futuras",
-  "Publicação operacional",
-  "Ajuda e suporte",
-  "Governança de workspace",
-];
-
-const impactPoints = [
-  "Custos protegidos antes do lucro",
-  "Leitura automática de canal e pressão comercial",
-  "Políticas de negócio reaplicáveis em novas simulações",
-  "Status de viabilidade em vez de número solto na tela",
-];
-
-const impactStats = [
-  { value: "4", label: "canais de venda na leitura comercial atual" },
-  { value: "3", label: "sistemas do ecossistema DaBi em evolução conjunta" },
-  { value: "1", label: "motor central de precificação para produto físico" },
-  { value: "100%", label: "da formação de preço orientada por custo real" },
-];
-
-const touchpointCards = [
-  { title: "Demonstração comercial", tone: "bg-[#fff2e4]" },
-  { title: "Educação do cliente", tone: "bg-[#edf2ff]" },
-  { title: "Publicação operacional", tone: "bg-[#eef8f2]" },
-  { title: "Revisão sob demanda", tone: "bg-[#ece9ff]" },
-];
-
-const testimonialRatings = [
-  "Suporte bem avaliado",
-  "Fluxo confiável para equipes comerciais",
-  "Leitura operacional clara",
-  "Uso simples sob pressão",
-];
-
-const testimonials = [
+const benefitCards = [
   {
-    quote:
-      "Finalmente um sistema de precificação que mostra quando o canal está errado, em vez de fingir que todo produto precisa caber em qualquer marketplace.",
-    author: "Carla M.",
-    role: "Diretora de Operações Comerciais",
+    title: "Saiba onde seu dinheiro está indo",
+    description:
+      "Visualize materiais, mão de obra, taxas, despesas e outros custos separadamente.",
   },
   {
-    quote:
-      "A estrutura de custo é explícita o suficiente para que o time consiga defender preço sem discutir premissas escondidas toda semana.",
-    author: "Miguel T.",
-    role: "Líder de Planejamento Comercial",
+    title: "Proteja sua margem",
+    description:
+      "Evite vender mais barato do que deveria simplesmente porque o concorrente cobra determinado valor.",
   },
   {
-    quote:
-      "A melhor parte não é o número final. É o contexto de decisão sobre margem, proteção e pressão real do canal.",
-    author: "Diana R.",
-    role: "Fundadora, Studio Goods",
+    title: "Simule antes de decidir",
+    description:
+      "Teste preços, custos, margens e diferentes cenários sem alterar sua operação.",
+  },
+  {
+    title: "Organize suas precificações",
+    description:
+      "Mantenha seus produtos e cálculos registrados para consultar posteriormente.",
+  },
+  {
+    title: "Adapte ao seu negócio",
+    description:
+      "Configure regras de acordo com a realidade da sua operação.",
+  },
+  {
+    title: "Tome decisões com números",
+    description:
+      "Entenda quais produtos fazem sentido manter, ajustar ou deixar de vender.",
   },
 ];
 
-const partnershipServices = [
-  "Onboarding guiado para a operação",
-  "Apoio no desenho das políticas de precificação",
-  "Acompanhamento comercial dedicado",
-  "Revisão operacional de canal, taxa e margem",
-  "Suporte para rollout interno do workspace",
-  "Playbooks de cenário para produto, marketplace e venda direta",
-];
-
-const partnerLogos = [
-  "DaBi Tech 3D",
-  "Sales System",
-  "E-commerce 3D",
-  "Mercado Livre",
-  "Shopee",
-];
-
-const integrations = [
-  "ERP DaBi",
-  "Auditoria de workspace",
-  "Dados de marketplace",
-  "Publicação no site",
-  "Custeio Mercado Livre",
-  "Histórico de produto",
-  "Camada de permissões",
-  "Políticas de precificação",
-];
-
-const securityCards = [
-  "Workspaces por papel",
-  "Gestão de sessão",
-  "Recuperação de senha",
-  "Logs de auditoria",
-  "Histórico operacional",
-  "Rastreabilidade por canal",
-  "Snapshots de política",
-  "Roteamento de suporte",
-  "Visibilidade de erro",
-  "Propriedade do workspace",
-  "Separação de ambiente",
-  "Preparação para SSO",
-];
-
-const footerGroups = [
+const channelComparison = [
   {
-    title: "Plataforma",
-    links: ["Precificadora", "Histórico", "Preferências", "Conta"],
+    channel: "Venda direta",
+    salePrice: "R$ 49,90",
+    note: "Sem taxas de intermediário",
+    profit: "R$ 18,20",
+    accent: "border-[#dcebe4] bg-[#f7fcf9]",
   },
   {
-    title: "Casos de uso",
-    links: ["Impressão 3D", "Produto artesanal", "Marketplace", "Venda direta"],
+    channel: "Mercado Livre",
+    salePrice: "R$ 49,90",
+    note: "Taxas maiores",
+    profit: "R$ 8,70",
+    accent: "border-[#f0dccf] bg-[#fff8f3]",
   },
   {
-    title: "Recursos",
-    links: ["Solicitar demo", "Contato", "Ajuda", "Roadmap"],
+    channel: "Outro canal",
+    salePrice: "R$ 49,90",
+    note: "Comissão intermediária",
+    profit: "R$ 13,40",
+    accent: "border-[#e4def7] bg-[#faf8ff]",
+  },
+];
+
+const beforeItems = [
+  "Planilhas espalhadas",
+  "Calculadora",
+  "Anotações",
+  "Fórmulas difíceis",
+  "Custos esquecidos",
+  "Preço baseado no concorrente",
+  "Dificuldade para saber o lucro",
+];
+
+const afterItems = [
+  "Custos centralizados",
+  "Cálculo automático",
+  "Histórico organizado",
+  "Margem conhecida",
+  "Lucro visível",
+  "Simulações rápidas",
+  "Decisões baseadas em números",
+];
+
+const trustCards = [
+  {
+    title: "Acesso protegido",
+    description:
+      "Sua conta e suas informações ficam protegidas por autenticação.",
   },
   {
-    title: "Empresa",
-    links: ["Sobre", "Privacidade", "Termos", "Suporte"],
+    title: "Dados organizados",
+    description:
+      "Suas precificações ficam centralizadas em um único ambiente.",
   },
+  {
+    title: "Privacidade",
+    description:
+      "Suas informações comerciais não são utilizadas para competir com seu negócio.",
+  },
+  {
+    title: "Pagamentos seguros",
+    description:
+      "A cobrança da assinatura é processada por uma plataforma de pagamento especializada.",
+  },
+];
+
+const faqItems = [
+  {
+    question: "Preciso instalar o DaBi Price?",
+    answer: "Não. O DaBi Price funciona diretamente pelo navegador.",
+  },
+  {
+    question: "Funciona no celular?",
+    answer:
+      "Sim. Você pode acessar sua conta pelo navegador do celular, tablet ou computador.",
+  },
+  {
+    question: "Preciso entender de contabilidade?",
+    answer:
+      "Não. O sistema foi pensado para transformar os cálculos de precificação em um processo mais simples.",
+  },
+  {
+    question: "Posso comparar canais antes de vender?",
+    answer:
+      "Sim. O DaBi Price ajuda você a entender como taxas e regras comerciais afetam o lucro em cada canal.",
+  },
+  {
+    question: "A assinatura pode ser cancelada?",
+    answer:
+      "Sim. O fluxo comercial foi pensado para assinatura recorrente com cancelamento quando fizer sentido para a operação.",
+  },
+];
+
+const footerLinks = [
+  { label: "Como funciona", href: "#como-funciona" },
+  { label: "Planos", href: "#planos" },
+  { label: "FAQ", href: "#faq" },
+  { label: "Entrar", href: "/login" },
 ];
 
 export default function LandingPage() {
+  const starterPlan = workspacePlans.find((plan) => plan.id === "starter");
+  const growthPlan = workspacePlans.find((plan) => plan.id === "growth");
+  const scalePlan = workspacePlans.find((plan) => plan.id === "scale");
+
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#f6f3ff] text-[#22144f]">
-      <section className="border-b border-[#dfdbf0] bg-[linear-gradient(180deg,#ffffff_0%,#f6f3ff_100%)]">
-        <div className="mx-auto max-w-[1180px] px-4 pb-14 pt-6 sm:px-6 lg:px-8">
+    <main className="min-h-screen overflow-x-hidden bg-[#fffdf9] text-[#21352d]">
+      <section className="border-b border-[#e6e1d4] bg-[radial-gradient(circle_at_top_left,rgba(255,213,181,0.32),transparent_28%),radial-gradient(circle_at_88%_14%,rgba(223,241,230,0.48),transparent_24%),linear-gradient(180deg,#fffefb_0%,#fff8f2_100%)]">
+        <div className="mx-auto max-w-[1200px] px-4 pb-14 pt-6 sm:px-6 lg:px-8">
           <header className="flex flex-wrap items-center justify-between gap-4">
-            <Link
-              href="/"
-              className="inline-flex"
-              aria-label="Dabi Price"
-            >
+            <Link href="/" aria-label="DaBi Price" className="inline-flex">
               <Image
                 src={horizontalLogo}
                 alt="Dabi Price"
@@ -218,411 +213,647 @@ export default function LandingPage() {
               />
             </Link>
 
-            <nav className="hidden items-center gap-7 text-sm text-[#625688] md:flex">
-              <a href="#platform" className="transition hover:text-[#22144f]">
-                Plataforma
+            <nav className="hidden items-center gap-6 text-base text-[#42574d] lg:flex">
+              <a href="#como-funciona" className="transition hover:text-[#21352d]">
+                Como funciona
               </a>
-              <a href="#partnership" className="transition hover:text-[#22144f]">
-                Parceria
+              <a href="#recursos" className="transition hover:text-[#21352d]">
+                Recursos
               </a>
-              <a href="#integrations" className="transition hover:text-[#22144f]">
-                Integrações
+              <a href="#para-quem-e" className="transition hover:text-[#21352d]">
+                Para quem é
+              </a>
+              <a href="#planos" className="transition hover:text-[#21352d]">
+                Planos
+              </a>
+              <a href="#faq" className="transition hover:text-[#21352d]">
+                FAQ
               </a>
             </nav>
 
             <div className="flex items-center gap-2">
               <Link
                 href="/login"
-                className="rounded-full border border-[#d9d1f3] bg-white px-4 py-2 text-sm font-medium text-[#22144f] transition hover:border-[#6c56ff] hover:text-[#6c56ff]"
+                className="rounded-full border border-[#d7e3dc] bg-white px-5 py-2.5 text-base font-medium text-[#21352d] transition hover:border-[#f06d2f] hover:text-[#a24b1c]"
               >
                 Entrar
               </Link>
               <Link
-                href="/contato"
-                className="rounded-full bg-[#2f2367] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#22144f]"
+                href="/planos"
+                className="rounded-full bg-[#21352d] px-6 py-2.5 text-base font-semibold text-white transition hover:bg-[#17251f]"
               >
-                Solicitar demo
+                Começar agora
               </Link>
             </div>
           </header>
 
-          <div className="mx-auto max-w-[780px] pt-12 text-center">
-            <p className="font-mono text-[11px] uppercase tracking-[0.32em] text-[#6c56ff]">
-              Por que Dabi Price?
-            </p>
-            <h1 className="mx-auto mt-4 max-w-[700px] text-4xl font-semibold leading-[0.96] tracking-[-0.08em] text-[#22144f] sm:text-6xl">
-              Crie experiências de precificação que geram decisões comerciais mais inteligentes.
-            </h1>
-            <p className="mx-auto mt-5 max-w-[640px] text-sm leading-7 text-[#625688] sm:text-base">
-              A Dabi Price ajuda equipes de produto e operação a precificar
-              bens físicos com custo real, leitura clara de pressão por canal e
-              política comercial reaproveitável em toda a rotina.
-            </p>
+          <div className="grid gap-10 pt-12 lg:grid-cols-[minmax(0,1.02fr)_minmax(380px,0.98fr)] lg:items-center">
+            <div>
+              <p className="font-mono text-xs uppercase tracking-[0.32em] text-[#b8511d]">
+                Precificação com clareza
+              </p>
+              <h1 className="mt-4 max-w-[720px] text-6xl font-semibold leading-[0.9] tracking-[-0.07em] text-[#17261f] sm:text-[5.2rem]">
+                Pare de colocar preço no chute.
+              </h1>
+              <p className="mt-6 max-w-[700px] text-xl leading-9 text-[#374b42]">
+                Calcule o preço ideal dos seus produtos considerando custos,
+                mão de obra, taxas, despesas, margem e lucro, tudo em um só
+                lugar.
+              </p>
 
-            <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-              <Link
-                href="/contato"
-                className="rounded-full bg-[#2f2367] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#22144f]"
-              >
-                Solicitar demo
-              </Link>
-              <Link
-                href="/app/precificacao"
-                className="rounded-full border border-[#d9d1f3] bg-white px-5 py-2.5 text-sm font-semibold text-[#22144f] transition hover:border-[#6c56ff] hover:text-[#6c56ff]"
-              >
-                Abrir produto
-              </Link>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/planos"
+                  className="inline-flex items-center justify-center rounded-full bg-[#21352d] px-7 py-3.5 text-lg font-semibold text-white transition hover:bg-[#17251f]"
+                >
+                  Começar agora
+                </Link>
+                <a
+                  href="#como-funciona"
+                  className="inline-flex items-center justify-center rounded-full border border-[#d7e3dc] bg-white px-7 py-3.5 text-lg font-semibold text-[#21352d] transition hover:border-[#21352d]"
+                >
+                  Ver como funciona
+                </a>
+              </div>
+
+              <p className="mt-6 text-lg text-[#42574d]">
+                Sem planilhas complicadas • Configure em poucos minutos •
+                Cancele quando quiser
+              </p>
             </div>
-          </div>
 
-          <div className="mx-auto mt-10 grid max-w-[860px] grid-cols-2 gap-4 sm:grid-cols-4">
-            {heroPortraits.map((portrait) => (
-              <PortraitCard key={portrait.name} portrait={portrait} />
-            ))}
-          </div>
-
-          <div className="mt-10 grid grid-cols-2 gap-x-5 gap-y-4 border-t border-[#e5e0f4] pt-8 text-center text-[11px] font-semibold uppercase tracking-[0.24em] text-[#5f5680] sm:grid-cols-3 lg:grid-cols-6">
-            {logoMarks.map((mark) => (
-              <span key={mark}>{mark}</span>
-            ))}
+            <PricingEditorMock />
           </div>
         </div>
       </section>
 
-      <section
-        id="platform"
-        className="border-b border-[#e3dff1] bg-[linear-gradient(180deg,#f7f5ff_0%,#f4f0ff_100%)]"
-      >
-        <div className="mx-auto max-w-[1180px] px-4 py-16 sm:px-6 lg:px-8">
-          <div className="grid gap-4 lg:grid-cols-[340px_minmax(0,1fr)] lg:items-end">
+      <section className="border-b border-[#ece6db] bg-white">
+        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1.06fr)_360px]">
             <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#6c56ff]">
-                Solução central
+              <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#d16025]">
+                Dor principal
               </p>
-              <h2 className="mt-3 max-w-[280px] text-3xl font-semibold leading-tight tracking-[-0.06em] text-[#22144f] sm:text-4xl">
-                Uma plataforma para toda a experiência de precificação.
+              <h2 className="mt-4 text-5xl font-semibold leading-[1.02] tracking-[-0.06em] text-[#17261f]">
+                Você sabe quanto realmente ganha em cada produto que vende?
               </h2>
+              <p className="mt-5 max-w-[760px] text-lg leading-9 text-[#42574d]">
+                É fácil olhar para o preço de venda, descontar o material e
+                achar que o restante é lucro. Mas no meio do caminho existem
+                vários custos que diminuem o resultado real da operação.
+              </p>
             </div>
 
-            <p className="max-w-[620px] text-sm leading-7 text-[#625688]">
-              A Dabi Price reúne estratégia de preço, simulação por canal e
-              reaproveitamento operacional em um workspace conectado para times
-              de produto, comercial e operação.
-            </p>
+            <div className="rounded-[30px] border border-[#e7e1d6] bg-[#fff9f3] p-6 shadow-[0_20px_48px_rgba(41,55,45,0.06)]">
+              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#9b7a64]">
+                Custos escondidos
+              </p>
+              <div className="mt-4 grid gap-2">
+                {hiddenCostItems.map((item) => (
+                  <div
+                    key={item}
+                    className="rounded-2xl border border-[#efe6dc] bg-white px-4 py-3 text-sm text-[#476056]"
+                  >
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {capabilityGroups.map((item) => (
-              <CapabilityTile key={item} label={item} />
-            ))}
+          <div className="mt-8 rounded-[28px] border border-[#f0d7c8] bg-[#fff2ea] px-6 py-5 text-center">
+            <p className="text-xl font-semibold tracking-[-0.03em] text-[#9d4615]">
+              Vender muito não significa lucrar muito.
+            </p>
           </div>
         </div>
       </section>
 
-      <section className="border-b border-[#e3dff1] bg-white">
-        <div className="mx-auto max-w-[1180px] px-4 py-16 sm:px-6 lg:px-8">
-          <div className="grid gap-10 lg:grid-cols-[380px_minmax(0,1fr)] lg:items-center">
+      <section id="recursos" className="border-b border-[#ece6db] bg-[#fcfbf8]">
+        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-[760px] text-center">
+            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
+              A solução
+            </p>
+            <h2 className="mt-4 text-5xl font-semibold leading-[1.02] tracking-[-0.06em] text-[#17261f]">
+              O DaBi Price faz as contas por você.
+            </h2>
+            <p className="mt-5 text-lg leading-9 text-[#42574d]">
+              Cadastre seus custos, escolha como você vende e veja exatamente
+              quanto custa produzir, quanto precisa cobrar e quanto realmente
+              sobra.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {resultCards.map((card) => (
+              <div
+                key={card.label}
+                className={`rounded-[28px] border border-white/70 p-6 shadow-[0_18px_40px_rgba(41,55,45,0.05)] ${card.tone}`}
+              >
+                <p className="font-mono text-[11px] uppercase tracking-[0.24em] opacity-70">
+                  {card.label}
+                </p>
+                <p className="mt-4 text-3xl font-semibold tracking-[-0.05em]">
+                  {card.value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-5 text-center text-sm text-[#7a8d83]">
+            Exemplo ilustrativo.
+          </p>
+        </div>
+      </section>
+
+      <section id="como-funciona" className="border-b border-[#ece6db] bg-white">
+        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-[760px] text-center">
+            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
+              Como funciona
+            </p>
+            <h2 className="mt-4 text-5xl font-semibold leading-[1.02] tracking-[-0.06em] text-[#17261f]">
+              Precificar não precisa ser complicado.
+            </h2>
+          </div>
+
+          <div className="mt-10 grid gap-4 lg:grid-cols-2">
+            {howItWorks.map((item) => (
+              <div
+                key={item.step}
+                className="rounded-[30px] border border-[#e7e1d6] bg-[#fffdf9] p-6 shadow-[0_18px_40px_rgba(41,55,45,0.04)]"
+              >
+                <p className="font-mono text-xs uppercase tracking-[0.24em] text-[#b8511d]">
+                  {item.step}
+                </p>
+                <p className="mt-4 text-lg leading-9 text-[#42574d]">
+                  {item.description}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-10 text-center">
+            <Link
+              href="/cadastro"
+              className="inline-flex items-center justify-center rounded-full bg-[#21352d] px-7 py-3.5 text-base font-semibold text-white transition hover:bg-[#17251f]"
+            >
+              Criar minha primeira precificação
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-[#ece6db] bg-[linear-gradient(180deg,#fffdfa_0%,#f7fbf8_100%)]">
+        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center">
+            <LargePricingShowcase />
+
             <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#6c56ff]">
-                Impacto comercial
+              <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
+                Demonstração real
               </p>
-              <h2 className="mt-3 text-3xl font-semibold leading-tight tracking-[-0.06em] text-[#22144f] sm:text-4xl">
-                Direcionamento prático para operações mais fortes e impacto mensurável.
+              <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
+                Veja o resultado antes de colocar o produto à venda.
               </h2>
-              <p className="mt-4 text-sm leading-7 text-[#625688]">
-                Transforme a precificação em um sistema operacional comercial,
-                em vez de uma conta solta espalhada entre anotações, planilhas e
-                tentativa e erro.
+              <p className="mt-4 text-lg leading-9 text-[#42574d]">
+                Você não recebe apenas um preço. Você entende de onde ele veio.
               </p>
+
+              <div className="mt-6 grid gap-4">
+                <DetailCard
+                  title="Custos do produto"
+                  description="Veja exatamente o que está consumindo sua margem."
+                />
+                <DetailCard
+                  title="Preço recomendado"
+                  description="Descubra quanto cobrar de acordo com sua estratégia."
+                />
+                <DetailCard
+                  title="Lucro real"
+                  description="Saiba quanto efetivamente sobra depois de todos os custos."
+                />
+                <DetailCard
+                  title="Margem"
+                  description="Compare cenários e encontre equilíbrio entre competitividade e rentabilidade."
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-[#ece6db] bg-white">
+        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-[760px] text-center">
+            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
+              Caso prático
+            </p>
+            <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
+              R$ 39,90 parece um bom preço. Até você fazer todas as contas.
+            </h2>
+          </div>
+
+          <div className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="rounded-[32px] border border-[#e7e1d6] bg-[#fffdf9] p-6 shadow-[0_18px_44px_rgba(41,55,45,0.05)]">
+              <div className="flex items-end justify-between gap-4 border-b border-[#eee6db] pb-5">
+                <div>
+                  <p className="font-mono text-sm uppercase tracking-[0.24em] text-[#5c6e65]">
+                    Produto vendido por
+                  </p>
+                  <p className="mt-3 text-5xl font-semibold tracking-[-0.06em] text-[#21352d]">
+                    R$ 39,90
+                  </p>
+                </div>
+                <span className="rounded-full bg-[#fff2ea] px-4 py-2 text-xs font-semibold text-[#b1561d]">
+                  Exemplo ilustrativo
+                </span>
+              </div>
 
               <div className="mt-6 grid gap-3">
-                {impactPoints.map((point) => (
+                {practicalCaseRows.map((item) => (
                   <div
-                    key={point}
-                    className="flex items-start gap-3 rounded-2xl border border-[#ebe7f8] bg-[#faf8ff] px-4 py-3"
+                    key={item.label}
+                    className="flex items-center justify-between rounded-2xl border border-[#efe8dd] bg-white px-4 py-4 text-base"
                   >
-                    <span className="mt-1 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-[#6c56ff] text-[10px] font-bold text-white">
-                      +
-                    </span>
-                    <p className="text-sm leading-7 text-[#4f4673]">{point}</p>
+                    <span className="text-[#42574d]">{item.label}</span>
+                    <span className="font-semibold text-[#21352d]">{item.value}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            <DashboardShowcase />
-          </div>
-
-          <div className="mt-12 grid gap-6 border-t border-[#ece7fa] pt-8 sm:grid-cols-2 lg:grid-cols-4">
-            {impactStats.map((stat) => (
-              <div key={stat.label}>
-                <p className="text-3xl font-semibold tracking-[-0.05em] text-[#22144f]">
-                  {stat.value}
-                </p>
-                <p className="mt-2 text-xs leading-6 uppercase tracking-[0.2em] text-[#7e73a4]">
-                  {stat.label}
+            <div className="grid gap-4">
+              <StatSummary
+                label="Custo considerado"
+                value="R$ 27,98"
+                tone="bg-[#f6f1ff] text-[#3d2f77]"
+              />
+              <StatSummary
+                label="Lucro"
+                value="R$ 11,92"
+                tone="bg-[#eef8f3] text-[#20543f]"
+              />
+              <StatSummary
+                label="Margem"
+                value="29,87%"
+                tone="bg-[#fff3ea] text-[#a04f15]"
+              />
+              <div className="rounded-[28px] border border-[#f0dccf] bg-[#fff8f3] p-6">
+                <p className="text-lg leading-9 text-[#5f4d42]">
+                  Agora imagine descobrir isso antes de definir o preço de
+                  todos os seus produtos.
                 </p>
               </div>
-            ))}
+            </div>
+          </div>
+
+          <div className="mt-8 rounded-[30px] bg-[#21352d] px-6 py-8 text-center text-white">
+            <p className="mx-auto max-w-[760px] text-xl font-semibold tracking-[-0.04em]">
+              O DaBi Price transforma esse cálculo em um processo simples e
+              repetível.
+            </p>
+            <Link
+              href="/planos"
+              className="mt-6 inline-flex items-center justify-center rounded-full bg-white px-7 py-3.5 text-base font-semibold text-[#21352d] transition hover:bg-[#f1f4f2]"
+            >
+              Quero precificar melhor
+            </Link>
           </div>
         </div>
       </section>
 
-      <section className="border-b border-[#e3dff1] bg-[linear-gradient(180deg,#ffffff_0%,#faf8ff_100%)]">
-        <div className="mx-auto max-w-[1180px] px-4 py-16 sm:px-6 lg:px-8">
-          <div className="max-w-[640px]">
-              <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#6c56ff]">
-                Feito para o fluxo real
-              </p>
-              <h2 className="mt-3 text-3xl font-semibold leading-tight tracking-[-0.06em] text-[#22144f] sm:text-4xl">
-                Estruture cada ponto do processo com experiências pensadas para decisão.
-              </h2>
-          </div>
-
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {touchpointCards.map((card, index) => (
-              <MiniProductCard key={card.title} title={card.title} tone={card.tone} index={index} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="border-b border-[#e3dff1] bg-[#f5f1ff]">
-        <div className="mx-auto max-w-[1180px] px-4 py-16 sm:px-6 lg:px-8">
-          <div className="max-w-[640px]">
-              <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#6c56ff]">
-                Camada de personalização
-              </p>
-              <h2 className="mt-3 text-3xl font-semibold leading-tight tracking-[-0.06em] text-[#22144f] sm:text-4xl">
-                Use personalização para gerar conversão e leitura mais aderente ao negócio.
-              </h2>
-          </div>
-
-          <div className="mt-10 grid gap-4 lg:grid-cols-2">
-            <SoftPanel
-              title="Personalização"
-              description="Monte experiências de precificação baseadas em cenário, produto, canal e contexto comercial."
-              variant="light"
-            />
-            <SoftPanel
-              title="Coleta progressiva"
-              description="Reúna as premissas certas aos poucos, sem transformar o fluxo em uma parede de campos."
-              variant="dark"
-            />
-          </div>
-        </div>
-      </section>
-
-      <section className="border-b border-[#141035] bg-[#140f33] text-white">
-        <div className="mx-auto max-w-[1180px] px-4 py-16 sm:px-6 lg:px-8">
-          <div className="max-w-[760px]">
-              <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#8e84ff]">
-                Camada de inteligência
-              </p>
-              <h2 className="mt-3 text-3xl font-semibold leading-tight tracking-[-0.06em] sm:text-4xl">
-                Gere insights e desdobramentos com base na inteligência de precificação.
-              </h2>
-          </div>
-
-          <div className="mt-10 grid gap-5 lg:grid-cols-2">
-            <DarkFeatureCard
-              title="Insights e automação"
-              bullets={[
-                "Destacar pressão de custo causada pelo comportamento do canal",
-                "Sinalizar configurações de margem arriscadas",
-                "Sugerir próximos passos depois da análise de viabilidade",
-                "Priorizar produtos pela qualidade de contribuição",
-              ]}
-            />
-            <DarkFeatureCard
-              title="Desdobramento de conteúdo"
-              bullets={[
-                "Gerar resumos de decisões de precificação",
-                "Criar playbooks internos a partir de cenários recorrentes",
-                "Produzir briefings por canal de venda",
-                "Transformar revisões em orientação reutilizável",
-              ]}
-            />
-          </div>
-        </div>
-      </section>
-
-      <section className="border-b border-[#e3dff1] bg-white">
-        <div className="mx-auto max-w-[1180px] px-4 py-16 sm:px-6 lg:px-8">
+      <section className="border-b border-[#ece6db] bg-[#fcfbf8]">
+        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-[760px] text-center">
-              <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#6c56ff]">
-                Satisfação do cliente
-              </p>
-              <h2 className="mt-3 text-3xl font-semibold leading-tight tracking-[-0.06em] text-[#22144f] sm:text-4xl">
-                Aprovada por operadores, gestores comerciais e quem vive a rotina do produto.
-              </h2>
+            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
+              Benefícios
+            </p>
+            <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
+              Mais do que uma calculadora de preço.
+            </h2>
           </div>
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {testimonialRatings.map((item, index) => (
-              <RatingCard key={item} label={item} score={`${4.8 + index / 10}`.slice(0, 3)} />
-            ))}
-          </div>
-
-          <div className="mt-10 grid gap-4 lg:grid-cols-3">
-            {testimonials.map((item) => (
-              <TestimonialCard
-                key={item.quote}
-                quote={item.quote}
-                author={item.author}
-                role={item.role}
+          <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {benefitCards.map((item) => (
+              <InfoCard
+                key={item.title}
+                title={item.title}
+                description={item.description}
               />
             ))}
           </div>
         </div>
       </section>
 
-      <section
-        id="partnership"
-        className="border-b border-[#e3dff1] bg-[linear-gradient(180deg,#f9f7ff_0%,#ffffff_100%)]"
-      >
-        <div className="mx-auto max-w-[1180px] px-4 py-16 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-[760px] text-center">
-              <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#6c56ff]">
-                Nível de parceria
+      <section className="border-b border-[#ece6db] bg-white">
+        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
+          <div className="grid gap-8 lg:grid-cols-[320px_minmax(0,1fr)]">
+            <div>
+              <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
+                Marketplace
               </p>
-              <h2 className="mt-3 text-3xl font-semibold leading-tight tracking-[-0.06em] text-[#22144f] sm:text-4xl">
-                A prova aparece na parceria operacional.
+              <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
+                Um produto pode ser lucrativo em um canal e dar prejuízo em outro.
               </h2>
-          </div>
-
-          <div className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_440px] lg:items-center">
-            <div className="rounded-[30px] border border-[#e5def7] bg-white p-6 shadow-[0_18px_48px_rgba(0,0,0,0.04)]">
-              <p className="text-sm leading-7 text-[#625688]">
-                Sustentar um programa de precificação forte exige mais do que
-                software. A Dabi Price pode evoluir como camada de operação e
-                parceria para gerar decisões comerciais mais consistentes.
+              <p className="mt-4 text-lg leading-9 text-[#42574d]">
+                Compare antes de publicar. O DaBi Price ajuda você a entender o
+                impacto das taxas e regras comerciais de cada canal sobre seu
+                resultado.
               </p>
+            </div>
 
-              <div className="mt-6 grid gap-3">
-                {partnershipServices.map((item) => (
-                  <div key={item} className="flex items-start gap-3">
-                    <span className="mt-1 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-[#ece8ff] text-[10px] font-bold text-[#6c56ff]">
-                      ✓
-                    </span>
-                    <p className="text-sm leading-7 text-[#4f4673]">{item}</p>
+            <div className="grid gap-4 md:grid-cols-3">
+              {channelComparison.map((item) => (
+                <div
+                  key={item.channel}
+                  className={`rounded-[28px] border p-5 shadow-[0_18px_40px_rgba(41,55,45,0.05)] ${item.accent}`}
+                >
+                  <p className="font-mono text-xs uppercase tracking-[0.24em] text-[#5c6e65]">
+                    {item.channel}
+                  </p>
+                  <p className="mt-4 text-3xl font-semibold tracking-[-0.05em] text-[#21352d]">
+                    {item.salePrice}
+                  </p>
+                  <p className="mt-2 text-base text-[#42574d]">{item.note}</p>
+                  <div className="mt-6 rounded-2xl bg-white/82 px-4 py-4">
+                    <p className="text-sm uppercase tracking-[0.18em] text-[#5c6e65]">
+                      Lucro
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold text-[#21352d]">
+                      {item.profit}
+                    </p>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
-
-            <PartnershipMock />
-          </div>
-
-          <div className="mt-10 grid gap-4 border-t border-[#ece7fa] pt-8 sm:grid-cols-2 lg:grid-cols-5">
-            {partnerLogos.map((logo) => (
-              <div key={logo}>
-                <p className="text-lg font-semibold tracking-[-0.04em] text-[#22144f]">
-                  {logo}
-                </p>
-                <p className="mt-1 text-xs leading-6 uppercase tracking-[0.18em] text-[#7e73a4]">
-                  Ecossistema ativo →
-                </p>
-              </div>
-            ))}
           </div>
         </div>
       </section>
 
-      <section
-        id="integrations"
-        className="border-b border-[#e3dff1] bg-[linear-gradient(180deg,#ffffff_0%,#faf8ff_100%)]"
-      >
-        <div className="mx-auto max-w-[1180px] px-4 py-16 sm:px-6 lg:px-8">
+      <section id="para-quem-e" className="border-b border-[#ece6db] bg-[#f8fbf9]">
+        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-[760px] text-center">
-              <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#6c56ff]">
-                Integrações
-              </p>
-              <h2 className="mt-3 text-3xl font-semibold leading-tight tracking-[-0.06em] text-[#22144f] sm:text-4xl">
-                Integrações que acompanham a operação.
-              </h2>
-          </div>
-
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {integrations.map((item, index) => (
-              <IntegrationCard key={item} label={item} index={index} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="border-b border-[#ddd7ef] bg-[#f3f0ff]">
-        <div className="mx-auto max-w-[1180px] px-4 py-16 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-[760px] text-center">
-              <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#6c56ff]">
-                Segurança e governança
-              </p>
-              <h2 className="mt-3 text-3xl font-semibold leading-tight tracking-[-0.06em] text-[#22144f] sm:text-4xl">
-                Infraestrutura, controle e proteção pensados para crescer como SaaS.
-              </h2>
-          </div>
-
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {securityCards.map((item, index) => (
-              <SecurityCard key={item} label={item} index={index} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="border-b border-[#1c1646] bg-[#19133d] text-white">
-        <div className="mx-auto max-w-[1180px] px-4 py-12 sm:px-6 lg:px-8">
-          <div className="rounded-[28px] border border-white/10 bg-white/5 px-6 py-8 text-center">
-            <p className="mx-auto max-w-[860px] text-lg leading-8 text-white/88">
-              “O melhor é quando a plataforma mostra que o problema não está na
-              conta, mas no canal ou no formato da oferta. Isso muda a decisão.”
+            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
+              Segmentos
             </p>
-            <div className="mt-5">
-              <p className="text-sm font-semibold">Cecília Souza</p>
-              <p className="mt-1 text-xs uppercase tracking-[0.22em] text-white/52">
-                Diretora de Estratégia Comercial
-              </p>
-            </div>
+            <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
+              Feito para diferentes formas de produzir e vender.
+            </h2>
+            <p className="mt-5 text-lg leading-9 text-[#42574d]">
+              A home explica o que é o DaBi Price. As páginas por segmento
+              mostram como a mesma lógica resolve o problema específico de cada
+              operação.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {segmentCards.map((item) => (
+              <SegmentCard
+                key={item.href}
+                title={item.title}
+                description={item.description}
+                href={item.href}
+              />
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="bg-[#140f33] text-white">
-        <div className="mx-auto max-w-[1180px] px-4 py-12 sm:px-6 lg:px-8">
-          <div className="rounded-[32px] bg-[#7f73ff] px-6 py-8 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:px-8">
+      <section className="border-b border-[#ece6db] bg-white">
+        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-[760px] text-center">
+            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
+              Antes x DaBi Price
+            </p>
+            <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
+              Precificar pode ser assim:
+            </h2>
+          </div>
+
+          <div className="mt-10 grid gap-4 lg:grid-cols-2">
+            <ComparisonPanel
+              title="Sem DaBi Price"
+              items={beforeItems}
+              accent="border-[#f1ddd2] bg-[#fff7f2] text-[#7c5f52]"
+            />
+            <ComparisonPanel
+              title="Com DaBi Price"
+              items={afterItems}
+              accent="border-[#d9ebe1] bg-[#f7fcf9] text-[#345647]"
+            />
+          </div>
+
+          <div className="mt-8 text-center">
+            <Link
+              href="/planos"
+              className="inline-flex items-center justify-center rounded-full bg-[#21352d] px-7 py-3.5 text-base font-semibold text-white transition hover:bg-[#17251f]"
+            >
+              Começar agora
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-[#ece6db] bg-[#fcfbf8]">
+        <div className="mx-auto max-w-[980px] px-4 py-16 text-center sm:px-6 lg:px-8">
+          <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
+            Por que o DaBi Price existe
+          </p>
+          <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
+            Criado a partir de um problema real.
+          </h2>
+          <p className="mx-auto mt-5 max-w-[760px] text-lg leading-9 text-[#42574d]">
+            Quem produz e vende precisa tomar várias decisões de preço. O
+            problema é que, com o crescimento do negócio, uma conta
+            aparentemente simples começa a envolver matéria-prima, mão de obra,
+            taxas, impostos, despesas, perdas e margem.
+          </p>
+          <p className="mx-auto mt-4 max-w-[760px] text-lg leading-9 text-[#42574d]">
+            O DaBi Price nasceu para transformar essa conta em um processo mais
+            simples, organizado e confiável.
+          </p>
+          <p className="mt-8 text-2xl font-semibold tracking-[-0.04em] text-[#21352d]">
+            Menos improviso. Mais clareza sobre seus números.
+          </p>
+        </div>
+      </section>
+
+      <section className="border-b border-[#ece6db] bg-white">
+        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-[760px] text-center">
+            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
+              Confiança
+            </p>
+            <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
+              Seus dados e seu negócio continuam sendo seus.
+            </h2>
+          </div>
+
+          <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {trustCards.map((item) => (
+              <InfoCard
+                key={item.title}
+                title={item.title}
+                description={item.description}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="planos" className="border-b border-[#ece6db] bg-[linear-gradient(180deg,#f8fbf9_0%,#fff9f4_100%)]">
+        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-[760px] text-center">
+            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
+              Planos
+            </p>
+            <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
+              Um plano que se paga quando você começa a precificar melhor.
+            </h2>
+          </div>
+
+          <div className="mt-10 grid gap-4 lg:grid-cols-3">
+            <PlanCard
+              eyebrow="Entrada"
+              title={starterPlan?.label ?? "DaBi Essencial"}
+              price={starterPlan?.monthlyPriceLabel ?? "R$ 49"}
+              description="Para começar a organizar sua precificação com estrutura."
+              items={[
+                "Controle essencial de custos",
+                "Histórico operacional inicial",
+                "Leitura básica da viabilidade",
+              ]}
+              href="/cadastro?plan=starter"
+              cta="Começar agora"
+            />
+            <PlanCard
+              eyebrow="Mais escolhido"
+              title={growthPlan?.label ?? "DaBi Pro"}
+              price={growthPlan?.monthlyPriceLabel ?? "R$ 149"}
+              description="Para quem vende regularmente e precisa proteger margem."
+              items={[
+                "Precificação completa",
+                "Comparação de canais",
+                "Histórico ampliado",
+                "Recursos avançados e suporte prioritário",
+              ]}
+              href="/cadastro?plan=growth"
+              cta="Assinar Pro"
+              highlighted
+            />
+            <PlanCard
+              eyebrow="Consultivo"
+              title={scalePlan?.label ?? "DaBi Equipe"}
+              price={scalePlan?.monthlyPriceLabel ?? "Sob consulta"}
+              description="Para operações com time, volume e necessidade de desenho comercial."
+              items={[
+                "Mais usuários e histórico",
+                "Acompanhamento consultivo",
+                "Prioridade máxima em suporte e evolução",
+              ]}
+              href="/contato?plan=scale&origin=site"
+              cta="Falar com consultor"
+            />
+          </div>
+
+          <p className="mt-5 text-center text-base text-[#4f6259]">
+            Economize tempo, preserve margem e leve o visitante direto para o
+            fluxo comercial certo.
+          </p>
+        </div>
+      </section>
+
+      <section className="border-b border-[#ece6db] bg-white">
+        <div className="mx-auto max-w-[980px] px-4 py-16 text-center sm:px-6 lg:px-8">
+          <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
+            Demonstração de ROI
+          </p>
+          <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
+            Quanto custa precificar errado?
+          </h2>
+
+          <div className="mt-10 grid gap-4 sm:grid-cols-3">
+            <RoiCard sales="100 vendas" value="R$ 400" />
+            <RoiCard sales="500 vendas" value="R$ 2.000" />
+            <RoiCard sales="1.000 vendas" value="R$ 4.000" />
+          </div>
+
+          <p className="mt-6 text-lg leading-9 text-[#42574d]">
+            Exemplo hipotético para demonstrar impacto de custos não
+            considerados.
+          </p>
+          <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[#21352d]">
+            Uma pequena diferença no preço pode pagar vários meses do DaBi Price.
+          </p>
+        </div>
+      </section>
+
+      <section id="faq" className="border-b border-[#ece6db] bg-[#fcfbf8]">
+        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-[760px] text-center">
+            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
+              FAQ
+            </p>
+            <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
+              Ficou com alguma dúvida?
+            </h2>
+          </div>
+
+          <div className="mt-10 grid gap-4 lg:grid-cols-2">
+            {faqItems.map((item) => (
+              <div
+                key={item.question}
+                className="rounded-[30px] border border-[#e7e1d6] bg-white p-6 shadow-[0_18px_40px_rgba(41,55,45,0.04)]"
+              >
+                <h3 className="text-xl font-semibold tracking-[-0.03em] text-[#21352d]">
+                  {item.question}
+                </h3>
+                <p className="mt-4 text-lg leading-9 text-[#42574d]">
+                  {item.answer}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[#1a2b24] text-white">
+        <div className="mx-auto max-w-[1200px] px-4 py-12 sm:px-6 lg:px-8">
+          <div className="rounded-[34px] bg-[linear-gradient(135deg,#d16025,#f38a42)] px-6 py-10 shadow-[0_26px_80px_rgba(0,0,0,0.22)] sm:px-8">
             <div className="flex flex-wrap items-end justify-between gap-6">
               <div className="max-w-[620px]">
-              <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-white/70">
-                Próximo passo
-              </p>
-              <h2 className="mt-3 text-3xl font-semibold leading-tight tracking-[-0.06em]">
-                Leve sua precificação para um nível mais claro, profissional e reutilizável.
-              </h2>
-              <p className="mt-3 text-sm leading-7 text-white/82">
-                Solicite uma demonstração para ver como a Dabi Price ajuda sua
-                operação a sair do improviso e entrar em uma rotina comercial
-                estruturada.
-              </p>
+                <p className="font-mono text-xs uppercase tracking-[0.28em] text-white/90">
+                  Próximo passo
+                </p>
+                <h2 className="mt-4 text-4xl font-semibold tracking-[-0.06em]">
+                  Pare de precificar no improviso.
+                </h2>
+                <p className="mt-4 text-lg leading-9 text-white">
+                  Comece agora pelo plano certo e leve sua precificação para uma
+                  rotina mais clara, profissional e repetível.
+                </p>
               </div>
 
               <div className="flex flex-wrap gap-3">
                 <Link
-                  href="/contato"
-                  className="rounded-full bg-[#22144f] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#170f37]"
+                  href="/planos"
+                  className="rounded-full bg-[#1a2b24] px-7 py-3.5 text-base font-semibold text-white transition hover:bg-[#111c17]"
                 >
-                  Solicitar demo
+                  Começar agora
                 </Link>
                 <Link
-                  href="/app/precificacao"
-                  className="rounded-full border border-white/26 bg-white px-5 py-3 text-sm font-semibold text-[#22144f] transition hover:bg-[#f6f3ff]"
+                  href="/login"
+                  className="rounded-full border border-white/30 bg-white px-7 py-3.5 text-base font-semibold text-[#1a2b24] transition hover:bg-[#f7f4f0]"
                 >
-                  Abrir workspace
+                  Entrar
                 </Link>
               </div>
             </div>
           </div>
 
-          <footer className="mt-10 grid gap-10 border-t border-white/10 pt-10 lg:grid-cols-[280px_repeat(4,minmax(0,1fr))]">
+          <footer className="mt-10 grid gap-10 border-t border-white/10 pt-10 lg:grid-cols-[280px_minmax(0,1fr)]">
             <div>
               <Image
                 src={whiteLogo}
@@ -632,34 +863,33 @@ export default function LandingPage() {
                 unoptimized
                 className="h-14 w-auto"
               />
-              <p className="mt-4 max-w-[220px] text-sm leading-7 text-white/72">
-                Software de precificação comercial para produtos físicos e
-                decisões de canal mais inteligentes.
+              <p className="mt-4 max-w-[240px] text-base leading-8 text-white/88">
+                Precificação mais clara para quem produz, vende e precisa
+                proteger a margem com números reais.
               </p>
-              <div className="mt-5 flex gap-2">
-                {["A", "B", "C", "D"].map((item) => (
-                  <span
-                    key={item}
-                    className="inline-flex size-9 items-center justify-center rounded-full border border-white/12 bg-white/6 text-xs font-semibold"
-                  >
-                    {item}
-                  </span>
-                ))}
-              </div>
             </div>
 
-            {footerGroups.map((group) => (
-              <div key={group.title}>
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/50">
-                  {group.title}
-                </p>
-                <div className="mt-4 grid gap-3 text-sm text-white/72">
-                  {group.links.map((item) => (
-                    <span key={item}>{item}</span>
-                  ))}
-                </div>
-              </div>
-            ))}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {footerLinks.map((item) =>
+                item.href.startsWith("/") ? (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className="text-base text-white/88 transition hover:text-white"
+                  >
+                    {item.label}
+                  </Link>
+                ) : (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    className="text-base text-white/88 transition hover:text-white"
+                  >
+                    {item.label}
+                  </a>
+                ),
+              )}
+            </div>
           </footer>
         </div>
       </section>
@@ -667,240 +897,235 @@ export default function LandingPage() {
   );
 }
 
-function PortraitCard({
-  portrait,
-}: {
-  portrait: {
-    name: string;
-    role: string;
-    palette: string;
-    accent: string;
-    height: string;
-  };
-}) {
+function PricingEditorMock() {
   return (
-    <div
-      className={`${portrait.height} relative overflow-hidden rounded-[22px] border border-[#dfdbf0] bg-gradient-to-br ${portrait.palette} shadow-[0_16px_36px_rgba(34,20,79,0.12)]`}
-    >
-      <div className="absolute inset-x-4 top-4 flex items-center justify-between">
-        <span className={`${portrait.accent} rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white`}>
-          {portrait.role}
-        </span>
-        <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-semibold text-[#22144f]">
-          Online
-        </span>
-      </div>
-      <div className="absolute bottom-0 left-0 right-0 h-[74%]">
-        <div className="absolute bottom-0 left-[16%] h-[74%] w-[40%] rounded-t-[70px] bg-[#f7d4b7]/90" />
-        <div className="absolute bottom-[37%] left-[22%] size-[72px] rounded-full bg-[#3d2e28]" />
-        <div className="absolute bottom-[20%] left-[48%] h-[26%] w-[35%] rounded-[22px] bg-white/72" />
-        <div className="absolute bottom-0 left-0 right-0 h-[20%] bg-white/30 backdrop-blur-sm" />
-      </div>
-      <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between rounded-2xl bg-white/78 px-3 py-2 backdrop-blur">
-        <div>
-          <p className="text-sm font-semibold text-[#22144f]">{portrait.name}</p>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-[#625688]">
-            Workspace ativo
-          </p>
-        </div>
-        <span className="rounded-full bg-[#ece8ff] px-2 py-1 text-[10px] font-semibold text-[#6c56ff]">
-          Pronto
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function CapabilityTile({ label }: { label: string }) {
-  return (
-    <div className="flex items-center justify-between rounded-2xl border border-[#e3dff1] bg-white px-4 py-3 shadow-[0_8px_20px_rgba(34,20,79,0.04)]">
-      <span className="text-sm font-medium text-[#413665]">{label}</span>
-      <span className="inline-flex size-6 items-center justify-center rounded-full bg-[#ece8ff] text-xs font-bold text-[#6c56ff]">
-        +
-      </span>
-    </div>
-  );
-}
-
-function DashboardShowcase() {
-  return (
-    <div className="grid gap-4 rounded-[30px] border border-[#e8e3f6] bg-[#fbf9ff] p-5 shadow-[0_18px_48px_rgba(34,20,79,0.08)] lg:grid-cols-[minmax(0,1fr)_220px]">
-      <div className="rounded-[24px] border border-[#ebe7f8] bg-white p-5">
-        <div className="flex items-center justify-between">
+    <div className="rounded-[34px] border border-[#e5ded1] bg-white p-4 shadow-[0_28px_80px_rgba(33,53,45,0.12)] sm:p-5">
+      <div className="rounded-[28px] border border-[#ece6db] bg-[#fffdf9] p-5">
+        <div className="flex items-center justify-between gap-3 border-b border-[#efe8dc] pb-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e73a4]">
-              Saúde do preço
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#84968d]">
+              Editor de precificação
             </p>
-            <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#22144f]">
-              R$ 48,70
+            <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#21352d]">
+              Caneca 3D personalizada
             </p>
           </div>
-          <div className="rounded-full bg-[#f0ecff] px-3 py-1 text-xs font-semibold text-[#6c56ff]">
-            Saudável
-          </div>
-        </div>
-        <div className="mt-5 grid gap-3">
-          <div className="h-24 rounded-[22px] bg-[linear-gradient(180deg,#f4f1ff_0%,#ece8ff_100%)] p-4">
-            <div className="flex items-end gap-2">
-              {[36, 58, 44, 76, 68, 94].map((height, index) => (
-                <span
-                  key={height}
-                  className={`inline-block w-full rounded-t-xl ${
-                    index === 5 ? "bg-[#ff6a00]" : "bg-[#6c56ff]"
-                  }`}
-                  style={{ height }}
-                />
-              ))}
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl bg-[#faf8ff] px-4 py-3">
-              <p className="text-xs uppercase tracking-[0.18em] text-[#8a81aa]">
-                Preço de mercado
-              </p>
-              <p className="mt-2 text-lg font-semibold text-[#22144f]">R$ 32,99</p>
-            </div>
-            <div className="rounded-2xl bg-[#fff3ea] px-4 py-3">
-              <p className="text-xs uppercase tracking-[0.18em] text-[#c26c1d]">
-                Alerta do canal
-              </p>
-              <p className="mt-2 text-lg font-semibold text-[#9a3f00]">Pressão de frete</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-4">
-        <div className="rounded-[24px] border border-[#ebe7f8] bg-white p-4">
-          <p className="text-xs uppercase tracking-[0.18em] text-[#8a81aa]">
-            Margem agora
-          </p>
-          <p className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-[#22144f]">
-            27.4%
-          </p>
-        </div>
-        <div className="rounded-[24px] border border-[#ebe7f8] bg-[#23184b] p-4 text-white">
-          <p className="text-xs uppercase tracking-[0.18em] text-white/50">
-            Status do cenário
-          </p>
-          <p className="mt-2 text-lg font-semibold">Bom, abaixo da meta</p>
-          <p className="mt-3 text-sm leading-7 text-white/68">
-            O preço vende, mas ainda existe distância até a margem mais saudável.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MiniProductCard({
-  title,
-  tone,
-  index,
-}: {
-  title: string;
-  tone: string;
-  index: number;
-}) {
-  return (
-    <div className={`rounded-[26px] border border-[#e6e1f4] p-4 shadow-[0_12px_28px_rgba(34,20,79,0.05)] ${tone}`}>
-      <div className="rounded-[18px] border border-white/70 bg-white p-3 shadow-[0_8px_18px_rgba(34,20,79,0.06)]">
-        <div className="flex items-center justify-between">
-          <span className="rounded-full bg-[#ece8ff] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6c56ff]">
-            Visão {index + 1}
+          <span className="rounded-full bg-[#eef8f3] px-3 py-2 text-xs font-semibold text-[#20543f]">
+            Resultado saudável
           </span>
-          <span className="text-xs font-medium text-[#7d739c]">Prévia</span>
         </div>
-        <div className="mt-4 h-28 rounded-[16px] bg-[linear-gradient(180deg,#ffffff_0%,#f0ebff_100%)] p-3">
-          <div className="grid gap-2">
-            <div className="h-3 w-24 rounded-full bg-[#22144f]/12" />
-            <div className="h-3 w-16 rounded-full bg-[#6c56ff]/18" />
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              <div className="h-14 rounded-xl bg-[#fff5ee]" />
-              <div className="h-14 rounded-xl bg-[#eef2ff]" />
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_220px]">
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <MetricTile label="Custo total" value="R$ 24,80" note="Material + produção" />
+              <MetricTile label="Preço sugerido" value="R$ 49,90" note="Meta de margem aplicada" />
+              <MetricTile label="Margem" value="28,7%" note="Resultado atual" />
+              <MetricTile label="Lucro" value="R$ 14,32" note="Por unidade vendida" />
+            </div>
+
+            <div className="rounded-[24px] border border-[#ece6db] bg-white p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-base font-semibold text-[#21352d]">
+                  Distribuição do custo
+                </p>
+                <span className="text-sm uppercase tracking-[0.18em] text-[#5c6e65]">
+                  Canal Mercado Livre
+                </span>
+              </div>
+              <div className="mt-4 space-y-3">
+                <CostBar label="Material e insumos" value="R$ 11,30" width="w-[78%]" color="bg-[#21352d]" />
+                <CostBar label="Mão de obra" value="R$ 6,00" width="w-[56%]" color="bg-[#d16025]" />
+                <CostBar label="Taxas do canal" value="R$ 4,18" width="w-[42%]" color="bg-[#4e7d69]" />
+                <CostBar label="Despesas e reservas" value="R$ 3,32" width="w-[34%]" color="bg-[#8aa99a]" />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4">
+            <div className="rounded-[24px] border border-[#ece6db] bg-[#21352d] p-4 text-white">
+              <p className="text-sm uppercase tracking-[0.18em] text-white/84">
+                Canal de venda
+              </p>
+              <p className="mt-2 text-xl font-semibold">Marketplace</p>
+              <p className="mt-3 text-base leading-8 text-white/88">
+                Taxas e regras comerciais consideradas no cálculo final.
+              </p>
+            </div>
+            <div className="rounded-[24px] border border-[#ece6db] bg-[#fff8f3] p-4">
+              <p className="text-sm uppercase tracking-[0.18em] text-[#8a5b38]">
+                Alerta atual
+              </p>
+              <p className="mt-2 text-xl font-semibold text-[#7f3f15]">
+                Ainda existe pressão de taxa
+              </p>
+              <p className="mt-3 text-base leading-8 text-[#634a38]">
+                O sistema mostra quando o canal aperta a margem antes da
+                publicação.
+              </p>
             </div>
           </div>
         </div>
       </div>
-      <p className="mt-4 text-sm font-semibold text-[#22144f]">{title}</p>
     </div>
   );
 }
 
-function SoftPanel({
+function LargePricingShowcase() {
+  return (
+    <div className="rounded-[34px] border border-[#e5ded1] bg-white p-5 shadow-[0_24px_72px_rgba(33,53,45,0.09)]">
+      <div className="rounded-[30px] border border-[#ece6db] bg-[#fffdf9] p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#efe8dc] pb-4">
+          <div>
+            <p className="font-mono text-xs uppercase tracking-[0.24em] text-[#5c6e65]">
+              Resultado da precificação
+            </p>
+            <p className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-[#21352d]">
+              Resumo antes de vender
+            </p>
+          </div>
+          <Link
+            href="/planos"
+            className="rounded-full border border-[#dce8e2] bg-white px-5 py-2.5 text-base font-semibold text-[#21352d] transition hover:border-[#21352d]"
+          >
+            Ver planos
+          </Link>
+        </div>
+
+        <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_250px]">
+          <div className="rounded-[24px] border border-[#ece6db] bg-white p-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <MetricTile label="Preço recomendado" value="R$ 49,90" note="Meta comercial aplicada" />
+              <MetricTile label="Lucro real" value="R$ 14,32" note="Após todos os custos" />
+              <MetricTile label="Margem" value="28,7%" note="Equilíbrio saudável" />
+              <MetricTile label="Canal" value="Marketplace" note="Taxas consideradas" />
+            </div>
+
+            <div className="mt-5 rounded-[24px] bg-[#f8fbf9] p-4">
+              <p className="text-base font-semibold text-[#21352d]">
+                Composição detalhada
+              </p>
+              <div className="mt-4 space-y-3">
+                <CostBar label="Custos do produto" value="R$ 18,80" width="w-[72%]" color="bg-[#21352d]" />
+                <CostBar label="Taxas do canal" value="R$ 4,18" width="w-[38%]" color="bg-[#d16025]" />
+                <CostBar label="Despesas e reservas" value="R$ 1,82" width="w-[24%]" color="bg-[#4e7d69]" />
+                <CostBar label="Lucro esperado" value="R$ 14,32" width="w-[52%]" color="bg-[#8aa99a]" />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4">
+            <div className="rounded-[24px] border border-[#ece6db] bg-[#f6f1ff] p-4">
+              <p className="text-sm uppercase tracking-[0.18em] text-[#5d4f82]">
+                Custos sob controle
+              </p>
+              <p className="mt-2 text-xl font-semibold text-[#3d2f77]">
+                Nada fica invisível
+              </p>
+              <p className="mt-3 text-base leading-8 text-[#4f4370]">
+                Você entende o peso de cada bloco no resultado final.
+              </p>
+            </div>
+            <div className="rounded-[24px] border border-[#ece6db] bg-[#eef8f3] p-4">
+              <p className="text-sm uppercase tracking-[0.18em] text-[#2e5946]">
+                Decisão mais clara
+              </p>
+              <p className="mt-2 text-xl font-semibold text-[#20543f]">
+                Preço recomendado com contexto
+              </p>
+              <p className="mt-3 text-base leading-8 text-[#365848]">
+                O valor deixa de ser chute e vira política operacional.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DetailCard({
   title,
   description,
-  variant,
 }: {
   title: string;
   description: string;
-  variant: "light" | "dark";
 }) {
-  const isDark = variant === "dark";
-
   return (
-    <div
-      className={`rounded-[30px] border p-6 ${
-        isDark
-          ? "border-[#d9d0ff] bg-[linear-gradient(135deg,#4a3cb2_0%,#2f2367_100%)] text-white"
-          : "border-[#dfd7ff] bg-[linear-gradient(135deg,#f0ecff_0%,#e4deff_100%)] text-[#22144f]"
-      }`}
-    >
-      <p className={`font-mono text-[11px] uppercase tracking-[0.24em] ${isDark ? "text-white/58" : "text-[#6c56ff]"}`}>
+    <div className="rounded-[24px] border border-[#e7e1d6] bg-white px-5 py-5 shadow-[0_12px_26px_rgba(41,55,45,0.04)]">
+      <p className="text-xl font-semibold tracking-[-0.03em] text-[#17261f]">
         {title}
       </p>
-      <p className={`mt-3 max-w-[420px] text-sm leading-7 ${isDark ? "text-white/80" : "text-[#544a75]"}`}>
-        {description}
-      </p>
-
-      <div className={`mt-6 rounded-[24px] border p-4 ${isDark ? "border-white/12 bg-white/6" : "border-white/70 bg-white/72"}`}>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className={`rounded-2xl p-4 ${isDark ? "bg-[#140f33]" : "bg-[#f8f6ff]"}`}>
-            <p className={`text-xs uppercase tracking-[0.18em] ${isDark ? "text-white/48" : "text-[#7f75a6]"}`}>
-              Fluxo
-            </p>
-            <p className="mt-2 text-sm font-semibold">Workspace personalizado</p>
-          </div>
-          <div className={`rounded-2xl p-4 ${isDark ? "bg-[#140f33]" : "bg-[#f8f6ff]"}`}>
-            <p className={`text-xs uppercase tracking-[0.18em] ${isDark ? "text-white/48" : "text-[#7f75a6]"}`}>
-              Resultado
-            </p>
-            <p className="mt-2 text-sm font-semibold">Maior clareza de conversão</p>
-          </div>
-        </div>
-      </div>
+      <p className="mt-3 text-base leading-8 text-[#42574d]">{description}</p>
     </div>
   );
 }
 
-function DarkFeatureCard({
+function InfoCard({
   title,
-  bullets,
+  description,
 }: {
   title: string;
-  bullets: string[];
+  description: string;
 }) {
   return (
-    <div className="rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,#1b1544_0%,#0f0b28_100%)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
-      <div className="rounded-[22px] border border-white/8 bg-white/5 p-4">
-        <div className="grid gap-2">
-          <div className="h-3 w-20 rounded-full bg-white/18" />
-          <div className="h-3 w-28 rounded-full bg-[#8e84ff]/55" />
-          <div className="mt-2 grid gap-2">
-            <div className="h-9 rounded-xl bg-white/8" />
-            <div className="h-9 rounded-xl bg-white/8" />
-            <div className="h-9 rounded-xl bg-white/8" />
-          </div>
-        </div>
-      </div>
-      <h3 className="mt-5 text-2xl font-semibold tracking-[-0.04em]">{title}</h3>
-      <div className="mt-5 grid gap-3">
-        {bullets.map((item) => (
-          <div key={item} className="flex items-start gap-3">
-            <span className="mt-1 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-white/10 text-[10px] font-bold text-white">
-              +
-            </span>
-            <p className="text-sm leading-7 text-white/72">{item}</p>
+    <div className="rounded-[30px] border border-[#e7e1d6] bg-white p-6 shadow-[0_18px_40px_rgba(41,55,45,0.05)]">
+      <p className="text-[1.65rem] font-semibold tracking-[-0.03em] text-[#17261f]">
+        {title}
+      </p>
+      <p className="mt-4 text-lg leading-9 text-[#42574d]">{description}</p>
+    </div>
+  );
+}
+
+function SegmentCard({
+  title,
+  description,
+  href,
+}: {
+  title: string;
+  description: string;
+  href: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group rounded-[30px] border border-[#dfe7e1] bg-white p-6 shadow-[0_18px_40px_rgba(41,55,45,0.05)] transition hover:-translate-y-0.5 hover:border-[#21352d]"
+    >
+      <p className="font-mono text-xs uppercase tracking-[0.24em] text-[#b8511d]">
+        Página específica
+      </p>
+      <p className="mt-4 text-[1.65rem] font-semibold tracking-[-0.03em] text-[#17261f]">
+        {title}
+      </p>
+      <p className="mt-4 text-lg leading-9 text-[#42574d]">{description}</p>
+      <span className="mt-6 inline-flex items-center gap-2 text-base font-semibold text-[#21352d]">
+        Ver página do segmento
+        <span className="transition group-hover:translate-x-1">→</span>
+      </span>
+    </Link>
+  );
+}
+
+function ComparisonPanel({
+  title,
+  items,
+  accent,
+}: {
+  title: string;
+  items: string[];
+  accent: string;
+}) {
+  return (
+    <div className={`rounded-[32px] border p-6 shadow-[0_18px_40px_rgba(41,55,45,0.05)] ${accent}`}>
+      <p className="text-[1.9rem] font-semibold tracking-[-0.04em]">{title}</p>
+      <div className="mt-6 grid gap-3">
+        {items.map((item) => (
+          <div
+            key={item}
+            className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3.5 text-base"
+          >
+            {item}
           </div>
         ))}
       </div>
@@ -908,131 +1133,150 @@ function DarkFeatureCard({
   );
 }
 
-function RatingCard({
-  label,
-  score,
+function PlanCard({
+  eyebrow,
+  title,
+  price,
+  description,
+  items,
+  href,
+  cta,
+  highlighted = false,
 }: {
-  label: string;
-  score: string;
+  eyebrow: string;
+  title: string;
+  price: string;
+  description: string;
+  items: string[];
+  href: string;
+  cta: string;
+  highlighted?: boolean;
 }) {
   return (
-    <div className="rounded-[24px] border border-[#ebe7f8] bg-[#faf8ff] px-4 py-5 text-center">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#7e73a4]">
+    <div
+      className={`rounded-[34px] border p-6 shadow-[0_20px_48px_rgba(41,55,45,0.06)] ${
+        highlighted
+          ? "border-[#f0d7c8] bg-[#fff7f1]"
+          : "border-[#e7e1d6] bg-white"
+      }`}
+    >
+      <p className="font-mono text-xs uppercase tracking-[0.24em] text-[#b8511d]">
+        {eyebrow}
+      </p>
+      <h3 className="mt-4 text-[2.15rem] font-semibold tracking-[-0.05em] text-[#17261f]">
+        {title}
+      </h3>
+      <p className="mt-4 text-lg leading-9 text-[#42574d]">{description}</p>
+      <p className="mt-5 text-4xl font-semibold tracking-[-0.06em] text-[#21352d]">
+        {price}
+      </p>
+      <div className="mt-6 grid gap-3">
+        {items.map((item) => (
+          <div key={item} className="flex items-start gap-3">
+            <span className="mt-1 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-[#eef8f3] text-[10px] font-bold text-[#20543f]">
+              ✓
+            </span>
+            <p className="text-base leading-8 text-[#42574d]">{item}</p>
+          </div>
+        ))}
+      </div>
+      <Link
+        href={href}
+        className={`mt-8 inline-flex w-full items-center justify-center rounded-full px-5 py-3.5 text-base font-semibold transition ${
+          highlighted
+            ? "bg-[#21352d] text-white hover:bg-[#17251f]"
+            : "border border-[#d7e3dc] bg-white text-[#21352d] hover:border-[#21352d]"
+        }`}
+      >
+        {cta}
+      </Link>
+    </div>
+  );
+}
+
+function RoiCard({
+  sales,
+  value,
+}: {
+  sales: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-[30px] border border-[#e7e1d6] bg-white p-6 shadow-[0_18px_40px_rgba(41,55,45,0.04)]">
+      <p className="font-mono text-xs uppercase tracking-[0.24em] text-[#60736a]">
+        {sales}
+      </p>
+      <p className="mt-4 text-4xl font-semibold tracking-[-0.06em] text-[#21352d]">
+        {value}
+      </p>
+      <p className="mt-3 text-base text-[#42574d]">
+        potencialmente deixados para trás na precificação
+      </p>
+    </div>
+  );
+}
+
+function StatSummary({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: string;
+}) {
+  return (
+    <div className={`rounded-[30px] p-6 ${tone}`}>
+      <p className="font-mono text-[11px] uppercase tracking-[0.24em] opacity-70">
         {label}
       </p>
-      <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[#ff6a00]">
-        {score}
-      </p>
-      <p className="mt-2 text-xs uppercase tracking-[0.22em] text-[#6c56ff]">
-        ★★★★★
-      </p>
+      <p className="mt-4 text-4xl font-semibold tracking-[-0.05em]">{value}</p>
     </div>
   );
 }
 
-function TestimonialCard({
-  quote,
-  author,
-  role,
-}: {
-  quote: string;
-  author: string;
-  role: string;
-}) {
-  return (
-    <div className="rounded-[28px] border border-[#ebe7f8] bg-white p-6 shadow-[0_14px_40px_rgba(34,20,79,0.05)]">
-      <p className="text-sm leading-7 text-[#4f4673]">“{quote}”</p>
-      <div className="mt-5 border-t border-[#f0ecfa] pt-4">
-        <p className="text-sm font-semibold text-[#22144f]">{author}</p>
-        <p className="mt-1 text-xs uppercase tracking-[0.18em] text-[#7e73a4]">
-          {role}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function PartnershipMock() {
-  return (
-    <div className="rounded-[30px] border border-[#ebe7f8] bg-white p-4 shadow-[0_18px_48px_rgba(34,20,79,0.06)]">
-      <div className="h-[360px] overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,#fff6f0_0%,#f5f1ff_100%)]">
-        <div className="absolute hidden" />
-        <div className="relative flex h-full items-end justify-end p-6">
-          <div className="absolute left-6 top-6 w-[58%] rounded-[20px] bg-white/88 p-4 shadow-[0_14px_28px_rgba(34,20,79,0.08)]">
-            <div className="h-3 w-24 rounded-full bg-[#22144f]/10" />
-            <div className="mt-2 h-3 w-16 rounded-full bg-[#6c56ff]/18" />
-            <div className="mt-4 grid gap-2">
-              <div className="h-11 rounded-xl bg-[#f4f1ff]" />
-              <div className="h-11 rounded-xl bg-[#f9f5ee]" />
-            </div>
-          </div>
-          <div className="absolute bottom-0 right-6 h-[75%] w-[58%] rounded-t-[120px] bg-[#eed7c1]" />
-          <div className="absolute bottom-[42%] right-[24%] size-[96px] rounded-full bg-[#4a352d]" />
-          <div className="absolute bottom-[16%] right-[8%] h-[32%] w-[44%] rounded-[28px] bg-white/80" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function IntegrationCard({
+function MetricTile({
   label,
-  index,
+  value,
+  note,
 }: {
   label: string;
-  index: number;
+  value: string;
+  note: string;
 }) {
-  const colors = [
-    "bg-[#e7f3ff] text-[#0f87d8]",
-    "bg-[#efe8ff] text-[#6c56ff]",
-    "bg-[#ffe7e7] text-[#db4949]",
-    "bg-[#fff0de] text-[#ff7d1f]",
-  ];
-
   return (
-    <div className="rounded-[24px] border border-[#ebe7f8] bg-white px-4 py-5 text-center shadow-[0_10px_26px_rgba(34,20,79,0.04)]">
-      <span
-        className={`mx-auto inline-flex size-11 items-center justify-center rounded-2xl text-sm font-semibold ${
-          colors[index % colors.length]
-        }`}
-      >
-        {label.slice(0, 2).toUpperCase()}
-      </span>
-      <p className="mt-4 text-sm font-semibold text-[#22144f]">{label}</p>
-      <p className="mt-2 text-xs leading-6 text-[#7e73a4]">
-        Camada operacional conectada
+    <div className="rounded-[22px] border border-[#ece6db] bg-[#fffdf9] px-4 py-4">
+      <p className="text-sm uppercase tracking-[0.16em] text-[#5f7269]">
+        {label}
       </p>
+      <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#21352d]">
+        {value}
+      </p>
+      <p className="mt-2 text-base text-[#465950]">{note}</p>
     </div>
   );
 }
 
-function SecurityCard({
+function CostBar({
   label,
-  index,
+  value,
+  width,
+  color,
 }: {
   label: string;
-  index: number;
+  value: string;
+  width: string;
+  color: string;
 }) {
-  const palette = [
-    "bg-[#e8f3ff] text-[#0f87d8]",
-    "bg-[#f0ecff] text-[#6c56ff]",
-    "bg-[#ecfff1] text-[#1f8b4c]",
-    "bg-[#fff2e7] text-[#ff6a00]",
-  ];
-
   return (
-    <div className="rounded-[24px] border border-[#e5def7] bg-white px-4 py-5 shadow-[0_10px_24px_rgba(34,20,79,0.04)]">
-      <span
-        className={`inline-flex rounded-2xl px-3 py-2 text-xs font-semibold ${
-          palette[index % palette.length]
-        }`}
-      >
-        Seguro
-      </span>
-      <p className="mt-4 text-sm font-semibold text-[#22144f]">{label}</p>
-      <p className="mt-2 text-xs leading-6 text-[#7e73a4]">
-        Placeholder visual para comunicar prontidão de operação SaaS.
-      </p>
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-3 text-base">
+        <span className="text-[#42574d]">{label}</span>
+        <span className="font-semibold text-[#21352d]">{value}</span>
+      </div>
+      <div className="h-3 rounded-full bg-[#eef2ef]">
+        <div className={`h-3 rounded-full ${width} ${color}`} />
+      </div>
     </div>
   );
 }

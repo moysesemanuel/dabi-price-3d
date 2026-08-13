@@ -89,7 +89,7 @@ test("workspace pouco estruturado aparece como em estruturação", () => {
     auditLog: [],
   });
 
-  assert.equal(snapshot.planLabel, "Growth");
+  assert.equal(snapshot.planLabel, "DaBi Pro");
   assert.equal(snapshot.historyLimit, 200);
   assert.equal(snapshot.readinessTone, "pending");
   assert.equal(snapshot.readinessLabel, "Em estruturação");
@@ -162,7 +162,7 @@ test("workspace validado com histórico e ERP sobe para pronto para venda", () =
   assert.equal(snapshot.channelsUsedCount, 3);
   assert.equal(snapshot.erpSyncCount, 8);
   assert.equal(snapshot.siteProductLinksCount, 4);
-  assert.equal(snapshot.planLabel, "Scale");
+  assert.equal(snapshot.planLabel, "DaBi Equipe");
   assert.ok(snapshot.readinessScore >= 80);
 });
 

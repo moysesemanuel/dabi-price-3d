@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { BackLink } from "@/components/app/back-link";
-import { getMercadoPagoSubscriptionUrl } from "@/lib/payments/mercado-pago";
 import {
   getWorkspacePlan,
   workspacePlans,
@@ -21,9 +20,7 @@ export default async function ContactPage({
   const params = (await searchParams) ?? {};
   const selectedPlanId = normalizePlanId(params.plan);
   const selectedPlan = selectedPlanId ? getWorkspacePlan(selectedPlanId) : null;
-  const subscriptionUrl = selectedPlanId
-    ? getMercadoPagoSubscriptionUrl(selectedPlanId)
-    : null;
+
   const originLabel = getOriginLabel(params.origin);
   const consultIntent = params.intent === "consultor";
 
@@ -47,10 +44,10 @@ export default async function ContactPage({
         </h1>
         <p className="public-copy max-w-[860px] text-base">
           {selectedPlan
-            ? subscriptionUrl
-              ? "O plano já pode seguir para a assinatura do Mercado Pago. Depois da confirmação do pagamento, o próximo passo é automatizar a liberação do acesso ao projeto."
-              : "O fluxo correto agora é confirmar o plano, validar a necessidade da operação e seguir para contratação consultiva. Só depois disso o acesso ao projeto deve ser liberado."
-            : "Esta página já estabelece um ponto público para contato antes mesmo da área autenticada completa de suporte. Na próxima fase, ela pode disparar leads, tickets e onboarding comercial."}
+            ? selectedPlan.id === "scale"
+              ? "Este plano segue por atendimento consultivo. Vamos alinhar a necessidade da operação antes da contratação."
+              : "Para contratar este plano, crie sua conta ou entre na plataforma. A assinatura é iniciada dentro da área autenticada."
+            : "Esta página funciona como canal comercial para dúvidas, contratação consultiva e apoio antes da assinatura."}
         </p>
 
         <div className="mt-10 grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_360px]">
@@ -82,9 +79,8 @@ export default async function ContactPage({
                   />
                   <InfoStat
                     label="Usuários"
-                    value={`${selectedPlan.seatsIncluded} ${
-                      selectedPlan.seatsIncluded === 1 ? "usuário" : "usuários"
-                    }`}
+                    value={`${selectedPlan.seatsIncluded} ${selectedPlan.seatsIncluded === 1 ? "usuário" : "usuários"
+                      }`}
                   />
                   <InfoStat
                     label="Histórico"
@@ -97,9 +93,9 @@ export default async function ContactPage({
                     Próximo passo
                   </p>
                   <p className="mt-2 text-sm leading-7 text-[var(--muted)]">
-                    {subscriptionUrl
-                      ? "Este plano já pode abrir a assinatura do Mercado Pago. A próxima etapa operacional é conectar o retorno da assinatura e o webhook para liberar o acesso automaticamente."
-                      : "Este plano ainda segue por atendimento consultivo. O funil público já está organizado para receber assinatura do Mercado Pago assim que a URL desta faixa for configurada."}
+                    {selectedPlan?.id === "scale"
+                      ? "O DaBi Equipe segue por atendimento consultivo antes da contratação."
+                      : "A contratação dos planos de autoatendimento acontece dentro da área autenticada, depois da criação da conta."}
                   </p>
                 </div>
               </>
@@ -136,21 +132,16 @@ export default async function ContactPage({
               <ContactLine
                 label="Comercial"
                 value={
-                  subscriptionUrl
-                    ? "Use este canal para dúvidas antes da compra ou apoio na ativação após o pagamento."
-                    : "Use este canal para contratação, ativação do plano e próximos passos."
+                  selectedPlan?.id === "scale"
+                    ? "Use este canal para contratação consultiva e definição dos próximos passos."
+                    : "Use este canal para dúvidas comerciais antes da contratação."
                 }
               />
               <ContactLine
                 label="Operacional"
                 value="Clientes ativos também terão central própria em /app/suporte."
               />
-              {subscriptionUrl ? (
-                <ContactLine
-                  label="Assinatura"
-                  value="Cobrança recorrente no ambiente do Mercado Pago com redirecionamento externo."
-                />
-              ) : null}
+
               {selectedPlan ? (
                 <ContactLine
                   label="Plano"
@@ -160,10 +151,18 @@ export default async function ContactPage({
             </div>
 
             <div className="mt-6 grid gap-3">
-              {subscriptionUrl ? (
-                <a href={subscriptionUrl} className="app-button app-button-primary w-full">
-                  Assinar com Mercado Pago
-                </a>
+              {selectedPlan && selectedPlan.id !== "scale" ? (
+                <Link
+                  href={{
+                    pathname: "/cadastro",
+                    query: {
+                      plan: selectedPlan.id,
+                    },
+                  }}
+                  className="app-button app-button-primary w-full"
+                >
+                  Criar conta e contratar
+                </Link>
               ) : (
                 <Link
                   href={{

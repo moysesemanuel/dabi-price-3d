@@ -184,6 +184,13 @@ export async function ensurePlatformReady() {
   await platformReadyPromise;
 }
 
+export type RegisterWorkspaceOwnerInput = {
+  fullName: string;
+  email: string;
+  password: string;
+  workspaceName: string;
+}
+
 export async function findUserByEmail(email: string) {
   await ensurePlatformReady();
 
@@ -197,6 +204,167 @@ export async function findUserByEmail(email: string) {
   `) as UserRow[];
 
   return rows[0] ?? null;
+}
+
+export async function registerWorkspaceOwner(
+  input: RegisterWorkspaceOwnerInput,
+) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const normalizedEmail = normalizeEmail(input.email);
+  const normalizedFullName = input.fullName.trim();
+  const normalizedWorkspaceName = input.workspaceName.trim();
+
+  const existingUser = await findUserByEmail(normalizedEmail);
+
+  if (existingUser) {
+    throw new Error("EMAIL_ALREADY_REGISTERED");
+  }
+
+  const userId = randomUUID();
+  const workspaceId = randomUUID();
+  const passwordHash = await hashPassword(input.password);
+  const workspaceSlug = await createUniqueWorkspaceSlug(
+    normalizedWorkspaceName,
+  );
+
+  const preferences = normalizeAppPreferences({
+  ...defaultAppPreferences,
+  workspaceName: normalizedWorkspaceName,
+  operatorName: normalizedFullName,
+  operatorEmail: normalizedEmail,
+  onboardingCompleted: false,
+  subscription: {
+    ...defaultAppPreferences.subscription,
+    planId: "starter",
+    status: "unpaid",
+    mercadoPagoSubscriptionId: null,
+    checkoutStartedAt: null,
+  },
+});
+
+  try {
+    await sql.transaction([
+      sql`
+      INSERT INTO users (
+        id,
+        email,
+        password_hash,
+        full_name,
+        platform_role,
+        status,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        ${userId},
+        ${normalizedEmail},
+        ${passwordHash},
+        ${normalizedFullName},
+        'user',
+        'active',
+        NOW(),
+        NOW()
+      )
+    `,
+
+      sql`
+      INSERT INTO workspaces (
+        id,
+        name,
+        slug,
+        owner_user_id,
+        business_mode,
+        status,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        ${workspaceId},
+        ${normalizedWorkspaceName},
+        ${workspaceSlug},
+        ${userId},
+        '3d',
+        'active',
+        NOW(),
+        NOW()
+      )
+    `,
+
+      sql`
+      INSERT INTO workspace_memberships (
+        id,
+        workspace_id,
+        user_id,
+        workspace_role,
+        invited_by_user_id,
+        created_at
+      )
+      VALUES (
+        ${randomUUID()},
+        ${workspaceId},
+        ${userId},
+        'owner',
+        ${userId},
+        NOW()
+      )
+    `,
+
+      sql`
+      INSERT INTO workspace_preferences (
+        workspace_id,
+        data,
+        updated_by_user_id,
+        updated_at
+      )
+      VALUES (
+        ${workspaceId},
+        CAST(${JSON.stringify(preferences)} AS JSONB),
+        ${userId},
+        NOW()
+      )
+    `,
+
+      sql`
+      INSERT INTO workspace_audit_events (
+        id,
+        workspace_id,
+        user_id,
+        type,
+        title,
+        description,
+        tone,
+        occurred_at
+      )
+      VALUES (
+        ${randomUUID()},
+        ${workspaceId},
+        ${userId},
+        'workspace-created',
+        'Workspace criado',
+        'Workspace criado durante o cadastro inicial.',
+        'success',
+        NOW()
+      )
+    `,
+    ]);
+  } catch (error) {
+    if (isUniqueConstraintViolation(error)) {
+      throw new Error("EMAIL_ALREADY_REGISTERED");
+    }
+
+    throw error;
+  }
+
+  return {
+    userId,
+    workspaceId,
+    email: normalizedEmail,
+    fullName: normalizedFullName,
+    workspaceName: normalizedWorkspaceName,
+    workspaceSlug,
+  };
 }
 
 export async function findUserById(userId: string) {
@@ -1083,6 +1251,74 @@ export async function getWorkspacePreferences(workspaceId: string) {
   return preferences;
 }
 
+export async function claimWorkspaceSubscriptionCheckout(input: {
+  workspaceId: string;
+  startedAt: string;
+}) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+
+  const rows = (await sql`
+    UPDATE workspace_preferences
+    SET
+      data = jsonb_set(
+        data,
+        '{subscription,checkoutStartedAt}',
+        to_jsonb(${input.startedAt}::text),
+        true
+      ),
+      updated_at = NOW()
+    WHERE workspace_id = ${input.workspaceId}
+      AND (
+        data #>> '{subscription,checkoutStartedAt}' IS NULL
+        OR data #>> '{subscription,checkoutStartedAt}' = ''
+        OR (
+          data #>> '{subscription,checkoutStartedAt}'
+        )::timestamptz < NOW() - INTERVAL '10 minutes'
+      )
+    RETURNING data
+  `) as PreferencesRow[];
+
+  if (!rows[0]) {
+    return {
+      claimed: false,
+      preferences: await getWorkspacePreferences(input.workspaceId),
+    };
+  }
+
+  return {
+    claimed: true,
+    preferences: normalizePreferencesPayload(rows[0].data),
+  };
+}
+
+export async function releaseWorkspaceSubscriptionCheckout(input: {
+  workspaceId: string;
+}) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+
+  const rows = (await sql`
+    UPDATE workspace_preferences
+    SET
+      data = jsonb_set(
+        data,
+        '{subscription,checkoutStartedAt}',
+        'null'::jsonb,
+        true
+      ),
+      updated_at = NOW()
+    WHERE workspace_id = ${input.workspaceId}
+    RETURNING data
+  `) as PreferencesRow[];
+
+  return rows[0]
+    ? normalizePreferencesPayload(rows[0].data)
+    : null;
+}
+
 export async function saveWorkspacePreferences(input: {
   workspaceId: string;
   updatedByUserId: string;
@@ -1098,7 +1334,10 @@ export async function saveWorkspacePreferences(input: {
       seatsUsed: await getWorkspaceSeatUsageCount(input.workspaceId),
     },
   });
-  const nextSlug = slugify(normalizedPreferences.workspaceName);
+  const nextSlug = await createUniqueWorkspaceSlug(
+    normalizedPreferences.workspaceName,
+    input.workspaceId,
+  );
 
   await sql`
     INSERT INTO workspace_preferences (
@@ -1150,12 +1389,18 @@ export async function applyWorkspaceSubscriptionUpdate(input: {
       planId: input.planId,
       status: input.status,
       seatsUsed: await getWorkspaceSeatUsageCount(input.workspaceId),
+      mercadoPagoSubscriptionId:
+        input.mercadoPagoSubscriptionId ??
+        currentPreferences.subscription.mercadoPagoSubscriptionId,
+      checkoutStartedAt: null,
     },
   });
 
   const changed =
     currentPreferences.subscription.planId !== nextPreferences.subscription.planId ||
-    currentPreferences.subscription.status !== nextPreferences.subscription.status;
+    currentPreferences.subscription.status !== nextPreferences.subscription.status ||
+    currentPreferences.subscription.mercadoPagoSubscriptionId !==
+    nextPreferences.subscription.mercadoPagoSubscriptionId;
 
   if (!changed) {
     return {
@@ -1164,8 +1409,6 @@ export async function applyWorkspaceSubscriptionUpdate(input: {
       nextPreferences,
     };
   }
-
-  const nextSlug = slugify(nextPreferences.workspaceName);
 
   await sql`
     INSERT INTO workspace_preferences (
@@ -1186,15 +1429,6 @@ export async function applyWorkspaceSubscriptionUpdate(input: {
       updated_at = NOW()
   `;
 
-  await sql`
-    UPDATE workspaces
-    SET
-      name = ${nextPreferences.workspaceName},
-      slug = ${nextSlug},
-      updated_at = NOW()
-    WHERE id = ${input.workspaceId}
-  `;
-
   await appendAuditEvent({
     workspaceId: input.workspaceId,
     userId: null,
@@ -1203,9 +1437,9 @@ export async function applyWorkspaceSubscriptionUpdate(input: {
     description:
       input.description?.trim() ||
       `Assinatura sincronizada via ${input.source} para ${nextPreferences.subscription.planId} (${nextPreferences.subscription.status}).` +
-        (input.mercadoPagoSubscriptionId
-          ? ` Assinatura Mercado Pago: ${input.mercadoPagoSubscriptionId}.`
-          : ""),
+      (input.mercadoPagoSubscriptionId
+        ? ` Assinatura Mercado Pago: ${input.mercadoPagoSubscriptionId}.`
+        : ""),
     tone: "success",
   });
 
@@ -1569,12 +1803,10 @@ async function ensureBootstrapAdmin(sql: ReturnType<typeof getSql>) {
   const workspaceName = bootstrapConfig.workspaceName;
   const workspaceSlug = slugify(workspaceName);
   const preferences = normalizeAppPreferences({
-    ...defaultAppPreferences,
-    workspaceName,
-    operatorName: bootstrapConfig.fullName,
-    operatorEmail: bootstrapConfig.email,
-    onboardingCompleted: true,
-  });
+  ...defaultAppPreferences,
+  workspaceName,
+  onboardingCompleted: true,
+});
 
   await sql`
     INSERT INTO users (
@@ -1871,6 +2103,38 @@ function normalizeOptionalEnv(value: string | undefined) {
   return normalizedValue.length > 0 ? normalizedValue : null;
 }
 
+async function createUniqueWorkspaceSlug(
+  workspaceName: string,
+  excludeWorkspaceId?: string,
+) {
+  const sql = getSql();
+  const baseSlug = slugify(workspaceName);
+
+  let candidate = baseSlug;
+  let suffix = 2;
+
+  while (true) {
+    const rows = (await sql`
+      SELECT id
+      FROM workspaces
+      WHERE slug = ${candidate}
+  AND (
+    ${excludeWorkspaceId ?? null}::text IS NULL
+    OR id <> ${excludeWorkspaceId ?? null}
+  )
+LIMIT 1
+    `) as Array<{ id: string }>;
+
+    if (!rows[0]) {
+      return candidate;
+    }
+
+    const suffixText = `-${suffix}`;
+    candidate = `${baseSlug.slice(0, 64 - suffixText.length)}${suffixText}`;
+    suffix += 1;
+  }
+}
+
 function slugify(value: string) {
   const asciiValue = value
     .normalize("NFD")
@@ -1882,4 +2146,12 @@ function slugify(value: string) {
     .slice(0, 64);
 
   return slug || `workspace-${randomUUID().slice(0, 8)}`;
+}
+
+function isUniqueConstraintViolation(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  return "code" in error && error.code === "23505";
 }

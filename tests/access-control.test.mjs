@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   canAssignWorkspaceRole,
+  canManageWorkspaceBilling,
   canRemoveWorkspaceMember,
   getAllowedInviteRoles,
   getMemberManagementPermissions,
@@ -71,6 +72,49 @@ test("super admin ignora limites de convite do papel do workspace", () => {
   assert.deepEqual(getAllowedInviteRoles(session), ["manager", "operator"]);
   assert.equal(getMemberManagementPermissions(session).canManageMembers, true);
   assert.equal(getMemberManagementPermissions(session).canEditUserProfiles, true);
+});
+
+test("owner pode gerenciar billing do workspace", () => {
+  const session = createSession({
+    workspace: {
+      role: "owner",
+    },
+  });
+
+  assert.equal(canManageWorkspaceBilling(session), true);
+});
+
+test("super admin pode gerenciar billing independentemente do papel no workspace", () => {
+  const session = createSession({
+    user: {
+      platformRole: "super_admin",
+    },
+    workspace: {
+      role: "operator",
+    },
+  });
+
+  assert.equal(canManageWorkspaceBilling(session), true);
+});
+
+test("manager nao pode gerenciar billing do workspace", () => {
+  const session = createSession({
+    workspace: {
+      role: "manager",
+    },
+  });
+
+  assert.equal(canManageWorkspaceBilling(session), false);
+});
+
+test("operator nao pode gerenciar billing do workspace", () => {
+  const session = createSession({
+    workspace: {
+      role: "operator",
+    },
+  });
+
+  assert.equal(canManageWorkspaceBilling(session), false);
 });
 
 test("owner nao recebe permissao de editar dados cadastrais de usuario", () => {

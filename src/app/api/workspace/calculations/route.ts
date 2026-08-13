@@ -6,10 +6,15 @@ import type { SavedCalculation } from "@/lib/history/calculation-history";
 import {
   appendAuditEvent,
   clearCalculationSnapshots,
+  getWorkspacePreferences,
   isPlatformPersistenceAvailable,
   listCalculationSnapshots,
   saveCalculationSnapshot,
 } from "@/lib/server/platform";
+import {
+  canAccessPaidWorkspaceFeatures,
+  getWorkspaceAccessBlockedMessage,
+} from "@/lib/workspace/subscription-access";
 
 export async function GET() {
   if (!isPlatformPersistenceAvailable()) {
@@ -23,6 +28,20 @@ export async function GET() {
 
   if (!session) {
     return Response.json({ error: "Não autenticado." }, { status: 401 });
+  }
+
+  const preferences = await getWorkspacePreferences(session.workspace.id);
+
+  if (!canAccessPaidWorkspaceFeatures(preferences.subscription)) {
+    return Response.json(
+      {
+        error:
+          getWorkspaceAccessBlockedMessage(preferences.subscription.status) ??
+          "A assinatura atual não libera esta funcionalidade.",
+        code: "SUBSCRIPTION_REQUIRED",
+      },
+      { status: 403 },
+    );
   }
 
   const items = await listCalculationSnapshots(session.workspace.id);
@@ -39,6 +58,19 @@ export async function POST(request: Request) {
   }
 
   const session = await requireCurrentAuthSession();
+  const preferences = await getWorkspacePreferences(session.workspace.id);
+
+  if (!canAccessPaidWorkspaceFeatures(preferences.subscription)) {
+    return Response.json(
+      {
+        error:
+          getWorkspaceAccessBlockedMessage(preferences.subscription.status) ??
+          "A assinatura atual não libera esta funcionalidade.",
+        code: "SUBSCRIPTION_REQUIRED",
+      },
+      { status: 403 },
+    );
+  }
   let body: SavedCalculation;
 
   try {
@@ -78,6 +110,19 @@ export async function DELETE() {
   }
 
   const session = await requireCurrentAuthSession();
+  const preferences = await getWorkspacePreferences(session.workspace.id);
+
+  if (!canAccessPaidWorkspaceFeatures(preferences.subscription)) {
+    return Response.json(
+      {
+        error:
+          getWorkspaceAccessBlockedMessage(preferences.subscription.status) ??
+          "A assinatura atual não libera esta funcionalidade.",
+        code: "SUBSCRIPTION_REQUIRED",
+      },
+      { status: 403 },
+    );
+  }
 
   await clearCalculationSnapshots(session.workspace.id);
   await appendAuditEvent({

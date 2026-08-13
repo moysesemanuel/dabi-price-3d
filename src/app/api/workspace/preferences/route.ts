@@ -48,21 +48,24 @@ export async function PUT(request: Request) {
 
   const previousPreferences = await getWorkspacePreferences(session.workspace.id);
   const nextPreferences = normalizeAppPreferences({
-    ...previousPreferences,
-    ...body,
-    subscription: {
-      ...previousPreferences.subscription,
-      ...body.subscription,
-    },
-    pricingDefaults: {
-      ...previousPreferences.pricingDefaults,
-      ...body.pricingDefaults,
-    },
-    profitDestinations: {
-      ...previousPreferences.profitDestinations,
-      ...body.profitDestinations,
-    },
-  });
+  ...previousPreferences,
+  ...body,
+
+  // A assinatura não pode ser alterada pela rota comum de preferências.
+  // Ela é controlada pelo fluxo de billing / Mercado Pago.
+  subscription: previousPreferences.subscription,
+
+  pricingDefaults: {
+    ...previousPreferences.pricingDefaults,
+    ...body.pricingDefaults,
+  },
+
+  profitDestinations: {
+    ...previousPreferences.profitDestinations,
+    ...body.profitDestinations,
+  },
+});
+
   const savedPreferences = await saveWorkspacePreferences({
     workspaceId: session.workspace.id,
     updatedByUserId: session.user.id,

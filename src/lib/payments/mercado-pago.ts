@@ -233,6 +233,21 @@ export async function createMercadoPagoSubscriptionCheckout(input: {
   }, input.accessTokenOverride);
 }
 
+export async function updateMercadoPagoSubscriptionStatus(input: {
+  subscriptionId: string;
+  status: "authorized" | "paused" | "canceled";
+  accessTokenOverride?: string;
+}) {
+  return mercadoPagoApiMutation<MercadoPagoSubscription>(
+    `/preapproval/${input.subscriptionId}`,
+    {
+      status: input.status,
+    },
+    input.accessTokenOverride,
+    "PUT",
+  );
+}
+
 export async function createMercadoPagoTestUser(input: { description: string }) {
   const accessToken = getMercadoPagoTestAccessToken();
 
@@ -409,7 +424,9 @@ async function mercadoPagoApiMutation<T>(
   path: string,
   body: Record<string, unknown>,
   accessTokenOverride?: string,
+  method: "POST" | "PUT" = "POST",
 ) {
+
   const accessToken = accessTokenOverride ?? getMercadoPagoAccessToken();
 
   if (!accessToken) {
@@ -419,7 +436,7 @@ async function mercadoPagoApiMutation<T>(
   }
 
   const response = await fetch(`https://api.mercadopago.com${path}`, {
-    method: "POST",
+    method,
     headers: {
       Accept: "application/json",
       Authorization: `Bearer ${accessToken}`,
@@ -434,8 +451,7 @@ async function mercadoPagoApiMutation<T>(
     const mercadoPagoRequestId = response.headers.get("x-request-id");
 
     throw new Error(
-      `Mercado Pago API mutation failed (${response.status}) for ${path}: ${responseText || "empty response"}${
-        mercadoPagoRequestId ? ` · mpRequestId ${mercadoPagoRequestId}` : ""
+      `Mercado Pago API mutation failed (${response.status}) for ${path}: ${responseText || "empty response"}${mercadoPagoRequestId ? ` · mpRequestId ${mercadoPagoRequestId}` : ""
       }`,
     );
   }

@@ -17,6 +17,16 @@ export function isSuperAdminSession(
   return isSuperAdminRole(session.user.platformRole);
 }
 
+export function canManageWorkspaceBilling(
+  session: Pick<AuthenticatedWorkspaceSession, "user" | "workspace">,
+) {
+  if (isSuperAdminSession(session)) {
+    return true;
+  }
+
+  return normalizeWorkspaceRole(session.workspace.role) === "owner";
+}
+
 export function getMemberManagementPermissions(
   session: Pick<AuthenticatedWorkspaceSession, "user" | "workspace">,
 ) {

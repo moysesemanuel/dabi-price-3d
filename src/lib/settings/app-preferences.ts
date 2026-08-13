@@ -157,7 +157,7 @@ export const businessTypeMeta: Record<
     previewMaterialValue: "Receita / embalagem / tempo manual",
     templatesSummary:
       "Modelos pensados para itens sob encomenda, sabores, quantidade e entrega.",
-    calculatorReady: false,
+    calculatorReady: true,
   },
   crafts: {
     label: "Artesanato",
@@ -267,6 +267,8 @@ export const defaultAppPreferences: AppPreferences = {
     planId: "growth",
     status: "internal",
     seatsUsed: 1,
+    mercadoPagoSubscriptionId: null,
+    checkoutStartedAt: null,
   },
   profitDestinations: { ...defaultProfitDestinationPercentages },
   pricingDefaults: clonePricingPolicyDefaults(
@@ -284,7 +286,17 @@ export function getBusinessPreset(presetId: BusinessPresetId) {
 }
 
 export function resolveCalculationHistoryLimit(preferences: AppPreferences) {
-  return getWorkspacePlan(preferences.subscription.planId).historyLimit;
+  const { subscription } = preferences;
+
+  if (
+    subscription.status === "unpaid" ||
+    subscription.status === "trial" ||
+    subscription.status === "pending"
+  ) {
+    return getWorkspacePlan("starter").historyLimit;
+  }
+
+  return getWorkspacePlan(subscription.planId).historyLimit;
 }
 
 export function getCompanyProfileChecklist(preferences: AppPreferences) {
@@ -621,12 +633,31 @@ function normalizeWorkspaceSubscription(
     subscription?.planId ?? defaultAppPreferences.subscription.planId,
   );
 
+  const status =
+    subscription?.status === "unpaid" ||
+    subscription?.status === "trial" ||
+    subscription?.status === "pending" ||
+    subscription?.status === "active" ||
+    subscription?.status === "paused" ||
+    subscription?.status === "canceled"
+      ? subscription.status
+      : defaultAppPreferences.subscription.status;
+
+  const mercadoPagoSubscriptionId =
+    typeof subscription?.mercadoPagoSubscriptionId === "string" &&
+    subscription.mercadoPagoSubscriptionId.trim()
+      ? subscription.mercadoPagoSubscriptionId.trim()
+      : null;
+
+  const checkoutStartedAt =
+  typeof subscription?.checkoutStartedAt === "string" &&
+  subscription.checkoutStartedAt.trim()
+    ? subscription.checkoutStartedAt.trim()
+    : null;
+
   return {
     planId: plan.id,
-    status:
-      subscription?.status === "trial" || subscription?.status === "active"
-        ? subscription.status
-        : defaultAppPreferences.subscription.status,
+    status,
     seatsUsed: Math.max(
       1,
       Math.round(
@@ -636,6 +667,8 @@ function normalizeWorkspaceSubscription(
         ),
       ),
     ),
+    mercadoPagoSubscriptionId,
+    checkoutStartedAt,
   };
 }
 
