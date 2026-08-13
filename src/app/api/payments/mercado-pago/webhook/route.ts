@@ -21,7 +21,6 @@ import {
   getMercadoPagoWebhookSecret,
   normalizeMercadoPagoSubscriptionStatus,
   resolveMercadoPagoWorkspaceHint,
-  resolveWorkspacePlanIdFromMercadoPagoPlanId,
   verifyMercadoPagoWebhookSignature,
   type MercadoPagoAuthorizedPayment,
   type MercadoPagoSubscription,
@@ -221,20 +220,16 @@ async function processMercadoPagoWebhookTopic(input: {
     }
 
     case "subscription_preapproval_plan": {
-      const workspacePlanId = resolveWorkspacePlanIdFromMercadoPagoPlanId(input.dataId);
-
       return {
-        status: 200,
+        status: 202,
         logLevel: "info" as const,
-        event: "mercado_pago_webhook.subscription_plan_received",
+        event: "mercado_pago_webhook.subscription_plan_ignored",
         details: {
           mercadoPagoPlanId: input.dataId,
-          workspacePlanId,
         },
         body: {
-          handled: true,
-          kind: "subscription_plan",
-          workspacePlanId,
+          handled: false,
+          reason: "subscription_plan_not_used",
         },
       };
     }
@@ -301,15 +296,11 @@ async function syncWorkspaceFromSubscription(input: {
   );
 
   const workspacePlanId = resolveWorkspacePlanIdForSubscription({
-  mercadoPagoPlanId: input.subscription.preapproval_plan_id,
-  mercadoPagoSubscriptionId: input.subscription.id,
-  savedMercadoPagoSubscriptionId:
-    workspacePreferences.subscription.mercadoPagoSubscriptionId,
-  savedWorkspacePlanId: workspacePreferences.subscription.planId,
-  mappedWorkspacePlanId: resolveWorkspacePlanIdFromMercadoPagoPlanId(
-    input.subscription.preapproval_plan_id,
-  ),
-});
+    mercadoPagoSubscriptionId: input.subscription.id,
+    savedMercadoPagoSubscriptionId:
+      workspacePreferences.subscription.mercadoPagoSubscriptionId,
+    savedWorkspacePlanId: workspacePreferences.subscription.planId,
+  });
 
   if (!workspacePlanId) {
     return {
@@ -320,8 +311,6 @@ async function syncWorkspaceFromSubscription(input: {
         topic: input.sourceTopic,
         sourceDataId: input.sourceDataId,
         workspaceId: workspaceTarget.workspaceId,
-        mercadoPagoPlanId:
-          input.subscription.preapproval_plan_id ?? null,
         subscriptionId: input.subscription.id,
       },
       body: {

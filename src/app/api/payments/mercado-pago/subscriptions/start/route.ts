@@ -108,6 +108,18 @@ export async function POST(request: Request) {
     );
   }
 
+  if (planId === "scale") {
+    return jsonWithRequestId(
+      requestContext,
+      {
+        error:
+          "O plano DaBi Equipe continua com contratação consultiva e não deve usar o checkout automático de sandbox.",
+        code: "MP_TEST_SUBSCRIPTION_CONSULTATIVE_PLAN",
+      },
+      { status: 409 },
+    );
+  }
+
   const appBaseUrl = new URL(request.url).origin;
   const backUrl = new URL("/contato", appBaseUrl);
   backUrl.searchParams.set("origin", "mercado-pago");

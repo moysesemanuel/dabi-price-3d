@@ -4,12 +4,6 @@ import {
 } from "../workspace/catalog.ts";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-const SUBSCRIPTION_ENV_BY_PLAN: Record<WorkspacePlanId, string> = {
-  starter: "NEXT_PUBLIC_MP_SUBSCRIPTION_STARTER_URL",
-  growth: "NEXT_PUBLIC_MP_SUBSCRIPTION_GROWTH_URL",
-  scale: "NEXT_PUBLIC_MP_SUBSCRIPTION_SCALE_URL",
-};
-
 export type MercadoPagoWebhookTopic =
   | "subscription_preapproval"
   | "subscription_authorized_payment"
@@ -60,6 +54,21 @@ export type MercadoPagoTestUser = {
   site_id?: string | null;
   description?: string | null;
   email?: string | null;
+};
+
+export type MercadoPagoSubscriptionCheckoutPayload = {
+  payer_email: string;
+  external_reference: string;
+  reason: string;
+  back_url: string;
+  auto_recurring: {
+    frequency: 1;
+    frequency_type: "months";
+    end_date: string;
+    transaction_amount: number;
+    currency_id: "BRL";
+  };
+  status: "pending";
 };
 
 export type NormalizedMercadoPagoSubscriptionStatus =
@@ -127,45 +136,6 @@ export class MercadoPagoApiError extends Error {
   }
 }
 
-export function getMercadoPagoSubscriptionUrl(planId: WorkspacePlanId) {
-  const envKey = SUBSCRIPTION_ENV_BY_PLAN[planId];
-  const value = process.env[envKey]?.trim();
-
-  if (!value) {
-    return null;
-  }
-
-  try {
-    const url = new URL(value);
-    return url.toString();
-  } catch {
-    return null;
-  }
-}
-
-export function hasMercadoPagoSubscription(planId: WorkspacePlanId) {
-  return Boolean(getMercadoPagoSubscriptionUrl(planId));
-}
-
-export function getMercadoPagoSubscriptionPlanId(planId: WorkspacePlanId) {
-  const subscriptionUrl = getMercadoPagoSubscriptionUrl(planId);
-
-  if (!subscriptionUrl) {
-    return null;
-  }
-
-  try {
-    const url = new URL(subscriptionUrl);
-
-    return (
-      normalizeOptionalString(url.searchParams.get("preapproval_plan_id")) ??
-      normalizeOptionalString(url.searchParams.get("preapprovalPlanId"))
-    );
-  } catch {
-    return null;
-  }
-}
-
 export function getMercadoPagoAccessToken() {
   return process.env.MERCADO_PAGO_ACCESS_TOKEN?.trim() ?? "";
 }
@@ -180,41 +150,6 @@ export function getMercadoPagoTestSiteId() {
 
 export function getMercadoPagoWebhookSecret() {
   return process.env.MERCADO_PAGO_WEBHOOK_SECRET?.trim() ?? "";
-}
-
-export function resolveWorkspacePlanIdFromMercadoPagoPlanId(
-  mercadoPagoPlanId: string | null | undefined,
-): WorkspacePlanId | null {
-  const normalizedPlanId = normalizeOptionalString(mercadoPagoPlanId);
-
-  if (!normalizedPlanId) {
-    return null;
-  }
-
-  for (const [workspacePlanId, envKey] of Object.entries(SUBSCRIPTION_ENV_BY_PLAN) as Array<
-    [WorkspacePlanId, string]
-  >) {
-    const urlValue = process.env[envKey]?.trim();
-
-    if (!urlValue) {
-      continue;
-    }
-
-    try {
-      const url = new URL(urlValue);
-      const preapprovalPlanId =
-        normalizeOptionalString(url.searchParams.get("preapproval_plan_id")) ??
-        normalizeOptionalString(url.searchParams.get("preapprovalPlanId"));
-
-      if (preapprovalPlanId === normalizedPlanId) {
-        return workspacePlanId;
-      }
-    } catch {
-      continue;
-    }
-  }
-
-  return null;
 }
 
 export async function getMercadoPagoSubscription(subscriptionId: string) {
@@ -255,34 +190,33 @@ export async function createMercadoPagoSubscriptionCheckout(input: {
   backUrl: string;
   accessTokenOverride?: string;
 }) {
+  return mercadoPagoApiMutation<MercadoPagoSubscription>(
+    "/preapproval",
+    buildMercadoPagoSubscriptionCheckoutPayload(input),
+    input.accessTokenOverride,
+  );
+}
+
+export function buildMercadoPagoSubscriptionCheckoutPayload(input: {
+  planId: WorkspacePlanId;
+  payerEmail: string;
+  workspaceId: string;
+  reason: string;
+  backUrl: string;
+  now?: Date;
+}): MercadoPagoSubscriptionCheckoutPayload {
   const plan = getWorkspacePlan(input.planId);
-  const preapprovalPlanId = getMercadoPagoSubscriptionPlanId(input.planId);
-  const transactionAmount = parseWorkspacePlanMonthlyAmount(plan.monthlyPriceLabel);
 
-  if (!preapprovalPlanId && !transactionAmount) {
+  if (typeof plan.monthlyPrice !== "number" || !Number.isFinite(plan.monthlyPrice)) {
     throw new Error(
-      `Não foi possível resolver o valor mensal do plano ${input.planId} para criar a assinatura de teste.`,
+      `Não foi possível resolver o valor mensal do plano ${input.planId} para criar a assinatura.`,
     );
   }
 
-  if (preapprovalPlanId) {
-    return mercadoPagoApiMutation<MercadoPagoSubscription>(
-      "/preapproval",
-      {
-        preapproval_plan_id: preapprovalPlanId,
-        payer_email: input.payerEmail,
-        external_reference: `workspace:${input.workspaceId}`,
-        back_url: input.backUrl,
-        status: "pending",
-      },
-      input.accessTokenOverride,
-    );
-  }
-
-  const endDate = new Date();
+  const endDate = new Date(input.now ?? new Date());
   endDate.setFullYear(endDate.getFullYear() + 5);
 
-  return mercadoPagoApiMutation<MercadoPagoSubscription>("/preapproval", {
+  return {
     payer_email: input.payerEmail,
     external_reference: `workspace:${input.workspaceId}`,
     reason: input.reason,
@@ -291,11 +225,11 @@ export async function createMercadoPagoSubscriptionCheckout(input: {
       frequency: 1,
       frequency_type: "months",
       end_date: endDate.toISOString(),
-      transaction_amount: transactionAmount,
+      transaction_amount: plan.monthlyPrice,
       currency_id: "BRL",
     },
     status: "pending",
-  }, input.accessTokenOverride);
+  };
 }
 
 export async function updateMercadoPagoSubscriptionStatus(input: {
@@ -704,11 +638,4 @@ function safeCompare(left: string, right: string) {
   }
 
   return timingSafeEqual(leftBuffer, rightBuffer);
-}
-
-function parseWorkspacePlanMonthlyAmount(monthlyPriceLabel: string) {
-  const normalized = monthlyPriceLabel.replace(/[^\d,.-]/g, "").replace(",", ".");
-  const parsed = Number.parseFloat(normalized);
-
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }

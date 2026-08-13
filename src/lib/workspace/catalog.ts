@@ -21,6 +21,7 @@ export type WorkspacePlan = {
   id: WorkspacePlanId;
   label: string;
   description: string;
+  monthlyPrice: number | null;
   monthlyPriceLabel: string;
   historyLimit: number;
   seatsIncluded: number;
@@ -52,7 +53,8 @@ export const workspacePlans: readonly WorkspacePlan[] = [
     id: "starter",
     label: "DaBi Essencial",
     description: "Entrada comercial da DaBi para operar com preço e histórico sem complicação.",
-    monthlyPriceLabel: "R$ 49",
+    monthlyPrice: 0.5,
+    monthlyPriceLabel: "R$ 0,50",
     historyLimit: 50,
     seatsIncluded: 1,
     erpSyncEnabled: false,
@@ -63,6 +65,7 @@ export const workspacePlans: readonly WorkspacePlan[] = [
     id: "growth",
     label: "DaBi Pro",
     description: "Plano principal da DaBi para quem já vende com recorrência e quer crescer com mais controle.",
+    monthlyPrice: 149,
     monthlyPriceLabel: "R$ 149",
     historyLimit: 200,
     seatsIncluded: 3,
@@ -74,6 +77,7 @@ export const workspacePlans: readonly WorkspacePlan[] = [
     id: "scale",
     label: "DaBi Equipe",
     description: "Estrutura DaBi para operação com time, volume, integração forte e acompanhamento consultivo.",
+    monthlyPrice: null,
     monthlyPriceLabel: "Sob consulta",
     historyLimit: 1000,
     seatsIncluded: 10,
