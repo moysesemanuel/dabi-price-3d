@@ -7,6 +7,7 @@ import {
   canAccessPaidWorkspaceFeatures,
   getSubscriptionStatusLabel,
   resolveDefaultWorkspaceAppPath,
+  resolveHistoryLimitPlanId,
 } from "../src/lib/workspace/subscription-access.ts";
 
 test("internal, trial e active mantem acesso ao produto", () => {
@@ -68,4 +69,54 @@ test("mantem apenas as rotas liberadas sem pagamento", () => {
 
 test("expone label comercial para unpaid", () => {
   assert.equal(getSubscriptionStatusLabel("unpaid"), "Aguardando contratação");
+});
+
+test("active usa o plano contratado para definir preservacao do historico", () => {
+  assert.equal(
+    resolveHistoryLimitPlanId({
+      planId: "growth",
+      status: "active",
+    }),
+    "growth",
+  );
+});
+
+test("unpaid usa Starter para definir preservacao do historico", () => {
+  assert.equal(
+    resolveHistoryLimitPlanId({
+      planId: "starter",
+      status: "unpaid",
+    }),
+    "starter",
+  );
+});
+
+test("pending usa Starter enquanto a assinatura ainda nao foi confirmada", () => {
+  assert.equal(
+    resolveHistoryLimitPlanId({
+      planId: "growth",
+      status: "pending",
+    }),
+    "starter",
+  );
+});
+
+test("paused preserva o plano contratado no historico", () => {
+  assert.equal(
+    resolveHistoryLimitPlanId({
+      planId: "growth",
+      status: "paused",
+    }),
+    "growth",
+  );
+});
+
+test("canceled preserva o plano contratado no historico", () => {
+  assert.equal(
+    resolveHistoryLimitPlanId({
+      planId: "growth",
+      status: "canceled",
+    }),
+    "growth",
+  );
 });

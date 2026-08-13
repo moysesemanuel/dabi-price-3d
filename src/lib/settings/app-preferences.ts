@@ -6,6 +6,7 @@ import {
   type ProfitDestinationPercentages,
 } from "@/lib/pricing/profit-destination";
 import type { PricingFormState } from "@/lib/pricing/initial-pricing-form";
+import { resolveHistoryLimitPlanId } from "../workspace/subscription-access";
 import {
   getWorkspacePlan,
   workspaceRoleMeta,
@@ -286,17 +287,9 @@ export function getBusinessPreset(presetId: BusinessPresetId) {
 }
 
 export function resolveCalculationHistoryLimit(preferences: AppPreferences) {
-  const { subscription } = preferences;
-
-  if (
-    subscription.status === "unpaid" ||
-    subscription.status === "trial" ||
-    subscription.status === "pending"
-  ) {
-    return getWorkspacePlan("starter").historyLimit;
-  }
-
-  return getWorkspacePlan(subscription.planId).historyLimit;
+  return getWorkspacePlan(
+    resolveHistoryLimitPlanId(preferences.subscription),
+  ).historyLimit;
 }
 
 export function getCompanyProfileChecklist(preferences: AppPreferences) {
