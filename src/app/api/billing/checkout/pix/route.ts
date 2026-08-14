@@ -21,7 +21,6 @@ import {
 import {
   applyWorkspaceSubscriptionUpdate,
   claimWorkspaceSubscriptionCheckout,
-  getWorkspacePreferences,
   releaseWorkspaceSubscriptionCheckout,
   type AuthenticatedWorkspaceSession,
 } from "@/lib/server/platform";
@@ -34,9 +33,6 @@ type CheckoutPixPayload = {
   planId?: string;
   billingCycle?: string;
 };
-
-type WorkspacePreferencesSubscription =
-  Awaited<ReturnType<typeof getWorkspacePreferences>>["subscription"];
 
 export async function POST(request: Request) {
   const requestContext = createRouteRequestContext(
@@ -128,25 +124,14 @@ export async function POST(request: Request) {
     );
   }
 
-  const currentPreferences = await getWorkspacePreferences(session.workspace.id);
   const currentBillingSubscription =
     await findCurrentBillingSubscriptionForWorkspace(session.workspace.id);
 
-  if (
-    isActiveLikeSubscription(
-      currentBillingSubscription,
-      currentPreferences.subscription,
-    )
-  ) {
+  if (isActiveLikeSubscription(currentBillingSubscription)) {
     return buildActiveSubscriptionConflict(requestContext);
   }
 
-  if (
-    isPausedSubscription(
-      currentBillingSubscription,
-      currentPreferences.subscription,
-    )
-  ) {
+  if (isPausedSubscription(currentBillingSubscription)) {
     return buildPausedSubscriptionConflict(requestContext);
   }
 
@@ -199,7 +184,6 @@ export async function POST(request: Request) {
     await replaceCurrentPendingState({
       session,
       currentBillingSubscription,
-      currentLegacySubscription: currentPreferences.subscription,
       provider,
       billingService,
     });
@@ -387,7 +371,6 @@ async function resolveExistingPendingPix(input: {
 async function replaceCurrentPendingState(input: {
   session: AuthenticatedWorkspaceSession;
   currentBillingSubscription: BillingSubscription | null;
-  currentLegacySubscription: WorkspacePreferencesSubscription;
   provider: ReturnType<typeof getBillingProvider>;
   billingService: ReturnType<typeof createBillingService>;
 }) {
@@ -421,39 +404,9 @@ async function replaceCurrentPendingState(input: {
       },
     );
   }
-
-  if (
-    input.currentLegacySubscription.status === "pending" &&
-    input.currentLegacySubscription.mercadoPagoSubscriptionId
-  ) {
-    try {
-      await input.provider.cancelSubscription(
-        input.currentLegacySubscription.mercadoPagoSubscriptionId,
-      );
-    } catch (error) {
-      if (!(isMercadoPagoApiError(error) && error.status === 404)) {
-        throw error;
-      }
-    }
-  }
-
-  if (input.currentLegacySubscription.status === "pending") {
-    await applyWorkspaceSubscriptionUpdate({
-      workspaceId: input.session.workspace.id,
-      planId: input.currentLegacySubscription.planId,
-      status: "unpaid",
-      source: "billing-pix-checkout-reset",
-      mercadoPagoSubscriptionId: null,
-      description:
-        "A contratação pendente anterior foi encerrada para abrir um novo checkout manual via Pix.",
-    });
-  }
 }
 
-function isActiveLikeSubscription(
-  currentBillingSubscription: BillingSubscription | null,
-  currentLegacySubscription: WorkspacePreferencesSubscription,
-) {
+function isActiveLikeSubscription(currentBillingSubscription: BillingSubscription | null) {
   const billingStatus = currentBillingSubscription?.status;
 
   if (
@@ -464,17 +417,11 @@ function isActiveLikeSubscription(
     return true;
   }
 
-  return currentLegacySubscription.status === "active";
+  return false;
 }
 
-function isPausedSubscription(
-  currentBillingSubscription: BillingSubscription | null,
-  currentLegacySubscription: WorkspacePreferencesSubscription,
-) {
-  return (
-    currentBillingSubscription?.status === "paused" ||
-    currentLegacySubscription.status === "paused"
-  );
+function isPausedSubscription(currentBillingSubscription: BillingSubscription | null) {
+  return currentBillingSubscription?.status === "paused";
 }
 
 function buildActiveSubscriptionConflict(

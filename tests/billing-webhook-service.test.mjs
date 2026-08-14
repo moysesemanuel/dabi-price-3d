@@ -40,6 +40,32 @@ test("sincroniza evento de assinatura e persiste webhook como processed", async 
     async getSubscriptionById() {
       throw new Error("not used");
     },
+    async findSubscriptionByProviderSubscriptionId(input) {
+      assert.deepEqual(input, {
+        provider: "mercado_pago",
+        providerSubscriptionId: "mp-sub-1",
+      });
+      return {
+        id: "sub-local-1",
+        workspaceId: "workspace-1",
+        planId: "growth",
+        billingCycle: "monthly",
+        priceId: "price-growth-monthly",
+        status: "pending",
+        autoRenew: true,
+        currentPeriodStart: null,
+        currentPeriodEnd: null,
+        gracePeriodEndsAt: null,
+        cancelAtPeriodEnd: false,
+        cancelRequestedAt: null,
+        endedAt: null,
+        accessUntil: null,
+        provider: "mercado_pago",
+        providerSubscriptionId: "mp-sub-1",
+        createdAt: "2026-08-14T12:00:00.000Z",
+        updatedAt: "2026-08-14T12:00:00.000Z",
+      };
+    },
     async findUserByEmail() {
       throw new Error("not used");
     },
@@ -47,13 +73,7 @@ test("sincroniza evento de assinatura e persiste webhook como processed", async 
       throw new Error("not used");
     },
     async getWorkspacePreferences(workspaceId) {
-      assert.equal(workspaceId, "workspace-1");
-      return {
-        subscription: {
-          planId: "growth",
-          mercadoPagoSubscriptionId: "mp-sub-1",
-        },
-      };
+      throw new Error(`not used: ${workspaceId}`);
     },
     async applyWorkspaceSubscriptionUpdate(input) {
       assert.deepEqual(input, {

@@ -3,7 +3,6 @@ import "server-only";
 import { findCurrentBillingSubscriptionForWorkspace } from "./repository.ts";
 import {
   resolveBillingNotification,
-  type BillingNotificationSubscription,
 } from "./notification-service.ts";
 import {
   getWorkspacePreferences,
@@ -12,12 +11,11 @@ import {
 
 export async function getWorkspaceBillingNotification(input: {
   workspaceId: string;
-  fallbackSubscription?: BillingNotificationSubscription | null;
   now?: Date;
 }) {
   if (!isPlatformPersistenceAvailable()) {
     return resolveBillingNotification({
-      subscription: input.fallbackSubscription ?? null,
+      subscription: null,
       now: input.now,
     });
   }
@@ -40,12 +38,11 @@ export async function getWorkspaceBillingNotification(input: {
     });
   }
 
-  const fallbackSubscription =
-    input.fallbackSubscription ??
-    (await getWorkspacePreferences(input.workspaceId)).subscription;
+  const projectedSubscription = (await getWorkspacePreferences(input.workspaceId))
+    .subscription;
 
   return resolveBillingNotification({
-    subscription: fallbackSubscription,
+    subscription: projectedSubscription,
     now: input.now,
   });
 }

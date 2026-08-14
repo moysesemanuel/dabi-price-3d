@@ -48,7 +48,6 @@ export async function proxy(request: NextRequest) {
   const preferences = await getWorkspacePreferences(session.workspace.id);
   const entitlements = await getWorkspaceEntitlements({
     workspaceId: session.workspace.id,
-    fallbackSubscription: preferences.subscription,
   });
   const protection = resolveAppRouteProtection({
     hasSession: true,

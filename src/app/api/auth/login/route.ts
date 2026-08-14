@@ -43,7 +43,6 @@ export async function POST(request: Request) {
   const preferences = await getWorkspacePreferences(authResult.session.workspace.id);
   const entitlements = await getWorkspaceEntitlements({
     workspaceId: authResult.session.workspace.id,
-    fallbackSubscription: preferences.subscription,
   });
 
   return Response.json({

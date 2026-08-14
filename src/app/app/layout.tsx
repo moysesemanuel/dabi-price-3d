@@ -45,7 +45,6 @@ export default async function ProductLayout({
 
   const billingNotification = await getWorkspaceBillingNotification({
     workspaceId: session.workspace.id,
-    fallbackSubscription: serverPreferences.subscription,
   }).catch(() => null);
 
   return (

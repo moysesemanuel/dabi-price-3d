@@ -14,16 +14,8 @@ import type {
   BillingWebhookEvent,
   BillingWebhookEventStatus,
 } from "./types.ts";
-import { resolveWorkspacePlanIdForSubscription } from "../payments/subscription-plan-resolution.ts";
 
 const DEFAULT_PAST_DUE_GRACE_PERIOD_DAYS = 5;
-
-type WorkspacePreferencesLike = {
-  subscription: {
-    planId: BillingSubscription["planId"];
-    mercadoPagoSubscriptionId: string | null;
-  };
-};
 
 type BillingWebhookActor = {
   providerEventId: string;
@@ -169,7 +161,6 @@ export type BillingWebhookServiceDependencies = {
   findPrimaryWorkspaceForUser(
     userId: string,
   ): Promise<{ workspace_id: string } | null>;
-  getWorkspacePreferences(workspaceId: string): Promise<WorkspacePreferencesLike>;
   applyWorkspaceSubscriptionUpdate(input: {
     workspaceId: string;
     planId: BillingSubscription["planId"];
@@ -339,10 +330,19 @@ export class BillingWebhookService {
       { kind: "subscription" }
     >,
   ): Promise<BillingWebhookProcessOutcome> {
-    const workspaceTarget = await this.resolveWorkspaceTarget(
-      normalizedEvent.subscription.workspaceHints,
-      normalizedEvent.subscription.payerEmail,
+    const localSubscription = await this.resolveLocalSubscriptionFromWebhook(
+      normalizedEvent.provider,
+      normalizedEvent.subscription.providerSubscriptionId,
+      normalizedEvent.subscription.externalReference,
     );
+    const workspaceTarget = localSubscription
+      ? {
+          workspaceId: localSubscription.workspaceId,
+        }
+      : await this.resolveWorkspaceTarget(
+          normalizedEvent.subscription.workspaceHints,
+          normalizedEvent.subscription.payerEmail,
+        );
 
     if (!workspaceTarget?.workspaceId) {
       return {
@@ -364,16 +364,7 @@ export class BillingWebhookService {
       };
     }
 
-    const workspacePreferences = await this.dependencies.getWorkspacePreferences(
-      workspaceTarget.workspaceId,
-    );
-    const workspacePlanId = resolveWorkspacePlanIdForSubscription({
-      mercadoPagoSubscriptionId:
-        normalizedEvent.subscription.providerSubscriptionId,
-      savedMercadoPagoSubscriptionId:
-        workspacePreferences.subscription.mercadoPagoSubscriptionId,
-      savedWorkspacePlanId: workspacePreferences.subscription.planId,
-    });
+    const workspacePlanId = localSubscription?.planId ?? null;
 
     if (!workspacePlanId) {
       return {
@@ -457,6 +448,31 @@ export class BillingWebhookService {
         changed: syncResult.changed,
       },
     };
+  }
+
+  private async resolveLocalSubscriptionFromWebhook(
+    provider: BillingProviderName,
+    providerSubscriptionId: string,
+    externalReference: string | null,
+  ) {
+    const localByProviderSubscriptionId =
+      await this.dependencies.findSubscriptionByProviderSubscriptionId({
+        provider,
+        providerSubscriptionId,
+      });
+
+    if (localByProviderSubscriptionId) {
+      return localByProviderSubscriptionId;
+    }
+
+    const localSubscriptionId =
+      extractBillingSubscriptionIdFromExternalReference(externalReference);
+
+    if (!localSubscriptionId) {
+      return null;
+    }
+
+    return this.dependencies.getSubscriptionById(localSubscriptionId);
   }
 
   private async syncAuthorizedPaymentEvent(
@@ -1224,6 +1240,22 @@ function resolveWorkspaceSubscriptionStatus(input: {
   }
 
   return null;
+}
+
+function extractBillingSubscriptionIdFromExternalReference(
+  externalReference: string | null,
+) {
+  const normalized = externalReference?.trim() ?? "";
+
+  if (!normalized.startsWith("billing_subscription:")) {
+    return null;
+  }
+
+  const subscriptionId = normalized
+    .slice("billing_subscription:".length)
+    .trim();
+
+  return subscriptionId.length > 0 ? subscriptionId : null;
 }
 
 function resolveAuthorizedPaymentInvoiceType(

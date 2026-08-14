@@ -48,9 +48,7 @@ export default async function SubscriptionUpgradePage() {
           .catch(() => null)
       : null;
   const manualPaymentState = normalizeBillingManualPaymentState(manualPayment?.status);
-  const currentPlan = getWorkspacePlan(
-    billingSubscription?.planId ?? preferences.subscription.planId,
-  );
+  const currentPlan = getWorkspacePlan(preferences.subscription.planId);
   const targetPlan =
     pendingUpgrade?.toPlanId ? getWorkspacePlan(pendingUpgrade.toPlanId) : null;
 

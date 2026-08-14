@@ -4,6 +4,11 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { normalizeWorkspaceRole } from "@/lib/auth/access-control";
 import { listBillingBootstrapPrices } from "@/lib/billing/catalog";
 import {
+  didProjectedWorkspaceSubscriptionChange,
+  projectWorkspacePreferencesSubscription,
+  sanitizePersistedWorkspaceSubscription,
+} from "@/lib/billing/workspace-subscription-projection";
+import {
   defaultAppPreferences,
   normalizeAppPreferences,
   resolveCalculationHistoryLimit,
@@ -1266,28 +1271,19 @@ export async function getWorkspacePreferences(workspaceId: string) {
     workspaceId,
   );
 
-  if (!billingSubscription) {
-    return normalizeAppPreferences({
-      ...preferences,
-      subscription: {
-        ...defaultAppPreferences.subscription,
-        seatsUsed: preferences.subscription.seatsUsed,
-        checkoutStartedAt: preferences.subscription.checkoutStartedAt,
-      },
-    });
-  }
-
   return normalizeAppPreferences({
     ...preferences,
-    subscription: {
-      ...defaultAppPreferences.subscription,
-      seatsUsed: preferences.subscription.seatsUsed,
-      checkoutStartedAt: preferences.subscription.checkoutStartedAt,
-      planId: billingSubscription.plan_id,
-      billingCycle: billingSubscription.billing_cycle,
-      status: billingSubscription.status,
-      mercadoPagoSubscriptionId: billingSubscription.provider_subscription_id,
-    },
+    subscription: projectWorkspacePreferencesSubscription({
+      currentSubscription: preferences.subscription,
+      billingSubscription: billingSubscription
+        ? {
+            planId: billingSubscription.plan_id,
+            billingCycle: billingSubscription.billing_cycle,
+            status: billingSubscription.status,
+            providerSubscriptionId: billingSubscription.provider_subscription_id,
+          }
+        : null,
+    }),
   });
 }
 
@@ -1367,12 +1363,13 @@ export async function saveWorkspacePreferences(input: {
   await ensurePlatformReady();
 
   const sql = getSql();
+  const seatsUsed = await getWorkspaceSeatUsageCount(input.workspaceId);
   const normalizedPreferences = normalizeAppPreferences({
     ...input.preferences,
-    subscription: {
-      ...input.preferences.subscription,
-      seatsUsed: await getWorkspaceSeatUsageCount(input.workspaceId),
-    },
+    subscription: sanitizePersistedWorkspaceSubscription({
+      currentSubscription: input.preferences.subscription,
+      seatsUsed,
+    }),
   });
   const nextSlug = await createUniqueWorkspaceSlug(
     normalizedPreferences.workspaceName,
@@ -1407,7 +1404,7 @@ export async function saveWorkspacePreferences(input: {
     WHERE id = ${input.workspaceId}
   `;
 
-  return normalizedPreferences;
+  return getWorkspacePreferences(input.workspaceId);
 }
 
 export async function applyWorkspaceSubscriptionUpdate(input: {
@@ -1422,39 +1419,27 @@ export async function applyWorkspaceSubscriptionUpdate(input: {
   await ensurePlatformReady();
 
   const sql = getSql();
-  const currentPreferences = await getWorkspacePreferences(input.workspaceId);
-  const hasMercadoPagoSubscriptionIdOverride = Object.prototype.hasOwnProperty.call(
-    input,
-    "mercadoPagoSubscriptionId",
-  );
+  const currentPreferences = await getStoredWorkspacePreferences(input.workspaceId);
+  const seatsUsed = await getWorkspaceSeatUsageCount(input.workspaceId);
   const nextPreferences = normalizeAppPreferences({
     ...currentPreferences,
-    subscription: {
-      ...currentPreferences.subscription,
-      planId: input.planId,
-      status: input.status,
-      billingCycle: input.billingCycle ?? currentPreferences.subscription.billingCycle,
-      seatsUsed: await getWorkspaceSeatUsageCount(input.workspaceId),
-      mercadoPagoSubscriptionId: hasMercadoPagoSubscriptionIdOverride
-        ? input.mercadoPagoSubscriptionId ?? null
-        : currentPreferences.subscription.mercadoPagoSubscriptionId,
+    subscription: sanitizePersistedWorkspaceSubscription({
+      currentSubscription: currentPreferences.subscription,
+      seatsUsed,
       checkoutStartedAt: null,
-    },
+    }),
   });
 
-  const changed =
-    currentPreferences.subscription.planId !== nextPreferences.subscription.planId ||
-    currentPreferences.subscription.status !== nextPreferences.subscription.status ||
-    currentPreferences.subscription.billingCycle !==
-      nextPreferences.subscription.billingCycle ||
-    currentPreferences.subscription.mercadoPagoSubscriptionId !==
-    nextPreferences.subscription.mercadoPagoSubscriptionId;
+  const changed = didProjectedWorkspaceSubscriptionChange(
+    currentPreferences.subscription,
+    nextPreferences.subscription,
+  );
 
   if (!changed) {
     return {
       changed: false,
       previousPreferences: currentPreferences,
-      nextPreferences,
+      nextPreferences: await getWorkspacePreferences(input.workspaceId),
     };
   }
 
@@ -1476,6 +1461,7 @@ export async function applyWorkspaceSubscriptionUpdate(input: {
       updated_by_user_id = EXCLUDED.updated_by_user_id,
       updated_at = NOW()
   `;
+  const projectedPreferences = await getWorkspacePreferences(input.workspaceId);
 
   await appendAuditEvent({
     workspaceId: input.workspaceId,
@@ -1484,7 +1470,7 @@ export async function applyWorkspaceSubscriptionUpdate(input: {
     title: "Assinatura sincronizada",
     description:
       input.description?.trim() ||
-      `Assinatura sincronizada via ${input.source} para ${nextPreferences.subscription.planId} (${nextPreferences.subscription.status}).` +
+      `Assinatura sincronizada via ${input.source} para ${input.planId} (${input.status}).` +
       (input.mercadoPagoSubscriptionId
         ? ` Assinatura Mercado Pago: ${input.mercadoPagoSubscriptionId}.`
         : ""),
@@ -1494,7 +1480,7 @@ export async function applyWorkspaceSubscriptionUpdate(input: {
   return {
     changed: true,
     previousPreferences: currentPreferences,
-    nextPreferences,
+    nextPreferences: projectedPreferences,
   };
 }
 

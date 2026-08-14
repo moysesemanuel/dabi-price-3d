@@ -24,7 +24,6 @@ import {
   applyWorkspaceSubscriptionUpdate,
   findPrimaryWorkspaceForUser,
   findUserByEmail,
-  getWorkspacePreferences,
 } from "../server/platform";
 import { getBillingProvider } from "./providers/index.ts";
 import {
@@ -60,7 +59,6 @@ export function createBillingWebhookService() {
       findBillingSubscriptionByProviderSubscriptionId,
     findUserByEmail,
     findPrimaryWorkspaceForUser,
-    getWorkspacePreferences,
     applyWorkspaceSubscriptionUpdate,
     getSubscriptionChangeByInvoiceId: getBillingSubscriptionChangeByInvoiceId,
     updateSubscriptionChange: updateBillingSubscriptionChange,

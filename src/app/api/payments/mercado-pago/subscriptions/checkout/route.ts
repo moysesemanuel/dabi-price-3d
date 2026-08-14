@@ -442,7 +442,7 @@ async function reconcilePendingCheckout(input: {
         session: input.session,
         currentBillingSubscription: input.currentBillingSubscription,
         billingService: input.billingService,
-        nextMirrorStatus: "unpaid",
+        nextWorkspaceStatus: "unpaid",
         providerSubscriptionId: null,
         sourceName: "mercado-pago-checkout-replacement",
         description:
@@ -577,7 +577,7 @@ async function reconcilePendingCheckout(input: {
         session: input.session,
         currentBillingSubscription: input.currentBillingSubscription,
         billingService: input.billingService,
-        nextMirrorStatus: recovery.nextStatus,
+        nextWorkspaceStatus: recovery.nextStatus,
         providerSubscriptionId: recovery.clearSubscriptionId
           ? null
           : providerSubscriptionId,
@@ -637,7 +637,7 @@ async function reconcilePendingCheckout(input: {
         session: input.session,
         currentBillingSubscription: input.currentBillingSubscription,
         billingService: input.billingService,
-        nextMirrorStatus: "unpaid",
+        nextWorkspaceStatus: "unpaid",
         providerSubscriptionId: null,
         sourceName: "mercado-pago-checkout-recovery",
         description:
@@ -709,7 +709,7 @@ async function cancelPendingCheckoutForReplacement(input: {
     session: input.session,
     currentBillingSubscription: input.currentBillingSubscription,
     billingService: input.billingService,
-    nextMirrorStatus: "unpaid",
+    nextWorkspaceStatus: "unpaid",
     providerSubscriptionId: null,
     sourceName: "mercado-pago-checkout-replacement",
     description: `A contratação pendente anterior foi encerrada para trocar o plano antes do primeiro pagamento e abrir o checkout de ${input.selectedPlanLabel}.`,
@@ -720,7 +720,7 @@ async function clearPendingCheckoutState(input: {
   session: AuthenticatedWorkspaceSession;
   currentBillingSubscription: BillingSubscription;
   billingService: ReturnType<typeof createBillingService>;
-  nextMirrorStatus: Awaited<ReturnType<typeof getWorkspacePreferences>>["subscription"]["status"];
+  nextWorkspaceStatus: Awaited<ReturnType<typeof getWorkspacePreferences>>["subscription"]["status"];
   providerSubscriptionId: string | null;
   sourceName: string;
   description: string;
@@ -736,7 +736,7 @@ async function clearPendingCheckoutState(input: {
   await applyWorkspaceSubscriptionUpdate({
     workspaceId: input.session.workspace.id,
     planId,
-    status: input.nextMirrorStatus,
+    status: input.nextWorkspaceStatus,
     source: input.sourceName,
     mercadoPagoSubscriptionId: input.providerSubscriptionId,
     description: input.description,

@@ -3,7 +3,6 @@ import "server-only";
 import { findCurrentBillingSubscriptionForWorkspace } from "./repository.ts";
 import {
   resolveWorkspaceEntitlements,
-  type WorkspaceEntitlementSubscription,
 } from "./entitlement-service.ts";
 import {
   getWorkspacePreferences,
@@ -12,12 +11,11 @@ import {
 
 export async function getWorkspaceEntitlements(input: {
   workspaceId: string;
-  fallbackSubscription?: WorkspaceEntitlementSubscription | null;
   now?: Date;
 }) {
   if (!isPlatformPersistenceAvailable()) {
     return resolveWorkspaceEntitlements({
-      subscription: input.fallbackSubscription ?? null,
+      subscription: null,
       now: input.now,
     });
   }
@@ -39,12 +37,11 @@ export async function getWorkspaceEntitlements(input: {
     });
   }
 
-  const fallbackSubscription =
-    input.fallbackSubscription ??
-    (await getWorkspacePreferences(input.workspaceId)).subscription;
+  const projectedSubscription = (await getWorkspacePreferences(input.workspaceId))
+    .subscription;
 
   return resolveWorkspaceEntitlements({
-    subscription: fallbackSubscription,
+    subscription: projectedSubscription,
     now: input.now,
   });
 }

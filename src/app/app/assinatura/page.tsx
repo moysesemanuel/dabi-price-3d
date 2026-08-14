@@ -278,11 +278,11 @@ export default async function SubscriptionPage() {
                   ? billingSubscription.autoRenew
                     ? "Ativa"
                     : "Desligada"
-                  : preferences.subscription.status === "pending"
+                  : subscription.status === "pending"
                     ? "Aguardando confirmação"
-                    : "Sem detalhe persistido"
+                    : "Sem assinatura corrente"
               }
-              note="A assinatura nova ainda está em transição do modelo legado."
+              note="O comportamento depende do estado atual da assinatura projetada pelo billing."
             />
             <SubscriptionDetail
               label="Próxima data relevante"
@@ -291,11 +291,11 @@ export default async function SubscriptionPage() {
             />
             <SubscriptionDetail
               label="Origem dos dados"
-              value={billingSubscription ? "Billing atual" : "Preferências legadas"}
+              value={billingSubscription ? "Billing atual" : "Resumo projetado"}
               note={
                 billingSubscription
                   ? "Lido da assinatura corrente do billing."
-                  : "Usando o estado legado até a migração completa."
+                  : "Sem assinatura corrente ativa; a tela usa o snapshot projetado mais recente."
               }
             />
           </div>
@@ -503,14 +503,14 @@ function getDateNote(accessReason: WorkspaceEntitlementAccessReason) {
     case "scheduled_cancel":
       return "Fim previsto do período já contratado.";
     case "pending":
-      return "No legado, pode refletir o início do checkout pendente.";
+      return "Marca o início do checkout pendente até a confirmação do pagamento.";
     case "active":
       return "Usada para acompanhar renovação ou encerramento do período atual.";
     case "paused":
     case "expired":
     case "canceled":
     case "no_subscription":
-      return "Pode ficar indisponível até a migração completa do billing.";
+      return "Fica indisponível quando não existe acesso comercial vigente.";
   }
 }
 

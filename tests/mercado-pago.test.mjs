@@ -8,40 +8,7 @@ import {
   resolveMercadoPagoCheckoutAction,
   resolvePendingSubscriptionRecovery,
 } from "../src/lib/payments/mercado-pago.ts";
-import {
-  resolveWorkspacePlanIdForSubscription,
-} from "../src/lib/payments/subscription-plan-resolution.ts";
 import { getWorkspacePlan } from "../src/lib/workspace/catalog.ts";
-
-test("webhook preserva o plano salvo quando o subscription id confere", () => {
-  const result = resolveWorkspacePlanIdForSubscription({
-    mercadoPagoSubscriptionId: "subscription-123",
-    savedMercadoPagoSubscriptionId: "subscription-123",
-    savedWorkspacePlanId: "growth",
-  });
-
-  assert.equal(result, "growth");
-});
-
-test("webhook não herda plano local quando o subscription id é diferente", () => {
-  const result = resolveWorkspacePlanIdForSubscription({
-    mercadoPagoSubscriptionId: "subscription-recebida",
-    savedMercadoPagoSubscriptionId: "subscription-salva",
-    savedWorkspacePlanId: "growth",
-  });
-
-  assert.equal(result, null);
-});
-
-test("não usa fallback quando não existe assinatura Mercado Pago salva", () => {
-  const result = resolveWorkspacePlanIdForSubscription({
-    mercadoPagoSubscriptionId: "subscription-123",
-    savedMercadoPagoSubscriptionId: null,
-    savedWorkspacePlanId: "growth",
-  });
-
-  assert.equal(result, null);
-});
 
 test("monta payload de checkout pendente sem plano associado", () => {
   const starterPlan = getWorkspacePlan("starter");

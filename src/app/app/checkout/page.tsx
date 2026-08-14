@@ -57,17 +57,8 @@ export default async function CheckoutPage({
           startedAt:
             billingSubscription.createdAt ??
             preferences.subscription.checkoutStartedAt,
-          source: "billing" as const,
         }
-      : preferences.subscription.status === "pending"
-        ? {
-            planId: preferences.subscription.planId,
-            billingCycle: preferences.subscription.billingCycle,
-            provider: "mercado_pago" as const,
-            startedAt: preferences.subscription.checkoutStartedAt,
-            source: "legacy" as const,
-          }
-        : null;
+      : null;
   const pendingInvoice =
     session &&
     billingSubscription?.status === "pending" &&
@@ -310,18 +301,12 @@ export default async function CheckoutPage({
             <CheckoutDetail
               label="Origem do estado"
               value={
-                pendingSubscription?.source === "billing"
-                  ? "Billing atual"
-                  : pendingSubscription?.source === "legacy"
-                    ? "Preferências legadas"
-                    : "Sem checkout atual"
+                pendingSubscription ? "Billing atual" : "Sem checkout atual"
               }
               note={
-                pendingSubscription?.source === "billing"
-                  ? "A pendência já está registrada como BillingSubscription current."
-                  : pendingSubscription?.source === "legacy"
-                    ? "O workspace ainda depende do espelho legado até o webhook migrar."
-                    : "Nenhuma contratação foi iniciada para este workspace."
+                pendingSubscription
+                  ? "A pendência já está registrada na assinatura corrente do billing."
+                  : "Nenhuma contratação foi iniciada para este workspace."
               }
             />
             <CheckoutDetail

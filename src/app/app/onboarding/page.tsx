@@ -28,7 +28,6 @@ export default async function OnboardingPage({
   const preferences = await getWorkspacePreferences(session.workspace.id);
   const entitlements = await getWorkspaceEntitlements({
     workspaceId: session.workspace.id,
-    fallbackSubscription: preferences.subscription,
   });
 
   if (preferences.onboardingCompleted) {

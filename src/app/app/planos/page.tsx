@@ -150,13 +150,12 @@ export default async function PlansPage({
         }).catch(() => null)
       : null;
   const currentPlan = getWorkspacePlan(
-    billingSubscription?.planId ?? preferences.subscription.planId,
+    preferences.subscription.planId,
   );
 
   const subscriptionStatus = preferences.subscription.status;
   const hasPaidAccess = canAccessPaidWorkspaceFeatures(preferences.subscription);
-  const currentBillingCycle =
-    billingSubscription?.billingCycle ?? preferences.subscription.billingCycle;
+  const currentBillingCycle = preferences.subscription.billingCycle;
   const selectedBillingCycle = hasPaidAccess
     ? currentBillingCycle
     : requestedBillingCycle;
@@ -325,8 +324,6 @@ export default async function PlansPage({
 
       <section className="grid gap-4 lg:grid-cols-3">
         {workspacePlans.map((plan) => {
-          const subscriptionStatus = preferences.subscription.status;
-
           const isSubscriptionPlan = plan.id === currentPlan.id;
           const isCurrent = isSubscriptionPlan && hasPaidAccess;
 

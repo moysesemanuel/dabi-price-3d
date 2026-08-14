@@ -44,7 +44,7 @@ type ReconciliationClock = {
   now(): Date;
 };
 
-type WorkspaceMirrorStatus = "unpaid" | "active" | "paused" | "canceled";
+type WorkspaceProjectionStatus = "unpaid" | "active" | "paused" | "canceled";
 
 export type BillingReconciliationServiceDependencies = {
   billingService: Pick<
@@ -118,7 +118,7 @@ export type BillingReconciliationServiceDependencies = {
     workspaceId: string;
     planId: BillingSubscription["planId"];
     billingCycle?: BillingSubscription["billingCycle"];
-    status: WorkspaceMirrorStatus;
+    status: WorkspaceProjectionStatus;
     source: string;
     mercadoPagoSubscriptionId?: string | null;
     description?: string | null;
@@ -694,7 +694,9 @@ export class BillingReconciliationService {
         workspaceId: subscription.workspaceId,
         planId: nextPlanId,
         billingCycle: nextBillingCycle,
-        status: mirrorStatusFromBillingStatus(subscription.status),
+        status: resolveWorkspaceProjectionStatusFromBillingStatus(
+          subscription.status,
+        ),
         mercadoPagoSubscriptionId: subscription.providerSubscriptionId,
         source: "billing-reconciliation-scheduled-change",
         description: `Mudança agendada ${change.type} aplicada pela reconciliação.`,
@@ -830,9 +832,9 @@ function addDays(date: Date, days: number) {
   return copy.toISOString();
 }
 
-function mirrorStatusFromBillingStatus(
+function resolveWorkspaceProjectionStatusFromBillingStatus(
   status: BillingSubscription["status"],
-): WorkspaceMirrorStatus {
+): WorkspaceProjectionStatus {
   switch (status) {
     case "active":
     case "past_due":
