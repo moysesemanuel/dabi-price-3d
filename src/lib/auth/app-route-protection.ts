@@ -23,6 +23,13 @@ export function resolveAppRouteProtection(input: {
     input.entitlements?.canUseApp ?? input.hasPaidWorkspaceAccess !== false;
 
   if (input.isApiRequest) {
+    if (canAccessAdministrativeApiPath(input.pathname)) {
+      return {
+        type: "allow" as const,
+        redirectUrl: null,
+      };
+    }
+
     if (!input.hasSession || canUseApp) {
       return {
         type: "allow" as const,
@@ -85,4 +92,8 @@ export function resolveAppRouteProtection(input: {
     type: "redirect" as const,
     redirectUrl: loginUrl.toString(),
   };
+}
+
+function canAccessAdministrativeApiPath(pathname: string) {
+  return pathname === "/api/admin" || pathname.startsWith("/api/admin/");
 }

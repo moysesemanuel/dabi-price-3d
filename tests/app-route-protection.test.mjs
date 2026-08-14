@@ -104,6 +104,21 @@ test("permite checkout Pix manual para workspace sem acesso pago", () => {
   assert.equal(result.type, "allow");
 });
 
+test("permite APIs administrativas mesmo sem acesso pago ao workspace", () => {
+  const result = resolveAppRouteProtection({
+    hasSession: true,
+    hasPaidWorkspaceAccess: false,
+    onboardingCompleted: true,
+    subscriptionStatus: "paused",
+    isApiRequest: true,
+    requestUrl: "http://127.0.0.1:3005/api/admin/users",
+    pathname: "/api/admin/users",
+    search: "",
+  });
+
+  assert.equal(result.type, "allow");
+});
+
 test("mantem acesso quando o entitlement está em scheduled_cancel", () => {
   const result = resolveAppRouteProtection({
     hasSession: true,

@@ -255,8 +255,8 @@ const navigationSections: NavigationSection[] = [
       { href: "/app/conta", label: "Conta", icon: PersonCircleIcon },
       { href: "/app/assinatura", label: "Assinatura", icon: WalletIcon },
       {
-        href: "/app/usuarios",
-        label: "Usuários",
+        href: "/admin/dashboard",
+        label: "Admin",
         icon: PeopleIcon,
         superAdminOnly: true,
       },
@@ -356,8 +356,8 @@ const confectioneryNavigationSections: NavigationSection[] = [
     id: "admin",
     items: [
       {
-        href: "/app/usuarios",
-        label: "Usuários",
+        href: "/admin/dashboard",
+        label: "Admin",
         icon: PeopleIcon,
         superAdminOnly: true,
       },
@@ -434,6 +434,7 @@ export function AppSidebar({
         if (!entry.superAdminOnly || platformRole === "super_admin") {
           if (
             !hasPaidWorkspaceAccess &&
+            !entry.href.startsWith("/admin/") &&
             !canAccessAppPathWithoutPaidWorkspace(entry.href)
           ) {
             return entries;
