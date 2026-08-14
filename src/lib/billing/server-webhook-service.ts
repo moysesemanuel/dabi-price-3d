@@ -2,10 +2,13 @@ import "server-only";
 
 import {
   appendBillingAuditEvent,
+  createBillingSubscriptionChange,
   createBillingWebhookEvent,
   findBillingInvoiceByProviderPaymentId,
+  findLatestOpenBillingSubscriptionChange,
   getBillingInvoiceById,
   getBillingSubscriptionById,
+  updateBillingSubscriptionChange,
   updateBillingInvoice,
   updateBillingWebhookEventStatus,
 } from "./repository.ts";
@@ -27,8 +30,11 @@ export function createBillingWebhookService() {
   const billingService = new BillingService(
     createBillingServiceRepository({
       createBillingSubscription,
+      createBillingSubscriptionChange,
+      findLatestOpenBillingSubscriptionChange,
       getBillingSubscriptionById,
       updateBillingSubscription,
+      updateBillingSubscriptionChange,
       appendBillingAuditEvent,
     }),
   );

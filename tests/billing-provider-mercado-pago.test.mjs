@@ -43,6 +43,9 @@ test("provider cria assinatura recorrente sem expor conceitos do Mercado Pago", 
     async updateSubscriptionStatus() {
       throw new Error("not used");
     },
+    async updateSubscriptionAmount() {
+      throw new Error("not used");
+    },
   });
 
   const subscription = await provider.createRecurringSubscription({
@@ -94,6 +97,9 @@ test("provider mapeia authorized payment para o formato de billing", async () =>
       };
     },
     async updateSubscriptionStatus() {
+      throw new Error("not used");
+    },
+    async updateSubscriptionAmount() {
       throw new Error("not used");
     },
   });
@@ -188,6 +194,9 @@ test("provider cria pagamento manual Pix sem expor o payload cru do provider", a
     async updateSubscriptionStatus() {
       throw new Error("not used");
     },
+    async updateSubscriptionAmount() {
+      throw new Error("not used");
+    },
   });
 
   const payment = await provider.createManualPayment({
@@ -214,7 +223,7 @@ test("provider cria pagamento manual Pix sem expor o payload cru do provider", a
   });
 });
 
-test("métodos ainda fora da fase falham explicitamente", async () => {
+test("provider atualiza valor da recorrência sem expor o payload cru do provider", async () => {
   const provider = new MercadoPagoProvider({
     async createRecurringSubscription() {
       throw new Error("not used");
@@ -234,16 +243,37 @@ test("métodos ainda fora da fase falham explicitamente", async () => {
     async updateSubscriptionStatus() {
       throw new Error("not used");
     },
-  });
-
-  await assert.rejects(
-    () =>
-      provider.updateSubscriptionAmount({
-        providerSubscriptionId: "mp-sub-1",
-        amountCents: 19900,
+    async updateSubscriptionAmount(input) {
+      assert.deepEqual(input, {
+        subscriptionId: "mp-sub-1",
+        amountCents: 9900,
         currency: "BRL",
         billingCycle: "monthly",
-      }),
-    /updateSubscriptionAmount is not implemented yet/,
-  );
+      });
+
+      return {
+        id: "mp-sub-1",
+        status: "authorized",
+        external_reference: "billing_subscription:sub-1",
+        payer_email: "owner@dabi.app",
+        init_point: null,
+      };
+    },
+  });
+
+  const subscription = await provider.updateSubscriptionAmount({
+    providerSubscriptionId: "mp-sub-1",
+    amountCents: 9900,
+    currency: "BRL",
+    billingCycle: "monthly",
+  });
+
+  assert.deepEqual(subscription, {
+    provider: "mercado_pago",
+    providerSubscriptionId: "mp-sub-1",
+    status: "active",
+    checkoutUrl: null,
+    externalReference: "billing_subscription:sub-1",
+    payerEmail: "owner@dabi.app",
+  });
 });

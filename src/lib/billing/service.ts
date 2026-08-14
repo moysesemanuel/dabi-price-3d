@@ -6,6 +6,9 @@ import {
 import type {
   BillingAuditActorType,
   BillingCycle,
+  BillingSubscriptionChange,
+  BillingSubscriptionChangeStatus,
+  BillingSubscriptionChangeType,
   BillingPlanId,
   BillingSubscription,
   BillingSubscriptionStatus,
@@ -63,6 +66,32 @@ export interface BillingServiceRepository {
     action: string;
     metadata?: Record<string, unknown> | null;
   }): Promise<void>;
+  createSubscriptionChange(input: {
+    subscriptionId: string;
+    workspaceId: string;
+    type: BillingSubscriptionChangeType;
+    status: BillingSubscriptionChangeStatus;
+    fromPlanId?: BillingPlanId | null;
+    toPlanId?: BillingPlanId | null;
+    fromBillingCycle?: BillingCycle | null;
+    toBillingCycle?: BillingCycle | null;
+    effectiveAt: string;
+    creditAmountCents?: number;
+    chargeAmountCents?: number;
+    invoiceId?: string | null;
+    requestedByType?: BillingAuditActorType | null;
+    requestedById?: string | null;
+  }): Promise<BillingSubscriptionChange | null>;
+  findLatestOpenSubscriptionChange(input: {
+    subscriptionId: string;
+    type?: BillingSubscriptionChangeType;
+  }): Promise<BillingSubscriptionChange | null>;
+  updateSubscriptionChange(
+    changeId: string,
+    mutation: Partial<
+      Pick<BillingSubscriptionChange, "status" | "appliedAt" | "canceledAt">
+    >,
+  ): Promise<BillingSubscriptionChange | null>;
 }
 
 type BillingServiceActor = {
@@ -216,6 +245,97 @@ export class BillingService {
     });
   }
 
+  async scheduleDowngrade(
+    subscriptionId: string,
+    input: BillingServiceActor & {
+      toPlanId: BillingPlanId;
+    },
+  ) {
+    const subscription = await this.requireSubscription(subscriptionId);
+
+    if (subscription.status !== "active") {
+      throw new Error(
+        `Cannot schedule downgrade for subscription ${subscriptionId} with status ${subscription.status}.`,
+      );
+    }
+
+    if (!subscription.autoRenew || subscription.cancelAtPeriodEnd) {
+      throw new Error(
+        `Cannot schedule downgrade for subscription ${subscriptionId} without automatic renewal.`,
+      );
+    }
+
+    if (!subscription.currentPeriodEnd) {
+      throw new Error(
+        `Cannot schedule downgrade for subscription ${subscriptionId} without currentPeriodEnd.`,
+      );
+    }
+
+    if (!isBillingPlanDowngrade(subscription.planId, input.toPlanId)) {
+      throw new Error(
+        `Target plan ${input.toPlanId} is not a downgrade from ${subscription.planId}.`,
+      );
+    }
+
+    const existingChange = await this.repository.findLatestOpenSubscriptionChange({
+      subscriptionId,
+      type: "downgrade",
+    });
+
+    if (
+      existingChange &&
+      existingChange.status === "scheduled" &&
+      existingChange.toPlanId === input.toPlanId &&
+      existingChange.effectiveAt === subscription.currentPeriodEnd
+    ) {
+      return existingChange;
+    }
+
+    if (existingChange && existingChange.status === "scheduled") {
+      await this.repository.updateSubscriptionChange(existingChange.id, {
+        status: "canceled",
+        canceledAt: this.clock.now().toISOString(),
+      });
+    }
+
+    const change = await this.repository.createSubscriptionChange({
+      subscriptionId: subscription.id,
+      workspaceId: subscription.workspaceId,
+      type: "downgrade",
+      status: "scheduled",
+      fromPlanId: subscription.planId,
+      toPlanId: input.toPlanId,
+      fromBillingCycle: subscription.billingCycle,
+      toBillingCycle: subscription.billingCycle,
+      effectiveAt: subscription.currentPeriodEnd,
+      creditAmountCents: 0,
+      chargeAmountCents: 0,
+      invoiceId: null,
+      requestedByType: input.actorType ?? "user",
+      requestedById: input.actorId ?? null,
+    });
+
+    if (!change) {
+      throw new Error(`Failed to schedule downgrade for ${subscriptionId}.`);
+    }
+
+    await this.repository.appendAuditEvent({
+      workspaceId: subscription.workspaceId,
+      subscriptionId: subscription.id,
+      actorType: input.actorType ?? "user",
+      actorId: input.actorId ?? null,
+      action: "subscription.downgrade_scheduled",
+      metadata: {
+        fromPlanId: subscription.planId,
+        toPlanId: input.toPlanId,
+        effectiveAt: subscription.currentPeriodEnd,
+        changeId: change.id,
+      },
+    });
+
+    return change;
+  }
+
   async finalizeCancellation(
     subscriptionId: string,
     input: BillingServiceActor & {
@@ -307,7 +427,7 @@ export class BillingService {
       subscriptionId: updatedSubscription.id,
       actorType: input.actorType ?? "system",
       actorId: input.actorId ?? null,
-      action: "subscription.change_applied",
+      action: resolveScheduledChangeAuditAction(input.metadata),
       metadata: {
         fromPlanId: subscription.planId,
         toPlanId: updatedSubscription.planId,
@@ -376,4 +496,34 @@ export class BillingService {
 
     return subscription;
   }
+}
+
+const billingPlanOrder: BillingPlanId[] = ["starter", "growth", "scale"];
+
+function isBillingPlanDowngrade(
+  fromPlanId: BillingPlanId,
+  toPlanId: BillingPlanId,
+) {
+  return (
+    billingPlanOrder.indexOf(toPlanId) >= 0 &&
+    billingPlanOrder.indexOf(fromPlanId) >= 0 &&
+    billingPlanOrder.indexOf(toPlanId) < billingPlanOrder.indexOf(fromPlanId)
+  );
+}
+
+function resolveScheduledChangeAuditAction(
+  metadata: Record<string, unknown> | null | undefined,
+) {
+  const changeType =
+    typeof metadata?.changeType === "string" ? metadata.changeType : null;
+
+  if (changeType === "downgrade") {
+    return "subscription.downgraded";
+  }
+
+  if (changeType === "upgrade") {
+    return "subscription.upgraded";
+  }
+
+  return "subscription.change_applied";
 }

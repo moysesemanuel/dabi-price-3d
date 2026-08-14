@@ -5,8 +5,10 @@ import { BillingService } from "../src/lib/billing/service.ts";
 
 function createInMemoryBillingRepository() {
   const subscriptions = new Map();
+  const changes = new Map();
   const auditEvents = [];
   let nextId = 1;
+  let nextChangeId = 1;
 
   return {
     auditEvents,
@@ -56,6 +58,66 @@ function createInMemoryBillingRepository() {
     },
     async appendAuditEvent(input) {
       auditEvents.push(input);
+    },
+    async createSubscriptionChange(input) {
+      const change = {
+        id: `chg-${nextChangeId++}`,
+        subscriptionId: input.subscriptionId,
+        workspaceId: input.workspaceId,
+        type: input.type,
+        status: input.status,
+        fromPlanId: input.fromPlanId ?? null,
+        toPlanId: input.toPlanId ?? null,
+        fromBillingCycle: input.fromBillingCycle ?? null,
+        toBillingCycle: input.toBillingCycle ?? null,
+        effectiveAt: input.effectiveAt,
+        creditAmountCents: input.creditAmountCents ?? 0,
+        chargeAmountCents: input.chargeAmountCents ?? 0,
+        invoiceId: input.invoiceId ?? null,
+        requestedByType: input.requestedByType ?? null,
+        requestedById: input.requestedById ?? null,
+        createdAt: "2026-08-14T10:00:00.000Z",
+        appliedAt: null,
+        canceledAt: null,
+      };
+
+      changes.set(change.id, change);
+      return change;
+    },
+    async findLatestOpenSubscriptionChange(input) {
+      return (
+        Array.from(changes.values())
+          .filter((change) => {
+            if (change.subscriptionId !== input.subscriptionId) {
+              return false;
+            }
+
+            if (
+              change.status !== "scheduled" &&
+              change.status !== "pending_payment"
+            ) {
+              return false;
+            }
+
+            return input.type ? change.type === input.type : true;
+          })
+          .sort((left, right) => right.id.localeCompare(left.id))[0] ?? null
+      );
+    },
+    async updateSubscriptionChange(changeId, mutation) {
+      const current = changes.get(changeId);
+
+      if (!current) {
+        return null;
+      }
+
+      const next = {
+        ...current,
+        ...mutation,
+      };
+
+      changes.set(changeId, next);
+      return next;
     },
   };
 }
@@ -216,4 +278,38 @@ test("applyScheduledChange atualiza termos sem escrever direto no repositório",
   assert.equal(changed.priceId, "price-annual-starter");
   assert.equal(repository.auditEvents.at(-1)?.action, "subscription.change_applied");
   assert.equal(repository.auditEvents.at(-1)?.metadata?.changeId, "chg-1");
+});
+
+test("scheduleDowngrade cria mudança agendada para o fim do período", async () => {
+  const repository = createInMemoryBillingRepository();
+  const service = new BillingService(repository, {
+    now: () => new Date("2026-08-14T12:00:00.000Z"),
+  });
+  const subscription = await service.createSubscription({
+    workspaceId: "workspace-1",
+    planId: "growth",
+    billingCycle: "monthly",
+    autoRenew: true,
+  });
+
+  await service.activateSubscription(subscription.id, {
+    currentPeriodStart: "2026-08-14T00:00:00.000Z",
+    currentPeriodEnd: "2026-09-14T00:00:00.000Z",
+  });
+
+  const change = await service.scheduleDowngrade(subscription.id, {
+    actorType: "user",
+    actorId: "user-1",
+    toPlanId: "starter",
+  });
+
+  assert.equal(change.type, "downgrade");
+  assert.equal(change.status, "scheduled");
+  assert.equal(change.fromPlanId, "growth");
+  assert.equal(change.toPlanId, "starter");
+  assert.equal(change.effectiveAt, "2026-09-14T00:00:00.000Z");
+  assert.equal(
+    repository.auditEvents.at(-1)?.action,
+    "subscription.downgrade_scheduled",
+  );
 });

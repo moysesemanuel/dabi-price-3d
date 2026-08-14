@@ -409,6 +409,44 @@ export async function updateMercadoPagoSubscriptionStatus(input: {
   );
 }
 
+export async function updateMercadoPagoSubscriptionAmount(input: {
+  subscriptionId: string;
+  amountCents: number;
+  currency: string;
+  billingCycle: BillingCycle;
+  accessTokenOverride?: string;
+}) {
+  if (input.billingCycle !== "monthly") {
+    throw new Error(
+      `Mercado Pago recurring subscription amount updates currently support only monthly billing. Received ${input.billingCycle}.`,
+    );
+  }
+
+  if (input.currency !== "BRL") {
+    throw new Error(
+      `Mercado Pago recurring subscription amount updates currently support only BRL. Received ${input.currency}.`,
+    );
+  }
+
+  if (!Number.isFinite(input.amountCents) || input.amountCents <= 0) {
+    throw new Error(
+      `Mercado Pago recurring subscription amount updates require a positive amountCents value. Received ${input.amountCents}.`,
+    );
+  }
+
+  return mercadoPagoApiMutation<MercadoPagoSubscription>(
+    `/preapproval/${input.subscriptionId}`,
+    {
+      auto_recurring: {
+        transaction_amount: Number((input.amountCents / 100).toFixed(2)),
+        currency_id: "BRL",
+      },
+    },
+    input.accessTokenOverride,
+    "PUT",
+  );
+}
+
 export async function createMercadoPagoTestUser(input: { description: string }) {
   const accessToken = getMercadoPagoTestAccessToken();
 

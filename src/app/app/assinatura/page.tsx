@@ -5,7 +5,10 @@ import {
   resolveWorkspaceEntitlements,
   type WorkspaceEntitlementAccessReason,
 } from "@/lib/billing/entitlement-service";
-import { findCurrentBillingSubscriptionForWorkspace } from "@/lib/billing/repository";
+import {
+  findCurrentBillingSubscriptionForWorkspace,
+  findLatestOpenBillingSubscriptionChange,
+} from "@/lib/billing/repository";
 import type { BillingSubscription } from "@/lib/billing/types";
 import { getCurrentAuthSession } from "@/lib/auth/session";
 import {
@@ -31,6 +34,13 @@ export default async function SubscriptionPage() {
       ? await findCurrentBillingSubscriptionForWorkspace(session.workspace.id).catch(
           () => null,
         )
+      : null;
+  const scheduledDowngrade =
+    billingSubscription && isPlatformPersistenceAvailable()
+      ? await findLatestOpenBillingSubscriptionChange({
+          subscriptionId: billingSubscription.id,
+          type: "downgrade",
+        }).catch(() => null)
       : null;
 
   const subscription = billingSubscription
@@ -58,6 +68,10 @@ export default async function SubscriptionPage() {
   const subscriptionManagementAction = billingSubscription
     ? resolveSubscriptionManagementAction(billingSubscription)
     : null;
+  const scheduledDowngradePlan =
+    scheduledDowngrade?.status === "scheduled" && scheduledDowngrade.toPlanId
+      ? getWorkspacePlan(scheduledDowngrade.toPlanId)
+      : null;
 
   return (
     <div className="app-page space-y-6">
@@ -105,6 +119,22 @@ export default async function SubscriptionPage() {
               }`}
             />
           </div>
+
+          {scheduledDowngradePlan && scheduledDowngrade ? (
+            <div className="mt-6 rounded-[22px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.74)] px-4 py-4">
+              <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--accent)]">
+                Mudança agendada
+              </p>
+              <p className="mt-3 text-base font-semibold text-[var(--foreground)]">
+                O plano {scheduledDowngradePlan.label} entra no próximo ciclo.
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                O workspace permanece em {currentPlan.label} até{" "}
+                {formatDateOrFallback(scheduledDowngrade.effectiveAt)}. A próxima
+                cobrança já foi preparada com a faixa reduzida.
+              </p>
+            </div>
+          ) : null}
         </article>
 
         <aside className="app-card-soft p-6">

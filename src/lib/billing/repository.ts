@@ -1099,6 +1099,125 @@ export async function getBillingSubscriptionChangeById(changeId: string) {
   return rows[0] ? mapBillingSubscriptionChangeRow(rows[0]) : null;
 }
 
+export async function createBillingSubscriptionChange(input: {
+  subscriptionId: string;
+  workspaceId: string;
+  type: BillingSubscriptionChangeType;
+  status: BillingSubscriptionChangeStatus;
+  fromPlanId?: BillingPlanId | null;
+  toPlanId?: BillingPlanId | null;
+  fromBillingCycle?: BillingCycle | null;
+  toBillingCycle?: BillingCycle | null;
+  effectiveAt: string;
+  creditAmountCents?: number;
+  chargeAmountCents?: number;
+  invoiceId?: string | null;
+  requestedByType?: BillingAuditActorType | null;
+  requestedById?: string | null;
+}) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    INSERT INTO billing_subscription_changes (
+      id,
+      subscription_id,
+      workspace_id,
+      type,
+      status,
+      from_plan_id,
+      to_plan_id,
+      from_billing_cycle,
+      to_billing_cycle,
+      effective_at,
+      credit_amount_cents,
+      charge_amount_cents,
+      invoice_id,
+      requested_by_type,
+      requested_by_id
+    )
+    VALUES (
+      ${randomUUID()},
+      ${input.subscriptionId},
+      ${input.workspaceId},
+      ${input.type},
+      ${input.status},
+      ${input.fromPlanId ?? null},
+      ${input.toPlanId ?? null},
+      ${input.fromBillingCycle ?? null},
+      ${input.toBillingCycle ?? null},
+      ${input.effectiveAt},
+      ${input.creditAmountCents ?? 0},
+      ${input.chargeAmountCents ?? 0},
+      ${input.invoiceId ?? null},
+      ${input.requestedByType ?? null},
+      ${input.requestedById ?? null}
+    )
+    RETURNING
+      id,
+      subscription_id,
+      workspace_id,
+      type,
+      status,
+      from_plan_id,
+      to_plan_id,
+      from_billing_cycle,
+      to_billing_cycle,
+      effective_at,
+      credit_amount_cents,
+      charge_amount_cents,
+      invoice_id,
+      requested_by_type,
+      requested_by_id,
+      created_at,
+      applied_at,
+      canceled_at
+  `) as BillingSubscriptionChangeRow[];
+
+  return rows[0] ? mapBillingSubscriptionChangeRow(rows[0]) : null;
+}
+
+export async function findLatestOpenBillingSubscriptionChange(input: {
+  subscriptionId: string;
+  type?: BillingSubscriptionChangeType;
+}) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      id,
+      subscription_id,
+      workspace_id,
+      type,
+      status,
+      from_plan_id,
+      to_plan_id,
+      from_billing_cycle,
+      to_billing_cycle,
+      effective_at,
+      credit_amount_cents,
+      charge_amount_cents,
+      invoice_id,
+      requested_by_type,
+      requested_by_id,
+      created_at,
+      applied_at,
+      canceled_at
+    FROM billing_subscription_changes
+    WHERE subscription_id = ${input.subscriptionId}
+      AND status IN ('pending_payment', 'scheduled')
+      AND (
+        ${input.type ?? null}::TEXT IS NULL
+        OR type = ${input.type ?? null}
+      )
+    ORDER BY created_at DESC
+    LIMIT 1
+  `) as BillingSubscriptionChangeRow[];
+
+  return rows[0] ? mapBillingSubscriptionChangeRow(rows[0]) : null;
+}
+
 export async function updateBillingSubscriptionChange(
   changeId: string,
   mutation: BillingSubscriptionChangeMutation,

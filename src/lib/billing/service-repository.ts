@@ -1,7 +1,12 @@
 import type { BillingServiceRepository } from "./service.ts";
 import type {
   BillingAuditActorType,
+  BillingCycle,
+  BillingPlanId,
   BillingSubscription,
+  BillingSubscriptionChange,
+  BillingSubscriptionChangeStatus,
+  BillingSubscriptionChangeType,
   BillingSubscriptionStatus,
 } from "./types.ts";
 
@@ -57,6 +62,32 @@ type BillingServiceRepositoryDependencies = {
     action: string;
     metadata?: Record<string, unknown> | null;
   }): Promise<void>;
+  createBillingSubscriptionChange(input: {
+    subscriptionId: string;
+    workspaceId: string;
+    type: BillingSubscriptionChangeType;
+    status: BillingSubscriptionChangeStatus;
+    fromPlanId?: BillingPlanId | null;
+    toPlanId?: BillingPlanId | null;
+    fromBillingCycle?: BillingCycle | null;
+    toBillingCycle?: BillingCycle | null;
+    effectiveAt: string;
+    creditAmountCents?: number;
+    chargeAmountCents?: number;
+    invoiceId?: string | null;
+    requestedByType?: BillingAuditActorType | null;
+    requestedById?: string | null;
+  }): Promise<BillingSubscriptionChange | null>;
+  findLatestOpenBillingSubscriptionChange(input: {
+    subscriptionId: string;
+    type?: BillingSubscriptionChangeType;
+  }): Promise<BillingSubscriptionChange | null>;
+  updateBillingSubscriptionChange(
+    changeId: string,
+    mutation: Partial<
+      Pick<BillingSubscriptionChange, "status" | "appliedAt" | "canceledAt">
+    >,
+  ): Promise<BillingSubscriptionChange | null>;
 };
 
 export function createBillingServiceRepository(
@@ -74,6 +105,15 @@ export function createBillingServiceRepository(
     },
     appendAuditEvent(input) {
       return dependencies.appendBillingAuditEvent(input);
+    },
+    createSubscriptionChange(input) {
+      return dependencies.createBillingSubscriptionChange(input);
+    },
+    findLatestOpenSubscriptionChange(input) {
+      return dependencies.findLatestOpenBillingSubscriptionChange(input);
+    },
+    updateSubscriptionChange(changeId, mutation) {
+      return dependencies.updateBillingSubscriptionChange(changeId, mutation);
     },
   };
 }

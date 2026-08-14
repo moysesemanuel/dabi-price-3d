@@ -51,6 +51,18 @@ test("createBillingServiceRepository delega create/get/update/audit", async () =
     async appendBillingAuditEvent(input) {
       calls.push(["appendBillingAuditEvent", input]);
     },
+    async createBillingSubscriptionChange(input) {
+      calls.push(["createBillingSubscriptionChange", input]);
+      return { id: "chg-1", ...input };
+    },
+    async findLatestOpenBillingSubscriptionChange(input) {
+      calls.push(["findLatestOpenBillingSubscriptionChange", input]);
+      return null;
+    },
+    async updateBillingSubscriptionChange(changeId, mutation) {
+      calls.push(["updateBillingSubscriptionChange", changeId, mutation]);
+      return { id: changeId, ...mutation };
+    },
   });
 
   assert.deepEqual(
@@ -86,6 +98,30 @@ test("createBillingServiceRepository delega create/get/update/audit", async () =
     },
   });
 
+  await repository.createSubscriptionChange({
+    subscriptionId: "sub-1",
+    workspaceId: "workspace-1",
+    type: "downgrade",
+    status: "scheduled",
+    fromPlanId: "growth",
+    toPlanId: "starter",
+    fromBillingCycle: "monthly",
+    toBillingCycle: "monthly",
+    effectiveAt: "2026-09-14T00:00:00.000Z",
+    requestedByType: "user",
+    requestedById: "user-1",
+  });
+
+  await repository.findLatestOpenSubscriptionChange({
+    subscriptionId: "sub-1",
+    type: "downgrade",
+  });
+
+  await repository.updateSubscriptionChange("chg-1", {
+    status: "canceled",
+    canceledAt: "2026-08-14T12:00:00.000Z",
+  });
+
   assert.deepEqual(calls, [
     [
       "createBillingSubscription",
@@ -118,6 +154,37 @@ test("createBillingServiceRepository delega create/get/update/audit", async () =
         metadata: {
           toStatus: "active",
         },
+      },
+    ],
+    [
+      "createBillingSubscriptionChange",
+      {
+        subscriptionId: "sub-1",
+        workspaceId: "workspace-1",
+        type: "downgrade",
+        status: "scheduled",
+        fromPlanId: "growth",
+        toPlanId: "starter",
+        fromBillingCycle: "monthly",
+        toBillingCycle: "monthly",
+        effectiveAt: "2026-09-14T00:00:00.000Z",
+        requestedByType: "user",
+        requestedById: "user-1",
+      },
+    ],
+    [
+      "findLatestOpenBillingSubscriptionChange",
+      {
+        subscriptionId: "sub-1",
+        type: "downgrade",
+      },
+    ],
+    [
+      "updateBillingSubscriptionChange",
+      "chg-1",
+      {
+        status: "canceled",
+        canceledAt: "2026-08-14T12:00:00.000Z",
       },
     ],
   ]);

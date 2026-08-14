@@ -1,9 +1,15 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { BackLink } from "@/components/app/back-link";
+import { BillingDowngradeButton } from "@/components/payments/billing-downgrade-button";
 import { MercadoPagoCheckoutButton } from "@/components/payments/mercado-pago-checkout-button";
 import { ManualPixCheckoutButton } from "@/components/payments/manual-pix-checkout-button";
 import { getCurrentAuthSession } from "@/lib/auth/session";
+import {
+  findCurrentBillingSubscriptionForWorkspace,
+  findLatestOpenBillingSubscriptionChange,
+} from "@/lib/billing/repository";
+import type { BillingSubscription } from "@/lib/billing/types";
 import {
   getWorkspacePreferences,
   isPlatformPersistenceAvailable,
@@ -114,14 +120,33 @@ export default async function PlansPage({
   const preferences =
     session && isPlatformPersistenceAvailable()
       ? await getWorkspacePreferences(session.workspace.id).catch(
-        () => defaultAppPreferences,
-      )
+          () => defaultAppPreferences,
+        )
       : defaultAppPreferences;
-  const currentPlan = getWorkspacePlan(preferences.subscription.planId);
+  const billingSubscription =
+    session && isPlatformPersistenceAvailable()
+      ? await findCurrentBillingSubscriptionForWorkspace(session.workspace.id).catch(
+          () => null,
+        )
+      : null;
+  const scheduledDowngrade =
+    billingSubscription && isPlatformPersistenceAvailable()
+      ? await findLatestOpenBillingSubscriptionChange({
+          subscriptionId: billingSubscription.id,
+          type: "downgrade",
+        }).catch(() => null)
+      : null;
+  const currentPlan = getWorkspacePlan(
+    billingSubscription?.planId ?? preferences.subscription.planId,
+  );
 
   const subscriptionStatus = preferences.subscription.status;
   const hasPaidAccess = canAccessPaidWorkspaceFeatures(preferences.subscription);
   const subscriptionStatusLabel = getSubscriptionStatusLabel(subscriptionStatus);
+  const scheduledDowngradePlan =
+    scheduledDowngrade?.status === "scheduled" && scheduledDowngrade.toPlanId
+      ? getWorkspacePlan(scheduledDowngrade.toPlanId)
+      : null;
 
   return (
     <div className="app-page space-y-6">
@@ -142,11 +167,11 @@ export default async function PlansPage({
               ? "Plano de avaliação"
               : subscriptionStatus === "unpaid"
                 ? "Contratação pendente"
-              : subscriptionStatus === "pending"
-                ? "Pagamento pendente"
-                : hasPaidAccess
-                  ? "Plano em uso"
-                  : "Acesso bloqueado"}
+                : subscriptionStatus === "pending"
+                  ? "Pagamento pendente"
+                  : hasPaidAccess
+                    ? "Plano em uso"
+                    : "Acesso bloqueado"}
           </p>
           <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -173,8 +198,9 @@ export default async function PlansPage({
             />
             <PlanStat
               label="Equipe incluída"
-              value={`${currentPlan.seatsIncluded} ${currentPlan.seatsIncluded === 1 ? "usuário" : "usuários"
-                }`}
+              value={`${currentPlan.seatsIncluded} ${
+                currentPlan.seatsIncluded === 1 ? "usuário" : "usuários"
+              }`}
             />
           </div>
         </div>
@@ -187,11 +213,13 @@ export default async function PlansPage({
             Evolua quando fizer sentido
           </h2>
           <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
-            {subscriptionStatus === "unpaid"
-              ? "Conclua a contratação para liberar a precificadora e os demais módulos pagos do workspace."
-              : subscriptionStatus === "pending"
-                ? "Você iniciou a contratação deste plano, mas o pagamento ainda não foi concluído."
-              : "O upgrade pode seguir pelo fluxo público de assinatura com Mercado Pago ou, quando for um plano consultivo, pelo atendimento comercial."}
+            {scheduledDowngradePlan
+              ? `O downgrade para ${scheduledDowngradePlan.label} já está agendado para o fim do período atual. Até lá, o workspace continua usando ${currentPlan.label}.`
+              : subscriptionStatus === "unpaid"
+                ? "Conclua a contratação para liberar a precificadora e os demais módulos pagos do workspace."
+                : subscriptionStatus === "pending"
+                  ? "Você iniciou a contratação deste plano, mas o pagamento ainda não foi concluído."
+                  : "O upgrade pode seguir pelo fluxo público de assinatura com Mercado Pago ou, quando fizer mais sentido reduzir a faixa, o downgrade é agendado para o próximo ciclo."}
           </p>
           <div className="mt-5 grid gap-3">
             <Link
@@ -217,7 +245,6 @@ export default async function PlansPage({
           const subscriptionStatus = preferences.subscription.status;
 
           const isSubscriptionPlan = plan.id === currentPlan.id;
-
           const isCurrent =
             isSubscriptionPlan &&
             (subscriptionStatus === "internal" ||
@@ -237,6 +264,15 @@ export default async function PlansPage({
             plan.id === "starter" || plan.id === "growth" ? plan.id : null;
 
           const isSelected = selectedPlan === plan.id;
+          const canScheduleDowngrade = canSchedulePlanDowngrade({
+            planId: plan.id,
+            currentSubscription: billingSubscription,
+          });
+          const isScheduledDowngradeTarget =
+            scheduledDowngrade?.status === "scheduled" &&
+            scheduledDowngrade.toPlanId === plan.id;
+          const downgradePlanId =
+            plan.id === "starter" || plan.id === "growth" ? plan.id : null;
 
           return (
             <article
@@ -336,6 +372,21 @@ export default async function PlansPage({
                   >
                     Falar sobre o DaBi Equipe
                   </Link>
+                ) : canScheduleDowngrade && downgradePlanId ? (
+                  isScheduledDowngradeTarget ? (
+                    <div className="app-button app-button-secondary w-full justify-center text-center">
+                      Downgrade agendado
+                    </div>
+                  ) : (
+                    <BillingDowngradeButton
+                      targetPlanId={downgradePlanId}
+                      label={
+                        scheduledDowngrade?.status === "scheduled"
+                          ? `Trocar downgrade para ${plan.label}`
+                          : `Agendar ${plan.label} no próximo ciclo`
+                      }
+                    />
+                  )
                 ) : (
                   <div className="grid gap-3">
                     <MercadoPagoCheckoutButton
@@ -442,3 +493,22 @@ function PlanBullet({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+function canSchedulePlanDowngrade(input: {
+  planId: "starter" | "growth" | "scale";
+  currentSubscription: BillingSubscription | null;
+}) {
+  const subscription = input.currentSubscription;
+
+  if (!subscription || subscription.status !== "active") {
+    return false;
+  }
+
+  if (!subscription.autoRenew || subscription.cancelAtPeriodEnd) {
+    return false;
+  }
+
+  return planOrder.indexOf(input.planId) < planOrder.indexOf(subscription.planId);
+}
+
+const planOrder = ["starter", "growth", "scale"] as const;

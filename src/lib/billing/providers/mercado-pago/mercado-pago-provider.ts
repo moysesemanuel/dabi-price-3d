@@ -4,6 +4,7 @@ import {
   getMercadoPagoPayment,
   getMercadoPagoAuthorizedPayment,
   getMercadoPagoSubscription,
+  updateMercadoPagoSubscriptionAmount,
   updateMercadoPagoSubscriptionStatus,
   type MercadoPagoPayment,
   type MercadoPagoAuthorizedPayment,
@@ -18,6 +19,7 @@ import type {
   BillingProviderRecurringSubscriptionInput,
   BillingProviderSubscriptionAmountUpdateInput,
 } from "../billing-provider.ts";
+import type { BillingCycle } from "../../types.ts";
 import {
   mapMercadoPagoPaymentToBillingManualPayment,
   mapMercadoPagoAuthorizedPaymentToBillingPayment,
@@ -38,6 +40,12 @@ type MercadoPagoProviderDependencies = {
     subscriptionId: string;
     status: "authorized" | "paused" | "canceled";
   }): Promise<MercadoPagoSubscription>;
+  updateSubscriptionAmount(input: {
+    subscriptionId: string;
+    amountCents: number;
+    currency: string;
+    billingCycle: BillingCycle;
+  }): Promise<MercadoPagoSubscription>;
 };
 
 const defaultDependencies: MercadoPagoProviderDependencies = {
@@ -47,6 +55,7 @@ const defaultDependencies: MercadoPagoProviderDependencies = {
   getSubscription: getMercadoPagoSubscription,
   getPayment: getMercadoPagoAuthorizedPayment,
   updateSubscriptionStatus: updateMercadoPagoSubscriptionStatus,
+  updateSubscriptionAmount: updateMercadoPagoSubscriptionAmount,
 };
 
 export class MercadoPagoProvider implements BillingProvider {
@@ -128,9 +137,13 @@ export class MercadoPagoProvider implements BillingProvider {
   async updateSubscriptionAmount(
     input: BillingProviderSubscriptionAmountUpdateInput,
   ): Promise<BillingProviderRecurringSubscription> {
-    void input;
-    throw new Error(
-      "MercadoPagoProvider.updateSubscriptionAmount is not implemented yet.",
-    );
+    const subscription = await this.dependencies.updateSubscriptionAmount({
+      subscriptionId: input.providerSubscriptionId,
+      amountCents: input.amountCents,
+      currency: input.currency,
+      billingCycle: input.billingCycle,
+    });
+
+    return mapMercadoPagoSubscriptionToBillingSubscription(subscription);
   }
 }
