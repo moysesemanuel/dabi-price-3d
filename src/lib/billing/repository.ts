@@ -5,6 +5,7 @@ import { getSql } from "@/lib/server/neon";
 import { ensurePlatformReady } from "@/lib/server/platform";
 import {
   currentBillingSubscriptionStatuses,
+  type BillingPrice,
   type BillingAuditActorType,
   type BillingCycle,
   type BillingInvoiceStatus,
@@ -274,6 +275,71 @@ export async function createBillingPrice(input: {
   return rows[0] ?? null;
 }
 
+export async function findActiveBillingPrice(input: {
+  planId: BillingPlanId;
+  billingCycle: BillingCycle;
+  asOf?: string;
+}) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const asOf = input.asOf ?? new Date().toISOString();
+  const rows = (await sql`
+    SELECT
+      id,
+      plan_id,
+      billing_cycle,
+      amount_cents,
+      currency,
+      active_from,
+      active_until,
+      created_at,
+      updated_at
+    FROM billing_prices
+    WHERE plan_id = ${input.planId}
+      AND billing_cycle = ${input.billingCycle}
+      AND active_from <= ${asOf}
+      AND (
+        active_until IS NULL
+        OR active_until > ${asOf}
+      )
+    ORDER BY active_from DESC
+    LIMIT 1
+  `) as BillingPriceRow[];
+
+  return rows[0] ? mapBillingPriceRow(rows[0]) : null;
+}
+
+export async function listActiveBillingPrices(input?: {
+  asOf?: string;
+}) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const asOf = input?.asOf ?? new Date().toISOString();
+  const rows = (await sql`
+    SELECT
+      id,
+      plan_id,
+      billing_cycle,
+      amount_cents,
+      currency,
+      active_from,
+      active_until,
+      created_at,
+      updated_at
+    FROM billing_prices
+    WHERE active_from <= ${asOf}
+      AND (
+        active_until IS NULL
+        OR active_until > ${asOf}
+      )
+    ORDER BY plan_id ASC, billing_cycle ASC, active_from DESC
+  `) as BillingPriceRow[];
+
+  return rows.map(mapBillingPriceRow);
+}
+
 export async function appendBillingAuditEvent(input: {
   workspaceId?: string | null;
   subscriptionId?: string | null;
@@ -439,3 +505,17 @@ export type {
   BillingSubscriptionChangeType,
   BillingSubscriptionStatus,
 };
+
+function mapBillingPriceRow(row: BillingPriceRow): BillingPrice {
+  return {
+    id: row.id,
+    planId: row.plan_id,
+    billingCycle: row.billing_cycle,
+    amountCents: row.amount_cents,
+    currency: row.currency,
+    activeFrom: row.active_from,
+    activeUntil: row.active_until,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}

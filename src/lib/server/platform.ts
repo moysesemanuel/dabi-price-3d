@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { normalizeWorkspaceRole } from "@/lib/auth/access-control";
+import { listBillingBootstrapPrices } from "@/lib/billing/catalog";
 import {
   defaultAppPreferences,
   normalizeAppPreferences,
@@ -1782,6 +1783,7 @@ async function initializePlatform() {
   `;
 
   await initializeBillingPlatform(sql);
+  await ensureBillingBootstrapPrices(sql);
 
   await ensureBootstrapAdmin(sql);
 }
@@ -1989,6 +1991,54 @@ async function initializeBillingPlatform(sql: ReturnType<typeof getSql>) {
     CREATE INDEX IF NOT EXISTS billing_audit_events_subscription_created_at_idx
     ON billing_audit_events (subscription_id, created_at DESC)
   `;
+}
+
+async function ensureBillingBootstrapPrices(sql: ReturnType<typeof getSql>) {
+  const bootstrapPrices = listBillingBootstrapPrices({
+    activeFrom: new Date().toISOString(),
+  });
+
+  for (const price of bootstrapPrices) {
+    const existingRows = (await sql`
+      SELECT id
+      FROM billing_prices
+      WHERE plan_id = ${price.planId}
+        AND billing_cycle = ${price.billingCycle}
+        AND currency = ${price.currency}
+        AND active_until IS NULL
+      ORDER BY active_from DESC
+      LIMIT 1
+    `) as Array<{ id: string }>;
+
+    if (existingRows[0]) {
+      continue;
+    }
+
+    await sql`
+      INSERT INTO billing_prices (
+        id,
+        plan_id,
+        billing_cycle,
+        amount_cents,
+        currency,
+        active_from,
+        active_until,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        ${randomUUID()},
+        ${price.planId},
+        ${price.billingCycle},
+        ${price.amountCents},
+        ${price.currency},
+        ${price.activeFrom},
+        NULL,
+        NOW(),
+        NOW()
+      )
+    `;
+  }
 }
 
 async function ensureBootstrapAdmin(sql: ReturnType<typeof getSql>) {
