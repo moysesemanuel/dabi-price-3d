@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getCurrentAuthSession } from "@/lib/auth/session";
 import { AppSidebar } from "@/components/app/app-sidebar";
+import { BillingNotificationBanner } from "@/components/app/billing-notification-banner";
+import { getWorkspaceBillingNotification } from "@/lib/billing/server-notification-service";
 import { getPersistenceMode } from "@/lib/server/persistence-mode";
 import {
   getWorkspacePreferences,
@@ -41,6 +43,11 @@ export default async function ProductLayout({
     redirect("/login");
   }
 
+  const billingNotification = await getWorkspaceBillingNotification({
+    workspaceId: session.workspace.id,
+    fallbackSubscription: serverPreferences.subscription,
+  }).catch(() => null);
+
   return (
     <main
       className="app-shell min-h-screen text-[var(--foreground)]"
@@ -53,6 +60,7 @@ export default async function ProductLayout({
           initialBusinessType={serverBusinessType}
         />
         <div>
+          <BillingNotificationBanner notification={billingNotification} />
           <div>{children}</div>
         </div>
       </div>
