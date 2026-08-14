@@ -1,4 +1,15 @@
 import {
+  findBillingInvoiceByProviderPaymentId,
+  getBillingInvoiceById,
+  getBillingSubscriptionById,
+  updateBillingInvoice,
+} from "@/lib/billing/repository";
+import { createBillingService } from "@/lib/billing/server-service";
+import {
+  normalizeBillingManualPaymentState,
+  resolveInvoiceStatusFromManualPaymentState,
+} from "@/lib/billing/manual-payment-status";
+import {
   findPrimaryWorkspaceForUser,
   findUserByEmail,
   getWorkspacePreferences,
@@ -16,12 +27,14 @@ import {
   extractMercadoPagoWebhookTopic,
   getMercadoPagoAccessToken,
   getMercadoPagoAuthorizedPaymentWithToken,
+  getMercadoPagoPaymentWithToken,
   getMercadoPagoSubscriptionWithToken,
   getMercadoPagoTestAccessToken,
   getMercadoPagoWebhookSecret,
   normalizeMercadoPagoSubscriptionStatus,
   resolveMercadoPagoWorkspaceHint,
   verifyMercadoPagoWebhookSignature,
+  type MercadoPagoPayment,
   type MercadoPagoAuthorizedPayment,
   type MercadoPagoSubscription,
   type MercadoPagoWebhookPayload,
@@ -235,6 +248,19 @@ async function processMercadoPagoWebhookTopic(input: {
     }
 
     case "payment":
+    {
+      const payment = await getMercadoPagoPaymentWithToken(
+        input.dataId,
+        input.accessToken,
+      );
+
+      return syncInvoiceFromPayment({
+        sourceTopic: input.topic,
+        sourceDataId: input.dataId,
+        payment,
+      });
+    }
+
     default:
       return {
         status: 202,
@@ -432,4 +458,197 @@ async function resolveWorkspaceTarget(subscription: MercadoPagoSubscription) {
   return {
     workspaceId: primaryWorkspace.workspace_id,
   };
+}
+
+async function syncInvoiceFromPayment(input: {
+  sourceTopic: MercadoPagoWebhookTopic;
+  sourceDataId: string;
+  payment: MercadoPagoPayment;
+}) {
+  const invoice = await resolveInvoiceTarget(input.payment);
+
+  if (!invoice) {
+    return {
+      status: 202,
+      logLevel: "warn" as const,
+      event: "mercado_pago_webhook.invoice_not_resolved",
+      details: {
+        topic: input.sourceTopic,
+        sourceDataId: input.sourceDataId,
+        externalReference: input.payment.external_reference ?? null,
+        paymentId: String(input.payment.id),
+      },
+      body: {
+        handled: false,
+        reason: "invoice_not_resolved",
+      },
+    };
+  }
+
+  const subscription = await getBillingSubscriptionById(invoice.subscriptionId);
+
+  if (!subscription) {
+    return {
+      status: 202,
+      logLevel: "warn" as const,
+      event: "mercado_pago_webhook.invoice_subscription_missing",
+      details: {
+        topic: input.sourceTopic,
+        sourceDataId: input.sourceDataId,
+        invoiceId: invoice.id,
+        subscriptionId: invoice.subscriptionId,
+      },
+      body: {
+        handled: false,
+        reason: "invoice_subscription_missing",
+      },
+    };
+  }
+
+  const paymentState = normalizeBillingManualPaymentState(input.payment.status);
+  const nextInvoiceStatus = resolveInvoiceStatusFromManualPaymentState(paymentState);
+
+  if (!nextInvoiceStatus) {
+    return {
+      status: 202,
+      logLevel: "info" as const,
+      event: "mercado_pago_webhook.payment_status_ignored",
+      details: {
+        topic: input.sourceTopic,
+        sourceDataId: input.sourceDataId,
+        invoiceId: invoice.id,
+        paymentId: String(input.payment.id),
+        paymentStatus: input.payment.status ?? null,
+      },
+      body: {
+        handled: false,
+        reason: "payment_status_ignored",
+      },
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+  await updateBillingInvoice(invoice.id, {
+    status: nextInvoiceStatus,
+    provider: "mercado_pago",
+    providerPaymentId: String(input.payment.id),
+    paymentMethod:
+      input.payment.payment_method_id?.trim().toLowerCase() === "pix"
+        ? "pix_manual"
+        : invoice.paymentMethod,
+    paymentExpiresAt: input.payment.date_of_expiration ?? invoice.paymentExpiresAt,
+    paidAt:
+      nextInvoiceStatus === "paid"
+        ? input.payment.date_approved ?? invoice.paidAt ?? nowIso
+        : invoice.paidAt,
+    failedAt:
+      nextInvoiceStatus === "failed" || nextInvoiceStatus === "expired"
+        ? invoice.failedAt ?? nowIso
+        : invoice.failedAt,
+  });
+
+  if (nextInvoiceStatus !== "paid") {
+    return {
+      status: 200,
+      logLevel: "info" as const,
+      event: "mercado_pago_webhook.invoice_synced",
+      details: {
+        topic: input.sourceTopic,
+        sourceDataId: input.sourceDataId,
+        invoiceId: invoice.id,
+        subscriptionId: subscription.id,
+        paymentStatus: input.payment.status ?? null,
+        invoiceStatus: nextInvoiceStatus,
+      },
+      body: {
+        handled: true,
+        invoiceId: invoice.id,
+        invoiceStatus: nextInvoiceStatus,
+      },
+    };
+  }
+
+  const billingService = createBillingService();
+  const currentPeriodStart = input.payment.date_approved ?? nowIso;
+  const currentPeriodEnd = addBillingCycle(currentPeriodStart, subscription.billingCycle);
+
+  if (subscription.status === "pending") {
+    await billingService.activateSubscription(subscription.id, {
+      actorType: "webhook",
+      currentPeriodStart,
+      currentPeriodEnd,
+      accessUntil: currentPeriodEnd,
+    });
+  }
+
+  const syncResult = await applyWorkspaceSubscriptionUpdate({
+    workspaceId: subscription.workspaceId,
+    planId: subscription.planId,
+    status: "active",
+    source: "mercado-pago-webhook-payment",
+    mercadoPagoSubscriptionId: null,
+    description: `Pagamento manual Mercado Pago aprovado via ${input.sourceTopic}. Invoice ${invoice.id} paga e assinatura ativada.`,
+  });
+
+  return {
+    status: 200,
+    logLevel: "info" as const,
+    event: "mercado_pago_webhook.manual_payment_activated",
+    details: {
+      topic: input.sourceTopic,
+      sourceDataId: input.sourceDataId,
+      workspaceId: subscription.workspaceId,
+      subscriptionId: subscription.id,
+      invoiceId: invoice.id,
+      changed: syncResult.changed,
+    },
+    body: {
+      handled: true,
+      workspaceId: subscription.workspaceId,
+      subscriptionId: subscription.id,
+      invoiceId: invoice.id,
+      activated: true,
+    },
+  };
+}
+
+async function resolveInvoiceTarget(payment: MercadoPagoPayment) {
+  const externalReference =
+    typeof payment.external_reference === "string" ||
+      typeof payment.external_reference === "number"
+      ? String(payment.external_reference).trim()
+      : "";
+
+  if (externalReference.startsWith("billing_invoice:")) {
+    const invoiceId = externalReference.slice("billing_invoice:".length).trim();
+
+    if (invoiceId) {
+      const invoice = await getBillingInvoiceById(invoiceId);
+
+      if (invoice) {
+        return invoice;
+      }
+    }
+  }
+
+  return findBillingInvoiceByProviderPaymentId({
+    provider: "mercado_pago",
+    providerPaymentId: String(payment.id),
+  });
+}
+
+function addBillingCycle(startAt: string, billingCycle: "monthly" | "annual") {
+  const startDate = new Date(startAt);
+
+  if (Number.isNaN(startDate.getTime())) {
+    throw new Error(`Invalid start date for billing cycle: ${startAt}`);
+  }
+
+  if (billingCycle === "annual") {
+    startDate.setFullYear(startDate.getFullYear() + 1);
+  } else {
+    startDate.setMonth(startDate.getMonth() + 1);
+  }
+
+  return startDate.toISOString();
 }
