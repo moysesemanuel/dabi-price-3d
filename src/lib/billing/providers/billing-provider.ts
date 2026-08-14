@@ -67,6 +67,10 @@ export interface BillingProvider {
     input: BillingProviderManualPaymentInput,
   ): Promise<BillingProviderManualPayment>;
 
+  getManualPayment(
+    providerPaymentId: string,
+  ): Promise<BillingProviderManualPayment>;
+
   getSubscription(
     providerSubscriptionId: string,
   ): Promise<BillingProviderRecurringSubscription>;

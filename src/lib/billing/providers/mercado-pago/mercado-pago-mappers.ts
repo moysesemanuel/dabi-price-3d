@@ -1,9 +1,11 @@
 import {
+  type MercadoPagoPayment,
   normalizeMercadoPagoSubscriptionStatus,
   type MercadoPagoAuthorizedPayment,
   type MercadoPagoSubscription,
 } from "../../../payments/mercado-pago.ts";
 import type {
+  BillingProviderManualPayment,
   BillingProviderPayment,
   BillingProviderRecurringSubscription,
 } from "../billing-provider.ts";
@@ -37,6 +39,35 @@ export function mapMercadoPagoAuthorizedPaymentToBillingPayment(
       normalizeOptionalString(authorizedPayment.preapproval_id) ?? null,
     externalReference: normalizeOptionalString(authorizedPayment.external_reference),
     paymentMethod: null,
+  };
+}
+
+export function mapMercadoPagoPaymentToBillingManualPayment(
+  payment: MercadoPagoPayment,
+): BillingProviderManualPayment {
+  return {
+    provider: "mercado_pago",
+    providerPaymentId: normalizeOptionalString(payment.id) ?? "",
+    providerAuthorizedPaymentId: null,
+    status:
+      normalizeOptionalString(payment.status) ??
+      normalizeOptionalString(payment.status_detail),
+    providerSubscriptionId: null,
+    externalReference: normalizeOptionalString(payment.external_reference),
+    paymentMethod:
+      normalizeOptionalString(payment.payment_method_id) === "pix"
+        ? "pix_manual"
+        : "unknown",
+    checkoutUrl: normalizeOptionalString(
+      payment.point_of_interaction?.transaction_data?.ticket_url,
+    ),
+    qrCode: normalizeOptionalString(
+      payment.point_of_interaction?.transaction_data?.qr_code,
+    ),
+    qrCodeBase64: normalizeOptionalString(
+      payment.point_of_interaction?.transaction_data?.qr_code_base64,
+    ),
+    expiresAt: normalizeOptionalString(payment.date_of_expiration),
   };
 }
 

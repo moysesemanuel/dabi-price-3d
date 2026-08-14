@@ -47,6 +47,23 @@ export type MercadoPagoAuthorizedPayment = {
   } | null;
 };
 
+export type MercadoPagoPayment = {
+  id: number | string;
+  status?: string | null;
+  status_detail?: string | null;
+  external_reference?: string | number | null;
+  date_of_expiration?: string | null;
+  date_approved?: string | null;
+  payment_method_id?: string | null;
+  point_of_interaction?: {
+    transaction_data?: {
+      qr_code?: string | null;
+      qr_code_base64?: string | null;
+      ticket_url?: string | null;
+    } | null;
+  } | null;
+};
+
 export type MercadoPagoTestUser = {
   id: number;
   nickname: string;
@@ -70,6 +87,17 @@ export type MercadoPagoSubscriptionCheckoutPayload = {
     currency_id: "BRL";
   };
   status: "pending";
+};
+
+export type MercadoPagoPixPaymentPayload = {
+  transaction_amount: number;
+  description: string;
+  payment_method_id: "pix";
+  external_reference: string;
+  payer: {
+    email: string;
+  };
+  date_of_expiration: string;
 };
 
 export type NormalizedMercadoPagoSubscriptionStatus =
@@ -183,6 +211,20 @@ export async function getMercadoPagoAuthorizedPaymentWithToken(
   );
 }
 
+export async function getMercadoPagoPayment(paymentId: string) {
+  return mercadoPagoApiRequest<MercadoPagoPayment>(`/v1/payments/${paymentId}`);
+}
+
+export async function getMercadoPagoPaymentWithToken(
+  paymentId: string,
+  accessTokenOverride: string,
+) {
+  return mercadoPagoApiRequest<MercadoPagoPayment>(
+    `/v1/payments/${paymentId}`,
+    accessTokenOverride,
+  );
+}
+
 export async function createMercadoPagoSubscriptionCheckout(input: {
   planId: WorkspacePlanId;
   payerEmail: string;
@@ -211,6 +253,22 @@ export async function createMercadoPagoRecurringSubscription(input: {
   return mercadoPagoApiMutation<MercadoPagoSubscription>(
     "/preapproval",
     buildMercadoPagoRecurringSubscriptionPayload(input),
+    input.accessTokenOverride,
+  );
+}
+
+export async function createMercadoPagoPixPayment(input: {
+  externalReference: string;
+  payerEmail: string | null;
+  reason: string;
+  amountCents: number;
+  currency: string;
+  expiresInMinutes?: number;
+  accessTokenOverride?: string;
+}) {
+  return mercadoPagoApiMutation<MercadoPagoPayment>(
+    "/v1/payments",
+    buildMercadoPagoPixPaymentPayload(input),
     input.accessTokenOverride,
   );
 }
@@ -287,6 +345,52 @@ export function buildMercadoPagoRecurringSubscriptionPayload(input: {
       currency_id: "BRL",
     },
     status: "pending",
+  };
+}
+
+export function buildMercadoPagoPixPaymentPayload(input: {
+  externalReference: string;
+  payerEmail: string | null;
+  reason: string;
+  amountCents: number;
+  currency: string;
+  expiresInMinutes?: number;
+  now?: Date;
+}): MercadoPagoPixPaymentPayload {
+  const payerEmail = normalizeOptionalString(input.payerEmail);
+
+  if (!payerEmail) {
+    throw new Error(
+      "Mercado Pago manual Pix payments require a payer email.",
+    );
+  }
+
+  if (input.currency !== "BRL") {
+    throw new Error(
+      `Mercado Pago Pix payments currently support only BRL. Received ${input.currency}.`,
+    );
+  }
+
+  if (!Number.isFinite(input.amountCents) || input.amountCents <= 0) {
+    throw new Error(
+      `Mercado Pago Pix payments require a positive amountCents value. Received ${input.amountCents}.`,
+    );
+  }
+
+  const expirationDate = new Date(input.now ?? new Date());
+  expirationDate.setMinutes(
+    expirationDate.getMinutes() + Math.max(15, input.expiresInMinutes ?? 60),
+  );
+
+  return {
+    transaction_amount: Number((input.amountCents / 100).toFixed(2)),
+    description: input.reason,
+    payment_method_id: "pix",
+    external_reference: input.externalReference,
+    payer: {
+      email: payerEmail,
+    },
+    date_of_expiration: expirationDate.toISOString(),
   };
 }
 

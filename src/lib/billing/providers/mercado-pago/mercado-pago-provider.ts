@@ -1,8 +1,11 @@
 import {
+  createMercadoPagoPixPayment,
   createMercadoPagoRecurringSubscription,
+  getMercadoPagoPayment,
   getMercadoPagoAuthorizedPayment,
   getMercadoPagoSubscription,
   updateMercadoPagoSubscriptionStatus,
+  type MercadoPagoPayment,
   type MercadoPagoAuthorizedPayment,
   type MercadoPagoSubscription,
 } from "../../../payments/mercado-pago.ts";
@@ -16,6 +19,7 @@ import type {
   BillingProviderSubscriptionAmountUpdateInput,
 } from "../billing-provider.ts";
 import {
+  mapMercadoPagoPaymentToBillingManualPayment,
   mapMercadoPagoAuthorizedPaymentToBillingPayment,
   mapMercadoPagoSubscriptionToBillingSubscription,
 } from "./mercado-pago-mappers.ts";
@@ -24,6 +28,10 @@ type MercadoPagoProviderDependencies = {
   createRecurringSubscription(
     input: BillingProviderRecurringSubscriptionInput,
   ): Promise<MercadoPagoSubscription>;
+  createManualPayment(
+    input: BillingProviderManualPaymentInput,
+  ): Promise<MercadoPagoPayment>;
+  getManualPayment(providerPaymentId: string): Promise<MercadoPagoPayment>;
   getSubscription(providerSubscriptionId: string): Promise<MercadoPagoSubscription>;
   getPayment(providerPaymentId: string): Promise<MercadoPagoAuthorizedPayment>;
   updateSubscriptionStatus(input: {
@@ -34,6 +42,8 @@ type MercadoPagoProviderDependencies = {
 
 const defaultDependencies: MercadoPagoProviderDependencies = {
   createRecurringSubscription: createMercadoPagoRecurringSubscription,
+  createManualPayment: createMercadoPagoPixPayment,
+  getManualPayment: getMercadoPagoPayment,
   getSubscription: getMercadoPagoSubscription,
   getPayment: getMercadoPagoAuthorizedPayment,
   updateSubscriptionStatus: updateMercadoPagoSubscriptionStatus,
@@ -57,10 +67,15 @@ export class MercadoPagoProvider implements BillingProvider {
   async createManualPayment(
     input: BillingProviderManualPaymentInput,
   ): Promise<BillingProviderManualPayment> {
-    void input;
-    throw new Error(
-      "MercadoPagoProvider.createManualPayment is not implemented yet.",
-    );
+    const payment = await this.dependencies.createManualPayment(input);
+    return mapMercadoPagoPaymentToBillingManualPayment(payment);
+  }
+
+  async getManualPayment(
+    providerPaymentId: string,
+  ): Promise<BillingProviderManualPayment> {
+    const payment = await this.dependencies.getManualPayment(providerPaymentId);
+    return mapMercadoPagoPaymentToBillingManualPayment(payment);
   }
 
   async getSubscription(

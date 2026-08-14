@@ -86,6 +86,10 @@ test("mantem apenas as rotas liberadas sem pagamento", () => {
     true,
   );
   assert.equal(
+    canAccessApiPathWithoutPaidWorkspace("/api/billing/checkout/pix"),
+    true,
+  );
+  assert.equal(
     canAccessApiPathWithoutPaidWorkspace("/api/workspace/calculations"),
     false,
   );

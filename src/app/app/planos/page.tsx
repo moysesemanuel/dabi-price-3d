@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { BackLink } from "@/components/app/back-link";
 import { MercadoPagoCheckoutButton } from "@/components/payments/mercado-pago-checkout-button";
+import { ManualPixCheckoutButton } from "@/components/payments/manual-pix-checkout-button";
 import { MercadoPagoSubscriptionManageButton } from "@/components/payments/mercado-pago-subscription-manage-button";
 import { getCurrentAuthSession } from "@/lib/auth/session";
 import {
@@ -305,12 +306,18 @@ export default async function PlansPage({
                   </div>
                 ) : isPending ? (
                   checkoutPlanId ? (
-                    <MercadoPagoCheckoutButton
-                      planId={checkoutPlanId}
-                      label="Continuar pagamento"
-                      loadingLabel="Abrindo pagamento..."
-                      className="app-button app-button-secondary w-full"
-                    />
+                    <div className="grid gap-3">
+                      <MercadoPagoCheckoutButton
+                        planId={checkoutPlanId}
+                        label="Continuar pagamento"
+                        loadingLabel="Abrindo pagamento..."
+                        className="app-button app-button-secondary w-full"
+                      />
+                      <ManualPixCheckoutButton
+                        planId={checkoutPlanId}
+                        label="Trocar para Pix manual"
+                      />
+                    </div>
                   ) : (
                     <div className="app-button app-button-secondary w-full justify-center text-center">
                       Aguardando confirmação do pagamento
@@ -329,10 +336,16 @@ export default async function PlansPage({
                     Falar sobre o DaBi Equipe
                   </Link>
                 ) : (
-                  <MercadoPagoCheckoutButton
-                    planId={plan.id}
-                    label={isCanceled ? `Assinar ${plan.label} novamente` : `Assinar ${plan.label}`}
-                  />
+                  <div className="grid gap-3">
+                    <MercadoPagoCheckoutButton
+                      planId={plan.id}
+                      label={isCanceled ? `Assinar ${plan.label} novamente` : `Assinar ${plan.label}`}
+                    />
+                    <ManualPixCheckoutButton
+                      planId={plan.id}
+                      label={`Gerar Pix para ${plan.label}`}
+                    />
+                  </div>
                 )}
               </div>
             </article>

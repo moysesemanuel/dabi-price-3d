@@ -21,6 +21,7 @@ const ALLOWED_APP_PREFIXES_WITHOUT_PAID_ACCESS = ["/app/assinatura/"];
 const ALLOWED_API_PATHS_WITHOUT_PAID_ACCESS = new Set([
   "/api/auth/logout",
   "/api/auth/session",
+  "/api/billing/checkout/pix",
   "/api/workspace/preferences",
   "/api/workspace/logo/upload",
 ]);

@@ -1,8 +1,16 @@
+import Image from "next/image";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { BackLink } from "@/components/app/back-link";
 import { MercadoPagoCheckoutButton } from "@/components/payments/mercado-pago-checkout-button";
+import { ManualPixCheckoutButton } from "@/components/payments/manual-pix-checkout-button";
 import { getCurrentAuthSession } from "@/lib/auth/session";
-import { findCurrentBillingSubscriptionForWorkspace } from "@/lib/billing/repository";
+import { getBillingProvider } from "@/lib/billing/providers";
+import {
+  findCurrentBillingSubscriptionForWorkspace,
+  findLatestPendingBillingInvoiceForSubscription,
+} from "@/lib/billing/repository";
+import { normalizeBillingManualPaymentState } from "@/lib/billing/manual-payment-status";
 import {
   getWorkspacePreferences,
   isPlatformPersistenceAvailable,
@@ -55,6 +63,25 @@ export default async function CheckoutPage({
             source: "legacy" as const,
           }
         : null;
+  const pendingInvoice =
+    session &&
+    billingSubscription?.status === "pending" &&
+    isPlatformPersistenceAvailable()
+      ? await findLatestPendingBillingInvoiceForSubscription({
+        subscriptionId: billingSubscription.id,
+        paymentMethod: "pix_manual",
+      }).catch(() => null)
+      : null;
+  const pendingPixPayment =
+    pendingInvoice?.providerPaymentId &&
+      pendingInvoice.paymentMethod === "pix_manual"
+      ? await getBillingProvider("mercado_pago")
+        .getManualPayment(pendingInvoice.providerPaymentId)
+        .catch(() => null)
+      : null;
+  const pendingPixPaymentState = normalizeBillingManualPaymentState(
+    pendingPixPayment?.status,
+  );
   const currentPlan = getWorkspacePlan(pendingSubscription?.planId ?? "starter");
   const canResumeCheckout =
     pendingSubscription &&
@@ -142,17 +169,24 @@ export default async function CheckoutPage({
           </h2>
           <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
             {pendingSubscription
-              ? "Continuar pagamento reaproveita a contratação pendente do mesmo plano. Alterar plano encerra a pendência atual e abre um novo checkout já no plano escolhido."
+              ? "Continuar pagamento reaproveita a contratação pendente do mesmo plano. Você também pode trocar para Pix manual antes do primeiro pagamento, o que encerra a pendência atual e abre uma nova cobrança."
               : "Sem pendência aberta, o próximo passo é voltar para a comparação de planos e iniciar uma contratação nova."}
           </p>
 
           <div className="mt-5 grid gap-3">
             {pendingSubscription && canResumeCheckout && checkoutPlanId ? (
-              <MercadoPagoCheckoutButton
-                planId={checkoutPlanId}
-                label="Continuar pagamento"
-                className="app-button app-button-primary w-full"
-              />
+              <>
+                <MercadoPagoCheckoutButton
+                  planId={checkoutPlanId}
+                  label="Continuar pagamento"
+                  className="app-button app-button-primary w-full"
+                />
+                <ManualPixCheckoutButton
+                  planId={checkoutPlanId}
+                  label="Gerar Pix manual"
+                  className="app-button app-button-secondary w-full"
+                />
+              </>
             ) : (
               <Link href="/app/planos" className="app-button app-button-primary w-full">
                 Comparar planos
@@ -167,6 +201,69 @@ export default async function CheckoutPage({
           </div>
         </aside>
       </section>
+
+      {pendingInvoice && pendingPixPayment ? (
+        <section className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+          <article className="app-card p-6 sm:p-7">
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--accent)]">
+              Pix manual
+            </p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[var(--foreground)]">
+              {pendingPixPaymentState === "paid"
+                ? "Pagamento aprovado"
+                : "QR Code disponível para pagamento"}
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--muted)]">
+              {pendingPixPaymentState === "paid"
+                ? "O Pix já foi aprovado pelo provider. O webhook deve ativar a assinatura e liberar o acesso em seguida."
+                : "Use o QR Code abaixo ou copie o código Pix. Enquanto o pagamento estiver pendente, o workspace continua bloqueado para uso pago."}
+            </p>
+
+            {pendingPixPayment.qrCodeBase64 ? (
+              <div className="mt-6 flex justify-center rounded-[28px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.82)] p-6">
+                <Image
+                  src={`data:image/png;base64,${pendingPixPayment.qrCodeBase64}`}
+                  alt="QR Code Pix da assinatura"
+                  className="size-64 max-w-full rounded-[20px]"
+                  width={256}
+                  height={256}
+                />
+              </div>
+            ) : null}
+
+            {pendingPixPayment.qrCode ? (
+              <div className="mt-5 rounded-[24px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.78)] p-5">
+                <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--muted)]">
+                  Copia e cola Pix
+                </p>
+                <p className="mt-3 break-all text-sm leading-7 text-[var(--foreground)]">
+                  {pendingPixPayment.qrCode}
+                </p>
+              </div>
+            ) : null}
+          </article>
+
+          <article className="app-card p-6 sm:p-7">
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--accent)]">
+              Status operacional
+            </p>
+            <div className="mt-5 space-y-3">
+              <CheckoutBullet>
+                Status atual do pagamento: {getPixStatusLabel(pendingPixPaymentState)}
+              </CheckoutBullet>
+              <CheckoutBullet>
+                Expiração informada pelo provider: {formatDateOrFallback(
+                  pendingPixPayment.expiresAt ?? pendingInvoice.paymentExpiresAt,
+                )}
+              </CheckoutBullet>
+              <CheckoutBullet>
+                Se precisar trocar de plano antes do pagamento, volte para os planos e
+                gere um novo checkout manual.
+              </CheckoutBullet>
+            </div>
+          </article>
+        </section>
+      ) : null}
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
         <article className="app-card p-6 sm:p-7">
@@ -263,7 +360,7 @@ function CheckoutDetail({
   );
 }
 
-function CheckoutBullet({ children }: { children: string }) {
+function CheckoutBullet({ children }: { children: ReactNode }) {
   return (
     <div className="flex items-start gap-3 rounded-[20px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.78)] px-4 py-4">
       <span className="mt-1 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/14 text-[11px] font-semibold text-[var(--accent)]">
@@ -289,4 +386,24 @@ function formatDateOrFallback(value: string | null) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+function getPixStatusLabel(
+  status: ReturnType<typeof normalizeBillingManualPaymentState>,
+) {
+  switch (status) {
+    case "paid":
+      return "Pago";
+    case "pending":
+      return "Aguardando pagamento";
+    case "failed":
+      return "Falhou";
+    case "expired":
+      return "Expirado";
+    case "canceled":
+      return "Cancelado";
+    case "unknown":
+    default:
+      return "Indefinido";
+  }
 }

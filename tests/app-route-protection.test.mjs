@@ -89,6 +89,21 @@ test("permite rotas de billing para workspace sem acesso pago", () => {
   assert.equal(result.type, "allow");
 });
 
+test("permite checkout Pix manual para workspace sem acesso pago", () => {
+  const result = resolveAppRouteProtection({
+    hasSession: true,
+    hasPaidWorkspaceAccess: false,
+    onboardingCompleted: true,
+    subscriptionStatus: "pending",
+    isApiRequest: true,
+    requestUrl: "http://127.0.0.1:3005/api/billing/checkout/pix",
+    pathname: "/api/billing/checkout/pix",
+    search: "",
+  });
+
+  assert.equal(result.type, "allow");
+});
+
 test("mantem acesso quando o entitlement está em scheduled_cancel", () => {
   const result = resolveAppRouteProtection({
     hasSession: true,
