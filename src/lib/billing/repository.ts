@@ -8,6 +8,7 @@ import {
   type BillingInvoice,
   type BillingPrice,
   type BillingSubscription,
+  type BillingSubscriptionChange,
   type BillingWebhookEvent,
   type BillingAuditActorType,
   type BillingCycle,
@@ -136,6 +137,31 @@ type BillingInvoiceRow = {
   updated_at: string;
 };
 
+type BillingSubscriptionChangeMutation = Partial<
+  Pick<BillingSubscriptionChange, "status" | "appliedAt" | "canceledAt">
+>;
+
+type BillingSubscriptionChangeRow = {
+  id: string;
+  subscription_id: string;
+  workspace_id: string;
+  type: BillingSubscriptionChangeType;
+  status: BillingSubscriptionChangeStatus;
+  from_plan_id: BillingPlanId | null;
+  to_plan_id: BillingPlanId | null;
+  from_billing_cycle: BillingCycle | null;
+  to_billing_cycle: BillingCycle | null;
+  effective_at: string;
+  credit_amount_cents: number;
+  charge_amount_cents: number;
+  invoice_id: string | null;
+  requested_by_type: string | null;
+  requested_by_id: string | null;
+  created_at: string;
+  applied_at: string | null;
+  canceled_at: string | null;
+};
+
 export async function findCurrentBillingSubscriptionForWorkspace(
   workspaceId: string,
 ) {
@@ -170,6 +196,109 @@ export async function findCurrentBillingSubscriptionForWorkspace(
   `) as BillingSubscriptionRow[];
 
   return rows[0] ? mapBillingSubscriptionRow(rows[0]) : null;
+}
+
+export async function listBillingSubscriptionsForExpiration(asOf: string) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      id,
+      workspace_id,
+      plan_id,
+      billing_cycle,
+      price_id,
+      status,
+      auto_renew,
+      current_period_start,
+      current_period_end,
+      grace_period_ends_at,
+      cancel_at_period_end,
+      cancel_requested_at,
+      ended_at,
+      access_until,
+      provider,
+      provider_subscription_id,
+      created_at,
+      updated_at
+    FROM billing_subscriptions
+    WHERE status = 'active'
+      AND auto_renew = FALSE
+      AND current_period_end IS NOT NULL
+      AND current_period_end <= ${asOf}
+    ORDER BY current_period_end ASC
+  `) as BillingSubscriptionRow[];
+
+  return rows.map(mapBillingSubscriptionRow);
+}
+
+export async function listBillingSubscriptionsForGracePeriodEnd(asOf: string) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      id,
+      workspace_id,
+      plan_id,
+      billing_cycle,
+      price_id,
+      status,
+      auto_renew,
+      current_period_start,
+      current_period_end,
+      grace_period_ends_at,
+      cancel_at_period_end,
+      cancel_requested_at,
+      ended_at,
+      access_until,
+      provider,
+      provider_subscription_id,
+      created_at,
+      updated_at
+    FROM billing_subscriptions
+    WHERE status = 'past_due'
+      AND grace_period_ends_at IS NOT NULL
+      AND grace_period_ends_at <= ${asOf}
+    ORDER BY grace_period_ends_at ASC
+  `) as BillingSubscriptionRow[];
+
+  return rows.map(mapBillingSubscriptionRow);
+}
+
+export async function listBillingSubscriptionsForScheduledCancellation(asOf: string) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      id,
+      workspace_id,
+      plan_id,
+      billing_cycle,
+      price_id,
+      status,
+      auto_renew,
+      current_period_start,
+      current_period_end,
+      grace_period_ends_at,
+      cancel_at_period_end,
+      cancel_requested_at,
+      ended_at,
+      access_until,
+      provider,
+      provider_subscription_id,
+      created_at,
+      updated_at
+    FROM billing_subscriptions
+    WHERE status = 'scheduled_cancel'
+      AND current_period_end IS NOT NULL
+      AND current_period_end <= ${asOf}
+    ORDER BY current_period_end ASC
+  `) as BillingSubscriptionRow[];
+
+  return rows.map(mapBillingSubscriptionRow);
 }
 
 export async function findBillingSubscriptionByProviderSubscriptionId(input: {
@@ -413,6 +542,52 @@ export async function updateBillingSubscription(
   return rows[0] ? mapBillingSubscriptionRow(rows[0]) : null;
 }
 
+export async function listAbandonedPendingBillingSubscriptions(input: {
+  asOf: string;
+  startedBefore: string;
+}) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      s.id,
+      s.workspace_id,
+      s.plan_id,
+      s.billing_cycle,
+      s.price_id,
+      s.status,
+      s.auto_renew,
+      s.current_period_start,
+      s.current_period_end,
+      s.grace_period_ends_at,
+      s.cancel_at_period_end,
+      s.cancel_requested_at,
+      s.ended_at,
+      s.access_until,
+      s.provider,
+      s.provider_subscription_id,
+      s.created_at,
+      s.updated_at
+    FROM billing_subscriptions s
+    WHERE s.status = 'pending'
+      AND s.created_at <= ${input.startedBefore}
+      AND NOT EXISTS (
+        SELECT 1
+        FROM billing_invoices i
+        WHERE i.subscription_id = s.id
+          AND i.status = 'pending'
+          AND (
+            i.payment_expires_at IS NULL
+            OR i.payment_expires_at > ${input.asOf}
+          )
+      )
+    ORDER BY s.created_at ASC
+  `) as BillingSubscriptionRow[];
+
+  return rows.map(mapBillingSubscriptionRow);
+}
+
 export async function createBillingPrice(input: {
   planId: BillingPlanId;
   billingCycle: BillingCycle;
@@ -642,6 +817,43 @@ export async function findBillingInvoiceByProviderPaymentId(input: {
   return rows[0] ? mapBillingInvoiceRow(rows[0]) : null;
 }
 
+export async function listBillingInvoicesForExpiration(asOf: string) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      id,
+      subscription_id,
+      workspace_id,
+      price_id,
+      type,
+      status,
+      amount_cents,
+      currency,
+      period_start,
+      period_end,
+      payment_method,
+      provider,
+      provider_payment_id,
+      provider_authorized_payment_id,
+      payment_expires_at,
+      paid_at,
+      failed_at,
+      refunded_at,
+      created_at,
+      updated_at
+    FROM billing_invoices
+    WHERE status = 'pending'
+      AND payment_method = 'pix_manual'
+      AND payment_expires_at IS NOT NULL
+      AND payment_expires_at <= ${asOf}
+    ORDER BY payment_expires_at ASC
+  `) as BillingInvoiceRow[];
+
+  return rows.map(mapBillingInvoiceRow);
+}
+
 export async function createBillingInvoice(input: {
   subscriptionId: string;
   workspaceId: string;
@@ -822,6 +1034,119 @@ export async function updateBillingInvoice(
   return rows[0] ? mapBillingInvoiceRow(rows[0]) : null;
 }
 
+export async function getDueBillingSubscriptionChanges(asOf: string) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      id,
+      subscription_id,
+      workspace_id,
+      type,
+      status,
+      from_plan_id,
+      to_plan_id,
+      from_billing_cycle,
+      to_billing_cycle,
+      effective_at,
+      credit_amount_cents,
+      charge_amount_cents,
+      invoice_id,
+      requested_by_type,
+      requested_by_id,
+      created_at,
+      applied_at,
+      canceled_at
+    FROM billing_subscription_changes
+    WHERE status = 'scheduled'
+      AND effective_at <= ${asOf}
+    ORDER BY effective_at ASC
+  `) as BillingSubscriptionChangeRow[];
+
+  return rows.map(mapBillingSubscriptionChangeRow);
+}
+
+export async function getBillingSubscriptionChangeById(changeId: string) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      id,
+      subscription_id,
+      workspace_id,
+      type,
+      status,
+      from_plan_id,
+      to_plan_id,
+      from_billing_cycle,
+      to_billing_cycle,
+      effective_at,
+      credit_amount_cents,
+      charge_amount_cents,
+      invoice_id,
+      requested_by_type,
+      requested_by_id,
+      created_at,
+      applied_at,
+      canceled_at
+    FROM billing_subscription_changes
+    WHERE id = ${changeId}
+    LIMIT 1
+  `) as BillingSubscriptionChangeRow[];
+
+  return rows[0] ? mapBillingSubscriptionChangeRow(rows[0]) : null;
+}
+
+export async function updateBillingSubscriptionChange(
+  changeId: string,
+  mutation: BillingSubscriptionChangeMutation,
+) {
+  await ensurePlatformReady();
+
+  const currentChange = await getBillingSubscriptionChangeById(changeId);
+
+  if (!currentChange) {
+    return null;
+  }
+
+  const sql = getSql();
+  const rows = (await sql`
+    UPDATE billing_subscription_changes
+    SET
+      status = ${resolvePatchedValue(mutation, "status", currentChange.status)},
+      applied_at = ${resolvePatchedValue(mutation, "appliedAt", currentChange.appliedAt)},
+      canceled_at = ${resolvePatchedValue(
+        mutation,
+        "canceledAt",
+        currentChange.canceledAt,
+      )}
+    WHERE id = ${changeId}
+    RETURNING
+      id,
+      subscription_id,
+      workspace_id,
+      type,
+      status,
+      from_plan_id,
+      to_plan_id,
+      from_billing_cycle,
+      to_billing_cycle,
+      effective_at,
+      credit_amount_cents,
+      charge_amount_cents,
+      invoice_id,
+      requested_by_type,
+      requested_by_id,
+      created_at,
+      applied_at,
+      canceled_at
+  `) as BillingSubscriptionChangeRow[];
+
+  return rows[0] ? mapBillingSubscriptionChangeRow(rows[0]) : null;
+}
+
 export async function appendBillingAuditEvent(input: {
   workspaceId?: string | null;
   subscriptionId?: string | null;
@@ -974,12 +1299,43 @@ export async function updateBillingWebhookEventStatus(input: {
   return rows[0] ? mapBillingWebhookEventRow(rows[0]) : null;
 }
 
+export async function listFailedBillingWebhookEvents(limit = 50) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      id,
+      provider,
+      provider_event_id,
+      event_type,
+      resource_id,
+      payload_hash,
+      status,
+      attempts,
+      received_at,
+      processed_at,
+      error_code,
+      error_message,
+      created_at,
+      updated_at
+    FROM billing_webhook_events
+    WHERE status = 'failed'
+    ORDER BY updated_at DESC
+    LIMIT ${limit}
+  `) as BillingWebhookEventRow[];
+
+  return rows.map(mapBillingWebhookEventRow);
+}
+
 export type {
   BillingPriceRow,
   BillingInvoiceRow,
   BillingSubscriptionRow,
+  BillingSubscriptionChangeRow,
   BillingWebhookEventRow,
   BillingInvoiceMutation,
+  BillingSubscriptionChangeMutation,
   BillingSubscriptionMutation,
   BillingCycle,
   BillingInvoiceStatus,
@@ -1050,6 +1406,31 @@ function mapBillingInvoiceRow(row: BillingInvoiceRow): BillingInvoice {
     refundedAt: row.refunded_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function mapBillingSubscriptionChangeRow(
+  row: BillingSubscriptionChangeRow,
+): BillingSubscriptionChange {
+  return {
+    id: row.id,
+    subscriptionId: row.subscription_id,
+    workspaceId: row.workspace_id,
+    type: row.type,
+    status: row.status,
+    fromPlanId: row.from_plan_id,
+    toPlanId: row.to_plan_id,
+    fromBillingCycle: row.from_billing_cycle,
+    toBillingCycle: row.to_billing_cycle,
+    effectiveAt: row.effective_at,
+    creditAmountCents: row.credit_amount_cents,
+    chargeAmountCents: row.charge_amount_cents,
+    invoiceId: row.invoice_id,
+    requestedByType: row.requested_by_type,
+    requestedById: row.requested_by_id,
+    createdAt: row.created_at,
+    appliedAt: row.applied_at,
+    canceledAt: row.canceled_at,
   };
 }
 

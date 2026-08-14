@@ -1,6 +1,7 @@
 import {
   assertValidBillingSubscriptionTransition,
   canTransitionBillingSubscriptionStatus,
+  isTerminalBillingSubscriptionStatus,
 } from "./state-machine.ts";
 import type {
   BillingAuditActorType,
@@ -251,6 +252,72 @@ export class BillingService {
         accessUntil: endedAt,
       },
     });
+  }
+
+  async applyScheduledChange(
+    subscriptionId: string,
+    input: BillingServiceActor & {
+      planId?: BillingPlanId;
+      billingCycle?: BillingCycle;
+      priceId?: string | null;
+      currentPeriodStart?: string | null;
+      currentPeriodEnd?: string | null;
+      accessUntil?: string | null;
+      metadata?: Record<string, unknown> | null;
+    } = {},
+  ) {
+    const subscription = await this.requireSubscription(subscriptionId);
+
+    if (isTerminalBillingSubscriptionStatus(subscription.status)) {
+      throw new Error(
+        `Cannot apply scheduled change to terminal subscription ${subscriptionId}.`,
+      );
+    }
+
+    const updatedSubscription = await this.repository.updateSubscription(
+      subscriptionId,
+      {
+        planId: input.planId ?? subscription.planId,
+        billingCycle: input.billingCycle ?? subscription.billingCycle,
+        priceId:
+          Object.prototype.hasOwnProperty.call(input, "priceId")
+            ? input.priceId ?? null
+            : subscription.priceId,
+        currentPeriodStart:
+          Object.prototype.hasOwnProperty.call(input, "currentPeriodStart")
+            ? input.currentPeriodStart ?? null
+            : subscription.currentPeriodStart,
+        currentPeriodEnd:
+          Object.prototype.hasOwnProperty.call(input, "currentPeriodEnd")
+            ? input.currentPeriodEnd ?? null
+            : subscription.currentPeriodEnd,
+        accessUntil:
+          Object.prototype.hasOwnProperty.call(input, "accessUntil")
+            ? input.accessUntil ?? null
+            : subscription.accessUntil,
+      },
+    );
+
+    if (!updatedSubscription) {
+      throw new Error(`Failed to apply scheduled change to ${subscriptionId}.`);
+    }
+
+    await this.repository.appendAuditEvent({
+      workspaceId: updatedSubscription.workspaceId,
+      subscriptionId: updatedSubscription.id,
+      actorType: input.actorType ?? "system",
+      actorId: input.actorId ?? null,
+      action: "subscription.change_applied",
+      metadata: {
+        fromPlanId: subscription.planId,
+        toPlanId: updatedSubscription.planId,
+        fromBillingCycle: subscription.billingCycle,
+        toBillingCycle: updatedSubscription.billingCycle,
+        ...(input.metadata ?? {}),
+      },
+    });
+
+    return updatedSubscription;
   }
 
   private async transitionSubscription(

@@ -184,3 +184,36 @@ test("finalizeCancellation encerra assinatura agendada", async () => {
   assert.equal(canceled.accessUntil, "2026-09-14T00:00:00.000Z");
   assert.equal(repository.auditEvents.at(-1)?.action, "subscription.canceled");
 });
+
+test("applyScheduledChange atualiza termos sem escrever direto no repositório", async () => {
+  const repository = createInMemoryBillingRepository();
+  const service = new BillingService(repository);
+  const subscription = await service.createSubscription({
+    workspaceId: "workspace-1",
+    planId: "growth",
+    billingCycle: "monthly",
+    autoRenew: true,
+  });
+
+  await service.activateSubscription(subscription.id, {
+    currentPeriodStart: "2026-08-14T00:00:00.000Z",
+    currentPeriodEnd: "2026-09-14T00:00:00.000Z",
+  });
+
+  const changed = await service.applyScheduledChange(subscription.id, {
+    actorType: "system",
+    planId: "starter",
+    billingCycle: "annual",
+    priceId: "price-annual-starter",
+    metadata: {
+      changeId: "chg-1",
+      type: "cycle_change",
+    },
+  });
+
+  assert.equal(changed.planId, "starter");
+  assert.equal(changed.billingCycle, "annual");
+  assert.equal(changed.priceId, "price-annual-starter");
+  assert.equal(repository.auditEvents.at(-1)?.action, "subscription.change_applied");
+  assert.equal(repository.auditEvents.at(-1)?.metadata?.changeId, "chg-1");
+});
