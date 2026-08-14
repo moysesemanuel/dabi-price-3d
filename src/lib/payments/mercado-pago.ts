@@ -1,5 +1,6 @@
 import {
   getWorkspacePlan,
+  resolveWorkspacePlanPrice,
   type WorkspacePlanId,
 } from "../workspace/catalog.ts";
 import { createHmac, timingSafeEqual } from "node:crypto";
@@ -80,7 +81,7 @@ export type MercadoPagoSubscriptionCheckoutPayload = {
   reason: string;
   back_url: string;
   auto_recurring: {
-    frequency: 1;
+    frequency: number;
     frequency_type: "months";
     end_date: string;
     transaction_amount: number;
@@ -227,6 +228,7 @@ export async function getMercadoPagoPaymentWithToken(
 
 export async function createMercadoPagoSubscriptionCheckout(input: {
   planId: WorkspacePlanId;
+  billingCycle: BillingCycle;
   payerEmail: string;
   workspaceId: string;
   reason: string;
@@ -275,6 +277,7 @@ export async function createMercadoPagoPixPayment(input: {
 
 export function buildMercadoPagoSubscriptionCheckoutPayload(input: {
   planId: WorkspacePlanId;
+  billingCycle: BillingCycle;
   payerEmail: string;
   workspaceId: string;
   reason: string;
@@ -282,10 +285,11 @@ export function buildMercadoPagoSubscriptionCheckoutPayload(input: {
   now?: Date;
 }): MercadoPagoSubscriptionCheckoutPayload {
   const plan = getWorkspacePlan(input.planId);
+  const amount = resolveWorkspacePlanPrice(plan, input.billingCycle);
 
-  if (typeof plan.monthlyPrice !== "number" || !Number.isFinite(plan.monthlyPrice)) {
+  if (typeof amount !== "number" || !Number.isFinite(amount)) {
     throw new Error(
-      `Não foi possível resolver o valor mensal do plano ${input.planId} para criar a assinatura.`,
+      `Não foi possível resolver o valor ${input.billingCycle === "annual" ? "anual" : "mensal"} do plano ${input.planId} para criar a assinatura.`,
     );
   }
 
@@ -294,9 +298,9 @@ export function buildMercadoPagoSubscriptionCheckoutPayload(input: {
     payerEmail: input.payerEmail,
     reason: input.reason,
     returnUrl: input.backUrl,
-    amountCents: Math.round(plan.monthlyPrice * 100),
+    amountCents: Math.round(amount * 100),
     currency: "BRL",
-    billingCycle: "monthly",
+    billingCycle: input.billingCycle,
     now: input.now,
   });
 }
@@ -311,12 +315,6 @@ export function buildMercadoPagoRecurringSubscriptionPayload(input: {
   billingCycle: BillingCycle;
   now?: Date;
 }): MercadoPagoSubscriptionCheckoutPayload {
-  if (input.billingCycle !== "monthly") {
-    throw new Error(
-      `Mercado Pago recurring subscriptions currently support only monthly billing. Received ${input.billingCycle}.`,
-    );
-  }
-
   if (input.currency !== "BRL") {
     throw new Error(
       `Mercado Pago recurring subscriptions currently support only BRL. Received ${input.currency}.`,
@@ -338,7 +336,7 @@ export function buildMercadoPagoRecurringSubscriptionPayload(input: {
     reason: input.reason,
     back_url: input.returnUrl,
     auto_recurring: {
-      frequency: 1,
+      frequency: resolveMercadoPagoRecurringFrequency(input.billingCycle),
       frequency_type: "months",
       end_date: endDate.toISOString(),
       transaction_amount: Number((input.amountCents / 100).toFixed(2)),
@@ -416,12 +414,6 @@ export async function updateMercadoPagoSubscriptionAmount(input: {
   billingCycle: BillingCycle;
   accessTokenOverride?: string;
 }) {
-  if (input.billingCycle !== "monthly") {
-    throw new Error(
-      `Mercado Pago recurring subscription amount updates currently support only monthly billing. Received ${input.billingCycle}.`,
-    );
-  }
-
   if (input.currency !== "BRL") {
     throw new Error(
       `Mercado Pago recurring subscription amount updates currently support only BRL. Received ${input.currency}.`,
@@ -438,6 +430,8 @@ export async function updateMercadoPagoSubscriptionAmount(input: {
     `/preapproval/${input.subscriptionId}`,
     {
       auto_recurring: {
+        frequency: resolveMercadoPagoRecurringFrequency(input.billingCycle),
+        frequency_type: "months",
         transaction_amount: Number((input.amountCents / 100).toFixed(2)),
         currency_id: "BRL",
       },
@@ -445,6 +439,10 @@ export async function updateMercadoPagoSubscriptionAmount(input: {
     input.accessTokenOverride,
     "PUT",
   );
+}
+
+function resolveMercadoPagoRecurringFrequency(billingCycle: BillingCycle) {
+  return billingCycle === "annual" ? 12 : 1;
 }
 
 export async function createMercadoPagoTestUser(input: { description: string }) {

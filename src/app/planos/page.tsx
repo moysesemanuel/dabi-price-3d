@@ -5,6 +5,8 @@ import Image from "next/image";
 import { getCurrentAuthSession } from "@/lib/auth/session";
 import {
   defaultAppPreferences,
+  getWorkspaceBillingCycleLabel,
+  resolveWorkspacePlanPriceLabel,
   workspacePlans,
 } from "@/lib/settings/app-preferences";
 import {
@@ -129,10 +131,13 @@ export default async function PublicPlansPage({
 }: {
   searchParams?: Promise<{
     origin?: string;
+    billingCycle?: string;
   }>;
 }) {
   const params = (await searchParams) ?? {};
   const origin = params.origin ?? "site";
+  const selectedBillingCycle =
+    params.billingCycle === "annual" ? "annual" : "monthly";
   const session = await getCurrentAuthSession();
   const preferences =
     session && isPlatformPersistenceAvailable()
@@ -148,6 +153,7 @@ export default async function PublicPlansPage({
             pathname: "/app/planos",
             query: {
               plan: planId,
+              billingCycle: selectedBillingCycle,
               origin,
             },
           }
@@ -155,12 +161,14 @@ export default async function PublicPlansPage({
             pathname: "/app/onboarding",
             query: {
               plan: planId,
+              billingCycle: selectedBillingCycle,
             },
           }
       : {
           pathname: "/cadastro",
           query: {
             plan: planId,
+            billingCycle: selectedBillingCycle,
           },
         };
 
@@ -222,12 +230,38 @@ export default async function PublicPlansPage({
             </p>
 
             <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-[#dcebe3] bg-white/86 p-1">
-              <span className="rounded-full bg-[#24473c] px-5 py-2 text-sm font-semibold text-white">
+              <Link
+                href={{
+                  pathname: "/planos",
+                  query: {
+                    origin,
+                    billingCycle: "monthly",
+                  },
+                }}
+                className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
+                  selectedBillingCycle === "monthly"
+                    ? "bg-[#24473c] text-white"
+                    : "text-[#7e9689] hover:text-[#274338]"
+                }`}
+              >
                 Mensal
-              </span>
-              <span className="rounded-full px-5 py-2 text-sm font-semibold text-[#7e9689]">
-                Anual em implantação
-              </span>
+              </Link>
+              <Link
+                href={{
+                  pathname: "/planos",
+                  query: {
+                    origin,
+                    billingCycle: "annual",
+                  },
+                }}
+                className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
+                  selectedBillingCycle === "annual"
+                    ? "bg-[#24473c] text-white"
+                    : "text-[#7e9689] hover:text-[#274338]"
+                }`}
+              >
+                Anual · 12 meses
+              </Link>
             </div>
           </div>
         </div>
@@ -264,9 +298,15 @@ export default async function PublicPlansPage({
 
                 <div className="mt-6">
                   <p className="text-4xl font-semibold tracking-[-0.07em] text-[#24473c]">
-                    {plan.monthlyPriceLabel}
+                    {resolveWorkspacePlanPriceLabel(plan, selectedBillingCycle)}
                   </p>
-                  <p className="mt-2 text-sm text-[#7e9689]">por workspace / mês</p>
+                  <p className="mt-2 text-sm text-[#7e9689]">
+                    {plan.id === "scale"
+                      ? "atendimento comercial"
+                      : selectedBillingCycle === "annual"
+                        ? "pagamento antecipado por 12 meses de acesso"
+                        : "por workspace / mês"}
+                  </p>
                 </div>
 
                 <div className="mt-6 space-y-3">
@@ -324,7 +364,7 @@ export default async function PublicPlansPage({
 
         <div className="mt-8 rounded-[28px] border border-[#f2d6e3] bg-[#fff5f9] px-5 py-4 text-center text-sm text-[#7d6872]">
           Quando a URL do plano estiver configurada, o CTA abre a assinatura do
-          Mercado Pago. Nos demais casos, o fluxo continua pelo contato
+          Mercado Pago no ciclo {getWorkspaceBillingCycleLabel(selectedBillingCycle).toLowerCase()}. Nos demais casos, o fluxo continua pelo contato
           consultivo sem quebrar a navegação pública.
         </div>
       </section>

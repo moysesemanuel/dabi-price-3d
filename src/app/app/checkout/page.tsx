@@ -17,7 +17,9 @@ import {
 } from "@/lib/server/platform";
 import {
   defaultAppPreferences,
+  getWorkspaceBillingCycleLabel,
   getWorkspacePlan,
+  resolveWorkspacePlanPriceLabel,
 } from "@/lib/settings/app-preferences";
 
 export default async function CheckoutPage({
@@ -26,9 +28,12 @@ export default async function CheckoutPage({
   searchParams?: Promise<{
     origin?: string;
     plan?: string;
+    billingCycle?: string;
   }>;
 }) {
   const params = (await searchParams) ?? {};
+  const selectedBillingCycle =
+    params.billingCycle === "annual" ? "annual" : "monthly";
   const session = await getCurrentAuthSession();
   const preferences =
     session && isPlatformPersistenceAvailable()
@@ -57,7 +62,7 @@ export default async function CheckoutPage({
       : preferences.subscription.status === "pending"
         ? {
             planId: preferences.subscription.planId,
-            billingCycle: "monthly" as const,
+            billingCycle: preferences.subscription.billingCycle,
             provider: "mercado_pago" as const,
             startedAt: preferences.subscription.checkoutStartedAt,
             source: "legacy" as const,
@@ -82,7 +87,6 @@ export default async function CheckoutPage({
   const pendingPixPaymentState = normalizeBillingManualPaymentState(
     pendingPixPayment?.status,
   );
-  const currentPlan = getWorkspacePlan(pendingSubscription?.planId ?? "starter");
   const canResumeCheckout =
     pendingSubscription &&
     (pendingSubscription.planId === "starter" ||
@@ -101,6 +105,14 @@ export default async function CheckoutPage({
   const highlightedPlan = highlightedPlanId
     ? getWorkspacePlan(highlightedPlanId)
     : null;
+  const displayPlan = getWorkspacePlan(
+    pendingSubscription?.planId ??
+      highlightedPlanId ??
+      preferences.subscription.planId,
+  );
+  const displayBillingCycle =
+    pendingSubscription?.billingCycle ??
+    (highlightedPlan ? selectedBillingCycle : preferences.subscription.billingCycle);
 
   return (
     <div className="app-page space-y-6">
@@ -147,11 +159,17 @@ export default async function CheckoutPage({
           <div className="mt-6 grid gap-3 md:grid-cols-3">
             <CheckoutStat
               label="Plano"
-              value={pendingSubscription ? currentPlan.label : "Sem contratação"}
+              value={pendingSubscription ? displayPlan.label : "Sem contratação"}
             />
             <CheckoutStat
               label="Ciclo"
-              value={pendingSubscription ? "Mensal" : "A definir"}
+              value={
+                pendingSubscription
+                  ? getWorkspaceBillingCycleLabel(displayBillingCycle)
+                  : highlightedPlan
+                    ? getWorkspaceBillingCycleLabel(displayBillingCycle)
+                    : "A definir"
+              }
             />
             <CheckoutStat
               label="Início da pendência"
@@ -178,11 +196,13 @@ export default async function CheckoutPage({
               <>
                 <MercadoPagoCheckoutButton
                   planId={checkoutPlanId}
+                  billingCycle={pendingSubscription.billingCycle}
                   label="Continuar pagamento"
                   className="app-button app-button-primary w-full"
                 />
                 <ManualPixCheckoutButton
                   planId={checkoutPlanId}
+                  billingCycle={pendingSubscription.billingCycle}
                   label="Gerar Pix manual"
                   className="app-button app-button-secondary w-full"
                 />
@@ -273,13 +293,19 @@ export default async function CheckoutPage({
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <CheckoutDetail
               label="Faixa comercial"
-              value={currentPlan.label}
-              note={currentPlan.description}
+              value={displayPlan.label}
+              note={displayPlan.description}
             />
             <CheckoutDetail
               label="Valor atual"
-              value={`${currentPlan.monthlyPriceLabel}/mês`}
-              note="O fluxo anual ainda será aberto em fase posterior da arquitetura."
+              value={formatCheckoutPriceDisplay(displayPlan, displayBillingCycle)}
+              note={
+                displayPlan.id === "scale"
+                  ? "Plano consultivo com ativação comercial."
+                  : displayBillingCycle === "annual"
+                    ? "Pagamento antecipado com 12 meses de acesso liberado após a confirmação."
+                    : "Cobrança recorrente mensal após a confirmação do primeiro pagamento."
+              }
             />
             <CheckoutDetail
               label="Origem do estado"
@@ -406,4 +432,17 @@ function getPixStatusLabel(
     default:
       return "Indefinido";
   }
+}
+
+function formatCheckoutPriceDisplay(
+  plan: ReturnType<typeof getWorkspacePlan>,
+  billingCycle: "monthly" | "annual",
+) {
+  const priceLabel = resolveWorkspacePlanPriceLabel(plan, billingCycle);
+
+  if (plan.id === "scale") {
+    return priceLabel;
+  }
+
+  return billingCycle === "annual" ? priceLabel : `${priceLabel}/mês`;
 }

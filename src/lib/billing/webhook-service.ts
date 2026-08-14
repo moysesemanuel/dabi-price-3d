@@ -128,6 +128,7 @@ export type BillingWebhookServiceDependencies = {
   applyWorkspaceSubscriptionUpdate(input: {
     workspaceId: string;
     planId: BillingSubscription["planId"];
+    billingCycle?: BillingSubscription["billingCycle"];
     status: "pending" | "active" | "paused" | "canceled";
     source: string;
     mercadoPagoSubscriptionId?: string | null;
@@ -724,6 +725,7 @@ export class BillingWebhookService {
     const syncResult = await this.dependencies.applyWorkspaceSubscriptionUpdate({
       workspaceId: subscription.workspaceId,
       planId: subscription.planId,
+      billingCycle: subscription.billingCycle,
       status: "active",
       source: "billing-webhook-payment",
       mercadoPagoSubscriptionId: null,

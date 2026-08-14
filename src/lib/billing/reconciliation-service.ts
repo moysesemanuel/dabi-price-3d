@@ -111,6 +111,7 @@ export type BillingReconciliationServiceDependencies = {
   applyWorkspaceSubscriptionUpdate(input: {
     workspaceId: string;
     planId: BillingSubscription["planId"];
+    billingCycle?: BillingSubscription["billingCycle"];
     status: WorkspaceMirrorStatus;
     source: string;
     mercadoPagoSubscriptionId?: string | null;
@@ -409,6 +410,7 @@ export class BillingReconciliationService {
         await this.dependencies.applyWorkspaceSubscriptionUpdate({
           workspaceId: subscription.workspaceId,
           planId: subscription.planId,
+          billingCycle: subscription.billingCycle,
           status: "active",
           mercadoPagoSubscriptionId: subscription.providerSubscriptionId,
           source: "billing-reconciliation-invoice-paid",
@@ -453,6 +455,7 @@ export class BillingReconciliationService {
       await this.dependencies.applyWorkspaceSubscriptionUpdate({
         workspaceId: subscription.workspaceId,
         planId: subscription.planId,
+        billingCycle: subscription.billingCycle,
         status: "canceled",
         mercadoPagoSubscriptionId: subscription.providerSubscriptionId,
         source: "billing-reconciliation-expiration",
@@ -601,6 +604,7 @@ export class BillingReconciliationService {
       await this.dependencies.applyWorkspaceSubscriptionUpdate({
         workspaceId: subscription.workspaceId,
         planId: nextPlanId,
+        billingCycle: nextBillingCycle,
         status: mirrorStatusFromBillingStatus(subscription.status),
         mercadoPagoSubscriptionId: subscription.providerSubscriptionId,
         source: "billing-reconciliation-scheduled-change",
@@ -668,6 +672,7 @@ export class BillingReconciliationService {
       await this.dependencies.applyWorkspaceSubscriptionUpdate({
         workspaceId: subscription.workspaceId,
         planId: subscription.planId,
+        billingCycle: subscription.billingCycle,
         status: "unpaid",
         mercadoPagoSubscriptionId: null,
         source: "billing-reconciliation-abandoned-checkout",

@@ -17,7 +17,9 @@ import {
 } from "@/lib/server/platform";
 import {
   defaultAppPreferences,
+  getWorkspaceBillingCycleLabel,
   getWorkspacePlan,
+  resolveWorkspacePlanPriceLabel,
 } from "@/lib/settings/app-preferences";
 import { getSubscriptionStatusLabel } from "@/lib/workspace/subscription-access";
 
@@ -54,6 +56,7 @@ export default async function SubscriptionPage() {
     ? {
         planId: billingSubscription.planId,
         status: billingSubscription.status,
+        billingCycle: billingSubscription.billingCycle,
         accessUntil: billingSubscription.accessUntil,
         currentPeriodEnd: billingSubscription.currentPeriodEnd,
         gracePeriodEndsAt: billingSubscription.gracePeriodEndsAt,
@@ -249,12 +252,19 @@ export default async function SubscriptionPage() {
             <SubscriptionDetail
               label="Plano comercial"
               value={currentPlan.label}
-              note={`${currentPlan.monthlyPriceLabel}/mês`}
+              note={formatSubscriptionPriceDisplay(
+                currentPlan,
+                subscription.billingCycle,
+              )}
             />
             <SubscriptionDetail
               label="Ciclo"
-              value={billingSubscription?.billingCycle === "annual" ? "Anual" : "Mensal"}
-              note="A cobrança anual ainda não foi aberta no fluxo atual."
+              value={getWorkspaceBillingCycleLabel(subscription.billingCycle)}
+              note={
+                subscription.billingCycle === "annual"
+                  ? "Pagamento antecipado com 12 meses de acesso liberados por ciclo."
+                  : "Cobrança recorrente mensal enquanto a renovação automática permanecer ativa."
+              }
             />
             <SubscriptionDetail
               label="Motivo de acesso"
@@ -550,4 +560,17 @@ function resolveSubscriptionManagementAction(
     default:
       return null;
   }
+}
+
+function formatSubscriptionPriceDisplay(
+  plan: ReturnType<typeof getWorkspacePlan>,
+  billingCycle: "monthly" | "annual",
+) {
+  const priceLabel = resolveWorkspacePlanPriceLabel(plan, billingCycle);
+
+  if (plan.id === "scale") {
+    return priceLabel;
+  }
+
+  return billingCycle === "annual" ? priceLabel : `${priceLabel}/mês`;
 }

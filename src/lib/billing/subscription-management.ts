@@ -18,7 +18,13 @@ export class ManageBillingSubscriptionError extends Error {
 
 type ManagedBillingSubscription = Pick<
   BillingSubscription,
-  "id" | "workspaceId" | "planId" | "status" | "provider" | "providerSubscriptionId"
+  | "id"
+  | "workspaceId"
+  | "planId"
+  | "billingCycle"
+  | "status"
+  | "provider"
+  | "providerSubscriptionId"
 >;
 
 type BillingSubscriptionManagerDependencies = {
@@ -27,6 +33,7 @@ type BillingSubscriptionManagerDependencies = {
   applyWorkspaceSubscriptionUpdate(input: {
     workspaceId: string;
     planId: BillingSubscription["planId"];
+    billingCycle?: BillingSubscription["billingCycle"];
     status: "active" | "canceled";
     source: string;
     mercadoPagoSubscriptionId?: string | null;
@@ -84,6 +91,7 @@ export async function manageMercadoPagoBillingSubscription(input: {
   await dependencies.applyWorkspaceSubscriptionUpdate({
     workspaceId: subscription.workspaceId,
     planId: localSubscription.planId,
+    billingCycle: localSubscription.billingCycle,
     status: action === "cancel" ? "canceled" : "active",
     source: "billing-subscription-manage",
     mercadoPagoSubscriptionId: subscription.providerSubscriptionId,

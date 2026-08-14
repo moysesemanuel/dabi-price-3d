@@ -17,6 +17,7 @@ export default async function CadastroPage({
 }: {
   searchParams?: Promise<{
     plan?: string;
+    billingCycle?: string;
   }>;
 }) {
   const params = (await searchParams) ?? {};
@@ -24,6 +25,8 @@ export default async function CadastroPage({
     params.plan === "starter" || params.plan === "growth"
       ? params.plan
       : undefined;
+  const selectedBillingCycle =
+    params.billingCycle === "annual" ? "annual" : "monthly";
   const session = await getCurrentAuthSession();
   const preferences =
     session && isPlatformPersistenceAvailable()
@@ -36,10 +39,10 @@ export default async function CadastroPage({
     redirect(
       preferences.onboardingCompleted
         ? selectedPlan
-          ? `/app/planos?plan=${selectedPlan}&origin=public-cadastro`
+          ? `/app/planos?plan=${selectedPlan}&billingCycle=${selectedBillingCycle}&origin=public-cadastro`
           : "/app/planos"
         : selectedPlan
-          ? `/app/onboarding?plan=${selectedPlan}`
+          ? `/app/onboarding?plan=${selectedPlan}&billingCycle=${selectedBillingCycle}`
           : "/app/onboarding",
     );
   }
@@ -103,7 +106,10 @@ export default async function CadastroPage({
             </p>
           </div>
 
-          <RegisterForm selectedPlan={selectedPlan} />
+          <RegisterForm
+            selectedPlan={selectedPlan}
+            selectedBillingCycle={selectedBillingCycle}
+          />
 
           {persistenceMode.mode === "local" ? (
             <div className="mt-5 rounded-[24px] border border-[color:var(--warning)]/24 bg-[color:var(--warning)]/10 px-4 py-4 text-sm leading-7 text-[color:var(--warning)]">

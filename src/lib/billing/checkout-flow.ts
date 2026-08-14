@@ -1,16 +1,19 @@
 import type { SubscriptionStatus, WorkspacePlanId } from "../workspace/catalog.ts";
 import type { BillingPlanId, BillingSubscriptionStatus } from "./types.ts";
+import type { BillingCycle } from "./types.ts";
 
 export type PendingCheckoutSource = "billing" | "legacy";
 
 type BillingCheckoutSubscription = {
   planId: BillingPlanId;
+  billingCycle: BillingCycle;
   status: BillingSubscriptionStatus;
   providerSubscriptionId: string | null;
 };
 
 type LegacyCheckoutSubscription = {
   planId: WorkspacePlanId;
+  billingCycle: BillingCycle;
   status: SubscriptionStatus;
   mercadoPagoSubscriptionId: string | null;
 };
@@ -39,12 +42,14 @@ export type SubscriptionCheckoutFlowDecision =
 
 export function resolveSubscriptionCheckoutFlow(input: {
   selectedPlanId: WorkspacePlanId;
+  selectedBillingCycle: BillingCycle;
   billingSubscription: BillingCheckoutSubscription | null;
   legacySubscription: LegacyCheckoutSubscription;
 }): SubscriptionCheckoutFlowDecision {
   if (input.billingSubscription) {
     return resolveBillingCheckoutFlow({
       selectedPlanId: input.selectedPlanId,
+      selectedBillingCycle: input.selectedBillingCycle,
       billingSubscription: input.billingSubscription,
     });
   }
@@ -54,6 +59,7 @@ export function resolveSubscriptionCheckoutFlow(input: {
 
 function resolveBillingCheckoutFlow(input: {
   selectedPlanId: WorkspacePlanId;
+  selectedBillingCycle: BillingCycle;
   billingSubscription: BillingCheckoutSubscription;
 }) {
   switch (input.billingSubscription.status) {
@@ -72,7 +78,9 @@ function resolveBillingCheckoutFlow(input: {
     case "pending":
       return resolvePendingCheckoutFlow({
         selectedPlanId: input.selectedPlanId,
+        selectedBillingCycle: input.selectedBillingCycle,
         currentPlanId: input.billingSubscription.planId,
+        currentBillingCycle: input.billingSubscription.billingCycle,
         subscriptionId: input.billingSubscription.providerSubscriptionId,
         source: "billing",
       });
@@ -87,6 +95,7 @@ function resolveBillingCheckoutFlow(input: {
 
 function resolveLegacyCheckoutFlow(input: {
   selectedPlanId: WorkspacePlanId;
+  selectedBillingCycle: BillingCycle;
   legacySubscription: LegacyCheckoutSubscription;
 }) {
   if (input.legacySubscription.status === "active") {
@@ -106,7 +115,9 @@ function resolveLegacyCheckoutFlow(input: {
   if (input.legacySubscription.status === "pending") {
     return resolvePendingCheckoutFlow({
       selectedPlanId: input.selectedPlanId,
+      selectedBillingCycle: input.selectedBillingCycle,
       currentPlanId: input.legacySubscription.planId,
+      currentBillingCycle: input.legacySubscription.billingCycle,
       subscriptionId: input.legacySubscription.mercadoPagoSubscriptionId,
       source: "legacy",
     });
@@ -120,12 +131,15 @@ function resolveLegacyCheckoutFlow(input: {
 
 function resolvePendingCheckoutFlow(input: {
   selectedPlanId: WorkspacePlanId;
+  selectedBillingCycle: BillingCycle;
   currentPlanId: WorkspacePlanId;
+  currentBillingCycle: BillingCycle;
   subscriptionId: string | null;
   source: PendingCheckoutSource;
 }) {
   if (
     input.currentPlanId === input.selectedPlanId &&
+    input.currentBillingCycle === input.selectedBillingCycle &&
     normalizeOptionalString(input.subscriptionId)
   ) {
     return {

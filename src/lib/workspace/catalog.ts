@@ -1,5 +1,6 @@
 export type WorkspaceRole = "owner" | "manager" | "operator";
 export type WorkspacePlanId = "starter" | "growth" | "scale";
+export type WorkspaceBillingCycle = "monthly" | "annual";
 export type SubscriptionStatus =
   | "internal"
   | "unpaid"
@@ -12,6 +13,7 @@ export type SubscriptionStatus =
 export type WorkspaceSubscription = {
   planId: WorkspacePlanId;
   status: SubscriptionStatus;
+  billingCycle: WorkspaceBillingCycle;
   seatsUsed: number;
   mercadoPagoSubscriptionId: string | null;
   checkoutStartedAt: string | null;
@@ -23,6 +25,8 @@ export type WorkspacePlan = {
   description: string;
   monthlyPrice: number | null;
   monthlyPriceLabel: string;
+  annualPrice: number | null;
+  annualPriceLabel: string;
   historyLimit: number;
   seatsIncluded: number;
   erpSyncEnabled: boolean;
@@ -55,6 +59,8 @@ export const workspacePlans: readonly WorkspacePlan[] = [
     description: "Entrada comercial da DaBi para operar com preço e histórico sem complicação.",
     monthlyPrice: 0.5,
     monthlyPriceLabel: "R$ 0,50",
+    annualPrice: 6,
+    annualPriceLabel: "R$ 6",
     historyLimit: 50,
     seatsIncluded: 1,
     erpSyncEnabled: false,
@@ -67,6 +73,8 @@ export const workspacePlans: readonly WorkspacePlan[] = [
     description: "Plano principal da DaBi para quem já vende com recorrência e quer crescer com mais controle.",
     monthlyPrice: 149,
     monthlyPriceLabel: "R$ 149",
+    annualPrice: 1788,
+    annualPriceLabel: "R$ 1.788",
     historyLimit: 200,
     seatsIncluded: 3,
     erpSyncEnabled: true,
@@ -79,6 +87,8 @@ export const workspacePlans: readonly WorkspacePlan[] = [
     description: "Estrutura DaBi para operação com time, volume, integração forte e acompanhamento consultivo.",
     monthlyPrice: null,
     monthlyPriceLabel: "Sob consulta",
+    annualPrice: null,
+    annualPriceLabel: "Sob consulta",
     historyLimit: 1000,
     seatsIncluded: 10,
     erpSyncEnabled: true,
@@ -89,4 +99,24 @@ export const workspacePlans: readonly WorkspacePlan[] = [
 
 export function getWorkspacePlan(planId: WorkspacePlanId) {
   return workspacePlans.find((plan) => plan.id === planId) ?? workspacePlans[1];
+}
+
+export function getWorkspaceBillingCycleLabel(
+  billingCycle: WorkspaceBillingCycle,
+) {
+  return billingCycle === "annual" ? "Anual" : "Mensal";
+}
+
+export function resolveWorkspacePlanPrice(
+  plan: WorkspacePlan,
+  billingCycle: WorkspaceBillingCycle,
+) {
+  return billingCycle === "annual" ? plan.annualPrice : plan.monthlyPrice;
+}
+
+export function resolveWorkspacePlanPriceLabel(
+  plan: WorkspacePlan,
+  billingCycle: WorkspaceBillingCycle,
+) {
+  return billingCycle === "annual" ? plan.annualPriceLabel : plan.monthlyPriceLabel;
 }

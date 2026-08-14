@@ -5,6 +5,7 @@ import { useState } from "react";
 
 type MercadoPagoCheckoutButtonProps = {
   planId: "starter" | "growth";
+  billingCycle?: "monthly" | "annual";
   label?: string;
   className?: string;
   loadingLabel?: string;
@@ -12,6 +13,7 @@ type MercadoPagoCheckoutButtonProps = {
 
 export function MercadoPagoCheckoutButton({
   planId,
+  billingCycle = "monthly",
   label = "Assinar este plano",
   className = "app-button app-button-primary w-full",
   loadingLabel = "Abrindo pagamento...",
@@ -38,6 +40,7 @@ export function MercadoPagoCheckoutButton({
           },
           body: JSON.stringify({
             planId,
+            billingCycle,
           }),
         },
       );

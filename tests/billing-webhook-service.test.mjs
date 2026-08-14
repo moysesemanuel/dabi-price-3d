@@ -217,6 +217,7 @@ test("pagamento manual pago ativa assinatura pendente e sincroniza workspace", a
       assert.deepEqual(input, {
         workspaceId: "workspace-1",
         planId: "growth",
+        billingCycle: "monthly",
         status: "active",
         source: "billing-webhook-payment",
         mercadoPagoSubscriptionId: null,
@@ -280,6 +281,159 @@ test("pagamento manual pago ativa assinatura pendente e sincroniza workspace", a
   assert.equal(invoiceUpdates.length, 1);
   assert.equal(invoiceUpdates[0].invoiceId, "inv-1");
   assert.equal(invoiceUpdates[0].mutation.status, "paid");
+});
+
+test("pagamento manual anual ativa 12 meses de acesso", async () => {
+  const service = new BillingWebhookService({
+    async createWebhookEvent() {
+      return {
+        id: "evt-annual",
+        provider: "mercado_pago",
+        providerEventId: "req-annual",
+        eventType: "payment",
+        resourceId: "pay-annual-1",
+        payloadHash: "hash-annual",
+        status: "received",
+        attempts: 0,
+        receivedAt: "2026-08-14T13:00:00.000Z",
+        processedAt: null,
+        errorCode: null,
+        errorMessage: null,
+        createdAt: "2026-08-14T13:00:00.000Z",
+        updatedAt: "2026-08-14T13:00:00.000Z",
+      };
+    },
+    async updateWebhookEventStatus() {
+      return null;
+    },
+    async getInvoiceById(invoiceId) {
+      assert.equal(invoiceId, "inv-annual-1");
+      return {
+        id: "inv-annual-1",
+        subscriptionId: "sub-annual-1",
+        workspaceId: "workspace-1",
+        priceId: "price-annual-1",
+        type: "subscription",
+        status: "pending",
+        amountCents: 178800,
+        currency: "BRL",
+        periodStart: null,
+        periodEnd: null,
+        paymentMethod: "pix_manual",
+        provider: "mercado_pago",
+        providerPaymentId: null,
+        providerAuthorizedPaymentId: null,
+        paymentExpiresAt: null,
+        paidAt: null,
+        failedAt: null,
+        refundedAt: null,
+        createdAt: "2026-08-14T13:00:00.000Z",
+        updatedAt: "2026-08-14T13:00:00.000Z",
+      };
+    },
+    async findInvoiceByProviderPaymentId() {
+      throw new Error("not used");
+    },
+    async updateInvoice() {
+      return null;
+    },
+    async getSubscriptionById(subscriptionId) {
+      assert.equal(subscriptionId, "sub-annual-1");
+      return {
+        id: "sub-annual-1",
+        workspaceId: "workspace-1",
+        planId: "growth",
+        billingCycle: "annual",
+        priceId: "price-annual-1",
+        status: "pending",
+        autoRenew: false,
+        currentPeriodStart: null,
+        currentPeriodEnd: null,
+        gracePeriodEndsAt: null,
+        cancelAtPeriodEnd: false,
+        cancelRequestedAt: null,
+        endedAt: null,
+        accessUntil: null,
+        provider: "mercado_pago",
+        providerSubscriptionId: null,
+        createdAt: "2026-08-14T13:00:00.000Z",
+        updatedAt: "2026-08-14T13:00:00.000Z",
+      };
+    },
+    async findUserByEmail() {
+      throw new Error("not used");
+    },
+    async findPrimaryWorkspaceForUser() {
+      throw new Error("not used");
+    },
+    async getWorkspacePreferences() {
+      throw new Error("not used");
+    },
+    async applyWorkspaceSubscriptionUpdate(input) {
+      assert.deepEqual(input, {
+        workspaceId: "workspace-1",
+        planId: "growth",
+        billingCycle: "annual",
+        status: "active",
+        source: "billing-webhook-payment",
+        mercadoPagoSubscriptionId: null,
+        description: "Pagamento aprovado via payment.",
+      });
+      return {
+        changed: true,
+      };
+    },
+    async getSubscriptionChangeByInvoiceId() {
+      throw new Error("not used");
+    },
+    async updateSubscriptionChange() {
+      throw new Error("not used");
+    },
+    async findActivePrice() {
+      throw new Error("not used");
+    },
+    getProvider() {
+      throw new Error("not used");
+    },
+    billingService: {
+      async activateSubscription(subscriptionId, input) {
+        assert.equal(subscriptionId, "sub-annual-1");
+        assert.equal(input.actorType, "webhook");
+        assert.equal(input.currentPeriodStart, "2026-08-14T13:15:00.000Z");
+        assert.equal(input.currentPeriodEnd, "2027-08-14T13:15:00.000Z");
+        assert.equal(input.accessUntil, "2027-08-14T13:15:00.000Z");
+      },
+      async applyUpgrade() {
+        throw new Error("not used");
+      },
+    },
+    clock: {
+      now() {
+        return new Date("2026-08-14T13:16:00.000Z");
+      },
+    },
+  });
+
+  const outcome = await service.processEvent({
+    provider: "mercado_pago",
+    providerEventId: "req-annual",
+    eventType: "payment",
+    resourceId: "pay-annual-1",
+    payloadHash: "hash-annual",
+    kind: "manual_payment",
+    sourceTopic: "payment",
+    manualPayment: {
+      providerPaymentId: "pay-annual-1",
+      status: "approved",
+      externalReference: "billing_invoice:inv-annual-1",
+      paymentMethod: "pix_manual",
+      expiresAt: "2026-08-14T14:00:00.000Z",
+      approvedAt: "2026-08-14T13:15:00.000Z",
+    },
+  });
+
+  assert.equal(outcome.status, 200);
+  assert.equal(outcome.body.activated, true);
 });
 
 test("evento já processado retorna curto-circuito idempotente", async () => {
@@ -461,6 +615,7 @@ test("pagamento manual pago aplica upgrade quando invoice e change estão penden
       assert.deepEqual(input, {
         workspaceId: "workspace-up-1",
         planId: "growth",
+        billingCycle: "monthly",
         status: "active",
         source: "billing-webhook-upgrade",
         mercadoPagoSubscriptionId: "mp-sub-up-1",

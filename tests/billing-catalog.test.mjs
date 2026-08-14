@@ -30,13 +30,15 @@ test("converte o valor mensal do catálogo para centavos", () => {
   );
 });
 
-test("não resolve preço para annual nem para plano consultivo sem valor", () => {
+test("resolve preço annual quando o plano possui valor e mantém consultivo sem valor", () => {
+  const starterPlan = getWorkspacePlan("starter");
+
   assert.equal(
     resolveBillingPriceAmountCents({
       planId: "starter",
       billingCycle: "annual",
     }),
-    null,
+    Math.round((starterPlan.annualPrice ?? 0) * 100),
   );
 
   assert.equal(
@@ -72,7 +74,12 @@ test("lista bootstrap apenas para preços realmente suportados", () => {
 
   assert.deepEqual(
     prices.map((price) => `${price.planId}:${price.billingCycle}`),
-    ["starter:monthly", "growth:monthly"],
+    [
+      "starter:monthly",
+      "starter:annual",
+      "growth:monthly",
+      "growth:annual",
+    ],
   );
 });
 

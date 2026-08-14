@@ -32,6 +32,7 @@ import {
 
 type CheckoutPixPayload = {
   planId?: string;
+  billingCycle?: string;
 };
 
 type WorkspacePreferencesSubscription =
@@ -89,13 +90,14 @@ export async function POST(request: Request) {
   }
 
   const planId = normalizePlanId(body.planId);
+  const billingCycle = normalizeBillingCycle(body.billingCycle);
 
-  if (!planId) {
+  if (!planId || !billingCycle) {
     return jsonWithRequestId(
       requestContext,
       {
-        error: "Informe um plano válido.",
-        code: "PIX_CHECKOUT_INVALID_PLAN",
+        error: "Informe um plano e um ciclo válidos.",
+        code: "PIX_CHECKOUT_INVALID_INPUT",
       },
       { status: 400 },
     );
@@ -176,6 +178,7 @@ export async function POST(request: Request) {
       session,
       currentBillingSubscription,
       selectedPlanId: planId,
+      selectedBillingCycle: billingCycle,
       provider,
     });
 
@@ -186,9 +189,10 @@ export async function POST(request: Request) {
         ok: true,
         resumed: true,
         planId,
+        billingCycle,
         invoiceId: resumablePix.invoiceId,
         paymentId: resumablePix.paymentId,
-        redirectTo: `/app/checkout?plan=${planId}&method=pix_manual`,
+        redirectTo: `/app/checkout?plan=${planId}&billingCycle=${billingCycle}&method=pix_manual`,
       });
     }
 
@@ -202,7 +206,7 @@ export async function POST(request: Request) {
 
     const price = await findActiveBillingPrice({
       planId,
-      billingCycle: "monthly",
+      billingCycle,
     });
 
     if (!price) {
@@ -220,7 +224,7 @@ export async function POST(request: Request) {
     const localSubscription = await billingService.createSubscription({
       workspaceId: session.workspace.id,
       planId,
-      billingCycle: "monthly",
+      billingCycle,
       priceId: price.id,
       autoRenew: false,
       provider: "mercado_pago",
@@ -274,9 +278,10 @@ export async function POST(request: Request) {
       workspaceId: session.workspace.id,
       planId,
       status: "pending",
+      billingCycle,
       source: "billing-pix-checkout",
       mercadoPagoSubscriptionId: null,
-      description: `Checkout manual via Pix criado para ${selectedPlan.label} e aguardando pagamento.`,
+      description: `Checkout manual via Pix criado para ${selectedPlan.label} (${billingCycle === "annual" ? "anual" : "mensal"}) e aguardando pagamento.`,
     });
     shouldReleaseClaim = false;
 
@@ -284,6 +289,7 @@ export async function POST(request: Request) {
       workspaceId: session.workspace.id,
       userId: session.user.id,
       planId,
+      billingCycle,
       subscriptionId: localSubscription.id,
       invoiceId: updatedInvoice.id,
       paymentId: updatedInvoice.providerPaymentId,
@@ -292,10 +298,11 @@ export async function POST(request: Request) {
     return jsonWithRequestId(requestContext, {
       ok: true,
       planId,
+      billingCycle,
       subscriptionId: localSubscription.id,
       invoiceId: updatedInvoice.id,
       paymentId: updatedInvoice.providerPaymentId,
-      redirectTo: `/app/checkout?plan=${planId}&method=pix_manual`,
+      redirectTo: `/app/checkout?plan=${planId}&billingCycle=${billingCycle}&method=pix_manual`,
     });
   } catch (error) {
     if (createdInvoiceId) {
@@ -316,6 +323,7 @@ export async function POST(request: Request) {
       workspaceId: session.workspace.id,
       userId: session.user.id,
       planId,
+      billingCycle,
       error: serializeError(error),
     });
 
@@ -340,12 +348,14 @@ async function resolveExistingPendingPix(input: {
   session: AuthenticatedWorkspaceSession;
   currentBillingSubscription: BillingSubscription | null;
   selectedPlanId: WorkspacePlanId;
+  selectedBillingCycle: BillingSubscription["billingCycle"];
   provider: ReturnType<typeof getBillingProvider>;
 }) {
   if (
     !input.currentBillingSubscription ||
     input.currentBillingSubscription.status !== "pending" ||
-    input.currentBillingSubscription.planId !== input.selectedPlanId
+    input.currentBillingSubscription.planId !== input.selectedPlanId ||
+    input.currentBillingSubscription.billingCycle !== input.selectedBillingCycle
   ) {
     return null;
   }
@@ -504,6 +514,12 @@ function normalizePlanId(value?: string): WorkspacePlanId | null {
   return workspacePlans.some((plan) => plan.id === value)
     ? (value as WorkspacePlanId)
     : null;
+}
+
+function normalizeBillingCycle(
+  value?: string,
+): BillingSubscription["billingCycle"] | null {
+  return value === "annual" || value === "monthly" ? value : null;
 }
 
 function isAuthenticationRequiredError(error: unknown) {

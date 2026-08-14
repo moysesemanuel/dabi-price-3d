@@ -9,6 +9,7 @@ export default async function OnboardingPage({
 }: {
   searchParams?: Promise<{
     plan?: string;
+    billingCycle?: string;
   }>;
 }) {
 
@@ -18,6 +19,8 @@ export default async function OnboardingPage({
     params.plan === "starter" || params.plan === "growth"
       ? params.plan
       : undefined;
+  const selectedBillingCycle =
+    params.billingCycle === "annual" ? "annual" : "monthly";
 
   const session = await requireCurrentAuthSession();
 
@@ -53,6 +56,7 @@ export default async function OnboardingPage({
         <OnboardingForm
           initialPreferences={preferences}
           selectedPlan={selectedPlan}
+          selectedBillingCycle={selectedBillingCycle}
         />
       </div>
     </div>

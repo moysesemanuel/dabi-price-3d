@@ -126,6 +126,7 @@ export async function applyBillingSubscriptionUpgrade(input: {
     applyWorkspaceSubscriptionUpdate(input: {
       workspaceId: string;
       planId: BillingSubscription["planId"];
+      billingCycle?: BillingSubscription["billingCycle"];
       status: "active";
       source: string;
       mercadoPagoSubscriptionId?: string | null;
@@ -181,6 +182,7 @@ export async function applyBillingSubscriptionUpgrade(input: {
   return input.dependencies.applyWorkspaceSubscriptionUpdate({
     workspaceId: input.subscription.workspaceId,
     planId: input.change.toPlanId,
+    billingCycle: input.subscription.billingCycle,
     status: "active",
     source: input.source,
     mercadoPagoSubscriptionId: input.subscription.providerSubscriptionId ?? null,

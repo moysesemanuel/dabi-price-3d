@@ -240,6 +240,7 @@ export async function registerWorkspaceOwner(
     ...defaultAppPreferences.subscription,
     planId: "starter",
     status: "unpaid",
+    billingCycle: "monthly",
     mercadoPagoSubscriptionId: null,
     checkoutStartedAt: null,
   },
@@ -1375,6 +1376,7 @@ export async function applyWorkspaceSubscriptionUpdate(input: {
   workspaceId: string;
   planId: AppPreferences["subscription"]["planId"];
   status: AppPreferences["subscription"]["status"];
+  billingCycle?: AppPreferences["subscription"]["billingCycle"];
   source: string;
   mercadoPagoSubscriptionId?: string | null;
   description?: string | null;
@@ -1393,6 +1395,7 @@ export async function applyWorkspaceSubscriptionUpdate(input: {
       ...currentPreferences.subscription,
       planId: input.planId,
       status: input.status,
+      billingCycle: input.billingCycle ?? currentPreferences.subscription.billingCycle,
       seatsUsed: await getWorkspaceSeatUsageCount(input.workspaceId),
       mercadoPagoSubscriptionId: hasMercadoPagoSubscriptionIdOverride
         ? input.mercadoPagoSubscriptionId ?? null
@@ -1404,6 +1407,8 @@ export async function applyWorkspaceSubscriptionUpdate(input: {
   const changed =
     currentPreferences.subscription.planId !== nextPreferences.subscription.planId ||
     currentPreferences.subscription.status !== nextPreferences.subscription.status ||
+    currentPreferences.subscription.billingCycle !==
+      nextPreferences.subscription.billingCycle ||
     currentPreferences.subscription.mercadoPagoSubscriptionId !==
     nextPreferences.subscription.mercadoPagoSubscriptionId;
 

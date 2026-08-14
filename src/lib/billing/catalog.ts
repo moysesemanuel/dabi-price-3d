@@ -14,17 +14,15 @@ export function resolveBillingPriceAmountCents(input: {
   planId: BillingPlanId;
   billingCycle: BillingCycle;
 }) {
-  if (input.billingCycle !== "monthly") {
-    return null;
-  }
-
   const plan = getWorkspacePlan(input.planId);
+  const amount =
+    input.billingCycle === "annual" ? plan.annualPrice : plan.monthlyPrice;
 
-  if (typeof plan.monthlyPrice !== "number" || !Number.isFinite(plan.monthlyPrice)) {
+  if (typeof amount !== "number" || !Number.isFinite(amount)) {
     return null;
   }
 
-  const amountCents = Math.round(plan.monthlyPrice * 100);
+  const amountCents = Math.round(amount * 100);
 
   return amountCents > 0 ? amountCents : null;
 }
@@ -54,14 +52,17 @@ export function listBillingBootstrapPrices(input: {
   activeFrom: string;
 }) {
   return workspacePlans
-    .map((plan) =>
-      resolveBillingCatalogPrice({
-        planId: plan.id,
-        billingCycle: "monthly",
-        activeFrom: input.activeFrom,
-      }),
-    )
-    .filter((price): price is BillingCatalogPrice => Boolean(price));
+    .flatMap((plan) =>
+      (["monthly", "annual"] as const)
+        .map((billingCycle) =>
+          resolveBillingCatalogPrice({
+            planId: plan.id,
+            billingCycle,
+            activeFrom: input.activeFrom,
+          }),
+        )
+        .filter((price): price is BillingCatalogPrice => Boolean(price)),
+    );
 }
 
 export function getBillingPlanCommercialName(planId: BillingPlanId) {

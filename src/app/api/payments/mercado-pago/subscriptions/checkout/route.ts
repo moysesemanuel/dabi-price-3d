@@ -35,6 +35,7 @@ import {
 
 type CheckoutSubscriptionPayload = {
   planId?: string;
+  billingCycle?: string;
 };
 
 type WorkspacePreferencesSubscription =
@@ -92,13 +93,14 @@ export async function POST(request: Request) {
   }
 
   const planId = normalizePlanId(body.planId);
+  const billingCycle = normalizeBillingCycle(body.billingCycle);
 
-  if (!planId) {
+  if (!planId || !billingCycle) {
     return jsonWithRequestId(
       requestContext,
       {
-        error: "Informe um plano válido.",
-        code: "SUBSCRIPTION_CHECKOUT_INVALID_PLAN",
+        error: "Informe um plano e um ciclo válidos.",
+        code: "SUBSCRIPTION_CHECKOUT_INVALID_INPUT",
       },
       { status: 400 },
     );
@@ -136,9 +138,11 @@ export async function POST(request: Request) {
   );
   const checkoutFlow = resolveSubscriptionCheckoutFlow({
     selectedPlanId: planId,
+    selectedBillingCycle: billingCycle,
     billingSubscription: currentBillingSubscription
       ? {
           planId: currentBillingSubscription.planId,
+          billingCycle: currentBillingSubscription.billingCycle,
           status: currentBillingSubscription.status,
           providerSubscriptionId: currentBillingSubscription.providerSubscriptionId,
         }
@@ -182,6 +186,7 @@ export async function POST(request: Request) {
       currentBillingSubscription,
       currentSubscription,
       selectedPlanId: planId,
+      selectedBillingCycle: billingCycle,
       selectedPlanLabel: selectedPlan.label,
       billingService,
       provider,
@@ -227,6 +232,7 @@ export async function POST(request: Request) {
         currentBillingSubscription,
         currentSubscription,
         selectedPlanId: planId,
+        selectedBillingCycle: billingCycle,
         selectedPlanLabel: selectedPlan.label,
         billingService,
         provider,
@@ -239,7 +245,7 @@ export async function POST(request: Request) {
 
     const price = await findActiveBillingPrice({
       planId,
-      billingCycle: "monthly",
+      billingCycle,
     });
 
     if (!price) {
@@ -259,6 +265,7 @@ export async function POST(request: Request) {
 
     backUrl.searchParams.set("origin", "mercado-pago");
     backUrl.searchParams.set("plan", planId);
+    backUrl.searchParams.set("billingCycle", billingCycle);
     backUrl.searchParams.set("workspaceId", session.workspace.id);
 
     logRouteEvent(
@@ -269,6 +276,7 @@ export async function POST(request: Request) {
         workspaceId: session.workspace.id,
         userId: session.user.id,
         planId,
+        billingCycle,
         legacyStatus: currentSubscription.status,
         billingStatus: currentBillingSubscription?.status ?? null,
       },
@@ -277,7 +285,7 @@ export async function POST(request: Request) {
     const localSubscription = await billingService.createSubscription({
       workspaceId: session.workspace.id,
       planId,
-      billingCycle: "monthly",
+      billingCycle,
       priceId: price.id,
       autoRenew: true,
       provider: "mercado_pago",
@@ -291,7 +299,7 @@ export async function POST(request: Request) {
       returnUrl: backUrl.toString(),
       amountCents: price.amountCents,
       currency: price.currency,
-      billingCycle: "monthly",
+      billingCycle,
     });
 
     if (!providerSubscription.providerSubscriptionId) {
@@ -351,9 +359,10 @@ export async function POST(request: Request) {
       workspaceId: session.workspace.id,
       planId,
       status: "pending",
+      billingCycle,
       source: "mercado-pago-checkout",
       mercadoPagoSubscriptionId: updatedSubscription.providerSubscriptionId,
-      description: `Checkout da assinatura ${selectedPlan.label} criado no Mercado Pago e aguardando confirmação.`,
+      description: `Checkout da assinatura ${selectedPlan.label} (${billingCycle === "annual" ? "anual" : "mensal"}) criado no Mercado Pago e aguardando confirmação.`,
     });
     shouldReleaseCheckoutClaim = false;
 
@@ -365,6 +374,7 @@ export async function POST(request: Request) {
         workspaceId: session.workspace.id,
         userId: session.user.id,
         planId,
+        billingCycle,
         localSubscriptionId: updatedSubscription.id,
         subscriptionId: updatedSubscription.providerSubscriptionId,
         status: "pending",
@@ -374,6 +384,7 @@ export async function POST(request: Request) {
     return jsonWithRequestId(requestContext, {
       ok: true,
       planId,
+      billingCycle,
       subscriptionId: updatedSubscription.providerSubscriptionId,
       billingSubscriptionId: updatedSubscription.id,
       initPoint: providerSubscription.checkoutUrl,
@@ -395,6 +406,7 @@ export async function POST(request: Request) {
         workspaceId: session.workspace.id,
         userId: session.user.id,
         planId,
+        billingCycle,
         status: currentSubscription.status,
         error: serializeError(error),
       },
@@ -425,6 +437,7 @@ async function reconcilePendingCheckout(input: {
   currentBillingSubscription: BillingSubscription | null;
   currentSubscription: WorkspacePreferencesSubscription;
   selectedPlanId: WorkspacePlanId;
+  selectedBillingCycle: BillingSubscription["billingCycle"];
   selectedPlanLabel: string;
   billingService: ReturnType<typeof createBillingService>;
   provider: ReturnType<typeof getBillingProvider>;
@@ -469,6 +482,7 @@ async function reconcilePendingCheckout(input: {
       source: input.source,
       planId: pendingPlanId,
       selectedPlanId: input.selectedPlanId,
+      selectedBillingCycle: input.selectedBillingCycle,
       subscriptionId: providerSubscriptionId,
     },
   );
@@ -510,6 +524,7 @@ async function reconcilePendingCheckout(input: {
           source: input.source,
           planId: pendingPlanId,
           selectedPlanId: input.selectedPlanId,
+          selectedBillingCycle: input.selectedBillingCycle,
           subscriptionId: providerSubscriptionId,
         },
       );
@@ -549,6 +564,7 @@ async function reconcilePendingCheckout(input: {
           source: input.source,
           planId: pendingPlanId,
           selectedPlanId: input.selectedPlanId,
+          selectedBillingCycle: input.selectedBillingCycle,
           subscriptionId: providerSubscriptionId,
           remoteStatus: recovery.remoteStatus,
         },
@@ -611,6 +627,7 @@ async function reconcilePendingCheckout(input: {
             source: input.source,
             planId: pendingPlanId,
             selectedPlanId: input.selectedPlanId,
+            selectedBillingCycle: input.selectedBillingCycle,
             subscriptionId: providerSubscriptionId,
           },
         );
@@ -629,6 +646,7 @@ async function reconcilePendingCheckout(input: {
         source: input.source,
         planId: pendingPlanId,
         selectedPlanId: input.selectedPlanId,
+        selectedBillingCycle: input.selectedBillingCycle,
         subscriptionId: providerSubscriptionId,
         remoteStatus: recovery.remoteStatus,
       },
@@ -668,6 +686,7 @@ async function reconcilePendingCheckout(input: {
           source: input.source,
           planId: pendingPlanId,
           selectedPlanId: input.selectedPlanId,
+          selectedBillingCycle: input.selectedBillingCycle,
           subscriptionId: providerSubscriptionId,
           mercadoPagoStatus: error.status,
         },
@@ -686,6 +705,7 @@ async function reconcilePendingCheckout(input: {
         source: input.source,
         planId: pendingPlanId,
         selectedPlanId: input.selectedPlanId,
+        selectedBillingCycle: input.selectedBillingCycle,
         subscriptionId: providerSubscriptionId,
         error: serializeError(error),
       },
@@ -854,6 +874,12 @@ function normalizePlanId(value?: string): WorkspacePlanId | null {
   return workspacePlans.some((plan) => plan.id === value)
     ? (value as WorkspacePlanId)
     : null;
+}
+
+function normalizeBillingCycle(
+  value?: string,
+): BillingSubscription["billingCycle"] | null {
+  return value === "annual" || value === "monthly" ? value : null;
 }
 
 function isAuthenticationRequiredError(error: unknown) {

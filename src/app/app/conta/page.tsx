@@ -8,7 +8,9 @@ import {
 } from "@/lib/server/platform";
 import {
   defaultAppPreferences,
+  getWorkspaceBillingCycleLabel,
   getWorkspacePlan,
+  resolveWorkspacePlanPriceLabel,
   workspaceRoleMeta,
 } from "@/lib/settings/app-preferences";
 
@@ -77,7 +79,10 @@ export default async function AccountPage() {
             <AccountStat
               label="Plano"
               value={plan.label}
-              note={`${plan.monthlyPriceLabel}/mês`}
+              note={formatAccountPlanNote(
+                plan,
+                preferences.subscription.billingCycle,
+              )}
             />
           </div>
         </div>
@@ -152,4 +157,19 @@ function ActionLink({
       <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{description}</p>
     </Link>
   );
+}
+
+function formatAccountPlanNote(
+  plan: ReturnType<typeof getWorkspacePlan>,
+  billingCycle: "monthly" | "annual",
+) {
+  const priceLabel = resolveWorkspacePlanPriceLabel(plan, billingCycle);
+
+  if (plan.id === "scale") {
+    return `${priceLabel} · ${getWorkspaceBillingCycleLabel(billingCycle)}`;
+  }
+
+  return billingCycle === "annual"
+    ? `${priceLabel} · ${getWorkspaceBillingCycleLabel(billingCycle)}`
+    : `${priceLabel}/mês`;
 }

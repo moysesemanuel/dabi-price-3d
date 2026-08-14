@@ -157,6 +157,7 @@ test("applyBillingSubscriptionUpgrade atualiza provider, billing e espelho do wo
       {
         workspaceId: "workspace-2",
         planId: "growth",
+        billingCycle: "monthly",
         status: "active",
         source: "billing-reconciliation-upgrade",
         mercadoPagoSubscriptionId: "mp-sub-2",

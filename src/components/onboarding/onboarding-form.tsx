@@ -12,11 +12,13 @@ import { resolveDefaultWorkspaceAppPath } from "@/lib/workspace/subscription-acc
 type OnboardingFormProps = {
   initialPreferences: AppPreferences;
   selectedPlan?: "starter" | "growth";
+  selectedBillingCycle?: "monthly" | "annual";
 };
 
 export function OnboardingForm({
   initialPreferences,
   selectedPlan,
+  selectedBillingCycle = "monthly",
 }: OnboardingFormProps) {
   const router = useRouter();
 
@@ -79,7 +81,7 @@ export function OnboardingForm({
 
       router.push(
         selectedPlan
-          ? `/app/planos?plan=${selectedPlan}&origin=onboarding`
+          ? `/app/planos?plan=${selectedPlan}&billingCycle=${selectedBillingCycle}&origin=onboarding`
           : defaultDestination,
       );
 

@@ -10,10 +10,12 @@ import {
   logRouteEvent,
   serializeError,
 } from "@/lib/server/route-observability";
+import type { BillingCycle } from "@/lib/billing/types";
 import { workspacePlans, type WorkspacePlanId } from "@/lib/settings/app-preferences";
 
 type StartSubscriptionPayload = {
   planId?: string;
+  billingCycle?: string;
   payerEmail?: string;
 };
 
@@ -82,13 +84,14 @@ export async function POST(request: Request) {
   }
 
   const planId = normalizePlanId(body.planId);
+  const billingCycle = normalizeBillingCycle(body.billingCycle);
   const payerEmail = normalizeEmail(body.payerEmail);
 
-  if (!planId || !payerEmail) {
+  if (!planId || !billingCycle || !payerEmail) {
     return jsonWithRequestId(
       requestContext,
       {
-        error: "Informe um plano válido e o e-mail do comprador de teste.",
+        error: "Informe um plano, ciclo e e-mail válidos para o comprador de teste.",
         code: "MP_TEST_SUBSCRIPTION_INVALID_INPUT",
       },
       { status: 400 },
@@ -124,11 +127,13 @@ export async function POST(request: Request) {
   const backUrl = new URL("/contato", appBaseUrl);
   backUrl.searchParams.set("origin", "mercado-pago");
   backUrl.searchParams.set("plan", planId);
+  backUrl.searchParams.set("billingCycle", billingCycle);
   backUrl.searchParams.set("workspaceId", session.workspace.id);
 
   try {
     const subscription = await createMercadoPagoSubscriptionCheckout({
       planId,
+      billingCycle,
       payerEmail,
       workspaceId: session.workspace.id,
       reason: `${selectedPlan.label} - ${session.workspace.name}`,
@@ -152,6 +157,7 @@ export async function POST(request: Request) {
       workspaceId: session.workspace.id,
       userId: session.user.id,
       planId,
+      billingCycle,
       payerEmail,
       subscriptionId: subscription.id,
       accessTokenSource: "test",
@@ -160,6 +166,7 @@ export async function POST(request: Request) {
     return jsonWithRequestId(requestContext, {
       ok: true,
       planId,
+      billingCycle,
       payerEmail,
       subscriptionId: subscription.id,
       initPoint: subscription.init_point,
@@ -169,6 +176,7 @@ export async function POST(request: Request) {
       workspaceId: session.workspace.id,
       userId: session.user.id,
       planId,
+      billingCycle,
       payerEmail,
       error: serializeError(error),
     });
@@ -200,6 +208,14 @@ function normalizePlanId(value?: string): WorkspacePlanId | null {
 function normalizeEmail(value?: string) {
   const normalized = value?.trim().toLowerCase();
   return normalized || null;
+}
+
+function normalizeBillingCycle(value?: string): BillingCycle | null {
+  if (value === "monthly" || value === "annual") {
+    return value;
+  }
+
+  return null;
 }
 
 function isAuthenticationRequiredError(error: unknown) {

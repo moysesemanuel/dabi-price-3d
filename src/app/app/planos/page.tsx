@@ -17,7 +17,9 @@ import {
 } from "@/lib/server/platform";
 import {
   defaultAppPreferences,
+  getWorkspaceBillingCycleLabel,
   getWorkspacePlan,
+  resolveWorkspacePlanPriceLabel,
   workspacePlans,
 } from "@/lib/settings/app-preferences";
 import {
@@ -108,6 +110,7 @@ export default async function PlansPage({
   searchParams?: Promise<{
     plan?: string;
     origin?: string;
+    billingCycle?: string;
   }>;
 }) {
   const params = (await searchParams) ?? {};
@@ -116,6 +119,8 @@ export default async function PlansPage({
     params.plan === "starter" || params.plan === "growth"
       ? params.plan
       : undefined;
+  const requestedBillingCycle =
+    params.billingCycle === "annual" ? "annual" : "monthly";
 
   const session = await getCurrentAuthSession();
   const preferences =
@@ -150,6 +155,16 @@ export default async function PlansPage({
 
   const subscriptionStatus = preferences.subscription.status;
   const hasPaidAccess = canAccessPaidWorkspaceFeatures(preferences.subscription);
+  const currentBillingCycle =
+    billingSubscription?.billingCycle ?? preferences.subscription.billingCycle;
+  const selectedBillingCycle = hasPaidAccess
+    ? currentBillingCycle
+    : requestedBillingCycle;
+  const showBillingCycleSelector =
+    !hasPaidAccess ||
+    subscriptionStatus === "pending" ||
+    subscriptionStatus === "canceled" ||
+    subscriptionStatus === "paused";
   const subscriptionStatusLabel = getSubscriptionStatusLabel(subscriptionStatus);
   const scheduledDowngradePlan =
     scheduledDowngrade?.status === "scheduled" && scheduledDowngrade.toPlanId
@@ -159,6 +174,10 @@ export default async function PlansPage({
     pendingUpgrade?.status === "pending_payment" && pendingUpgrade.toPlanId
       ? getWorkspacePlan(pendingUpgrade.toPlanId)
       : null;
+  const pendingCheckoutHref =
+    currentPlan.id === "starter" || currentPlan.id === "growth"
+      ? `/app/checkout?plan=${currentPlan.id}&billingCycle=${currentBillingCycle}`
+      : "/app/checkout";
 
   return (
     <div className="app-page space-y-6">
@@ -201,8 +220,8 @@ export default async function PlansPage({
 
           <div className="mt-6 grid gap-3 md:grid-cols-3">
             <PlanStat
-              label="Valor mensal"
-              value={`${currentPlan.monthlyPriceLabel}/mês`}
+              label="Valor vigente"
+              value={formatPlanPriceDisplay(currentPlan, currentBillingCycle)}
             />
             <PlanStat
               label="Orçamentos salvos"
@@ -215,6 +234,50 @@ export default async function PlansPage({
               }`}
             />
           </div>
+
+          {showBillingCycleSelector ? (
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--muted)]">
+                Ciclo do novo checkout
+              </p>
+              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--panel-border)] bg-[rgba(255,255,255,0.76)] p-1">
+                <Link
+                  href={{
+                    pathname: "/app/planos",
+                    query: {
+                      ...(selectedPlan ? { plan: selectedPlan } : {}),
+                      ...(params.origin ? { origin: params.origin } : {}),
+                      billingCycle: "monthly",
+                    },
+                  }}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                    selectedBillingCycle === "monthly"
+                      ? "bg-[var(--accent)] text-white"
+                      : "text-[var(--muted)] hover:text-[var(--foreground)]"
+                  }`}
+                >
+                  Mensal
+                </Link>
+                <Link
+                  href={{
+                    pathname: "/app/planos",
+                    query: {
+                      ...(selectedPlan ? { plan: selectedPlan } : {}),
+                      ...(params.origin ? { origin: params.origin } : {}),
+                      billingCycle: "annual",
+                    },
+                  }}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                    selectedBillingCycle === "annual"
+                      ? "bg-[var(--accent)] text-white"
+                      : "text-[var(--muted)] hover:text-[var(--foreground)]"
+                  }`}
+                >
+                  Anual · 12 meses
+                </Link>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <aside className="app-card-soft p-6">
@@ -232,7 +295,7 @@ export default async function PlansPage({
               : subscriptionStatus === "unpaid"
                 ? "Conclua a contratação para liberar a precificadora e os demais módulos pagos do workspace."
                 : subscriptionStatus === "pending"
-                  ? "Você iniciou a contratação deste plano, mas o pagamento ainda não foi concluído."
+                  ? `Você iniciou a contratação ${currentBillingCycle === "annual" ? "anual" : "mensal"} deste plano, mas o pagamento ainda não foi concluído.`
                   : "O upgrade pode seguir pelo fluxo público de assinatura com Mercado Pago ou, quando fizer mais sentido reduzir a faixa, o downgrade é agendado para o próximo ciclo."}
           </p>
           <div className="mt-5 grid gap-3">
@@ -241,7 +304,7 @@ export default async function PlansPage({
                 pendingUpgradePlan
                   ? "/app/assinatura/upgrade"
                   : subscriptionStatus === "pending"
-                    ? "/app/checkout"
+                    ? pendingCheckoutHref
                     : "/contato"
               }
               className="app-button app-button-primary w-full"
@@ -305,6 +368,12 @@ export default async function PlansPage({
             currentSubscription: billingSubscription,
           });
           const supportsSelfServeUpgrade = plan.monthlyPrice !== null;
+          const checkoutBillingCycle =
+            isPending && isSelected ? selectedBillingCycle : currentBillingCycle;
+          const isPendingCycleReplacement =
+            isPending &&
+            isSelected &&
+            selectedBillingCycle !== currentBillingCycle;
 
           return (
             <article
@@ -347,9 +416,15 @@ export default async function PlansPage({
 
               <div className="mt-5">
                 <p className="text-3xl font-semibold tracking-[-0.05em] text-[var(--foreground)]">
-                  {plan.monthlyPriceLabel}
+                  {resolveWorkspacePlanPriceLabel(plan, selectedBillingCycle)}
                 </p>
-                <p className="mt-1 text-sm text-[var(--muted)]">por workspace / mês</p>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  {plan.id === "scale"
+                    ? "atendimento comercial"
+                    : selectedBillingCycle === "annual"
+                      ? "pagamento antecipado por 12 meses"
+                      : "por workspace / mês"}
+                </p>
               </div>
 
               <div className="mt-5 space-y-3">
@@ -376,13 +451,23 @@ export default async function PlansPage({
                     <div className="grid gap-3">
                       <MercadoPagoCheckoutButton
                         planId={checkoutPlanId}
-                        label="Continuar pagamento"
+                        billingCycle={checkoutBillingCycle}
+                        label={
+                          isPendingCycleReplacement
+                            ? `Abrir checkout ${getWorkspaceBillingCycleLabel(selectedBillingCycle).toLowerCase()}`
+                            : "Continuar pagamento"
+                        }
                         loadingLabel="Abrindo pagamento..."
                         className="app-button app-button-secondary w-full"
                       />
                       <ManualPixCheckoutButton
                         planId={checkoutPlanId}
-                        label="Trocar para Pix manual"
+                        billingCycle={checkoutBillingCycle}
+                        label={
+                          isPendingCycleReplacement
+                            ? `Gerar Pix ${getWorkspaceBillingCycleLabel(selectedBillingCycle).toLowerCase()}`
+                            : "Trocar para Pix manual"
+                        }
                       />
                     </div>
                   ) : (
@@ -444,10 +529,12 @@ export default async function PlansPage({
                   <div className="grid gap-3">
                     <MercadoPagoCheckoutButton
                       planId={plan.id}
+                      billingCycle={selectedBillingCycle}
                       label={isCanceled ? `Assinar ${plan.label} novamente` : `Assinar ${plan.label}`}
                     />
                     <ManualPixCheckoutButton
                       planId={plan.id}
+                      billingCycle={selectedBillingCycle}
                       label={`Gerar Pix para ${plan.label}`}
                     />
                   </div>
@@ -582,3 +669,16 @@ function canRequestPlanUpgrade(input: {
 }
 
 const planOrder = ["starter", "growth", "scale"] as const;
+
+function formatPlanPriceDisplay(
+  plan: ReturnType<typeof getWorkspacePlan>,
+  billingCycle: "monthly" | "annual",
+) {
+  const priceLabel = resolveWorkspacePlanPriceLabel(plan, billingCycle);
+
+  if (plan.id === "scale") {
+    return priceLabel;
+  }
+
+  return billingCycle === "annual" ? priceLabel : `${priceLabel}/mês`;
+}

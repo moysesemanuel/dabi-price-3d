@@ -5,6 +5,7 @@ import { useState } from "react";
 
 type ManualPixCheckoutButtonProps = {
   planId: "starter" | "growth";
+  billingCycle?: "monthly" | "annual";
   label?: string;
   className?: string;
   loadingLabel?: string;
@@ -12,6 +13,7 @@ type ManualPixCheckoutButtonProps = {
 
 export function ManualPixCheckoutButton({
   planId,
+  billingCycle = "monthly",
   label = "Gerar Pix manual",
   className = "app-button app-button-secondary w-full",
   loadingLabel = "Gerando Pix...",
@@ -36,6 +38,7 @@ export function ManualPixCheckoutButton({
         },
         body: JSON.stringify({
           planId,
+          billingCycle,
         }),
       });
 
