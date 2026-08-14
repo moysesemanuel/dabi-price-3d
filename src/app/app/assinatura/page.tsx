@@ -113,8 +113,17 @@ export default async function SubscriptionPage() {
           </p>
 
           <div className="mt-5 grid gap-3">
-            <Link href="/app/planos" className="app-button app-button-primary w-full">
-              Comparar planos
+            <Link
+              href={
+                entitlements.accessReason === "pending"
+                  ? "/app/checkout"
+                  : "/app/planos"
+              }
+              className="app-button app-button-primary w-full"
+            >
+              {entitlements.accessReason === "pending"
+                ? "Continuar pagamento"
+                : "Comparar planos"}
             </Link>
             <Link
               href="/app/perfil-empresa"

@@ -194,8 +194,13 @@ export default async function PlansPage({
               : "O upgrade pode seguir pelo fluxo público de assinatura com Mercado Pago ou, quando for um plano consultivo, pelo atendimento comercial."}
           </p>
           <div className="mt-5 grid gap-3">
-            <Link href="/contato" className="app-button app-button-primary w-full">
-              Falar sobre upgrade
+            <Link
+              href={subscriptionStatus === "pending" ? "/app/checkout" : "/contato"}
+              className="app-button app-button-primary w-full"
+            >
+              {subscriptionStatus === "pending"
+                ? "Continuar pagamento"
+                : "Falar sobre upgrade"}
             </Link>
             <Link
               href="/app/perfil-empresa"

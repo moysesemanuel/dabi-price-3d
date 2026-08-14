@@ -1,12 +1,18 @@
 import { canManageWorkspaceBilling } from "@/lib/auth/access-control";
 import { requireCurrentAuthSession } from "@/lib/auth/session";
+import { resolveSubscriptionCheckoutFlow } from "@/lib/billing/checkout-flow";
+import { getBillingProvider } from "@/lib/billing/providers";
 import {
-  createMercadoPagoSubscriptionCheckout,
+  findActiveBillingPrice,
+  findCurrentBillingSubscriptionForWorkspace,
+  updateBillingSubscription,
+} from "@/lib/billing/repository";
+import { createBillingService } from "@/lib/billing/server-service";
+import type { BillingSubscription } from "@/lib/billing/types";
+import {
   getMercadoPagoAccessToken,
-  getMercadoPagoSubscriptionWithToken,
   isMercadoPagoApiError,
   normalizeMercadoPagoSubscriptionStatus,
-  resolveMercadoPagoCheckoutAction,
   resolvePendingSubscriptionRecovery,
 } from "@/lib/payments/mercado-pago";
 import {
@@ -30,6 +36,9 @@ import {
 type CheckoutSubscriptionPayload = {
   planId?: string;
 };
+
+type WorkspacePreferencesSubscription =
+  Awaited<ReturnType<typeof getWorkspacePreferences>>["subscription"];
 
 export async function POST(request: Request) {
   const requestContext = createRouteRequestContext(
@@ -122,16 +131,26 @@ export async function POST(request: Request) {
 
   const currentPreferences = await getWorkspacePreferences(session.workspace.id);
   const currentSubscription = currentPreferences.subscription;
-  const checkoutAction = resolveMercadoPagoCheckoutAction({
-    subscriptionStatus: currentSubscription.status,
-    mercadoPagoSubscriptionId: currentSubscription.mercadoPagoSubscriptionId,
+  const currentBillingSubscription = await findCurrentBillingSubscriptionForWorkspace(
+    session.workspace.id,
+  );
+  const checkoutFlow = resolveSubscriptionCheckoutFlow({
+    selectedPlanId: planId,
+    billingSubscription: currentBillingSubscription
+      ? {
+          planId: currentBillingSubscription.planId,
+          status: currentBillingSubscription.status,
+          providerSubscriptionId: currentBillingSubscription.providerSubscriptionId,
+        }
+      : null,
+    legacySubscription: currentSubscription,
   });
 
-  if (checkoutAction === "block_active_subscription") {
+  if (checkoutFlow.type === "block_active_subscription") {
     return buildActiveSubscriptionConflict(requestContext);
   }
 
-  if (checkoutAction === "block_paused_subscription") {
+  if (checkoutFlow.type === "block_paused_subscription") {
     return buildPausedSubscriptionConflict(requestContext);
   }
 
@@ -149,16 +168,23 @@ export async function POST(request: Request) {
     );
   }
 
-  if (
-    checkoutAction === "resume_pending_checkout" &&
-    currentSubscription.mercadoPagoSubscriptionId
-  ) {
-    const recoveryResponse = await recoverPendingCheckout({
+  const billingService = createBillingService();
+  const provider = getBillingProvider("mercado_pago");
+  let shouldReleaseCheckoutClaim = false;
+  let createdBillingSubscriptionId: string | null = null;
+
+  if (checkoutFlow.type === "resume_pending_checkout") {
+    const recoveryResponse = await reconcilePendingCheckout({
       requestContext,
       session,
+      source: checkoutFlow.source,
+      shouldResumeCheckout: true,
+      currentBillingSubscription,
       currentSubscription,
       selectedPlanId: planId,
-      accessToken,
+      selectedPlanLabel: selectedPlan.label,
+      billingService,
+      provider,
     });
 
     if (recoveryResponse) {
@@ -166,60 +192,155 @@ export async function POST(request: Request) {
     }
   }
 
-  const checkoutClaim = await claimWorkspaceSubscriptionCheckout({
-    workspaceId: session.workspace.id,
-    startedAt: new Date().toISOString(),
-  });
-
-  if (!checkoutClaim.claimed) {
-    return jsonWithRequestId(
-      requestContext,
-      {
-        error:
-          "Já existe uma tentativa de contratação em andamento para este workspace.",
-        code: "SUBSCRIPTION_CHECKOUT_ALREADY_IN_PROGRESS",
-      },
-      { status: 409 },
-    );
-  }
-
-  const appBaseUrl = new URL(request.url).origin;
-  const backUrl = new URL("/app/planos", appBaseUrl);
-
-  backUrl.searchParams.set("origin", "mercado-pago");
-  backUrl.searchParams.set("plan", planId);
-
-  logRouteEvent(
-    requestContext,
-    "info",
-    "mercado_pago_checkout.create_started",
-    {
+  if (
+    checkoutFlow.type === "create_new_checkout" ||
+    checkoutFlow.type === "replace_pending_checkout" ||
+    checkoutFlow.type === "resume_pending_checkout"
+  ) {
+    const checkoutClaim = await claimWorkspaceSubscriptionCheckout({
       workspaceId: session.workspace.id,
-      userId: session.user.id,
-      planId,
-      status: currentSubscription.status,
-    },
-  );
-
-  try {
-    const subscription = await createMercadoPagoSubscriptionCheckout({
-      planId,
-      payerEmail: session.user.email,
-      workspaceId: session.workspace.id,
-      reason: `${selectedPlan.label} - ${session.workspace.name}`,
-      backUrl: backUrl.toString(),
+      startedAt: new Date().toISOString(),
     });
 
-    if (!subscription.init_point) {
-      await releaseWorkspaceSubscriptionCheckout({
+    if (!checkoutClaim.claimed) {
+      return jsonWithRequestId(
+        requestContext,
+        {
+          error:
+            "Já existe uma tentativa de contratação em andamento para este workspace.",
+          code: "SUBSCRIPTION_CHECKOUT_ALREADY_IN_PROGRESS",
+        },
+        { status: 409 },
+      );
+    }
+
+    shouldReleaseCheckoutClaim = true;
+  }
+
+  try {
+    if (checkoutFlow.type === "replace_pending_checkout") {
+      const replacementResponse = await reconcilePendingCheckout({
+        requestContext,
+        session,
+        source: checkoutFlow.source,
+        shouldResumeCheckout: false,
+        currentBillingSubscription,
+        currentSubscription,
+        selectedPlanId: planId,
+        selectedPlanLabel: selectedPlan.label,
+        billingService,
+        provider,
+      });
+
+      if (replacementResponse) {
+        return replacementResponse;
+      }
+    }
+
+    const price = await findActiveBillingPrice({
+      planId,
+      billingCycle: "monthly",
+    });
+
+    if (!price) {
+      return jsonWithRequestId(
+        requestContext,
+        {
+          error:
+            "Não existe um preço ativo configurado para este plano no billing atual.",
+          code: "SUBSCRIPTION_CHECKOUT_PRICE_NOT_FOUND",
+        },
+        { status: 503 },
+      );
+    }
+
+    const appBaseUrl = new URL(request.url).origin;
+    const backUrl = new URL("/app/checkout", appBaseUrl);
+
+    backUrl.searchParams.set("origin", "mercado-pago");
+    backUrl.searchParams.set("plan", planId);
+    backUrl.searchParams.set("workspaceId", session.workspace.id);
+
+    logRouteEvent(
+      requestContext,
+      "info",
+      "mercado_pago_checkout.create_started",
+      {
         workspaceId: session.workspace.id,
+        userId: session.user.id,
+        planId,
+        legacyStatus: currentSubscription.status,
+        billingStatus: currentBillingSubscription?.status ?? null,
+      },
+    );
+
+    const localSubscription = await billingService.createSubscription({
+      workspaceId: session.workspace.id,
+      planId,
+      billingCycle: "monthly",
+      priceId: price.id,
+      autoRenew: true,
+      provider: "mercado_pago",
+    });
+    createdBillingSubscriptionId = localSubscription.id;
+
+    const providerSubscription = await provider.createRecurringSubscription({
+      externalReference: `billing_subscription:${localSubscription.id}`,
+      payerEmail: session.user.email,
+      reason: `${selectedPlan.label} - ${session.workspace.name}`,
+      returnUrl: backUrl.toString(),
+      amountCents: price.amountCents,
+      currency: price.currency,
+      billingCycle: "monthly",
+    });
+
+    if (!providerSubscription.providerSubscriptionId) {
+      await billingService.finalizeCancellation(localSubscription.id, {
+        actorType: "system",
       });
 
       return jsonWithRequestId(
         requestContext,
         {
           error:
-            "O Mercado Pago criou a assinatura, mas não retornou a URL de checkout.",
+            "O provider criou a contratação, mas não retornou o identificador da assinatura.",
+          code: "SUBSCRIPTION_CHECKOUT_MISSING_PROVIDER_SUBSCRIPTION_ID",
+        },
+        { status: 502 },
+      );
+    }
+
+    const updatedSubscription = await updateBillingSubscription(localSubscription.id, {
+      providerSubscriptionId: providerSubscription.providerSubscriptionId,
+      autoRenew: true,
+    });
+
+    if (!updatedSubscription) {
+      await billingService.finalizeCancellation(localSubscription.id, {
+        actorType: "system",
+      });
+
+      return jsonWithRequestId(
+        requestContext,
+        {
+          error:
+            "A assinatura foi criada no provider, mas não foi possível persistir o vínculo no billing local.",
+          code: "SUBSCRIPTION_CHECKOUT_LOCAL_SYNC_FAILED",
+        },
+        { status: 502 },
+      );
+    }
+
+    if (!providerSubscription.checkoutUrl) {
+      await billingService.finalizeCancellation(updatedSubscription.id, {
+        actorType: "system",
+      });
+
+      return jsonWithRequestId(
+        requestContext,
+        {
+          error:
+            "O provider criou a assinatura, mas não retornou a URL de checkout.",
           code: "SUBSCRIPTION_CHECKOUT_MISSING_INIT_POINT",
         },
         { status: 502 },
@@ -231,9 +352,10 @@ export async function POST(request: Request) {
       planId,
       status: "pending",
       source: "mercado-pago-checkout",
-      mercadoPagoSubscriptionId: subscription.id,
+      mercadoPagoSubscriptionId: updatedSubscription.providerSubscriptionId,
       description: `Checkout da assinatura ${selectedPlan.label} criado no Mercado Pago e aguardando confirmação.`,
     });
+    shouldReleaseCheckoutClaim = false;
 
     logRouteEvent(
       requestContext,
@@ -243,7 +365,8 @@ export async function POST(request: Request) {
         workspaceId: session.workspace.id,
         userId: session.user.id,
         planId,
-        subscriptionId: subscription.id,
+        localSubscriptionId: updatedSubscription.id,
+        subscriptionId: updatedSubscription.providerSubscriptionId,
         status: "pending",
       },
     );
@@ -251,13 +374,18 @@ export async function POST(request: Request) {
     return jsonWithRequestId(requestContext, {
       ok: true,
       planId,
-      subscriptionId: subscription.id,
-      initPoint: subscription.init_point,
+      subscriptionId: updatedSubscription.providerSubscriptionId,
+      billingSubscriptionId: updatedSubscription.id,
+      initPoint: providerSubscription.checkoutUrl,
     });
   } catch (error) {
-    await releaseWorkspaceSubscriptionCheckout({
-      workspaceId: session.workspace.id,
-    });
+    if (createdBillingSubscriptionId) {
+      await billingService
+        .finalizeCancellation(createdBillingSubscriptionId, {
+          actorType: "system",
+        })
+        .catch(() => null);
+    }
 
     logRouteEvent(
       requestContext,
@@ -280,48 +408,98 @@ export async function POST(request: Request) {
       },
       { status: 502 },
     );
+  } finally {
+    if (shouldReleaseCheckoutClaim) {
+      await releaseWorkspaceSubscriptionCheckout({
+        workspaceId: session.workspace.id,
+      });
+    }
   }
 }
 
-async function recoverPendingCheckout(input: {
+async function reconcilePendingCheckout(input: {
   requestContext: ReturnType<typeof createRouteRequestContext>;
   session: AuthenticatedWorkspaceSession;
-  currentSubscription: Awaited<ReturnType<typeof getWorkspacePreferences>>["subscription"];
+  source: "billing" | "legacy";
+  shouldResumeCheckout: boolean;
+  currentBillingSubscription: BillingSubscription | null;
+  currentSubscription: WorkspacePreferencesSubscription;
   selectedPlanId: WorkspacePlanId;
-  accessToken: string;
+  selectedPlanLabel: string;
+  billingService: ReturnType<typeof createBillingService>;
+  provider: ReturnType<typeof getBillingProvider>;
 }) {
-  const subscriptionId = input.currentSubscription.mercadoPagoSubscriptionId;
+  const providerSubscriptionId =
+    input.source === "billing"
+      ? input.currentBillingSubscription?.providerSubscriptionId ?? null
+      : input.currentSubscription.mercadoPagoSubscriptionId;
+  const pendingPlanId =
+    input.source === "billing"
+      ? input.currentBillingSubscription?.planId ?? input.currentSubscription.planId
+      : input.currentSubscription.planId;
 
-  if (!subscriptionId) {
+  if (!providerSubscriptionId) {
+    if (!input.shouldResumeCheckout) {
+      await clearPendingCheckoutState({
+        session: input.session,
+        source: input.source,
+        currentBillingSubscription: input.currentBillingSubscription,
+        currentSubscription: input.currentSubscription,
+        billingService: input.billingService,
+        nextLegacyStatus: "unpaid",
+        providerSubscriptionId: null,
+        sourceName: "mercado-pago-checkout-replacement",
+        description:
+          "A contratação pendente anterior não possuía vínculo remoto válido e foi encerrada para abrir um novo checkout.",
+      });
+    }
+
     return null;
   }
 
   logRouteEvent(
     input.requestContext,
     "info",
-    "mercado_pago_checkout.resume_started",
+    input.shouldResumeCheckout
+      ? "mercado_pago_checkout.resume_started"
+      : "mercado_pago_checkout.replace_started",
     {
       workspaceId: input.session.workspace.id,
       userId: input.session.user.id,
-      planId: input.currentSubscription.planId,
+      source: input.source,
+      planId: pendingPlanId,
       selectedPlanId: input.selectedPlanId,
-      subscriptionId,
+      subscriptionId: providerSubscriptionId,
     },
   );
 
   try {
-    const remoteSubscription = await getMercadoPagoSubscriptionWithToken(
-      subscriptionId,
-      input.accessToken,
+    const remoteSubscription = await input.provider.getSubscription(
+      providerSubscriptionId,
     );
     const recovery = resolvePendingSubscriptionRecovery({
       remoteStatus: normalizeMercadoPagoSubscriptionStatus(
         remoteSubscription.status,
       ),
-      initPoint: remoteSubscription.init_point,
+      initPoint: remoteSubscription.checkoutUrl,
     });
 
     if (recovery.type === "resume_checkout") {
+      if (!input.shouldResumeCheckout) {
+        await cancelPendingCheckoutForReplacement({
+          session: input.session,
+          source: input.source,
+          currentBillingSubscription: input.currentBillingSubscription,
+          currentSubscription: input.currentSubscription,
+          providerSubscriptionId,
+          selectedPlanLabel: input.selectedPlanLabel,
+          billingService: input.billingService,
+          provider: input.provider,
+        });
+
+        return null;
+      }
+
       logRouteEvent(
         input.requestContext,
         "info",
@@ -329,22 +507,38 @@ async function recoverPendingCheckout(input: {
         {
           workspaceId: input.session.workspace.id,
           userId: input.session.user.id,
-          planId: input.currentSubscription.planId,
+          source: input.source,
+          planId: pendingPlanId,
           selectedPlanId: input.selectedPlanId,
-          subscriptionId,
+          subscriptionId: providerSubscriptionId,
         },
       );
 
       return jsonWithRequestId(input.requestContext, {
         ok: true,
         resumed: true,
-        planId: input.currentSubscription.planId,
-        subscriptionId,
+        planId: pendingPlanId,
+        subscriptionId: providerSubscriptionId,
         initPoint: recovery.initPoint,
       });
     }
 
     if (recovery.type === "missing_init_point") {
+      if (!input.shouldResumeCheckout) {
+        await cancelPendingCheckoutForReplacement({
+          session: input.session,
+          source: input.source,
+          currentBillingSubscription: input.currentBillingSubscription,
+          currentSubscription: input.currentSubscription,
+          providerSubscriptionId,
+          selectedPlanLabel: input.selectedPlanLabel,
+          billingService: input.billingService,
+          provider: input.provider,
+        });
+
+        return null;
+      }
+
       logRouteEvent(
         input.requestContext,
         "error",
@@ -352,9 +546,10 @@ async function recoverPendingCheckout(input: {
         {
           workspaceId: input.session.workspace.id,
           userId: input.session.user.id,
-          planId: input.currentSubscription.planId,
+          source: input.source,
+          planId: pendingPlanId,
           selectedPlanId: input.selectedPlanId,
-          subscriptionId,
+          subscriptionId: providerSubscriptionId,
           remoteStatus: recovery.remoteStatus,
         },
       );
@@ -371,12 +566,14 @@ async function recoverPendingCheckout(input: {
     }
 
     if (recovery.type === "sync_local_status") {
-      await applyWorkspaceSubscriptionUpdate({
-        workspaceId: input.session.workspace.id,
-        planId: input.currentSubscription.planId,
-        status: recovery.nextStatus,
-        source: "mercado-pago-checkout-recovery",
-        mercadoPagoSubscriptionId: subscriptionId,
+      await syncPendingCheckoutStatus({
+        session: input.session,
+        source: input.source,
+        currentBillingSubscription: input.currentBillingSubscription,
+        currentSubscription: input.currentSubscription,
+        billingService: input.billingService,
+        providerSubscriptionId,
+        nextStatus: recovery.nextStatus,
         description: `Checkout pendente reconciliado com status remoto ${recovery.remoteStatus}.`,
       });
 
@@ -386,14 +583,17 @@ async function recoverPendingCheckout(input: {
     }
 
     if (recovery.type === "allow_new_checkout") {
-      await applyWorkspaceSubscriptionUpdate({
-        workspaceId: input.session.workspace.id,
-        planId: input.currentSubscription.planId,
-        status: recovery.nextStatus,
-        source: "mercado-pago-checkout-recovery",
-        mercadoPagoSubscriptionId: recovery.clearSubscriptionId
+      await clearPendingCheckoutState({
+        session: input.session,
+        source: input.source,
+        currentBillingSubscription: input.currentBillingSubscription,
+        currentSubscription: input.currentSubscription,
+        billingService: input.billingService,
+        nextLegacyStatus: recovery.nextStatus,
+        providerSubscriptionId: recovery.clearSubscriptionId
           ? null
-          : subscriptionId,
+          : providerSubscriptionId,
+        sourceName: "mercado-pago-checkout-recovery",
         description:
           recovery.remoteStatus === "not_found"
             ? "Assinatura pendente não encontrada no Mercado Pago. O workspace voltou para contratação disponível."
@@ -408,9 +608,10 @@ async function recoverPendingCheckout(input: {
           {
             workspaceId: input.session.workspace.id,
             userId: input.session.user.id,
-            planId: input.currentSubscription.planId,
+            source: input.source,
+            planId: pendingPlanId,
             selectedPlanId: input.selectedPlanId,
-            subscriptionId,
+            subscriptionId: providerSubscriptionId,
           },
         );
       }
@@ -425,9 +626,10 @@ async function recoverPendingCheckout(input: {
       {
         workspaceId: input.session.workspace.id,
         userId: input.session.user.id,
-        planId: input.currentSubscription.planId,
+        source: input.source,
+        planId: pendingPlanId,
         selectedPlanId: input.selectedPlanId,
-        subscriptionId,
+        subscriptionId: providerSubscriptionId,
         remoteStatus: recovery.remoteStatus,
       },
     );
@@ -443,12 +645,15 @@ async function recoverPendingCheckout(input: {
     );
   } catch (error) {
     if (isMercadoPagoApiError(error) && error.status === 404) {
-      await applyWorkspaceSubscriptionUpdate({
-        workspaceId: input.session.workspace.id,
-        planId: input.currentSubscription.planId,
-        status: "unpaid",
-        source: "mercado-pago-checkout-recovery",
-        mercadoPagoSubscriptionId: null,
+      await clearPendingCheckoutState({
+        session: input.session,
+        source: input.source,
+        currentBillingSubscription: input.currentBillingSubscription,
+        currentSubscription: input.currentSubscription,
+        billingService: input.billingService,
+        nextLegacyStatus: "unpaid",
+        providerSubscriptionId: null,
+        sourceName: "mercado-pago-checkout-recovery",
         description:
           "Assinatura pendente não encontrada no Mercado Pago. O workspace voltou para contratação disponível.",
       });
@@ -460,9 +665,10 @@ async function recoverPendingCheckout(input: {
         {
           workspaceId: input.session.workspace.id,
           userId: input.session.user.id,
-          planId: input.currentSubscription.planId,
+          source: input.source,
+          planId: pendingPlanId,
           selectedPlanId: input.selectedPlanId,
-          subscriptionId,
+          subscriptionId: providerSubscriptionId,
           mercadoPagoStatus: error.status,
         },
       );
@@ -477,9 +683,10 @@ async function recoverPendingCheckout(input: {
       {
         workspaceId: input.session.workspace.id,
         userId: input.session.user.id,
-        planId: input.currentSubscription.planId,
+        source: input.source,
+        planId: pendingPlanId,
         selectedPlanId: input.selectedPlanId,
-        subscriptionId,
+        subscriptionId: providerSubscriptionId,
         error: serializeError(error),
       },
     );
@@ -494,6 +701,114 @@ async function recoverPendingCheckout(input: {
       { status: 502 },
     );
   }
+}
+
+async function cancelPendingCheckoutForReplacement(input: {
+  session: AuthenticatedWorkspaceSession;
+  source: "billing" | "legacy";
+  currentBillingSubscription: BillingSubscription | null;
+  currentSubscription: WorkspacePreferencesSubscription;
+  providerSubscriptionId: string;
+  selectedPlanLabel: string;
+  billingService: ReturnType<typeof createBillingService>;
+  provider: ReturnType<typeof getBillingProvider>;
+}) {
+  try {
+    await input.provider.cancelSubscription(input.providerSubscriptionId);
+  } catch (error) {
+    if (!(isMercadoPagoApiError(error) && error.status === 404)) {
+      throw error;
+    }
+  }
+
+  await clearPendingCheckoutState({
+    session: input.session,
+    source: input.source,
+    currentBillingSubscription: input.currentBillingSubscription,
+    currentSubscription: input.currentSubscription,
+    billingService: input.billingService,
+    nextLegacyStatus: "unpaid",
+    providerSubscriptionId: null,
+    sourceName: "mercado-pago-checkout-replacement",
+    description: `A contratação pendente anterior foi encerrada para trocar o plano antes do primeiro pagamento e abrir o checkout de ${input.selectedPlanLabel}.`,
+  });
+}
+
+async function clearPendingCheckoutState(input: {
+  session: AuthenticatedWorkspaceSession;
+  source: "billing" | "legacy";
+  currentBillingSubscription: BillingSubscription | null;
+  currentSubscription: WorkspacePreferencesSubscription;
+  billingService: ReturnType<typeof createBillingService>;
+  nextLegacyStatus: WorkspacePreferencesSubscription["status"];
+  providerSubscriptionId: string | null;
+  sourceName: string;
+  description: string;
+}) {
+  const planId =
+    input.source === "billing"
+      ? input.currentBillingSubscription?.planId ?? input.currentSubscription.planId
+      : input.currentSubscription.planId;
+
+  if (
+    input.source === "billing" &&
+    input.currentBillingSubscription &&
+    input.currentBillingSubscription.status === "pending"
+  ) {
+    await input.billingService.finalizeCancellation(input.currentBillingSubscription.id, {
+      actorType: "system",
+    });
+  }
+
+  await applyWorkspaceSubscriptionUpdate({
+    workspaceId: input.session.workspace.id,
+    planId,
+    status: input.nextLegacyStatus,
+    source: input.sourceName,
+    mercadoPagoSubscriptionId: input.providerSubscriptionId,
+    description: input.description,
+  });
+}
+
+async function syncPendingCheckoutStatus(input: {
+  session: AuthenticatedWorkspaceSession;
+  source: "billing" | "legacy";
+  currentBillingSubscription: BillingSubscription | null;
+  currentSubscription: WorkspacePreferencesSubscription;
+  billingService: ReturnType<typeof createBillingService>;
+  providerSubscriptionId: string;
+  nextStatus: "active" | "paused";
+  description: string;
+}) {
+  const planId =
+    input.source === "billing"
+      ? input.currentBillingSubscription?.planId ?? input.currentSubscription.planId
+      : input.currentSubscription.planId;
+
+  if (
+    input.source === "billing" &&
+    input.currentBillingSubscription &&
+    input.currentBillingSubscription.status === "pending"
+  ) {
+    if (input.nextStatus === "active") {
+      await input.billingService.activateSubscription(input.currentBillingSubscription.id, {
+        actorType: "system",
+      });
+    } else {
+      await input.billingService.pauseSubscription(input.currentBillingSubscription.id, {
+        actorType: "system",
+      });
+    }
+  }
+
+  await applyWorkspaceSubscriptionUpdate({
+    workspaceId: input.session.workspace.id,
+    planId,
+    status: input.nextStatus,
+    source: "mercado-pago-checkout-recovery",
+    mercadoPagoSubscriptionId: input.providerSubscriptionId,
+    description: input.description,
+  });
 }
 
 function buildActiveSubscriptionConflict(

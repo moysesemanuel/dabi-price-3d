@@ -41,6 +41,13 @@ test("resolve a rota padrao conforme onboarding e entitlement", () => {
   assert.equal(
     resolveDefaultWorkspaceAppPath({
       onboardingCompleted: true,
+      subscriptionStatus: "pending",
+    }),
+    "/app/checkout",
+  );
+  assert.equal(
+    resolveDefaultWorkspaceAppPath({
+      onboardingCompleted: true,
       subscriptionStatus: "active",
     }),
     "/app/precificacao",
@@ -62,6 +69,7 @@ test("resolve a rota padrao conforme onboarding e entitlement", () => {
 });
 
 test("mantem apenas as rotas liberadas sem pagamento", () => {
+  assert.equal(canAccessAppPathWithoutPaidWorkspace("/app/checkout"), true);
   assert.equal(canAccessAppPathWithoutPaidWorkspace("/app/planos"), true);
   assert.equal(canAccessAppPathWithoutPaidWorkspace("/app/conta"), true);
   assert.equal(canAccessAppPathWithoutPaidWorkspace("/app/assinatura"), true);

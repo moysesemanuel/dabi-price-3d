@@ -10,6 +10,7 @@ type SubscriptionLike = Pick<WorkspaceSubscription, "status">;
 
 const ALLOWED_APP_PATHS_WITHOUT_PAID_ACCESS = new Set([
   "/app/onboarding",
+  "/app/checkout",
   "/app/planos",
   "/app/perfil-empresa",
   "/app/conta",
@@ -102,6 +103,10 @@ export function resolveDefaultWorkspaceAppPath(input: {
 }) {
   if (!input.onboardingCompleted) {
     return "/app/onboarding";
+  }
+
+  if (input.subscriptionStatus === "pending") {
+    return "/app/checkout";
   }
 
   if (
