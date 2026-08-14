@@ -74,6 +74,30 @@ test("permite rotas de billing para workspace sem acesso pago", () => {
   assert.equal(result.type, "allow");
 });
 
+test("mantem acesso quando o entitlement está em scheduled_cancel", () => {
+  const result = resolveAppRouteProtection({
+    hasSession: true,
+    entitlements: {
+      canUseApp: true,
+      canUsePricing: true,
+      canExportPdf: true,
+      canViewHistory: true,
+      canManageIntegrations: true,
+      historyLimit: 200,
+      seatsLimit: 3,
+      canManageBilling: true,
+      accessReason: "scheduled_cancel",
+    },
+    onboardingCompleted: true,
+    subscriptionStatus: "active",
+    requestUrl: "http://127.0.0.1:3005/app/precificacao",
+    pathname: "/app/precificacao",
+    search: "",
+  });
+
+  assert.equal(result.type, "allow");
+});
+
 test("bloqueia APIs de produto para workspace sem acesso pago", () => {
   const result = resolveAppRouteProtection({
     hasSession: true,

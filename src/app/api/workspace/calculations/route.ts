@@ -2,19 +2,16 @@ import {
   getCurrentAuthSession,
   requireCurrentAuthSession,
 } from "@/lib/auth/session";
+import { getWorkspaceEntitlements } from "@/lib/billing/server-entitlement-service";
 import type { SavedCalculation } from "@/lib/history/calculation-history";
 import {
   appendAuditEvent,
   clearCalculationSnapshots,
-  getWorkspacePreferences,
   isPlatformPersistenceAvailable,
   listCalculationSnapshots,
   saveCalculationSnapshot,
 } from "@/lib/server/platform";
-import {
-  canAccessPaidWorkspaceFeatures,
-  getWorkspaceAccessBlockedMessage,
-} from "@/lib/workspace/subscription-access";
+import { getWorkspaceAccessBlockedMessage } from "@/lib/workspace/subscription-access";
 
 export async function GET() {
   if (!isPlatformPersistenceAvailable()) {
@@ -30,13 +27,15 @@ export async function GET() {
     return Response.json({ error: "Não autenticado." }, { status: 401 });
   }
 
-  const preferences = await getWorkspacePreferences(session.workspace.id);
+  const entitlements = await getWorkspaceEntitlements({
+    workspaceId: session.workspace.id,
+  });
 
-  if (!canAccessPaidWorkspaceFeatures(preferences.subscription)) {
+  if (!entitlements.canUseApp) {
     return Response.json(
       {
         error:
-          getWorkspaceAccessBlockedMessage(preferences.subscription.status) ??
+          getWorkspaceAccessBlockedMessage(entitlements.accessReason) ??
           "A assinatura atual não libera esta funcionalidade.",
         code: "SUBSCRIPTION_REQUIRED",
       },
@@ -58,13 +57,15 @@ export async function POST(request: Request) {
   }
 
   const session = await requireCurrentAuthSession();
-  const preferences = await getWorkspacePreferences(session.workspace.id);
+  const entitlements = await getWorkspaceEntitlements({
+    workspaceId: session.workspace.id,
+  });
 
-  if (!canAccessPaidWorkspaceFeatures(preferences.subscription)) {
+  if (!entitlements.canUseApp) {
     return Response.json(
       {
         error:
-          getWorkspaceAccessBlockedMessage(preferences.subscription.status) ??
+          getWorkspaceAccessBlockedMessage(entitlements.accessReason) ??
           "A assinatura atual não libera esta funcionalidade.",
         code: "SUBSCRIPTION_REQUIRED",
       },
@@ -110,13 +111,15 @@ export async function DELETE() {
   }
 
   const session = await requireCurrentAuthSession();
-  const preferences = await getWorkspacePreferences(session.workspace.id);
+  const entitlements = await getWorkspaceEntitlements({
+    workspaceId: session.workspace.id,
+  });
 
-  if (!canAccessPaidWorkspaceFeatures(preferences.subscription)) {
+  if (!entitlements.canUseApp) {
     return Response.json(
       {
         error:
-          getWorkspaceAccessBlockedMessage(preferences.subscription.status) ??
+          getWorkspaceAccessBlockedMessage(entitlements.accessReason) ??
           "A assinatura atual não libera esta funcionalidade.",
         code: "SUBSCRIPTION_REQUIRED",
       },

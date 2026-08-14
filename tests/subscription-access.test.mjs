@@ -50,6 +50,8 @@ test("resolve a rota padrao conforme onboarding e entitlement", () => {
 test("mantem apenas as rotas liberadas sem pagamento", () => {
   assert.equal(canAccessAppPathWithoutPaidWorkspace("/app/planos"), true);
   assert.equal(canAccessAppPathWithoutPaidWorkspace("/app/conta"), true);
+  assert.equal(canAccessAppPathWithoutPaidWorkspace("/app/assinatura"), true);
+  assert.equal(canAccessAppPathWithoutPaidWorkspace("/app/assinatura/historico"), true);
   assert.equal(canAccessAppPathWithoutPaidWorkspace("/app/precificacao"), false);
   assert.equal(
     canAccessApiPathWithoutPaidWorkspace("/api/workspace/preferences"),

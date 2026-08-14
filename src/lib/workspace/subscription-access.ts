@@ -1,3 +1,9 @@
+import {
+  getEntitlementAccessBlockedMessage,
+  resolveHistoryLimitPlanId as resolveEntitlementHistoryLimitPlanId,
+  resolveWorkspaceEntitlements,
+  type WorkspaceEntitlementAccessReason,
+} from "../billing/entitlement-service.ts";
 import type { SubscriptionStatus, WorkspaceSubscription } from "./catalog.ts";
 
 type SubscriptionLike = Pick<WorkspaceSubscription, "status">;
@@ -7,7 +13,9 @@ const ALLOWED_APP_PATHS_WITHOUT_PAID_ACCESS = new Set([
   "/app/planos",
   "/app/perfil-empresa",
   "/app/conta",
+  "/app/assinatura",
 ]);
+const ALLOWED_APP_PREFIXES_WITHOUT_PAID_ACCESS = ["/app/assinatura/"];
 
 const ALLOWED_API_PATHS_WITHOUT_PAID_ACCESS = new Set([
   "/api/auth/logout",
@@ -21,10 +29,15 @@ const ALLOWED_API_PREFIXES_WITHOUT_PAID_ACCESS = ["/api/payments/mercado-pago/"]
 export function canAccessPaidWorkspaceFeatures(
   subscription: SubscriptionLike | SubscriptionStatus,
 ) {
-  const status =
-    typeof subscription === "string" ? subscription : subscription.status;
-
-  return status === "internal" || status === "active" || status === "trial";
+  return resolveWorkspaceEntitlements({
+    subscription:
+      typeof subscription === "string"
+        ? {
+          planId: "starter",
+          status: subscription,
+        }
+        : subscription,
+  }).canUseApp;
 }
 
 export function getSubscriptionStatusLabel(status: SubscriptionStatus) {
@@ -46,25 +59,31 @@ export function getSubscriptionStatusLabel(status: SubscriptionStatus) {
   }
 }
 
-export function getWorkspaceAccessBlockedMessage(status: SubscriptionStatus) {
-  switch (status) {
-    case "unpaid":
-      return "Este workspace ainda não possui uma assinatura ativa. Contrate um plano para liberar esta funcionalidade.";
-    case "pending":
-      return "A assinatura está aguardando confirmação de pagamento. O acesso será liberado assim que a cobrança for confirmada.";
-    case "paused":
-      return "A assinatura está pausada. Reative o plano para voltar a usar esta funcionalidade.";
-    case "canceled":
-      return "A assinatura está cancelada. Contrate um plano para voltar a usar esta funcionalidade.";
-    case "internal":
-    case "trial":
-    case "active":
-      return null;
+export function getWorkspaceAccessBlockedMessage(
+  input: SubscriptionStatus | WorkspaceEntitlementAccessReason,
+) {
+  if (isWorkspaceEntitlementAccessReason(input)) {
+    return getEntitlementAccessBlockedMessage(input);
   }
+
+  return getEntitlementAccessBlockedMessage(
+    resolveWorkspaceEntitlements({
+      subscription: {
+        planId: "starter",
+        status: input,
+      },
+    }).accessReason,
+  );
 }
 
 export function canAccessAppPathWithoutPaidWorkspace(pathname: string) {
-  return ALLOWED_APP_PATHS_WITHOUT_PAID_ACCESS.has(pathname);
+  if (ALLOWED_APP_PATHS_WITHOUT_PAID_ACCESS.has(pathname)) {
+    return true;
+  }
+
+  return ALLOWED_APP_PREFIXES_WITHOUT_PAID_ACCESS.some((prefix) =>
+    pathname.startsWith(prefix),
+  );
 }
 
 export function canAccessApiPathWithoutPaidWorkspace(pathname: string) {
@@ -93,13 +112,20 @@ export function resolveDefaultWorkspaceAppPath(input: {
 export function resolveHistoryLimitPlanId(
   subscription: Pick<WorkspaceSubscription, "planId" | "status">,
 ) {
-  if (
-    subscription.status === "unpaid" ||
-    subscription.status === "trial" ||
-    subscription.status === "pending"
-  ) {
-    return "starter";
-  }
+  return resolveEntitlementHistoryLimitPlanId(subscription);
+}
 
-  return subscription.planId;
+function isWorkspaceEntitlementAccessReason(
+  value: string,
+): value is WorkspaceEntitlementAccessReason {
+  return (
+    value === "active" ||
+    value === "grace_period" ||
+    value === "scheduled_cancel" ||
+    value === "pending" ||
+    value === "paused" ||
+    value === "expired" ||
+    value === "canceled" ||
+    value === "no_subscription"
+  );
 }
