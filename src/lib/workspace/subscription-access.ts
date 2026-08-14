@@ -54,10 +54,16 @@ export function getSubscriptionStatusLabel(status: SubscriptionStatus) {
       return "Aguardando pagamento";
     case "active":
       return "Plano ativo";
+    case "past_due":
+      return "Pagamento em atraso";
+    case "scheduled_cancel":
+      return "Cancelamento agendado";
     case "paused":
       return "Assinatura pausada";
     case "canceled":
       return "Assinatura cancelada";
+    case "expired":
+      return "Assinatura expirada";
   }
 }
 
@@ -112,7 +118,8 @@ export function resolveDefaultWorkspaceAppPath(input: {
 
   if (
     input.subscriptionStatus === "paused" ||
-    input.subscriptionStatus === "canceled"
+    input.subscriptionStatus === "canceled" ||
+    input.subscriptionStatus === "expired"
   ) {
     return "/app/assinatura";
   }

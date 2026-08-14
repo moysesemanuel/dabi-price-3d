@@ -644,8 +644,11 @@ function normalizeWorkspaceSubscription(
     subscription?.status === "trial" ||
     subscription?.status === "pending" ||
     subscription?.status === "active" ||
+    subscription?.status === "past_due" ||
+    subscription?.status === "scheduled_cancel" ||
     subscription?.status === "paused" ||
-    subscription?.status === "canceled"
+    subscription?.status === "canceled" ||
+    subscription?.status === "expired"
       ? subscription.status
       : defaultAppPreferences.subscription.status;
 

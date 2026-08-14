@@ -201,6 +201,41 @@ export async function findCurrentBillingSubscriptionForWorkspace(
   return rows[0] ? mapBillingSubscriptionRow(rows[0]) : null;
 }
 
+export async function findLatestBillingSubscriptionForWorkspace(
+  workspaceId: string,
+) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      id,
+      workspace_id,
+      plan_id,
+      billing_cycle,
+      price_id,
+      status,
+      auto_renew,
+      current_period_start,
+      current_period_end,
+      grace_period_ends_at,
+      cancel_at_period_end,
+      cancel_requested_at,
+      ended_at,
+      access_until,
+      provider,
+      provider_subscription_id,
+      created_at,
+      updated_at
+    FROM billing_subscriptions
+    WHERE workspace_id = ${workspaceId}
+    ORDER BY created_at DESC
+    LIMIT 1
+  `) as BillingSubscriptionRow[];
+
+  return rows[0] ? mapBillingSubscriptionRow(rows[0]) : null;
+}
+
 export async function listBillingSubscriptionsForExpiration(asOf: string) {
   await ensurePlatformReady();
 

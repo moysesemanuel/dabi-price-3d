@@ -7,6 +7,7 @@ import {
   findCurrentBillingSubscriptionForWorkspace,
   updateBillingSubscription,
 } from "@/lib/billing/repository";
+import { ensureLegacyWorkspaceBillingMigration } from "@/lib/billing/server-legacy-migration-service";
 import { createBillingService } from "@/lib/billing/server-service";
 import type { BillingSubscription } from "@/lib/billing/types";
 import {
@@ -130,6 +131,10 @@ export async function POST(request: Request) {
       { status: 409 },
     );
   }
+
+  await ensureLegacyWorkspaceBillingMigration({
+    workspaceId: session.workspace.id,
+  });
 
   const currentPreferences = await getWorkspacePreferences(session.workspace.id);
   const currentSubscription = currentPreferences.subscription;

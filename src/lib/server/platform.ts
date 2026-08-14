@@ -96,6 +96,13 @@ type PreferencesRow = {
   data: AppPreferences | string;
 };
 
+type BillingSubscriptionSnapshotRow = {
+  plan_id: AppPreferences["subscription"]["planId"];
+  billing_cycle: AppPreferences["subscription"]["billingCycle"];
+  status: AppPreferences["subscription"]["status"];
+  provider_subscription_id: string | null;
+};
+
 type CalculationRow = {
   data: SavedCalculation | string;
 };
@@ -1202,7 +1209,7 @@ export async function deletePlatformUser(input: { userId: string }) {
   return user;
 }
 
-export async function getWorkspacePreferences(workspaceId: string) {
+export async function getStoredWorkspacePreferences(workspaceId: string) {
   await ensurePlatformReady();
 
   const sql = getSql();
@@ -1251,6 +1258,30 @@ export async function getWorkspacePreferences(workspaceId: string) {
   `;
 
   return preferences;
+}
+
+export async function getWorkspacePreferences(workspaceId: string) {
+  const preferences = await getStoredWorkspacePreferences(workspaceId);
+  const billingSubscription = await findLatestBillingSubscriptionSnapshotForWorkspace(
+    workspaceId,
+  );
+
+  if (!billingSubscription) {
+    return preferences;
+  }
+
+  return normalizeAppPreferences({
+    ...preferences,
+    subscription: {
+      ...preferences.subscription,
+      planId: billingSubscription.plan_id,
+      billingCycle: billingSubscription.billing_cycle,
+      status: billingSubscription.status,
+      mercadoPagoSubscriptionId:
+        billingSubscription.provider_subscription_id ??
+        preferences.subscription.mercadoPagoSubscriptionId,
+    },
+  });
 }
 
 export async function claimWorkspaceSubscriptionCheckout(input: {
@@ -2310,6 +2341,25 @@ function normalizePreferencesPayload(value: AppPreferences | string) {
   } catch {
     return defaultAppPreferences;
   }
+}
+
+async function findLatestBillingSubscriptionSnapshotForWorkspace(
+  workspaceId: string,
+) {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      plan_id,
+      billing_cycle,
+      status,
+      provider_subscription_id
+    FROM billing_subscriptions
+    WHERE workspace_id = ${workspaceId}
+    ORDER BY created_at DESC
+    LIMIT 1
+  `) as BillingSubscriptionSnapshotRow[];
+
+  return rows[0] ?? null;
 }
 
 function normalizePlatformRole(role: unknown): PlatformRole {

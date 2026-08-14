@@ -7,8 +7,11 @@ export type SubscriptionStatus =
   | "trial"
   | "pending"
   | "active"
+  | "past_due"
+  | "scheduled_cancel"
   | "paused"
-  | "canceled";
+  | "canceled"
+  | "expired";
 
 export type WorkspaceSubscription = {
   planId: WorkspacePlanId;
