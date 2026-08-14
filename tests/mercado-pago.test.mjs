@@ -11,6 +11,7 @@ import {
 import {
   resolveWorkspacePlanIdForSubscription,
 } from "../src/lib/payments/subscription-plan-resolution.ts";
+import { getWorkspacePlan } from "../src/lib/workspace/catalog.ts";
 
 test("webhook preserva o plano salvo quando o subscription id confere", () => {
   const result = resolveWorkspacePlanIdForSubscription({
@@ -43,6 +44,7 @@ test("não usa fallback quando não existe assinatura Mercado Pago salva", () =>
 });
 
 test("monta payload de checkout pendente sem plano associado", () => {
+  const starterPlan = getWorkspacePlan("starter");
   const payload = buildMercadoPagoSubscriptionCheckoutPayload({
     planId: "starter",
     payerEmail: "owner@dabi.com",
@@ -60,13 +62,14 @@ test("monta payload de checkout pendente sem plano associado", () => {
   assert.equal(payload.auto_recurring.frequency, 1);
   assert.equal(payload.auto_recurring.frequency_type, "months");
   assert.equal(payload.auto_recurring.currency_id, "BRL");
-  assert.equal(payload.auto_recurring.transaction_amount, 49);
+  assert.equal(payload.auto_recurring.transaction_amount, starterPlan.monthlyPrice);
   assert.ok(typeof payload.auto_recurring.end_date === "string");
   assert.equal("preapproval_plan_id" in payload, false);
   assert.equal("card_token_id" in payload, false);
 });
 
 test("cria preapproval pendente sem preapproval_plan_id e retorna init_point", async (t) => {
+  const growthPlan = getWorkspacePlan("growth");
   const originalFetch = globalThis.fetch;
 
   t.after(() => {
@@ -112,7 +115,7 @@ test("cria preapproval pendente sem preapproval_plan_id e retorna init_point", a
   assert.equal(body.auto_recurring.frequency, 1);
   assert.equal(body.auto_recurring.frequency_type, "months");
   assert.equal(body.auto_recurring.currency_id, "BRL");
-  assert.equal(body.auto_recurring.transaction_amount, 149);
+  assert.equal(body.auto_recurring.transaction_amount, growthPlan.monthlyPrice);
   assert.equal("preapproval_plan_id" in body, false);
   assert.equal("card_token_id" in body, false);
   assert.equal(

@@ -1781,7 +1781,214 @@ async function initializePlatform() {
     )
   `;
 
+  await initializeBillingPlatform(sql);
+
   await ensureBootstrapAdmin(sql);
+}
+
+async function initializeBillingPlatform(sql: ReturnType<typeof getSql>) {
+  await sql`
+    CREATE TABLE IF NOT EXISTS billing_prices (
+      id TEXT PRIMARY KEY,
+      plan_id TEXT NOT NULL,
+      billing_cycle TEXT NOT NULL,
+      amount_cents INTEGER NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'BRL',
+      active_from TIMESTAMPTZ NOT NULL,
+      active_until TIMESTAMPTZ NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS billing_prices_plan_cycle_active_from_idx
+    ON billing_prices (plan_id, billing_cycle, active_from DESC)
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS billing_subscriptions (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      plan_id TEXT NOT NULL,
+      billing_cycle TEXT NOT NULL,
+      price_id TEXT NULL REFERENCES billing_prices(id) ON DELETE SET NULL,
+      status TEXT NOT NULL,
+      auto_renew BOOLEAN NOT NULL DEFAULT FALSE,
+      current_period_start TIMESTAMPTZ NULL,
+      current_period_end TIMESTAMPTZ NULL,
+      grace_period_ends_at TIMESTAMPTZ NULL,
+      cancel_at_period_end BOOLEAN NOT NULL DEFAULT FALSE,
+      cancel_requested_at TIMESTAMPTZ NULL,
+      ended_at TIMESTAMPTZ NULL,
+      access_until TIMESTAMPTZ NULL,
+      provider TEXT NULL,
+      provider_subscription_id TEXT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS billing_subscriptions_workspace_created_at_idx
+    ON billing_subscriptions (workspace_id, created_at DESC)
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS billing_subscriptions_workspace_status_idx
+    ON billing_subscriptions (workspace_id, status, created_at DESC)
+  `;
+
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS billing_subscriptions_provider_subscription_idx
+    ON billing_subscriptions (provider, provider_subscription_id)
+    WHERE provider_subscription_id IS NOT NULL
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS billing_invoices (
+      id TEXT PRIMARY KEY,
+      subscription_id TEXT NOT NULL REFERENCES billing_subscriptions(id) ON DELETE CASCADE,
+      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      price_id TEXT NULL REFERENCES billing_prices(id) ON DELETE SET NULL,
+      type TEXT NOT NULL,
+      status TEXT NOT NULL,
+      amount_cents INTEGER NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'BRL',
+      period_start TIMESTAMPTZ NULL,
+      period_end TIMESTAMPTZ NULL,
+      payment_method TEXT NULL,
+      provider TEXT NULL,
+      provider_payment_id TEXT NULL,
+      provider_authorized_payment_id TEXT NULL,
+      payment_expires_at TIMESTAMPTZ NULL,
+      paid_at TIMESTAMPTZ NULL,
+      failed_at TIMESTAMPTZ NULL,
+      refunded_at TIMESTAMPTZ NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS billing_invoices_subscription_created_at_idx
+    ON billing_invoices (subscription_id, created_at DESC)
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS billing_invoices_workspace_status_idx
+    ON billing_invoices (workspace_id, status, created_at DESC)
+  `;
+
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS billing_invoices_provider_payment_idx
+    ON billing_invoices (provider, provider_payment_id)
+    WHERE provider_payment_id IS NOT NULL
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS billing_subscription_changes (
+      id TEXT PRIMARY KEY,
+      subscription_id TEXT NOT NULL REFERENCES billing_subscriptions(id) ON DELETE CASCADE,
+      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      status TEXT NOT NULL,
+      from_plan_id TEXT NULL,
+      to_plan_id TEXT NULL,
+      from_billing_cycle TEXT NULL,
+      to_billing_cycle TEXT NULL,
+      effective_at TIMESTAMPTZ NOT NULL,
+      credit_amount_cents INTEGER NOT NULL DEFAULT 0,
+      charge_amount_cents INTEGER NOT NULL DEFAULT 0,
+      invoice_id TEXT NULL REFERENCES billing_invoices(id) ON DELETE SET NULL,
+      requested_by_type TEXT NULL,
+      requested_by_id TEXT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      applied_at TIMESTAMPTZ NULL,
+      canceled_at TIMESTAMPTZ NULL
+    )
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS billing_subscription_changes_subscription_idx
+    ON billing_subscription_changes (subscription_id, created_at DESC)
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS billing_subscription_changes_workspace_status_idx
+    ON billing_subscription_changes (workspace_id, status, effective_at ASC)
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS billing_payment_methods (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      provider TEXT NULL,
+      provider_payment_method_id TEXT NULL,
+      provider_customer_id TEXT NULL,
+      provider_mandate_id TEXT NULL,
+      label TEXT NULL,
+      is_default BOOLEAN NOT NULL DEFAULT FALSE,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS billing_payment_methods_workspace_idx
+    ON billing_payment_methods (workspace_id, is_active DESC, created_at DESC)
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS billing_webhook_events (
+      id TEXT PRIMARY KEY,
+      provider TEXT NOT NULL,
+      provider_event_id TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      resource_id TEXT NULL,
+      payload_hash TEXT NOT NULL,
+      status TEXT NOT NULL,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      processed_at TIMESTAMPTZ NULL,
+      error_code TEXT NULL,
+      error_message TEXT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (provider, provider_event_id, event_type)
+    )
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS billing_webhook_events_status_received_at_idx
+    ON billing_webhook_events (status, received_at DESC)
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS billing_audit_events (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NULL REFERENCES workspaces(id) ON DELETE SET NULL,
+      subscription_id TEXT NULL REFERENCES billing_subscriptions(id) ON DELETE SET NULL,
+      invoice_id TEXT NULL REFERENCES billing_invoices(id) ON DELETE SET NULL,
+      actor_type TEXT NOT NULL,
+      actor_id TEXT NULL,
+      action TEXT NOT NULL,
+      metadata JSONB NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS billing_audit_events_workspace_created_at_idx
+    ON billing_audit_events (workspace_id, created_at DESC)
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS billing_audit_events_subscription_created_at_idx
+    ON billing_audit_events (subscription_id, created_at DESC)
+  `;
 }
 
 async function ensureBootstrapAdmin(sql: ReturnType<typeof getSql>) {
