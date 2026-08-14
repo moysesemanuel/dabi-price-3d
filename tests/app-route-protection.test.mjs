@@ -113,5 +113,5 @@ test("bloqueia APIs de produto para workspace sem acesso pago", () => {
   assert.equal(result.type, "deny");
   assert.equal(result.status, 403);
   assert.equal(result.responseBody.code, "SUBSCRIPTION_REQUIRED");
-  assert.equal(result.responseBody.redirectTo, "/app/planos");
+  assert.equal(result.responseBody.redirectTo, "/app/assinatura");
 });

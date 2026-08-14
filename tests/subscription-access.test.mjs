@@ -45,6 +45,20 @@ test("resolve a rota padrao conforme onboarding e entitlement", () => {
     }),
     "/app/precificacao",
   );
+  assert.equal(
+    resolveDefaultWorkspaceAppPath({
+      onboardingCompleted: true,
+      subscriptionStatus: "paused",
+    }),
+    "/app/assinatura",
+  );
+  assert.equal(
+    resolveDefaultWorkspaceAppPath({
+      onboardingCompleted: true,
+      subscriptionStatus: "canceled",
+    }),
+    "/app/assinatura",
+  );
 });
 
 test("mantem apenas as rotas liberadas sem pagamento", () => {

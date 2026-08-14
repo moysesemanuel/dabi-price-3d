@@ -104,6 +104,13 @@ export function resolveDefaultWorkspaceAppPath(input: {
     return "/app/onboarding";
   }
 
+  if (
+    input.subscriptionStatus === "paused" ||
+    input.subscriptionStatus === "canceled"
+  ) {
+    return "/app/assinatura";
+  }
+
   return canAccessPaidWorkspaceFeatures(input.subscriptionStatus)
     ? "/app/precificacao"
     : "/app/planos";

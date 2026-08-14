@@ -88,9 +88,9 @@ export default async function AccountPage() {
           </p>
           <div className="mt-4 grid gap-3">
             <ActionLink
-              href="/app/planos"
-              title="Planos"
-              description="Compare o plano atual com as outras faixas da plataforma."
+              href="/app/assinatura"
+              title="Assinatura"
+              description="Acompanhe o status atual do workspace e a faixa liberada."
             />
             <ActionLink
               href="/app/perfil-empresa"
