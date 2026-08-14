@@ -1116,3 +1116,86 @@ test("pagamento manual pago aplica upgrade quando invoice e change estão penden
   assert.equal(invoiceUpdates[0]?.mutation.status, "paid");
   assert.equal(changeUpdates[0]?.mutation.status, "applied");
 });
+
+test("pagamento manual pago aplica cycle_change sem trocar o plano", async () => {
+  const calls = [];
+  const service = new BillingWebhookService({
+    async createWebhookEvent() {
+      return {
+        id: "evt-cycle-1", provider: "mercado_pago", providerEventId: "req-cycle-1",
+        eventType: "payment", resourceId: "pay-cycle-1", payloadHash: "hash-cycle-1",
+        status: "received", attempts: 0, receivedAt: "2026-08-14T14:00:00.000Z",
+        processedAt: null, errorCode: null, errorMessage: null,
+        createdAt: "2026-08-14T14:00:00.000Z", updatedAt: "2026-08-14T14:00:00.000Z",
+      };
+    },
+    async updateWebhookEventStatus() { return null; },
+    async getInvoiceById() {
+      return {
+        id: "inv-cycle-1", subscriptionId: "sub-cycle-1", workspaceId: "workspace-cycle-1",
+        priceId: "price-growth-annual", type: "upgrade", status: "pending", amountCents: 141550,
+        currency: "BRL", periodStart: "2026-08-14T14:00:00.000Z", periodEnd: "2027-08-14T14:00:00.000Z",
+        paymentMethod: "pix_manual", provider: "mercado_pago", providerPaymentId: null,
+        providerAuthorizedPaymentId: null, paymentExpiresAt: null, paidAt: null, failedAt: null,
+        refundedAt: null, createdAt: "2026-08-14T14:00:00.000Z", updatedAt: "2026-08-14T14:00:00.000Z",
+      };
+    },
+    async findInvoiceByProviderPaymentId() { throw new Error("not used"); },
+    async updateInvoice(invoiceId, mutation) { calls.push(["invoice", invoiceId, mutation]); return null; },
+    async getSubscriptionById() {
+      return {
+        id: "sub-cycle-1", workspaceId: "workspace-cycle-1", planId: "growth", billingCycle: "monthly",
+        priceId: "price-growth-monthly", status: "active", autoRenew: true,
+        currentPeriodStart: "2026-08-01T00:00:00.000Z", currentPeriodEnd: "2026-09-01T00:00:00.000Z",
+        gracePeriodEndsAt: null, cancelAtPeriodEnd: false, cancelRequestedAt: null, endedAt: null,
+        accessUntil: "2026-09-01T00:00:00.000Z", provider: "mercado_pago", providerSubscriptionId: "mp-sub-cycle-1",
+        createdAt: "2026-08-01T00:00:00.000Z", updatedAt: "2026-08-14T14:00:00.000Z",
+      };
+    },
+    async findUserByEmail() { throw new Error("not used"); },
+    async findPrimaryWorkspaceForUser() { throw new Error("not used"); },
+    async applyWorkspaceSubscriptionUpdate(input) { calls.push(["workspace", input]); return { changed: true }; },
+    async getSubscriptionChangeByInvoiceId() {
+      return {
+        id: "chg-cycle-1", subscriptionId: "sub-cycle-1", workspaceId: "workspace-cycle-1",
+        type: "cycle_change", status: "pending_payment", fromPlanId: "growth", toPlanId: "growth",
+        fromBillingCycle: "monthly", toBillingCycle: "annual", effectiveAt: "2026-08-14T14:00:00.000Z",
+        creditAmountCents: 7450, chargeAmountCents: 149000, invoiceId: "inv-cycle-1",
+        requestedByType: "user", requestedById: "user-1", createdAt: "2026-08-14T14:00:00.000Z",
+        appliedAt: null, canceledAt: null,
+      };
+    },
+    async updateSubscriptionChange(changeId, mutation) { calls.push(["change", changeId, mutation]); return null; },
+    async findActivePrice(input) {
+      assert.equal(input.billingCycle, "annual");
+      return { id: "price-growth-annual", planId: "growth", billingCycle: "annual", amountCents: 149000, currency: "BRL" };
+    },
+    getProvider() {
+      return { async updateSubscriptionAmount(input) { calls.push(["provider", input]); return {}; } };
+    },
+    billingService: {
+      async applyCycleChange(subscriptionId, input) { calls.push(["billing", subscriptionId, input]); },
+    },
+    clock: { now() { return new Date("2026-08-14T14:12:00.000Z"); } },
+  });
+
+  const outcome = await service.processEvent({
+    provider: "mercado_pago", providerEventId: "req-cycle-1", eventType: "payment",
+    resourceId: "pay-cycle-1", payloadHash: "hash-cycle-1", kind: "manual_payment", sourceTopic: "payment",
+    manualPayment: {
+      providerPaymentId: "pay-cycle-1", status: "approved", externalReference: "billing_invoice:inv-cycle-1",
+      paymentMethod: "pix_manual", expiresAt: null, approvedAt: "2026-08-14T14:12:00.000Z",
+    },
+  });
+
+  assert.equal(outcome.body.cycleChanged, true);
+  assert.equal(outcome.body.upgraded, false);
+  assert.deepEqual(calls.at(-1), [
+    "workspace",
+    {
+      workspaceId: "workspace-cycle-1", planId: "growth", billingCycle: "annual", status: "active",
+      source: "billing-webhook-cycle-change", mercadoPagoSubscriptionId: "mp-sub-cycle-1",
+      description: "Mudança de ciclo aplicada via payment.",
+    },
+  ]);
+});

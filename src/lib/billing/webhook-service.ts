@@ -2,6 +2,7 @@ import {
   normalizeBillingManualPaymentState,
   resolveInvoiceStatusFromManualPaymentState,
 } from "./manual-payment-status.ts";
+import { applyBillingSubscriptionCycleChange } from "./cycle-change-management.ts";
 import { applyBillingSubscriptionUpgrade } from "./upgrade-management.ts";
 import type { BillingPrice } from "./types.ts";
 import type { BillingService } from "./service.ts";
@@ -195,7 +196,11 @@ export type BillingWebhookServiceDependencies = {
   > | null;
   billingService: Pick<
     BillingService,
-    "activateSubscription" | "renewSubscription" | "markPastDue" | "applyUpgrade"
+    | "activateSubscription"
+    | "renewSubscription"
+    | "markPastDue"
+    | "applyUpgrade"
+    | "applyCycleChange"
   >;
   clock?: {
     now(): Date;
@@ -1004,28 +1009,49 @@ export class BillingWebhookService {
         };
       }
 
-      const syncResult = await applyBillingSubscriptionUpgrade({
-        subscription,
-        change,
-        invoice,
-        actorType: "webhook",
-        nowIso,
-        source: "billing-webhook-upgrade",
-        description: `Upgrade aplicado via ${normalizedEvent.sourceTopic}.`,
-        dependencies: {
-          findActivePrice: this.dependencies.findActivePrice,
-          getProvider: this.dependencies.getProvider,
-          billingService: this.dependencies.billingService,
-          updateSubscriptionChange: this.dependencies.updateSubscriptionChange,
-          applyWorkspaceSubscriptionUpdate:
-            this.dependencies.applyWorkspaceSubscriptionUpdate,
-        },
-      });
+      const isCycleChange = change.type === "cycle_change";
+      const syncResult = isCycleChange
+        ? await applyBillingSubscriptionCycleChange({
+            subscription,
+            change,
+            invoice,
+            actorType: "webhook",
+            nowIso,
+            source: "billing-webhook-cycle-change",
+            description: `Mudança de ciclo aplicada via ${normalizedEvent.sourceTopic}.`,
+            dependencies: {
+              findActivePrice: this.dependencies.findActivePrice,
+              getProvider: this.dependencies.getProvider,
+              billingService: this.dependencies.billingService,
+              updateSubscriptionChange: this.dependencies.updateSubscriptionChange,
+              applyWorkspaceSubscriptionUpdate:
+                this.dependencies.applyWorkspaceSubscriptionUpdate,
+            },
+          })
+        : await applyBillingSubscriptionUpgrade({
+            subscription,
+            change,
+            invoice,
+            actorType: "webhook",
+            nowIso,
+            source: "billing-webhook-upgrade",
+            description: `Upgrade aplicado via ${normalizedEvent.sourceTopic}.`,
+            dependencies: {
+              findActivePrice: this.dependencies.findActivePrice,
+              getProvider: this.dependencies.getProvider,
+              billingService: this.dependencies.billingService,
+              updateSubscriptionChange: this.dependencies.updateSubscriptionChange,
+              applyWorkspaceSubscriptionUpdate:
+                this.dependencies.applyWorkspaceSubscriptionUpdate,
+            },
+          });
 
       return {
         status: 200,
         logLevel: "info",
-        event: "billing_webhook.upgrade_applied",
+        event: isCycleChange
+          ? "billing_webhook.cycle_change_applied"
+          : "billing_webhook.upgrade_applied",
         details: {
           provider: normalizedEvent.provider,
           providerEventId: normalizedEvent.providerEventId,
@@ -1042,7 +1068,8 @@ export class BillingWebhookService {
           workspaceId: subscription.workspaceId,
           subscriptionId: subscription.id,
           invoiceId: invoice.id,
-          upgraded: true,
+          upgraded: !isCycleChange,
+          cycleChanged: isCycleChange,
         },
       };
     }

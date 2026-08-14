@@ -549,6 +549,205 @@ export class BillingService {
     };
   }
 
+  async requestCycleChange(
+    subscriptionId: string,
+    input: BillingServiceActor & {
+      priceId: string;
+      amountCents: number;
+      currency: string;
+      creditAmountCents: number;
+      chargeAmountCents: number;
+      periodStart: string;
+      periodEnd: string;
+      paymentMethod?: BillingPaymentMethodType | null;
+      provider?: BillingProviderName | null;
+    },
+  ) {
+    const subscription = await this.requireSubscription(subscriptionId);
+
+    if (subscription.status !== "active") {
+      throw new Error(
+        `Cannot request cycle change for subscription ${subscriptionId} with status ${subscription.status}.`,
+      );
+    }
+
+    if (!subscription.autoRenew || subscription.cancelAtPeriodEnd) {
+      throw new Error(
+        `Cannot request cycle change for subscription ${subscriptionId} without automatic renewal.`,
+      );
+    }
+
+    if (subscription.billingCycle !== "monthly") {
+      throw new Error(
+        `Immediate cycle changes require a monthly subscription. Current cycle: ${subscription.billingCycle}.`,
+      );
+    }
+
+    const existingChange = await this.repository.findLatestOpenSubscriptionChange({
+      subscriptionId,
+      type: "cycle_change",
+    });
+
+    if (existingChange && existingChange.status === "pending_payment") {
+      await this.repository.updateSubscriptionChange(existingChange.id, {
+        status: "canceled",
+        canceledAt: this.clock.now().toISOString(),
+      });
+    }
+
+    const change = await this.repository.createSubscriptionChange({
+      subscriptionId: subscription.id,
+      workspaceId: subscription.workspaceId,
+      type: "cycle_change",
+      status: "pending_payment",
+      fromPlanId: subscription.planId,
+      toPlanId: subscription.planId,
+      fromBillingCycle: "monthly",
+      toBillingCycle: "annual",
+      effectiveAt: input.periodStart,
+      creditAmountCents: input.creditAmountCents,
+      chargeAmountCents: input.chargeAmountCents,
+      invoiceId: null,
+      requestedByType: input.actorType ?? "user",
+      requestedById: input.actorId ?? null,
+    });
+
+    if (!change) {
+      throw new Error(`Failed to create cycle change for ${subscriptionId}.`);
+    }
+
+    const invoice = await this.repository.createInvoice({
+      subscriptionId: subscription.id,
+      workspaceId: subscription.workspaceId,
+      priceId: input.priceId,
+      type: "upgrade",
+      status: "pending",
+      amountCents: input.amountCents,
+      currency: input.currency,
+      periodStart: input.periodStart,
+      periodEnd: input.periodEnd,
+      paymentMethod: input.paymentMethod ?? null,
+      provider: input.provider ?? null,
+    });
+
+    if (!invoice) {
+      await this.repository.updateSubscriptionChange(change.id, { status: "failed" });
+      throw new Error(`Failed to create cycle change invoice for ${subscriptionId}.`);
+    }
+
+    await this.repository.updateSubscriptionChange(change.id, {
+      invoiceId: invoice.id,
+    });
+
+    await this.repository.appendAuditEvent({
+      workspaceId: subscription.workspaceId,
+      subscriptionId: subscription.id,
+      invoiceId: invoice.id,
+      actorType: input.actorType ?? "user",
+      actorId: input.actorId ?? null,
+      action: "subscription.cycle_change_requested",
+      metadata: {
+        fromBillingCycle: "monthly",
+        toBillingCycle: "annual",
+        changeId: change.id,
+        invoiceId: invoice.id,
+        creditAmountCents: input.creditAmountCents,
+        chargeAmountCents: input.chargeAmountCents,
+        amountCents: input.amountCents,
+      },
+    });
+
+    return {
+      change: {
+        ...change,
+        invoiceId: invoice.id,
+      },
+      invoice,
+    };
+  }
+
+  async scheduleCycleChange(
+    subscriptionId: string,
+    input: BillingServiceActor,
+  ) {
+    const subscription = await this.requireSubscription(subscriptionId);
+
+    if (subscription.status !== "active") {
+      throw new Error(
+        `Cannot schedule cycle change for subscription ${subscriptionId} with status ${subscription.status}.`,
+      );
+    }
+
+    if (!subscription.autoRenew || subscription.cancelAtPeriodEnd) {
+      throw new Error(
+        `Cannot schedule cycle change for subscription ${subscriptionId} without automatic renewal.`,
+      );
+    }
+
+    if (subscription.billingCycle !== "annual" || !subscription.currentPeriodEnd) {
+      throw new Error(
+        `Scheduled cycle changes require an annual subscription with currentPeriodEnd.`,
+      );
+    }
+
+    const existingChange = await this.repository.findLatestOpenSubscriptionChange({
+      subscriptionId,
+      type: "cycle_change",
+    });
+
+    if (
+      existingChange?.status === "scheduled" &&
+      existingChange.toBillingCycle === "monthly" &&
+      existingChange.effectiveAt === subscription.currentPeriodEnd
+    ) {
+      return existingChange;
+    }
+
+    if (existingChange) {
+      await this.repository.updateSubscriptionChange(existingChange.id, {
+        status: "canceled",
+        canceledAt: this.clock.now().toISOString(),
+      });
+    }
+
+    const change = await this.repository.createSubscriptionChange({
+      subscriptionId: subscription.id,
+      workspaceId: subscription.workspaceId,
+      type: "cycle_change",
+      status: "scheduled",
+      fromPlanId: subscription.planId,
+      toPlanId: subscription.planId,
+      fromBillingCycle: "annual",
+      toBillingCycle: "monthly",
+      effectiveAt: subscription.currentPeriodEnd,
+      creditAmountCents: 0,
+      chargeAmountCents: 0,
+      invoiceId: null,
+      requestedByType: input.actorType ?? "user",
+      requestedById: input.actorId ?? null,
+    });
+
+    if (!change) {
+      throw new Error(`Failed to schedule cycle change for ${subscriptionId}.`);
+    }
+
+    await this.repository.appendAuditEvent({
+      workspaceId: subscription.workspaceId,
+      subscriptionId: subscription.id,
+      actorType: input.actorType ?? "user",
+      actorId: input.actorId ?? null,
+      action: "subscription.cycle_change_scheduled",
+      metadata: {
+        fromBillingCycle: "annual",
+        toBillingCycle: "monthly",
+        effectiveAt: subscription.currentPeriodEnd,
+        changeId: change.id,
+      },
+    });
+
+    return change;
+  }
+
   async applyUpgrade(
     subscriptionId: string,
     input: BillingServiceActor & {
@@ -565,6 +764,31 @@ export class BillingService {
       metadata: {
         changeId: input.changeId ?? null,
         changeType: "upgrade",
+      },
+    });
+  }
+
+  async applyCycleChange(
+    subscriptionId: string,
+    input: BillingServiceActor & {
+      priceId: string;
+      billingCycle: BillingCycle;
+      currentPeriodStart: string;
+      currentPeriodEnd: string;
+      changeId?: string | null;
+    },
+  ) {
+    return this.applyScheduledChange(subscriptionId, {
+      actorType: input.actorType ?? "system",
+      actorId: input.actorId ?? null,
+      billingCycle: input.billingCycle,
+      priceId: input.priceId,
+      currentPeriodStart: input.currentPeriodStart,
+      currentPeriodEnd: input.currentPeriodEnd,
+      accessUntil: input.currentPeriodEnd,
+      metadata: {
+        changeId: input.changeId ?? null,
+        changeType: "cycle_change",
       },
     });
   }
@@ -767,6 +991,10 @@ function resolveScheduledChangeAuditAction(
 
   if (changeType === "upgrade") {
     return "subscription.upgraded";
+  }
+
+  if (changeType === "cycle_change") {
+    return "subscription.cycle_changed";
   }
 
   return "subscription.change_applied";

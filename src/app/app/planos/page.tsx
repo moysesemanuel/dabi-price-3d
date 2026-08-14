@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { BackLink } from "@/components/app/back-link";
+import { BillingCycleChangeButton } from "@/components/payments/billing-cycle-change-button";
 import { BillingDowngradeButton } from "@/components/payments/billing-downgrade-button";
 import { BillingUpgradePixButton } from "@/components/payments/billing-upgrade-pix-button";
 import { MercadoPagoCheckoutButton } from "@/components/payments/mercado-pago-checkout-button";
@@ -149,6 +150,13 @@ export default async function PlansPage({
           type: "upgrade",
         }).catch(() => null)
       : null;
+  const pendingCycleChange =
+    billingSubscription && isPlatformPersistenceAvailable()
+      ? await findLatestOpenBillingSubscriptionChange({
+          subscriptionId: billingSubscription.id,
+          type: "cycle_change",
+        }).catch(() => null)
+      : null;
   const currentPlan = getWorkspacePlan(
     preferences.subscription.planId,
   );
@@ -159,11 +167,16 @@ export default async function PlansPage({
   const selectedBillingCycle = hasPaidAccess
     ? currentBillingCycle
     : requestedBillingCycle;
+  const cycleSelection = hasPaidAccess
+    ? requestedBillingCycle
+    : selectedBillingCycle;
+  const canChangeBillingCycle = canRequestBillingCycleChange(billingSubscription);
   const showBillingCycleSelector =
     !hasPaidAccess ||
     subscriptionStatus === "pending" ||
     subscriptionStatus === "canceled" ||
-    subscriptionStatus === "paused";
+    subscriptionStatus === "paused" ||
+    canChangeBillingCycle;
   const subscriptionStatusLabel = getSubscriptionStatusLabel(subscriptionStatus);
   const scheduledDowngradePlan =
     scheduledDowngrade?.status === "scheduled" && scheduledDowngrade.toPlanId
@@ -173,6 +186,12 @@ export default async function PlansPage({
     pendingUpgrade?.status === "pending_payment" && pendingUpgrade.toPlanId
       ? getWorkspacePlan(pendingUpgrade.toPlanId)
       : null;
+  const pendingCycleChangeLabel =
+    pendingCycleChange?.status === "pending_payment"
+      ? "A mudança para o ciclo anual será aplicada após a confirmação do Pix."
+      : pendingCycleChange?.status === "scheduled"
+        ? "A mudança para o ciclo mensal está agendada para o fim do período anual."
+        : null;
   const pendingCheckoutHref =
     currentPlan.id === "starter" || currentPlan.id === "growth"
       ? `/app/checkout?plan=${currentPlan.id}&billingCycle=${currentBillingCycle}`
@@ -235,7 +254,7 @@ export default async function PlansPage({
           {showBillingCycleSelector ? (
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--muted)]">
-                Ciclo do novo checkout
+                {hasPaidAccess ? "Ciclo da assinatura" : "Ciclo do novo checkout"}
               </p>
               <div className="inline-flex items-center gap-2 rounded-full border border-[var(--panel-border)] bg-[rgba(255,255,255,0.76)] p-1">
                 <Link
@@ -248,7 +267,7 @@ export default async function PlansPage({
                     },
                   }}
                   className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                    selectedBillingCycle === "monthly"
+                    cycleSelection === "monthly"
                       ? "bg-[var(--accent)] text-white"
                       : "text-[var(--muted)] hover:text-[var(--foreground)]"
                   }`}
@@ -265,7 +284,7 @@ export default async function PlansPage({
                     },
                   }}
                   className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                    selectedBillingCycle === "annual"
+                    cycleSelection === "annual"
                       ? "bg-[var(--accent)] text-white"
                       : "text-[var(--muted)] hover:text-[var(--foreground)]"
                   }`}
@@ -273,6 +292,19 @@ export default async function PlansPage({
                   Anual · 12 meses
                 </Link>
               </div>
+            </div>
+          ) : null}
+
+          {pendingCycleChangeLabel ? (
+            <p className="mt-4 text-sm leading-7 text-[var(--muted)]">
+              {pendingCycleChangeLabel}
+            </p>
+          ) : canChangeBillingCycle &&
+            cycleSelection !== currentBillingCycle ? (
+            <div className="mt-4 max-w-xl">
+              <BillingCycleChangeButton
+                targetBillingCycle={cycleSelection}
+              />
             </div>
           ) : null}
         </div>
@@ -657,6 +689,17 @@ function canRequestPlanUpgrade(input: {
   }
 
   return planOrder.indexOf(input.planId) > planOrder.indexOf(subscription.planId);
+}
+
+function canRequestBillingCycleChange(subscription: BillingSubscription | null) {
+  return Boolean(
+    subscription &&
+      subscription.status === "active" &&
+      subscription.autoRenew &&
+      !subscription.cancelAtPeriodEnd &&
+      subscription.currentPeriodStart &&
+      subscription.currentPeriodEnd,
+  );
 }
 
 const planOrder = ["starter", "growth", "scale"] as const;

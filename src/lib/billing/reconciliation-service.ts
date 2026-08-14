@@ -1,5 +1,6 @@
 import type { BillingProvider } from "./providers/billing-provider.ts";
 import type { BillingService } from "./service.ts";
+import { applyBillingSubscriptionCycleChange } from "./cycle-change-management.ts";
 import { applyBillingSubscriptionUpgrade } from "./upgrade-management.ts";
 import type {
   BillingInvoice,
@@ -56,6 +57,7 @@ export type BillingReconciliationServiceDependencies = {
     | "finalizeCancellation"
     | "expireSubscription"
     | "applyUpgrade"
+    | "applyCycleChange"
     | "applyScheduledChange"
   >;
   getSubscriptionById(subscriptionId: string): Promise<BillingSubscription | null>;
@@ -349,23 +351,43 @@ export class BillingReconciliationService {
         };
       }
 
-      await applyBillingSubscriptionUpgrade({
-        subscription,
-        change,
-        invoice,
-        actorType: "system",
-        nowIso,
-        source: "billing-reconciliation-upgrade",
-        description: `Reconciliação aplicou upgrade após invoice ${invoice.id} paga.`,
-        dependencies: {
-          findActivePrice: this.dependencies.findActivePrice,
-          getProvider: this.dependencies.getProvider,
-          billingService: this.dependencies.billingService,
-          updateSubscriptionChange: this.dependencies.updateSubscriptionChange,
-          applyWorkspaceSubscriptionUpdate:
-            this.dependencies.applyWorkspaceSubscriptionUpdate,
-        },
-      });
+      if (change.type === "cycle_change") {
+        await applyBillingSubscriptionCycleChange({
+          subscription,
+          change,
+          invoice,
+          actorType: "system",
+          nowIso,
+          source: "billing-reconciliation-cycle-change",
+          description: `Reconciliação aplicou mudança de ciclo após invoice ${invoice.id} paga.`,
+          dependencies: {
+            findActivePrice: this.dependencies.findActivePrice,
+            getProvider: this.dependencies.getProvider,
+            billingService: this.dependencies.billingService,
+            updateSubscriptionChange: this.dependencies.updateSubscriptionChange,
+            applyWorkspaceSubscriptionUpdate:
+              this.dependencies.applyWorkspaceSubscriptionUpdate,
+          },
+        });
+      } else {
+        await applyBillingSubscriptionUpgrade({
+          subscription,
+          change,
+          invoice,
+          actorType: "system",
+          nowIso,
+          source: "billing-reconciliation-upgrade",
+          description: `Reconciliação aplicou upgrade após invoice ${invoice.id} paga.`,
+          dependencies: {
+            findActivePrice: this.dependencies.findActivePrice,
+            getProvider: this.dependencies.getProvider,
+            billingService: this.dependencies.billingService,
+            updateSubscriptionChange: this.dependencies.updateSubscriptionChange,
+            applyWorkspaceSubscriptionUpdate:
+              this.dependencies.applyWorkspaceSubscriptionUpdate,
+          },
+        });
+      }
       changed += 1;
 
       return {

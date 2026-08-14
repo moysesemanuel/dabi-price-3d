@@ -249,16 +249,17 @@ Evidências:
 - webhook, checkout recorrente e checkout Pix deixaram de depender do estado legado salvo em preferências para sincronizar assinatura
 - `preapprovalPlanId` e variáveis públicas obsoletas de subscription checkout não aparecem mais no código da aplicação
 
-## Seções do documento ainda não atendidas integralmente
-
 ### Seção 22 — Mudança de ciclo
 
-Status: `faltando`
+Status: `ok`
 
-Lacunas:
+Atendido:
 
-- não existe fluxo explícito de `mensal -> anual` com aplicação imediata e crédito proporcional
-- não existe fluxo explícito de `anual -> mensal` agendado para o fim do período
+- mensal para anual cria `BillingSubscriptionChange` pendente, calcula crédito proporcional do período mensal restante e gera invoice Pix pelo valor anual menos o crédito
+- o webhook e a reconciliação aplicam a mudança após o pagamento, atualizando preço, ciclo, recorrência e vigência anual
+- anual para mensal registra mudança `scheduled` para `currentPeriodEnd`, sem reembolso proporcional, e prepara a próxima recorrência mensal
+
+## Seções do documento ainda não atendidas integralmente
 
 ### Seção 30/31/33 — Jobs, reconciliação e frequência operacional
 
