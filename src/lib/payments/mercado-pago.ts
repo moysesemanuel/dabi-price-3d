@@ -41,10 +41,14 @@ export type MercadoPagoAuthorizedPayment = {
   preapproval_id?: string | null;
   external_reference?: string | number | null;
   status?: string | null;
+  payment_method_id?: string | null;
+  date_approved?: string | null;
   payment?: {
     id?: number | string | null;
     status?: string | null;
     status_detail?: string | null;
+    payment_method_id?: string | null;
+    date_approved?: string | null;
   } | null;
 };
 

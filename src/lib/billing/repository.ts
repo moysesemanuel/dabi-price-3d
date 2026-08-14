@@ -848,6 +848,44 @@ export async function findBillingInvoiceByProviderPaymentId(input: {
   return rows[0] ? mapBillingInvoiceRow(rows[0]) : null;
 }
 
+export async function findBillingInvoiceByProviderAuthorizedPaymentId(input: {
+  provider: BillingProviderName;
+  providerAuthorizedPaymentId: string;
+}) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      id,
+      subscription_id,
+      workspace_id,
+      price_id,
+      type,
+      status,
+      amount_cents,
+      currency,
+      period_start,
+      period_end,
+      payment_method,
+      provider,
+      provider_payment_id,
+      provider_authorized_payment_id,
+      payment_expires_at,
+      paid_at,
+      failed_at,
+      refunded_at,
+      created_at,
+      updated_at
+    FROM billing_invoices
+    WHERE provider = ${input.provider}
+      AND provider_authorized_payment_id = ${input.providerAuthorizedPaymentId}
+    LIMIT 1
+  `) as BillingInvoiceRow[];
+
+  return rows[0] ? mapBillingInvoiceRow(rows[0]) : null;
+}
+
 export async function listBillingInvoicesForExpiration(asOf: string) {
   await ensurePlatformReady();
 

@@ -195,6 +195,64 @@ test("activateSubscription ativa assinatura pendente e define período", async (
   assert.equal(repository.auditEvents.at(-1)?.action, "subscription.activated");
 });
 
+test("renewSubscription atualiza o período e registra renovação", async () => {
+  const repository = createInMemoryBillingRepository();
+  const service = new BillingService(repository);
+  const subscription = await service.createSubscription({
+    workspaceId: "workspace-1",
+    planId: "growth",
+    billingCycle: "monthly",
+    autoRenew: true,
+  });
+
+  await service.activateSubscription(subscription.id, {
+    currentPeriodStart: "2026-08-14T00:00:00.000Z",
+    currentPeriodEnd: "2026-09-14T00:00:00.000Z",
+  });
+
+  const renewed = await service.renewSubscription(subscription.id, {
+    actorType: "system",
+    currentPeriodStart: "2026-09-14T00:00:00.000Z",
+    currentPeriodEnd: "2026-10-14T00:00:00.000Z",
+    accessUntil: "2026-10-14T00:00:00.000Z",
+  });
+
+  assert.equal(renewed.status, "active");
+  assert.equal(renewed.currentPeriodStart, "2026-09-14T00:00:00.000Z");
+  assert.equal(renewed.currentPeriodEnd, "2026-10-14T00:00:00.000Z");
+  assert.equal(repository.auditEvents.at(-1)?.action, "subscription.renewed");
+});
+
+test("renewSubscription recupera assinatura em past_due", async () => {
+  const repository = createInMemoryBillingRepository();
+  const service = new BillingService(repository);
+  const subscription = await service.createSubscription({
+    workspaceId: "workspace-1",
+    planId: "growth",
+    billingCycle: "monthly",
+    autoRenew: true,
+  });
+
+  await service.activateSubscription(subscription.id, {
+    currentPeriodStart: "2026-08-14T00:00:00.000Z",
+    currentPeriodEnd: "2026-09-14T00:00:00.000Z",
+  });
+  await service.markPastDue(subscription.id, {
+    gracePeriodEndsAt: "2026-09-19T00:00:00.000Z",
+  });
+
+  const renewed = await service.renewSubscription(subscription.id, {
+    actorType: "system",
+    currentPeriodStart: "2026-09-14T00:00:00.000Z",
+    currentPeriodEnd: "2026-10-14T00:00:00.000Z",
+    accessUntil: "2026-10-14T00:00:00.000Z",
+  });
+
+  assert.equal(renewed.status, "active");
+  assert.equal(renewed.gracePeriodEndsAt, null);
+  assert.equal(repository.auditEvents.at(-1)?.action, "subscription.recovered");
+});
+
 test("scheduleCancellation e revertCancellation centralizam a regra", async () => {
   const repository = createInMemoryBillingRepository();
   const service = new BillingService(repository, {

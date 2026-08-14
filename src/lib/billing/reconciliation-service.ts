@@ -3,13 +3,17 @@ import type { BillingService } from "./service.ts";
 import { applyBillingSubscriptionUpgrade } from "./upgrade-management.ts";
 import type {
   BillingInvoice,
-  BillingInvoiceStatus,
   BillingPrice,
   BillingSubscription,
   BillingSubscriptionChange,
   BillingWebhookEvent,
 } from "./types.ts";
-import { normalizeBillingManualPaymentState } from "./manual-payment-status.ts";
+import {
+  normalizeBillingManualPaymentState,
+  resolveInvoiceStatusFromManualPaymentState,
+} from "./manual-payment-status.ts";
+
+const DEFAULT_PAST_DUE_GRACE_PERIOD_DAYS = 5;
 
 export type BillingReconciliationFindingCode =
   | "provider_subscription_missing"
@@ -46,6 +50,8 @@ export type BillingReconciliationServiceDependencies = {
   billingService: Pick<
     BillingService,
     | "activateSubscription"
+    | "renewSubscription"
+    | "markPastDue"
     | "pauseSubscription"
     | "finalizeCancellation"
     | "expireSubscription"
@@ -227,11 +233,7 @@ export class BillingReconciliationService {
       throw new Error(`Billing invoice not found: ${invoiceId}`);
     }
 
-    if (
-      invoice.paymentMethod !== "pix_manual" ||
-      invoice.status !== "pending" ||
-      !invoice.providerPaymentId
-    ) {
+    if (invoice.status !== "pending") {
       return emptyRun(1);
     }
 
@@ -241,29 +243,15 @@ export class BillingReconciliationService {
       return emptyRun(1);
     }
 
-    const payment = await provider.getManualPayment(invoice.providerPaymentId);
-    const paymentState = normalizeBillingManualPaymentState(payment.status);
+    const payment = await resolveReconciliationPayment(provider, invoice);
 
-    let nextInvoiceStatus: BillingInvoiceStatus | null = null;
-
-    switch (paymentState) {
-      case "paid":
-        nextInvoiceStatus = "paid";
-        break;
-      case "failed":
-        nextInvoiceStatus = "failed";
-        break;
-      case "expired":
-        nextInvoiceStatus = "expired";
-        break;
-      case "canceled":
-        nextInvoiceStatus = "canceled";
-        break;
-      case "pending":
-      case "unknown":
-      default:
-        nextInvoiceStatus = null;
+    if (!payment) {
+      return emptyRun(1);
     }
+
+    const paymentState = normalizeBillingManualPaymentState(payment.status);
+    const nextInvoiceStatus =
+      resolveInvoiceStatusFromManualPaymentState(paymentState);
 
     if (!nextInvoiceStatus) {
       return emptyRun(1);
@@ -272,9 +260,14 @@ export class BillingReconciliationService {
     const nowIso = this.now().toISOString();
     await this.dependencies.updateInvoice(invoice.id, {
       status: nextInvoiceStatus,
-      paymentExpiresAt: payment.expiresAt ?? invoice.paymentExpiresAt,
-      providerPaymentId: payment.providerPaymentId,
-      providerAuthorizedPaymentId: payment.providerAuthorizedPaymentId,
+      paymentExpiresAt:
+        payment.kind === "manual"
+          ? payment.record.expiresAt ?? invoice.paymentExpiresAt
+          : invoice.paymentExpiresAt,
+      providerPaymentId: payment.record.providerPaymentId ?? invoice.providerPaymentId,
+      providerAuthorizedPaymentId:
+        payment.record.providerAuthorizedPaymentId ??
+        invoice.providerAuthorizedPaymentId,
       paidAt:
         nextInvoiceStatus === "paid"
           ? invoice.paidAt ?? nowIso
@@ -374,6 +367,102 @@ export class BillingReconciliationService {
         },
       });
       changed += 1;
+
+      return {
+        processed: 1,
+        changed,
+        findings,
+      };
+    }
+
+    if (invoice.type === "renewal") {
+      if (nextInvoiceStatus === "paid") {
+        if (
+          subscription.status !== "active" &&
+          subscription.status !== "past_due"
+        ) {
+          findings.push({
+            code: "invoice_paid_subscription_not_active",
+            workspaceId: subscription.workspaceId,
+            subscriptionId: subscription.id,
+            invoiceId: invoice.id,
+            details: {
+              previousSubscriptionStatus: subscription.status,
+              autoCorrected: false,
+              invoiceType: invoice.type,
+            },
+          });
+
+          return {
+            processed: 1,
+            changed,
+            findings,
+          };
+        }
+
+        const currentPeriodStart =
+          invoice.periodStart ?? subscription.currentPeriodEnd ?? nowIso;
+        const currentPeriodEnd =
+          invoice.periodEnd ??
+          addBillingCycle(currentPeriodStart, subscription.billingCycle);
+
+        await this.dependencies.billingService.renewSubscription(subscription.id, {
+          actorType: "system",
+          currentPeriodStart,
+          currentPeriodEnd,
+          accessUntil: currentPeriodEnd,
+        });
+        await this.dependencies.applyWorkspaceSubscriptionUpdate({
+          workspaceId: subscription.workspaceId,
+          planId: subscription.planId,
+          billingCycle: subscription.billingCycle,
+          status: "active",
+          mercadoPagoSubscriptionId: subscription.providerSubscriptionId,
+          source: "billing-reconciliation-renewal-paid",
+          description: `Reconciliação renovou a assinatura após invoice ${invoice.id} paga.`,
+        });
+        changed += 1;
+
+        return {
+          processed: 1,
+          changed,
+          findings,
+        };
+      }
+
+      if (
+        (nextInvoiceStatus === "failed" ||
+          nextInvoiceStatus === "expired" ||
+          nextInvoiceStatus === "canceled") &&
+        subscription.status === "active"
+      ) {
+        findings.push({
+          code: "invoice_failed_subscription_active",
+          workspaceId: subscription.workspaceId,
+          subscriptionId: subscription.id,
+          invoiceId: invoice.id,
+          details: {
+            invoiceStatus: nextInvoiceStatus,
+            autoCorrected: true,
+          },
+        });
+
+        await this.dependencies.billingService.markPastDue(subscription.id, {
+          actorType: "system",
+          gracePeriodEndsAt: addDays(this.now(), DEFAULT_PAST_DUE_GRACE_PERIOD_DAYS),
+        });
+        await this.dependencies.applyWorkspaceSubscriptionUpdate({
+          workspaceId: subscription.workspaceId,
+          planId: subscription.planId,
+          billingCycle: subscription.billingCycle,
+          status: "active",
+          mercadoPagoSubscriptionId: subscription.providerSubscriptionId,
+          source: "billing-reconciliation-renewal-failed",
+          description:
+            "Reconciliação registrou falha de renovação e iniciou período de tolerância.",
+        });
+        changed += 1;
+      }
 
       return {
         processed: 1,
@@ -735,14 +824,20 @@ function addBillingCycle(startAt: string, billingCycle: "monthly" | "annual") {
   return startDate.toISOString();
 }
 
+function addDays(date: Date, days: number) {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() + days);
+  return copy.toISOString();
+}
+
 function mirrorStatusFromBillingStatus(
   status: BillingSubscription["status"],
 ): WorkspaceMirrorStatus {
   switch (status) {
     case "active":
+    case "past_due":
       return "active";
     case "paused":
-    case "past_due":
       return "paused";
     case "pending":
       return "unpaid";
@@ -784,4 +879,29 @@ function serializeErrorMessage(error: unknown) {
   }
 
   return String(error);
+}
+
+async function resolveReconciliationPayment(
+  provider: BillingProvider,
+  invoice: BillingInvoice,
+) {
+  if (invoice.paymentMethod === "pix_manual" && invoice.providerPaymentId) {
+    const payment = await provider.getManualPayment(invoice.providerPaymentId);
+    return {
+      kind: "manual" as const,
+      record: payment,
+      status: payment.status,
+    };
+  }
+
+  if (invoice.providerAuthorizedPaymentId) {
+    const payment = await provider.getPayment(invoice.providerAuthorizedPaymentId);
+    return {
+      kind: "authorized" as const,
+      record: payment,
+      status: payment.status,
+    };
+  }
+
+  return null;
 }

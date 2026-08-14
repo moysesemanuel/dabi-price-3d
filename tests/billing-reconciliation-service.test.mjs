@@ -5,6 +5,8 @@ import { BillingReconciliationService } from "../src/lib/billing/reconciliation-
 
 function createDependencies(overrides = {}) {
   const activations = [];
+  const renewals = [];
+  const pastDues = [];
   const appliedUpgrades = [];
   const pauses = [];
   const cancellations = [];
@@ -17,6 +19,8 @@ function createDependencies(overrides = {}) {
 
   const base = {
     activations,
+    renewals,
+    pastDues,
     appliedUpgrades,
     pauses,
     cancellations,
@@ -29,6 +33,12 @@ function createDependencies(overrides = {}) {
     billingService: {
       async activateSubscription(subscriptionId, input) {
         activations.push({ subscriptionId, input });
+      },
+      async renewSubscription(subscriptionId, input) {
+        renewals.push({ subscriptionId, input });
+      },
+      async markPastDue(subscriptionId, input) {
+        pastDues.push({ subscriptionId, input });
       },
       async pauseSubscription(subscriptionId, input) {
         pauses.push({ subscriptionId, input });
@@ -483,6 +493,170 @@ test("reconcileInvoice ativa assinatura pending quando Pix já foi pago", async 
   assert.equal(result.changed, 2);
   assert.equal(result.findings[0]?.code, "invoice_paid_subscription_not_active");
   assert.equal(dependencies.activations.length, 1);
+  assert.equal(dependencies.workspaceUpdates[0]?.status, "active");
+});
+
+test("reconcileInvoice renova assinatura ativa com cobrança automática paga", async () => {
+  const dependencies = createDependencies({
+    async getInvoiceById() {
+      return {
+        id: "inv-renew-3",
+        subscriptionId: "sub-renew-3",
+        workspaceId: "workspace-renew-3",
+        priceId: "price-growth-monthly",
+        type: "renewal",
+        status: "pending",
+        amountCents: 14900,
+        currency: "BRL",
+        periodStart: "2026-08-14T10:00:00.000Z",
+        periodEnd: "2026-09-14T10:00:00.000Z",
+        paymentMethod: "pix_automatic",
+        provider: "mercado_pago",
+        providerPaymentId: "pay-renew-3",
+        providerAuthorizedPaymentId: "auth-renew-3",
+        paymentExpiresAt: null,
+        paidAt: null,
+        failedAt: null,
+        refundedAt: null,
+        createdAt: "2026-08-14T10:00:00.000Z",
+        updatedAt: "2026-08-14T10:00:00.000Z",
+      };
+    },
+    async getSubscriptionById() {
+      return {
+        id: "sub-renew-3",
+        workspaceId: "workspace-renew-3",
+        planId: "growth",
+        billingCycle: "monthly",
+        priceId: "price-growth-monthly",
+        status: "active",
+        autoRenew: true,
+        currentPeriodStart: "2026-07-14T10:00:00.000Z",
+        currentPeriodEnd: "2026-08-14T10:00:00.000Z",
+        gracePeriodEndsAt: null,
+        cancelAtPeriodEnd: false,
+        cancelRequestedAt: null,
+        endedAt: null,
+        accessUntil: "2026-08-14T10:00:00.000Z",
+        provider: "mercado_pago",
+        providerSubscriptionId: "mp-sub-renew-3",
+        createdAt: "2026-07-14T10:00:00.000Z",
+        updatedAt: "2026-08-14T10:00:00.000Z",
+      };
+    },
+    getProvider() {
+      return {
+        async getManualPayment() {
+          throw new Error("not used");
+        },
+        async getPayment(providerAuthorizedPaymentId) {
+          assert.equal(providerAuthorizedPaymentId, "auth-renew-3");
+          return {
+            provider: "mercado_pago",
+            providerPaymentId: "pay-renew-3",
+            providerAuthorizedPaymentId: "auth-renew-3",
+            status: "approved",
+            providerSubscriptionId: "mp-sub-renew-3",
+            externalReference: "billing_subscription:sub-renew-3",
+            paymentMethod: "pix_automatic",
+          };
+        },
+      };
+    },
+  });
+
+  const service = new BillingReconciliationService(dependencies);
+  const result = await service.reconcileInvoice("inv-renew-3");
+
+  assert.equal(result.changed, 2);
+  assert.equal(dependencies.renewals.length, 1);
+  assert.equal(
+    dependencies.renewals[0]?.input.currentPeriodStart,
+    "2026-08-14T10:00:00.000Z",
+  );
+  assert.equal(dependencies.workspaceUpdates[0]?.status, "active");
+});
+
+test("reconcileInvoice inicia tolerância quando renovação automática falha", async () => {
+  const dependencies = createDependencies({
+    async getInvoiceById() {
+      return {
+        id: "inv-renew-4",
+        subscriptionId: "sub-renew-4",
+        workspaceId: "workspace-renew-4",
+        priceId: "price-growth-monthly",
+        type: "renewal",
+        status: "pending",
+        amountCents: 14900,
+        currency: "BRL",
+        periodStart: "2026-08-14T10:00:00.000Z",
+        periodEnd: "2026-09-14T10:00:00.000Z",
+        paymentMethod: "pix_automatic",
+        provider: "mercado_pago",
+        providerPaymentId: "pay-renew-4",
+        providerAuthorizedPaymentId: "auth-renew-4",
+        paymentExpiresAt: null,
+        paidAt: null,
+        failedAt: null,
+        refundedAt: null,
+        createdAt: "2026-08-14T10:00:00.000Z",
+        updatedAt: "2026-08-14T10:00:00.000Z",
+      };
+    },
+    async getSubscriptionById() {
+      return {
+        id: "sub-renew-4",
+        workspaceId: "workspace-renew-4",
+        planId: "growth",
+        billingCycle: "monthly",
+        priceId: "price-growth-monthly",
+        status: "active",
+        autoRenew: true,
+        currentPeriodStart: "2026-07-14T10:00:00.000Z",
+        currentPeriodEnd: "2026-08-14T10:00:00.000Z",
+        gracePeriodEndsAt: null,
+        cancelAtPeriodEnd: false,
+        cancelRequestedAt: null,
+        endedAt: null,
+        accessUntil: "2026-08-14T10:00:00.000Z",
+        provider: "mercado_pago",
+        providerSubscriptionId: "mp-sub-renew-4",
+        createdAt: "2026-07-14T10:00:00.000Z",
+        updatedAt: "2026-08-14T10:00:00.000Z",
+      };
+    },
+    getProvider() {
+      return {
+        async getManualPayment() {
+          throw new Error("not used");
+        },
+        async getPayment() {
+          return {
+            provider: "mercado_pago",
+            providerPaymentId: "pay-renew-4",
+            providerAuthorizedPaymentId: "auth-renew-4",
+            status: "rejected",
+            providerSubscriptionId: "mp-sub-renew-4",
+            externalReference: "billing_subscription:sub-renew-4",
+            paymentMethod: "pix_automatic",
+          };
+        },
+      };
+    },
+  });
+
+  const service = new BillingReconciliationService(dependencies);
+  const result = await service.reconcileInvoice("inv-renew-4");
+
+  assert.equal(result.changed, 2);
+  assert.equal(result.findings[0]?.code, "invoice_failed_subscription_active");
+  assert.deepEqual(dependencies.pastDues[0], {
+    subscriptionId: "sub-renew-4",
+    input: {
+      actorType: "system",
+      gracePeriodEndsAt: "2026-08-19T12:00:00.000Z",
+    },
+  });
   assert.equal(dependencies.workspaceUpdates[0]?.status, "active");
 });
 

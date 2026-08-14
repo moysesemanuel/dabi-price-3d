@@ -26,6 +26,11 @@ export function mapMercadoPagoSubscriptionToBillingSubscription(
 export function mapMercadoPagoAuthorizedPaymentToBillingPayment(
   authorizedPayment: MercadoPagoAuthorizedPayment,
 ): BillingProviderPayment {
+  const paymentMethod = mapMercadoPagoAutomaticPaymentMethod(
+    normalizeOptionalString(authorizedPayment.payment?.payment_method_id) ??
+      normalizeOptionalString(authorizedPayment.payment_method_id),
+  );
+
   return {
     provider: "mercado_pago",
     providerPaymentId:
@@ -38,7 +43,7 @@ export function mapMercadoPagoAuthorizedPaymentToBillingPayment(
     providerSubscriptionId:
       normalizeOptionalString(authorizedPayment.preapproval_id) ?? null,
     externalReference: normalizeOptionalString(authorizedPayment.external_reference),
-    paymentMethod: null,
+    paymentMethod,
   };
 }
 
@@ -82,4 +87,24 @@ function normalizeOptionalString(value: unknown) {
 
   const normalized = value.trim();
   return normalized ? normalized : null;
+}
+
+function mapMercadoPagoAutomaticPaymentMethod(paymentMethodId: string | null) {
+  if (!paymentMethodId) {
+    return null;
+  }
+
+  if (paymentMethodId === "pix") {
+    return "pix_automatic" as const;
+  }
+
+  if (paymentMethodId === "account_money") {
+    return "account_money" as const;
+  }
+
+  if (paymentMethodId.startsWith("bol")) {
+    return "boleto" as const;
+  }
+
+  return null;
 }

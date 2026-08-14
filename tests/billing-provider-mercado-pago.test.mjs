@@ -90,6 +90,7 @@ test("provider mapeia authorized payment para o formato de billing", async () =>
         preapproval_id: "mp-sub-1",
         external_reference: "billing_subscription:sub-1",
         status: "authorized",
+        payment_method_id: "pix",
         payment: {
           id: 987654,
           status: "approved",
@@ -113,7 +114,7 @@ test("provider mapeia authorized payment para o formato de billing", async () =>
     status: "approved",
     providerSubscriptionId: "mp-sub-1",
     externalReference: "billing_subscription:sub-1",
-    paymentMethod: null,
+    paymentMethod: "pix_automatic",
   });
 });
 

@@ -207,6 +207,72 @@ export class BillingService {
     });
   }
 
+  async renewSubscription(
+    subscriptionId: string,
+    input: BillingServiceActor & {
+      currentPeriodStart: string;
+      currentPeriodEnd: string;
+      accessUntil?: string | null;
+    },
+  ) {
+    const subscription = await this.requireSubscription(subscriptionId);
+
+    if (
+      subscription.status !== "active" &&
+      subscription.status !== "past_due"
+    ) {
+      throw new Error(
+        `Cannot renew subscription ${subscriptionId} with status ${subscription.status}.`,
+      );
+    }
+
+    const nextAccessUntil = input.accessUntil ?? input.currentPeriodEnd;
+    const alreadyCurrent =
+      subscription.status === "active" &&
+      subscription.currentPeriodStart === input.currentPeriodStart &&
+      subscription.currentPeriodEnd === input.currentPeriodEnd &&
+      subscription.accessUntil === nextAccessUntil &&
+      subscription.gracePeriodEndsAt === null;
+
+    if (alreadyCurrent) {
+      return subscription;
+    }
+
+    const updatedSubscription = await this.repository.updateSubscription(
+      subscriptionId,
+      {
+        status: "active",
+        currentPeriodStart: input.currentPeriodStart,
+        currentPeriodEnd: input.currentPeriodEnd,
+        accessUntil: nextAccessUntil,
+        gracePeriodEndsAt: null,
+      },
+    );
+
+    if (!updatedSubscription) {
+      throw new Error(`Failed to renew billing subscription ${subscriptionId}.`);
+    }
+
+    await this.repository.appendAuditEvent({
+      workspaceId: updatedSubscription.workspaceId,
+      subscriptionId: updatedSubscription.id,
+      actorType: input.actorType ?? "system",
+      actorId: input.actorId ?? null,
+      action:
+        subscription.status === "past_due"
+          ? "subscription.recovered"
+          : "subscription.renewed",
+      metadata: {
+        fromStatus: subscription.status,
+        toStatus: "active",
+        currentPeriodStart: input.currentPeriodStart,
+        currentPeriodEnd: input.currentPeriodEnd,
+      },
+    });
+
+    return updatedSubscription;
+  }
+
   async markPastDue(
     subscriptionId: string,
     input: BillingServiceActor & {

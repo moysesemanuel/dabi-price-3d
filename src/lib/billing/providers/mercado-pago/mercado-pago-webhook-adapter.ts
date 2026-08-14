@@ -112,6 +112,16 @@ export async function normalizeMercadoPagoWebhookEvent(input: {
         preapprovalId,
         input.accessToken,
       );
+      const providerPaymentId = normalizeOptionalString(
+        authorizedPayment.payment?.id ?? null,
+      );
+      const payment =
+        providerPaymentId !== null
+          ? await getMercadoPagoPaymentWithToken(
+              providerPaymentId,
+              input.accessToken,
+            )
+          : null;
       const workspaceHint = resolveMercadoPagoWorkspaceHint({
         externalReference: subscription.external_reference,
         backUrl: subscription.back_url,
@@ -123,15 +133,19 @@ export async function normalizeMercadoPagoWebhookEvent(input: {
         eventType: input.topic,
         resourceId: input.dataId,
         payloadHash: input.payloadHash,
-        kind: "subscription",
+        kind: "authorized_payment",
         sourceTopic: input.topic,
-        recurringChargeApproved:
-          normalizeOptionalString(authorizedPayment.payment?.status) ===
-          "approved",
-        authorizedPaymentId: String(authorizedPayment.id),
-        subscription: {
+        authorizedPayment: {
+          providerAuthorizedPaymentId: String(authorizedPayment.id),
+          providerPaymentId:
+            providerPaymentId ??
+            normalizeOptionalString(payment?.id ?? null) ??
+            null,
           providerSubscriptionId: subscription.id,
-          status: normalizeMercadoPagoSubscriptionStatus(subscription.status),
+          status:
+            normalizeOptionalString(authorizedPayment.payment?.status) ??
+            normalizeOptionalString(payment?.status) ??
+            normalizeOptionalString(payment?.status_detail),
           externalReference: normalizeOptionalString(
             subscription.external_reference,
           ),
@@ -142,6 +156,19 @@ export async function normalizeMercadoPagoWebhookEvent(input: {
               workspaceHint?.email ??
               normalizeOptionalString(subscription.payer_email),
           },
+          paymentMethod: normalizeMercadoPagoAutomaticPaymentMethod(
+            normalizeOptionalString(
+              authorizedPayment.payment_method_id ??
+                authorizedPayment.payment?.payment_method_id ??
+                payment?.payment_method_id,
+            ),
+          ),
+          approvedAt:
+            normalizeOptionalString(
+              authorizedPayment.date_approved ??
+                authorizedPayment.payment?.date_approved ??
+                payment?.date_approved,
+            ) ?? null,
         },
       } satisfies BillingWebhookNormalizedEvent;
     }
@@ -219,4 +246,22 @@ function normalizeOptionalString(value: unknown) {
 
   const normalized = value.trim();
   return normalized ? normalized : null;
+}
+
+function normalizeMercadoPagoAutomaticPaymentMethod(
+  paymentMethodId: string | null,
+) {
+  if (paymentMethodId === "pix") {
+    return "pix_automatic" as const;
+  }
+
+  if (paymentMethodId === "account_money") {
+    return "account_money" as const;
+  }
+
+  if (paymentMethodId?.startsWith("bol")) {
+    return "boleto" as const;
+  }
+
+  return paymentMethodId ? ("unknown" as const) : null;
 }
