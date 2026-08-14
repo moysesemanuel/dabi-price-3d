@@ -1,8 +1,8 @@
 import { canManageWorkspaceBilling } from "@/lib/auth/access-control";
 import { requireCurrentAuthSession } from "@/lib/auth/session";
+import { getBillingProvider } from "@/lib/billing/providers";
 import {
     getMercadoPagoAccessToken,
-    updateMercadoPagoSubscriptionStatus,
 } from "@/lib/payments/mercado-pago";
 import {
     getWorkspacePreferences,
@@ -135,19 +135,14 @@ export async function POST(request: Request) {
         );
     }
 
-    const mercadoPagoStatus =
-        action === "pause"
-            ? "paused"
-            : action === "resume"
-                ? "authorized"
-                : "canceled";
-
     try {
+        const provider = getBillingProvider("mercado_pago");
         const updatedSubscription =
-            await updateMercadoPagoSubscriptionStatus({
-                subscriptionId: subscription.mercadoPagoSubscriptionId,
-                status: mercadoPagoStatus,
-            });
+            action === "pause"
+                ? await provider.pauseSubscription(subscription.mercadoPagoSubscriptionId)
+                : action === "resume"
+                    ? await provider.resumeSubscription(subscription.mercadoPagoSubscriptionId)
+                    : await provider.cancelSubscription(subscription.mercadoPagoSubscriptionId);
 
         logRouteEvent(
             requestContext,
@@ -166,7 +161,7 @@ export async function POST(request: Request) {
             ok: true,
             action,
             subscriptionId: subscription.mercadoPagoSubscriptionId,
-            status: updatedSubscription.status ?? mercadoPagoStatus,
+            status: updatedSubscription.status,
         });
     } catch (error) {
         logRouteEvent(

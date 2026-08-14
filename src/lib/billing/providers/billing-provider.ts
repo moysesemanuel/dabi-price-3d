@@ -26,10 +26,34 @@ export type BillingProviderRecurringSubscription = {
 export type BillingProviderPayment = {
   provider: BillingProviderName;
   providerPaymentId: string;
+  providerAuthorizedPaymentId: string | null;
   status: string | null;
   providerSubscriptionId: string | null;
   externalReference: string | null;
   paymentMethod: BillingPaymentMethodType | null;
+};
+
+export type BillingProviderManualPaymentInput = {
+  externalReference: string;
+  payerEmail: string | null;
+  reason: string;
+  amountCents: number;
+  currency: string;
+  returnUrl: string | null;
+};
+
+export type BillingProviderManualPayment = BillingProviderPayment & {
+  checkoutUrl: string | null;
+  qrCode: string | null;
+  qrCodeBase64: string | null;
+  expiresAt: string | null;
+};
+
+export type BillingProviderSubscriptionAmountUpdateInput = {
+  providerSubscriptionId: string;
+  amountCents: number;
+  currency: string;
+  billingCycle: BillingCycle;
 };
 
 export interface BillingProvider {
@@ -38,6 +62,10 @@ export interface BillingProvider {
   createRecurringSubscription(
     input: BillingProviderRecurringSubscriptionInput,
   ): Promise<BillingProviderRecurringSubscription>;
+
+  createManualPayment(
+    input: BillingProviderManualPaymentInput,
+  ): Promise<BillingProviderManualPayment>;
 
   getSubscription(
     providerSubscriptionId: string,
@@ -55,5 +83,9 @@ export interface BillingProvider {
 
   resumeSubscription(
     providerSubscriptionId: string,
+  ): Promise<BillingProviderRecurringSubscription>;
+
+  updateSubscriptionAmount(
+    input: BillingProviderSubscriptionAmountUpdateInput,
   ): Promise<BillingProviderRecurringSubscription>;
 }

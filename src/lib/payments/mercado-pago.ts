@@ -3,6 +3,7 @@ import {
   type WorkspacePlanId,
 } from "../workspace/catalog.ts";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import type { BillingCycle } from "../billing/types.ts";
 
 export type MercadoPagoWebhookTopic =
   | "subscription_preapproval"
@@ -197,6 +198,23 @@ export async function createMercadoPagoSubscriptionCheckout(input: {
   );
 }
 
+export async function createMercadoPagoRecurringSubscription(input: {
+  externalReference: string;
+  payerEmail: string;
+  reason: string;
+  returnUrl: string;
+  amountCents: number;
+  currency: string;
+  billingCycle: BillingCycle;
+  accessTokenOverride?: string;
+}) {
+  return mercadoPagoApiMutation<MercadoPagoSubscription>(
+    "/preapproval",
+    buildMercadoPagoRecurringSubscriptionPayload(input),
+    input.accessTokenOverride,
+  );
+}
+
 export function buildMercadoPagoSubscriptionCheckoutPayload(input: {
   planId: WorkspacePlanId;
   payerEmail: string;
@@ -213,19 +231,59 @@ export function buildMercadoPagoSubscriptionCheckoutPayload(input: {
     );
   }
 
+  return buildMercadoPagoRecurringSubscriptionPayload({
+    externalReference: `workspace:${input.workspaceId}`,
+    payerEmail: input.payerEmail,
+    reason: input.reason,
+    returnUrl: input.backUrl,
+    amountCents: Math.round(plan.monthlyPrice * 100),
+    currency: "BRL",
+    billingCycle: "monthly",
+    now: input.now,
+  });
+}
+
+export function buildMercadoPagoRecurringSubscriptionPayload(input: {
+  externalReference: string;
+  payerEmail: string;
+  reason: string;
+  returnUrl: string;
+  amountCents: number;
+  currency: string;
+  billingCycle: BillingCycle;
+  now?: Date;
+}): MercadoPagoSubscriptionCheckoutPayload {
+  if (input.billingCycle !== "monthly") {
+    throw new Error(
+      `Mercado Pago recurring subscriptions currently support only monthly billing. Received ${input.billingCycle}.`,
+    );
+  }
+
+  if (input.currency !== "BRL") {
+    throw new Error(
+      `Mercado Pago recurring subscriptions currently support only BRL. Received ${input.currency}.`,
+    );
+  }
+
+  if (!Number.isFinite(input.amountCents) || input.amountCents <= 0) {
+    throw new Error(
+      `Mercado Pago recurring subscriptions require a positive amountCents value. Received ${input.amountCents}.`,
+    );
+  }
+
   const endDate = new Date(input.now ?? new Date());
   endDate.setFullYear(endDate.getFullYear() + 5);
 
   return {
     payer_email: input.payerEmail,
-    external_reference: `workspace:${input.workspaceId}`,
+    external_reference: input.externalReference,
     reason: input.reason,
-    back_url: input.backUrl,
+    back_url: input.returnUrl,
     auto_recurring: {
       frequency: 1,
       frequency_type: "months",
       end_date: endDate.toISOString(),
-      transaction_amount: plan.monthlyPrice,
+      transaction_amount: Number((input.amountCents / 100).toFixed(2)),
       currency_id: "BRL",
     },
     status: "pending",

@@ -1,0 +1,121 @@
+import {
+  createMercadoPagoRecurringSubscription,
+  getMercadoPagoAuthorizedPayment,
+  getMercadoPagoSubscription,
+  updateMercadoPagoSubscriptionStatus,
+  type MercadoPagoAuthorizedPayment,
+  type MercadoPagoSubscription,
+} from "../../../payments/mercado-pago.ts";
+import type {
+  BillingProvider,
+  BillingProviderManualPayment,
+  BillingProviderManualPaymentInput,
+  BillingProviderPayment,
+  BillingProviderRecurringSubscription,
+  BillingProviderRecurringSubscriptionInput,
+  BillingProviderSubscriptionAmountUpdateInput,
+} from "../billing-provider.ts";
+import {
+  mapMercadoPagoAuthorizedPaymentToBillingPayment,
+  mapMercadoPagoSubscriptionToBillingSubscription,
+} from "./mercado-pago-mappers.ts";
+
+type MercadoPagoProviderDependencies = {
+  createRecurringSubscription(
+    input: BillingProviderRecurringSubscriptionInput,
+  ): Promise<MercadoPagoSubscription>;
+  getSubscription(providerSubscriptionId: string): Promise<MercadoPagoSubscription>;
+  getPayment(providerPaymentId: string): Promise<MercadoPagoAuthorizedPayment>;
+  updateSubscriptionStatus(input: {
+    subscriptionId: string;
+    status: "authorized" | "paused" | "canceled";
+  }): Promise<MercadoPagoSubscription>;
+};
+
+const defaultDependencies: MercadoPagoProviderDependencies = {
+  createRecurringSubscription: createMercadoPagoRecurringSubscription,
+  getSubscription: getMercadoPagoSubscription,
+  getPayment: getMercadoPagoAuthorizedPayment,
+  updateSubscriptionStatus: updateMercadoPagoSubscriptionStatus,
+};
+
+export class MercadoPagoProvider implements BillingProvider {
+  readonly name = "mercado_pago" as const;
+  private readonly dependencies: MercadoPagoProviderDependencies;
+
+  constructor(dependencies: MercadoPagoProviderDependencies = defaultDependencies) {
+    this.dependencies = dependencies;
+  }
+
+  async createRecurringSubscription(
+    input: BillingProviderRecurringSubscriptionInput,
+  ): Promise<BillingProviderRecurringSubscription> {
+    const subscription = await this.dependencies.createRecurringSubscription(input);
+    return mapMercadoPagoSubscriptionToBillingSubscription(subscription);
+  }
+
+  async createManualPayment(
+    input: BillingProviderManualPaymentInput,
+  ): Promise<BillingProviderManualPayment> {
+    void input;
+    throw new Error(
+      "MercadoPagoProvider.createManualPayment is not implemented yet.",
+    );
+  }
+
+  async getSubscription(
+    providerSubscriptionId: string,
+  ): Promise<BillingProviderRecurringSubscription> {
+    const subscription = await this.dependencies.getSubscription(
+      providerSubscriptionId,
+    );
+    return mapMercadoPagoSubscriptionToBillingSubscription(subscription);
+  }
+
+  async getPayment(providerPaymentId: string): Promise<BillingProviderPayment> {
+    const authorizedPayment = await this.dependencies.getPayment(providerPaymentId);
+    return mapMercadoPagoAuthorizedPaymentToBillingPayment(authorizedPayment);
+  }
+
+  async cancelSubscription(
+    providerSubscriptionId: string,
+  ): Promise<BillingProviderRecurringSubscription> {
+    const subscription = await this.dependencies.updateSubscriptionStatus({
+      subscriptionId: providerSubscriptionId,
+      status: "canceled",
+    });
+
+    return mapMercadoPagoSubscriptionToBillingSubscription(subscription);
+  }
+
+  async pauseSubscription(
+    providerSubscriptionId: string,
+  ): Promise<BillingProviderRecurringSubscription> {
+    const subscription = await this.dependencies.updateSubscriptionStatus({
+      subscriptionId: providerSubscriptionId,
+      status: "paused",
+    });
+
+    return mapMercadoPagoSubscriptionToBillingSubscription(subscription);
+  }
+
+  async resumeSubscription(
+    providerSubscriptionId: string,
+  ): Promise<BillingProviderRecurringSubscription> {
+    const subscription = await this.dependencies.updateSubscriptionStatus({
+      subscriptionId: providerSubscriptionId,
+      status: "authorized",
+    });
+
+    return mapMercadoPagoSubscriptionToBillingSubscription(subscription);
+  }
+
+  async updateSubscriptionAmount(
+    input: BillingProviderSubscriptionAmountUpdateInput,
+  ): Promise<BillingProviderRecurringSubscription> {
+    void input;
+    throw new Error(
+      "MercadoPagoProvider.updateSubscriptionAmount is not implemented yet.",
+    );
+  }
+}
