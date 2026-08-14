@@ -5,7 +5,7 @@ import { resolveBillingNotification } from "../src/lib/billing/notification-serv
 
 const NOW = new Date("2026-08-14T12:00:00.000Z");
 
-test("paused tem a maior prioridade e oferece reativação", () => {
+test("paused tem a maior prioridade e direciona para detalhes", () => {
   const notification = resolveBillingNotification({
     subscription: {
       planId: "growth",
@@ -18,8 +18,8 @@ test("paused tem a maior prioridade e oferece reativação", () => {
 
   assert.equal(notification?.kind, "paused");
   assert.equal(notification?.priority, 4);
-  assert.equal(notification?.primaryAction.type, "manage_subscription");
-  assert.equal(notification?.primaryAction.action, "resume");
+  assert.equal(notification?.primaryAction.type, "link");
+  assert.equal(notification?.primaryAction.href, "/app/assinatura");
 });
 
 test("past_due gera banner com data limite da tolerância", () => {
@@ -50,6 +50,9 @@ test("scheduled_cancel mostra o plano e o fim do período atual", () => {
   assert.equal(notification?.kind, "scheduled_cancel");
   assert.match(notification?.description ?? "", /DaBi Pro/);
   assert.match(notification?.description ?? "", /13 de setembro de 2026/);
+  assert.equal(notification?.primaryAction.type, "manage_subscription");
+  assert.equal(notification?.primaryAction.action, "resume");
+  assert.equal(notification?.secondaryAction?.type, "link");
 });
 
 test("expiring_soon aparece quando a renovação está desligada e faltam até 7 dias", () => {

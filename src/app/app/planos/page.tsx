@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import { BackLink } from "@/components/app/back-link";
 import { MercadoPagoCheckoutButton } from "@/components/payments/mercado-pago-checkout-button";
 import { ManualPixCheckoutButton } from "@/components/payments/manual-pix-checkout-button";
-import { MercadoPagoSubscriptionManageButton } from "@/components/payments/mercado-pago-subscription-manage-button";
 import { getCurrentAuthSession } from "@/lib/auth/session";
 import {
   getWorkspacePreferences,
@@ -324,10 +323,12 @@ export default async function PlansPage({
                     </div>
                   )
                 ) : isPaused ? (
-                  <MercadoPagoSubscriptionManageButton
-                    action="resume"
-                    label="Reativar assinatura"
-                  />
+                  <Link
+                    href="/app/assinatura"
+                    className="app-button app-button-secondary w-full"
+                  >
+                    Ver detalhes da assinatura
+                  </Link>
                 ) : plan.id === "scale" ? (
                   <Link
                     href="/contato"

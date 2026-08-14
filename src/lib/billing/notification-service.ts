@@ -21,7 +21,7 @@ export type BillingNotificationAction =
   | {
       type: "manage_subscription";
       label: string;
-      action: "pause" | "resume" | "cancel";
+      action: "resume" | "cancel";
     };
 
 export type BillingNotification = {
@@ -65,14 +65,14 @@ export function resolveBillingNotification(input: {
       description:
         "O workspace continua preservado, mas a assinatura precisa ser retomada para liberar novamente os módulos pagos.",
       primaryAction: {
-        type: "manage_subscription",
-        label: "Reativar assinatura",
-        action: "resume",
-      },
-      secondaryAction: {
         type: "link",
         label: "Ver detalhes",
         href: "/app/assinatura",
+      },
+      secondaryAction: {
+        type: "link",
+        label: "Comparar planos",
+        href: "/app/planos",
       },
     } satisfies BillingNotification;
   }
@@ -107,11 +107,15 @@ export function resolveBillingNotification(input: {
       title: "A renovação da sua assinatura foi cancelada.",
       description: `Você continuará com acesso ao ${planLabel} até ${currentPeriodEndLabel}.`,
       primaryAction: {
+        type: "manage_subscription",
+        label: "Manter assinatura",
+        action: "resume",
+      },
+      secondaryAction: {
         type: "link",
         label: "Ver detalhes",
         href: "/app/assinatura",
       },
-      secondaryAction: null,
     } satisfies BillingNotification;
   }
 

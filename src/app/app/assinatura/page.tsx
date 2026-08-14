@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { BackLink } from "@/components/app/back-link";
+import { MercadoPagoSubscriptionManageButton } from "@/components/payments/mercado-pago-subscription-manage-button";
 import {
   resolveWorkspaceEntitlements,
   type WorkspaceEntitlementAccessReason,
 } from "@/lib/billing/entitlement-service";
 import { findCurrentBillingSubscriptionForWorkspace } from "@/lib/billing/repository";
+import type { BillingSubscription } from "@/lib/billing/types";
 import { getCurrentAuthSession } from "@/lib/auth/session";
 import {
   getWorkspacePreferences,
@@ -53,6 +55,9 @@ export default async function SubscriptionPage() {
     billingSubscription?.currentPeriodEnd ??
     billingSubscription?.accessUntil ??
     preferences.subscription.checkoutStartedAt;
+  const subscriptionManagementAction = billingSubscription
+    ? resolveSubscriptionManagementAction(billingSubscription)
+    : null;
 
   return (
     <div className="app-page space-y-6">
@@ -61,8 +66,9 @@ export default async function SubscriptionPage() {
         <p className="app-eyebrow">Assinatura</p>
         <h1 className="app-title">Status e faixa atual do workspace</h1>
         <p className="app-copy">
-          Esta tela centraliza a situação da assinatura, o acesso liberado hoje e
-          os limites vigentes do workspace. Nesta fase, ela é somente de leitura.
+          Esta tela centraliza a situação da assinatura, o acesso liberado hoje,
+          os limites vigentes do workspace e as ações comerciais disponíveis no
+          estado atual.
         </p>
       </header>
 
@@ -112,17 +118,48 @@ export default async function SubscriptionPage() {
             {statusPresentation.nextStep}
           </p>
 
+          {subscriptionManagementAction ? (
+            <div className="mt-5 rounded-[20px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.76)] px-4 py-4">
+              <p className="text-sm font-medium text-[var(--foreground)]">
+                {subscriptionManagementAction.title}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                {subscriptionManagementAction.description}
+              </p>
+            </div>
+          ) : null}
+
           <div className="mt-5 grid gap-3">
+            {subscriptionManagementAction ? (
+              <MercadoPagoSubscriptionManageButton
+                action={subscriptionManagementAction.action}
+                label={subscriptionManagementAction.label}
+                className="app-button app-button-primary w-full"
+              />
+            ) : (
+              <Link
+                href={
+                  entitlements.accessReason === "pending"
+                    ? "/app/checkout"
+                    : "/app/planos"
+                }
+                className="app-button app-button-primary w-full"
+              >
+                {entitlements.accessReason === "pending"
+                  ? "Continuar pagamento"
+                  : "Comparar planos"}
+              </Link>
+            )}
             <Link
               href={
                 entitlements.accessReason === "pending"
                   ? "/app/checkout"
                   : "/app/planos"
               }
-              className="app-button app-button-primary w-full"
+              className="app-button app-button-secondary w-full"
             >
               {entitlements.accessReason === "pending"
-                ? "Continuar pagamento"
+                ? "Revisar checkout"
                 : "Comparar planos"}
             </Link>
             <Link
@@ -413,4 +450,36 @@ function formatDateOrFallback(value: string | null | undefined) {
   return new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "long",
   }).format(date);
+}
+
+function resolveSubscriptionManagementAction(
+  subscription: BillingSubscription,
+) {
+  if (
+    subscription.provider !== "mercado_pago" ||
+    !subscription.providerSubscriptionId
+  ) {
+    return null;
+  }
+
+  switch (subscription.status) {
+    case "active":
+      return {
+        action: "cancel" as const,
+        label: "Cancelar renovação",
+        title: "Desligar a próxima renovação",
+        description:
+          "O cancelamento não encerra o acesso imediatamente. O workspace permanece liberado até o fim do período atual.",
+      };
+    case "scheduled_cancel":
+      return {
+        action: "resume" as const,
+        label: "Manter assinatura",
+        title: "Reativar a renovação automática",
+        description:
+          "Enquanto o período atual não termina, você ainda pode desfazer o cancelamento agendado e manter a assinatura ativa.",
+      };
+    default:
+      return null;
+  }
 }
