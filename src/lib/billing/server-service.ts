@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   appendBillingAuditEvent,
+  createBillingInvoice,
   createBillingSubscription,
   createBillingSubscriptionChange,
   findLatestOpenBillingSubscriptionChange,
@@ -16,6 +17,7 @@ export function createBillingService() {
   return new BillingService(
     createBillingServiceRepository({
       createBillingSubscription,
+      createBillingInvoice,
       createBillingSubscriptionChange,
       findLatestOpenBillingSubscriptionChange,
       getBillingSubscriptionById,

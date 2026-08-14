@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { BackLink } from "@/components/app/back-link";
 import { BillingDowngradeButton } from "@/components/payments/billing-downgrade-button";
+import { BillingUpgradePixButton } from "@/components/payments/billing-upgrade-pix-button";
 import { MercadoPagoCheckoutButton } from "@/components/payments/mercado-pago-checkout-button";
 import { ManualPixCheckoutButton } from "@/components/payments/manual-pix-checkout-button";
 import { getCurrentAuthSession } from "@/lib/auth/session";
@@ -136,6 +137,13 @@ export default async function PlansPage({
           type: "downgrade",
         }).catch(() => null)
       : null;
+  const pendingUpgrade =
+    billingSubscription && isPlatformPersistenceAvailable()
+      ? await findLatestOpenBillingSubscriptionChange({
+          subscriptionId: billingSubscription.id,
+          type: "upgrade",
+        }).catch(() => null)
+      : null;
   const currentPlan = getWorkspacePlan(
     billingSubscription?.planId ?? preferences.subscription.planId,
   );
@@ -146,6 +154,10 @@ export default async function PlansPage({
   const scheduledDowngradePlan =
     scheduledDowngrade?.status === "scheduled" && scheduledDowngrade.toPlanId
       ? getWorkspacePlan(scheduledDowngrade.toPlanId)
+      : null;
+  const pendingUpgradePlan =
+    pendingUpgrade?.status === "pending_payment" && pendingUpgrade.toPlanId
+      ? getWorkspacePlan(pendingUpgrade.toPlanId)
       : null;
 
   return (
@@ -215,6 +227,8 @@ export default async function PlansPage({
           <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
             {scheduledDowngradePlan
               ? `O downgrade para ${scheduledDowngradePlan.label} já está agendado para o fim do período atual. Até lá, o workspace continua usando ${currentPlan.label}.`
+              : pendingUpgradePlan
+                ? `Existe um upgrade em aberto para ${pendingUpgradePlan.label}. O plano atual só muda depois da confirmação do pagamento desse Pix.`
               : subscriptionStatus === "unpaid"
                 ? "Conclua a contratação para liberar a precificadora e os demais módulos pagos do workspace."
                 : subscriptionStatus === "pending"
@@ -223,10 +237,18 @@ export default async function PlansPage({
           </p>
           <div className="mt-5 grid gap-3">
             <Link
-              href={subscriptionStatus === "pending" ? "/app/checkout" : "/contato"}
+              href={
+                pendingUpgradePlan
+                  ? "/app/assinatura/upgrade"
+                  : subscriptionStatus === "pending"
+                    ? "/app/checkout"
+                    : "/contato"
+              }
               className="app-button app-button-primary w-full"
             >
-              {subscriptionStatus === "pending"
+              {pendingUpgradePlan
+                ? "Revisar upgrade"
+                : subscriptionStatus === "pending"
                 ? "Continuar pagamento"
                 : "Falar sobre upgrade"}
             </Link>
@@ -271,8 +293,18 @@ export default async function PlansPage({
           const isScheduledDowngradeTarget =
             scheduledDowngrade?.status === "scheduled" &&
             scheduledDowngrade.toPlanId === plan.id;
+          const isPendingUpgradeTarget =
+            pendingUpgrade?.status === "pending_payment" &&
+            pendingUpgrade.toPlanId === plan.id;
           const downgradePlanId =
             plan.id === "starter" || plan.id === "growth" ? plan.id : null;
+          const upgradePlanId =
+            plan.id === "growth" || plan.id === "scale" ? plan.id : null;
+          const canRequestUpgrade = canRequestPlanUpgrade({
+            planId: plan.id,
+            currentSubscription: billingSubscription,
+          });
+          const supportsSelfServeUpgrade = plan.monthlyPrice !== null;
 
           return (
             <article
@@ -372,6 +404,27 @@ export default async function PlansPage({
                   >
                     Falar sobre o DaBi Equipe
                   </Link>
+                ) : isPendingUpgradeTarget ? (
+                  <Link
+                    href="/app/assinatura/upgrade"
+                    className="app-button app-button-primary w-full"
+                  >
+                    Continuar upgrade
+                  </Link>
+                ) : pendingUpgrade?.status === "pending_payment" ? (
+                  <Link
+                    href="/app/assinatura/upgrade"
+                    className="app-button app-button-secondary w-full"
+                  >
+                    Revisar upgrade pendente
+                  </Link>
+                ) : canRequestUpgrade &&
+                  supportsSelfServeUpgrade &&
+                  upgradePlanId ? (
+                  <BillingUpgradePixButton
+                    targetPlanId={upgradePlanId}
+                    label={`Fazer upgrade para ${plan.label}`}
+                  />
                 ) : canScheduleDowngrade && downgradePlanId ? (
                   isScheduledDowngradeTarget ? (
                     <div className="app-button app-button-secondary w-full justify-center text-center">
@@ -509,6 +562,23 @@ function canSchedulePlanDowngrade(input: {
   }
 
   return planOrder.indexOf(input.planId) < planOrder.indexOf(subscription.planId);
+}
+
+function canRequestPlanUpgrade(input: {
+  planId: "starter" | "growth" | "scale";
+  currentSubscription: BillingSubscription | null;
+}) {
+  const subscription = input.currentSubscription;
+
+  if (!subscription || subscription.status !== "active") {
+    return false;
+  }
+
+  if (!subscription.autoRenew || subscription.cancelAtPeriodEnd) {
+    return false;
+  }
+
+  return planOrder.indexOf(input.planId) > planOrder.indexOf(subscription.planId);
 }
 
 const planOrder = ["starter", "growth", "scale"] as const;

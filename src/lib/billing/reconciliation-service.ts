@@ -1,8 +1,10 @@
 import type { BillingProvider } from "./providers/billing-provider.ts";
 import type { BillingService } from "./service.ts";
+import { applyBillingSubscriptionUpgrade } from "./upgrade-management.ts";
 import type {
   BillingInvoice,
   BillingInvoiceStatus,
+  BillingPrice,
   BillingSubscription,
   BillingSubscriptionChange,
   BillingWebhookEvent,
@@ -47,6 +49,7 @@ export type BillingReconciliationServiceDependencies = {
     | "pauseSubscription"
     | "finalizeCancellation"
     | "expireSubscription"
+    | "applyUpgrade"
     | "applyScheduledChange"
   >;
   getSubscriptionById(subscriptionId: string): Promise<BillingSubscription | null>;
@@ -75,6 +78,9 @@ export type BillingReconciliationServiceDependencies = {
       >
     >,
   ): Promise<BillingInvoice | null>;
+  getSubscriptionChangeByInvoiceId(
+    invoiceId: string,
+  ): Promise<BillingSubscriptionChange | null>;
   getDueSubscriptionChanges(asOf: string): Promise<BillingSubscriptionChange[]>;
   updateSubscriptionChange(
     changeId: string,
@@ -91,7 +97,7 @@ export type BillingReconciliationServiceDependencies = {
     planId: BillingSubscription["planId"];
     billingCycle: BillingSubscription["billingCycle"];
     asOf?: string;
-  }): Promise<{ id: string } | null>;
+  }): Promise<BillingPrice | null>;
   listFailedWebhookEvents(limit?: number): Promise<BillingWebhookEvent[]>;
   appendAuditEvent(input: {
     workspaceId?: string | null;
@@ -286,6 +292,88 @@ export class BillingReconciliationService {
     );
 
     if (!subscription) {
+      return {
+        processed: 1,
+        changed,
+        findings,
+      };
+    }
+
+    if (invoice.type === "upgrade") {
+      const change = await this.dependencies.getSubscriptionChangeByInvoiceId(
+        invoice.id,
+      );
+
+      if (
+        (nextInvoiceStatus === "failed" ||
+          nextInvoiceStatus === "expired" ||
+          nextInvoiceStatus === "canceled") &&
+        change?.status === "pending_payment"
+      ) {
+        await this.dependencies.updateSubscriptionChange(change.id, {
+          status: nextInvoiceStatus === "canceled" ? "canceled" : "failed",
+          canceledAt:
+            nextInvoiceStatus === "canceled" ? nowIso : change.canceledAt,
+        });
+        changed += 1;
+      }
+
+      if (nextInvoiceStatus !== "paid") {
+        return {
+          processed: 1,
+          changed,
+          findings,
+        };
+      }
+
+      if (!change || change.status !== "pending_payment") {
+        return {
+          processed: 1,
+          changed,
+          findings,
+        };
+      }
+
+      if (subscription.status !== "active") {
+        findings.push({
+          code: "invoice_paid_subscription_not_active",
+          workspaceId: subscription.workspaceId,
+          subscriptionId: subscription.id,
+          invoiceId: invoice.id,
+          details: {
+            previousSubscriptionStatus: subscription.status,
+            autoCorrected: false,
+            invoiceType: invoice.type,
+            changeId: change.id,
+          },
+        });
+
+        return {
+          processed: 1,
+          changed,
+          findings,
+        };
+      }
+
+      await applyBillingSubscriptionUpgrade({
+        subscription,
+        change,
+        invoice,
+        actorType: "system",
+        nowIso,
+        source: "billing-reconciliation-upgrade",
+        description: `Reconciliação aplicou upgrade após invoice ${invoice.id} paga.`,
+        dependencies: {
+          findActivePrice: this.dependencies.findActivePrice,
+          getProvider: this.dependencies.getProvider,
+          billingService: this.dependencies.billingService,
+          updateSubscriptionChange: this.dependencies.updateSubscriptionChange,
+          applyWorkspaceSubscriptionUpdate:
+            this.dependencies.applyWorkspaceSubscriptionUpdate,
+        },
+      });
+      changed += 1;
+
       return {
         processed: 1,
         changed,

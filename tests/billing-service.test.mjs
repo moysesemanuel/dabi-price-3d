@@ -6,12 +6,15 @@ import { BillingService } from "../src/lib/billing/service.ts";
 function createInMemoryBillingRepository() {
   const subscriptions = new Map();
   const changes = new Map();
+  const invoices = new Map();
   const auditEvents = [];
   let nextId = 1;
   let nextChangeId = 1;
+  let nextInvoiceId = 1;
 
   return {
     auditEvents,
+    invoices,
     async createSubscription(input) {
       const subscription = {
         id: `sub-${nextId++}`,
@@ -118,6 +121,33 @@ function createInMemoryBillingRepository() {
 
       changes.set(changeId, next);
       return next;
+    },
+    async createInvoice(input) {
+      const invoice = {
+        id: `inv-${nextInvoiceId++}`,
+        subscriptionId: input.subscriptionId,
+        workspaceId: input.workspaceId,
+        priceId: input.priceId ?? null,
+        type: input.type,
+        status: input.status,
+        amountCents: input.amountCents,
+        currency: input.currency ?? "BRL",
+        periodStart: input.periodStart ?? null,
+        periodEnd: input.periodEnd ?? null,
+        paymentMethod: input.paymentMethod ?? null,
+        provider: input.provider ?? null,
+        providerPaymentId: input.providerPaymentId ?? null,
+        providerAuthorizedPaymentId: input.providerAuthorizedPaymentId ?? null,
+        paymentExpiresAt: input.paymentExpiresAt ?? null,
+        paidAt: input.paidAt ?? null,
+        failedAt: input.failedAt ?? null,
+        refundedAt: input.refundedAt ?? null,
+        createdAt: "2026-08-14T10:00:00.000Z",
+        updatedAt: "2026-08-14T10:00:00.000Z",
+      };
+
+      invoices.set(invoice.id, invoice);
+      return invoice;
     },
   };
 }
@@ -312,4 +342,83 @@ test("scheduleDowngrade cria mudança agendada para o fim do período", async ()
     repository.auditEvents.at(-1)?.action,
     "subscription.downgrade_scheduled",
   );
+});
+
+test("requestUpgrade cria mudança pending_payment e invoice proporcional", async () => {
+  const repository = createInMemoryBillingRepository();
+  const service = new BillingService(repository, {
+    now: () => new Date("2026-08-20T12:00:00.000Z"),
+  });
+  const subscription = await service.createSubscription({
+    workspaceId: "workspace-1",
+    planId: "starter",
+    billingCycle: "monthly",
+    autoRenew: true,
+    provider: "mercado_pago",
+    providerSubscriptionId: "mp-sub-1",
+  });
+
+  await service.activateSubscription(subscription.id, {
+    currentPeriodStart: "2026-08-14T00:00:00.000Z",
+    currentPeriodEnd: "2026-09-14T00:00:00.000Z",
+  });
+
+  const result = await service.requestUpgrade(subscription.id, {
+    actorType: "user",
+    actorId: "user-1",
+    toPlanId: "growth",
+    priceId: "price-growth-monthly",
+    amountCents: 9900,
+    currency: "BRL",
+    creditAmountCents: 1500,
+    chargeAmountCents: 11400,
+    periodStart: "2026-08-20T12:00:00.000Z",
+    periodEnd: "2026-09-14T00:00:00.000Z",
+    paymentMethod: "pix_manual",
+    provider: "mercado_pago",
+  });
+
+  assert.equal(result.change.type, "upgrade");
+  assert.equal(result.change.status, "pending_payment");
+  assert.equal(result.change.fromPlanId, "starter");
+  assert.equal(result.change.toPlanId, "growth");
+  assert.equal(result.change.invoiceId, result.invoice.id);
+  assert.equal(result.invoice.type, "upgrade");
+  assert.equal(result.invoice.status, "pending");
+  assert.equal(result.invoice.amountCents, 9900);
+  assert.equal(result.invoice.paymentMethod, "pix_manual");
+  assert.equal(
+    repository.auditEvents.at(-1)?.action,
+    "subscription.upgrade_requested",
+  );
+});
+
+test("applyUpgrade reaproveita a infraestrutura de mudança imediata", async () => {
+  const repository = createInMemoryBillingRepository();
+  const service = new BillingService(repository);
+  const subscription = await service.createSubscription({
+    workspaceId: "workspace-1",
+    planId: "starter",
+    billingCycle: "monthly",
+    autoRenew: true,
+    provider: "mercado_pago",
+    providerSubscriptionId: "mp-sub-1",
+  });
+
+  await service.activateSubscription(subscription.id, {
+    currentPeriodStart: "2026-08-14T00:00:00.000Z",
+    currentPeriodEnd: "2026-09-14T00:00:00.000Z",
+  });
+
+  const upgraded = await service.applyUpgrade(subscription.id, {
+    actorType: "system",
+    toPlanId: "growth",
+    priceId: "price-growth-monthly",
+    changeId: "chg-up-1",
+  });
+
+  assert.equal(upgraded.planId, "growth");
+  assert.equal(upgraded.priceId, "price-growth-monthly");
+  assert.equal(repository.auditEvents.at(-1)?.action, "subscription.upgraded");
+  assert.equal(repository.auditEvents.at(-1)?.metadata?.changeId, "chg-up-1");
 });

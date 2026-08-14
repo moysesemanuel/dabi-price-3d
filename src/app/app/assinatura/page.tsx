@@ -42,6 +42,13 @@ export default async function SubscriptionPage() {
           type: "downgrade",
         }).catch(() => null)
       : null;
+  const pendingUpgrade =
+    billingSubscription && isPlatformPersistenceAvailable()
+      ? await findLatestOpenBillingSubscriptionChange({
+          subscriptionId: billingSubscription.id,
+          type: "upgrade",
+        }).catch(() => null)
+      : null;
 
   const subscription = billingSubscription
     ? {
@@ -71,6 +78,10 @@ export default async function SubscriptionPage() {
   const scheduledDowngradePlan =
     scheduledDowngrade?.status === "scheduled" && scheduledDowngrade.toPlanId
       ? getWorkspacePlan(scheduledDowngrade.toPlanId)
+      : null;
+  const pendingUpgradePlan =
+    pendingUpgrade?.status === "pending_payment" && pendingUpgrade.toPlanId
+      ? getWorkspacePlan(pendingUpgrade.toPlanId)
       : null;
 
   return (
@@ -135,6 +146,22 @@ export default async function SubscriptionPage() {
               </p>
             </div>
           ) : null}
+
+          {pendingUpgradePlan && pendingUpgrade ? (
+            <div className="mt-6 rounded-[22px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.74)] px-4 py-4">
+              <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--accent)]">
+                Upgrade pendente
+              </p>
+              <p className="mt-3 text-base font-semibold text-[var(--foreground)]">
+                O upgrade para {pendingUpgradePlan.label} está aguardando pagamento.
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                A assinatura atual continua em {currentPlan.label} até a confirmação
+                do Pix. Depois do pagamento, o billing aplica a nova faixa de forma
+                imediata.
+              </p>
+            </div>
+          ) : null}
         </article>
 
         <aside className="app-card-soft p-6">
@@ -166,6 +193,13 @@ export default async function SubscriptionPage() {
                 label={subscriptionManagementAction.label}
                 className="app-button app-button-primary w-full"
               />
+            ) : pendingUpgradePlan ? (
+              <Link
+                href="/app/assinatura/upgrade"
+                className="app-button app-button-primary w-full"
+              >
+                Continuar upgrade
+              </Link>
             ) : (
               <Link
                 href={
@@ -182,13 +216,17 @@ export default async function SubscriptionPage() {
             )}
             <Link
               href={
-                entitlements.accessReason === "pending"
+                pendingUpgradePlan
+                  ? "/app/assinatura/upgrade"
+                  : entitlements.accessReason === "pending"
                   ? "/app/checkout"
                   : "/app/planos"
               }
               className="app-button app-button-secondary w-full"
             >
-              {entitlements.accessReason === "pending"
+              {pendingUpgradePlan
+                ? "Abrir cobrança do upgrade"
+                : entitlements.accessReason === "pending"
                 ? "Revisar checkout"
                 : "Comparar planos"}
             </Link>

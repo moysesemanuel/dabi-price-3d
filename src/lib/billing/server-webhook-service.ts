@@ -2,11 +2,14 @@ import "server-only";
 
 import {
   appendBillingAuditEvent,
+  createBillingInvoice,
   createBillingSubscriptionChange,
   createBillingWebhookEvent,
   findBillingInvoiceByProviderPaymentId,
+  findActiveBillingPrice,
   findLatestOpenBillingSubscriptionChange,
   getBillingInvoiceById,
+  getBillingSubscriptionChangeByInvoiceId,
   getBillingSubscriptionById,
   updateBillingSubscriptionChange,
   updateBillingInvoice,
@@ -21,6 +24,7 @@ import {
   findUserByEmail,
   getWorkspacePreferences,
 } from "../server/platform";
+import { getBillingProvider } from "./providers/index.ts";
 import {
   createBillingSubscription,
   updateBillingSubscription,
@@ -30,6 +34,7 @@ export function createBillingWebhookService() {
   const billingService = new BillingService(
     createBillingServiceRepository({
       createBillingSubscription,
+      createBillingInvoice,
       createBillingSubscriptionChange,
       findLatestOpenBillingSubscriptionChange,
       getBillingSubscriptionById,
@@ -50,6 +55,12 @@ export function createBillingWebhookService() {
     findPrimaryWorkspaceForUser,
     getWorkspacePreferences,
     applyWorkspaceSubscriptionUpdate,
+    getSubscriptionChangeByInvoiceId: getBillingSubscriptionChangeByInvoiceId,
+    updateSubscriptionChange: updateBillingSubscriptionChange,
+    findActivePrice: findActiveBillingPrice,
+    getProvider(providerName) {
+      return providerName ? getBillingProvider(providerName) : null;
+    },
     billingService,
   });
 }

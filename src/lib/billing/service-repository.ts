@@ -2,7 +2,12 @@ import type { BillingServiceRepository } from "./service.ts";
 import type {
   BillingAuditActorType,
   BillingCycle,
+  BillingInvoice,
+  BillingInvoiceStatus,
+  BillingInvoiceType,
+  BillingPaymentMethodType,
   BillingPlanId,
+  BillingProviderName,
   BillingSubscription,
   BillingSubscriptionChange,
   BillingSubscriptionChangeStatus,
@@ -85,9 +90,31 @@ type BillingServiceRepositoryDependencies = {
   updateBillingSubscriptionChange(
     changeId: string,
     mutation: Partial<
-      Pick<BillingSubscriptionChange, "status" | "appliedAt" | "canceledAt">
+      Pick<
+        BillingSubscriptionChange,
+        "status" | "appliedAt" | "canceledAt" | "invoiceId"
+      >
     >,
   ): Promise<BillingSubscriptionChange | null>;
+  createBillingInvoice(input: {
+    subscriptionId: string;
+    workspaceId: string;
+    priceId?: string | null;
+    type: BillingInvoiceType;
+    status: BillingInvoiceStatus;
+    amountCents: number;
+    currency?: string;
+    periodStart?: string | null;
+    periodEnd?: string | null;
+    paymentMethod?: BillingPaymentMethodType | null;
+    provider?: BillingProviderName | null;
+    providerPaymentId?: string | null;
+    providerAuthorizedPaymentId?: string | null;
+    paymentExpiresAt?: string | null;
+    paidAt?: string | null;
+    failedAt?: string | null;
+    refundedAt?: string | null;
+  }): Promise<BillingInvoice | null>;
 };
 
 export function createBillingServiceRepository(
@@ -114,6 +141,9 @@ export function createBillingServiceRepository(
     },
     updateSubscriptionChange(changeId, mutation) {
       return dependencies.updateBillingSubscriptionChange(changeId, mutation);
+    },
+    createInvoice(input) {
+      return dependencies.createBillingInvoice(input);
     },
   };
 }

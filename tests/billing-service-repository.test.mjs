@@ -63,6 +63,10 @@ test("createBillingServiceRepository delega create/get/update/audit", async () =
       calls.push(["updateBillingSubscriptionChange", changeId, mutation]);
       return { id: changeId, ...mutation };
     },
+    async createBillingInvoice(input) {
+      calls.push(["createBillingInvoice", input]);
+      return { id: "inv-1", ...input };
+    },
   });
 
   assert.deepEqual(
@@ -120,6 +124,18 @@ test("createBillingServiceRepository delega create/get/update/audit", async () =
   await repository.updateSubscriptionChange("chg-1", {
     status: "canceled",
     canceledAt: "2026-08-14T12:00:00.000Z",
+  });
+
+  await repository.createInvoice({
+    subscriptionId: "sub-1",
+    workspaceId: "workspace-1",
+    priceId: "price-1",
+    type: "upgrade",
+    status: "pending",
+    amountCents: 9900,
+    currency: "BRL",
+    paymentMethod: "pix_manual",
+    provider: "mercado_pago",
   });
 
   assert.deepEqual(calls, [
@@ -185,6 +201,20 @@ test("createBillingServiceRepository delega create/get/update/audit", async () =
       {
         status: "canceled",
         canceledAt: "2026-08-14T12:00:00.000Z",
+      },
+    ],
+    [
+      "createBillingInvoice",
+      {
+        subscriptionId: "sub-1",
+        workspaceId: "workspace-1",
+        priceId: "price-1",
+        type: "upgrade",
+        status: "pending",
+        amountCents: 9900,
+        currency: "BRL",
+        paymentMethod: "pix_manual",
+        provider: "mercado_pago",
       },
     ],
   ]);

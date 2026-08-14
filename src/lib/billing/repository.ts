@@ -138,7 +138,10 @@ type BillingInvoiceRow = {
 };
 
 type BillingSubscriptionChangeMutation = Partial<
-  Pick<BillingSubscriptionChange, "status" | "appliedAt" | "canceledAt">
+  Pick<
+    BillingSubscriptionChange,
+    "status" | "appliedAt" | "canceledAt" | "invoiceId"
+  >
 >;
 
 type BillingSubscriptionChangeRow = {
@@ -672,6 +675,29 @@ export async function findActiveBillingPrice(input: {
   return rows[0] ? mapBillingPriceRow(rows[0]) : null;
 }
 
+export async function getBillingPriceById(priceId: string) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      id,
+      plan_id,
+      billing_cycle,
+      amount_cents,
+      currency,
+      active_from,
+      active_until,
+      created_at,
+      updated_at
+    FROM billing_prices
+    WHERE id = ${priceId}
+    LIMIT 1
+  `) as BillingPriceRow[];
+
+  return rows[0] ? mapBillingPriceRow(rows[0]) : null;
+}
+
 export async function listActiveBillingPrices(input?: {
   asOf?: string;
 }) {
@@ -739,6 +765,7 @@ export async function getBillingInvoiceById(invoiceId: string) {
 export async function findLatestPendingBillingInvoiceForSubscription(input: {
   subscriptionId: string;
   paymentMethod?: BillingPaymentMethodType | null;
+  type?: BillingInvoiceType | null;
 }) {
   await ensurePlatformReady();
 
@@ -771,6 +798,10 @@ export async function findLatestPendingBillingInvoiceForSubscription(input: {
       AND (
         ${input.paymentMethod ?? null}::text IS NULL
         OR payment_method = ${input.paymentMethod ?? null}
+      )
+      AND (
+        ${input.type ?? null}::text IS NULL
+        OR type = ${input.type ?? null}
       )
     ORDER BY created_at DESC
     LIMIT 1
@@ -1099,6 +1130,38 @@ export async function getBillingSubscriptionChangeById(changeId: string) {
   return rows[0] ? mapBillingSubscriptionChangeRow(rows[0]) : null;
 }
 
+export async function getBillingSubscriptionChangeByInvoiceId(invoiceId: string) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      id,
+      subscription_id,
+      workspace_id,
+      type,
+      status,
+      from_plan_id,
+      to_plan_id,
+      from_billing_cycle,
+      to_billing_cycle,
+      effective_at,
+      credit_amount_cents,
+      charge_amount_cents,
+      invoice_id,
+      requested_by_type,
+      requested_by_id,
+      created_at,
+      applied_at,
+      canceled_at
+    FROM billing_subscription_changes
+    WHERE invoice_id = ${invoiceId}
+    LIMIT 1
+  `) as BillingSubscriptionChangeRow[];
+
+  return rows[0] ? mapBillingSubscriptionChangeRow(rows[0]) : null;
+}
+
 export async function createBillingSubscriptionChange(input: {
   subscriptionId: string;
   workspaceId: string;
@@ -1235,6 +1298,7 @@ export async function updateBillingSubscriptionChange(
     UPDATE billing_subscription_changes
     SET
       status = ${resolvePatchedValue(mutation, "status", currentChange.status)},
+      invoice_id = ${resolvePatchedValue(mutation, "invoiceId", currentChange.invoiceId)},
       applied_at = ${resolvePatchedValue(mutation, "appliedAt", currentChange.appliedAt)},
       canceled_at = ${resolvePatchedValue(
         mutation,

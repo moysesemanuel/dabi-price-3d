@@ -2,12 +2,15 @@ import {
   normalizeBillingManualPaymentState,
   resolveInvoiceStatusFromManualPaymentState,
 } from "./manual-payment-status.ts";
+import { applyBillingSubscriptionUpgrade } from "./upgrade-management.ts";
+import type { BillingPrice } from "./types.ts";
 import type { BillingService } from "./service.ts";
 import type {
   BillingInvoice,
   BillingPaymentMethodType,
   BillingProviderName,
   BillingSubscription,
+  BillingSubscriptionChange,
   BillingWebhookEvent,
   BillingWebhookEventStatus,
 } from "./types.ts";
@@ -130,7 +133,30 @@ export type BillingWebhookServiceDependencies = {
     mercadoPagoSubscriptionId?: string | null;
     description?: string | null;
   }): Promise<{ changed: boolean }>;
-  billingService: Pick<BillingService, "activateSubscription">;
+  getSubscriptionChangeByInvoiceId(
+    invoiceId: string,
+  ): Promise<BillingSubscriptionChange | null>;
+  updateSubscriptionChange(
+    changeId: string,
+    mutation: Partial<
+      Pick<
+        BillingSubscriptionChange,
+        "status" | "appliedAt" | "canceledAt" | "invoiceId"
+      >
+    >,
+  ): Promise<BillingSubscriptionChange | null>;
+  findActivePrice(input: {
+    planId: BillingSubscription["planId"];
+    billingCycle: BillingSubscription["billingCycle"];
+    asOf?: string;
+  }): Promise<BillingPrice | null>;
+  getProvider(
+    provider: BillingSubscription["provider"] | BillingInvoice["provider"],
+  ): Pick<
+    import("./providers/billing-provider.ts").BillingProvider,
+    "updateSubscriptionAmount"
+  > | null;
+  billingService: Pick<BillingService, "activateSubscription" | "applyUpgrade">;
   clock?: {
     now(): Date;
   };
@@ -481,6 +507,20 @@ export class BillingWebhookService {
     });
 
     if (nextInvoiceStatus !== "paid") {
+      if (invoice.type === "upgrade") {
+        const change = await this.dependencies.getSubscriptionChangeByInvoiceId(
+          invoice.id,
+        );
+
+        if (change?.status === "pending_payment") {
+          await this.dependencies.updateSubscriptionChange(change.id, {
+            status: nextInvoiceStatus === "canceled" ? "canceled" : "failed",
+            canceledAt:
+              nextInvoiceStatus === "canceled" ? nowIso : change.canceledAt,
+          });
+        }
+      }
+
       return {
         status: 200,
         logLevel: "info",
@@ -499,6 +539,123 @@ export class BillingWebhookService {
           invoiceId: invoice.id,
           invoiceStatus: nextInvoiceStatus,
           effectApplied: false,
+        },
+      };
+    }
+
+    if (invoice.type === "upgrade") {
+      const change = await this.dependencies.getSubscriptionChangeByInvoiceId(
+        invoice.id,
+      );
+
+      if (!change) {
+        return {
+          status: 200,
+          logLevel: "warn",
+          event: "billing_webhook.upgrade_change_not_resolved",
+          details: {
+            provider: normalizedEvent.provider,
+            providerEventId: normalizedEvent.providerEventId,
+            eventType: normalizedEvent.eventType,
+            resourceId: normalizedEvent.resourceId,
+            invoiceId: invoice.id,
+            subscriptionId: subscription.id,
+          },
+          body: {
+            handled: true,
+            invoiceId: invoice.id,
+            effectApplied: false,
+            reason: "upgrade_change_not_resolved",
+          },
+        };
+      }
+
+      if (change.status !== "pending_payment") {
+        return {
+          status: 200,
+          logLevel: "info",
+          event: "billing_webhook.upgrade_invoice_ignored",
+          details: {
+            provider: normalizedEvent.provider,
+            providerEventId: normalizedEvent.providerEventId,
+            eventType: normalizedEvent.eventType,
+            resourceId: normalizedEvent.resourceId,
+            invoiceId: invoice.id,
+            subscriptionId: subscription.id,
+            changeId: change.id,
+            changeStatus: change.status,
+          },
+          body: {
+            handled: true,
+            invoiceId: invoice.id,
+            effectApplied: false,
+            reason: "upgrade_change_not_pending_payment",
+          },
+        };
+      }
+
+      if (subscription.status !== "active") {
+        return {
+          status: 200,
+          logLevel: "warn",
+          event: "billing_webhook.upgrade_paid_without_active_subscription",
+          details: {
+            provider: normalizedEvent.provider,
+            providerEventId: normalizedEvent.providerEventId,
+            eventType: normalizedEvent.eventType,
+            resourceId: normalizedEvent.resourceId,
+            invoiceId: invoice.id,
+            subscriptionId: subscription.id,
+            subscriptionStatus: subscription.status,
+          },
+          body: {
+            handled: true,
+            invoiceId: invoice.id,
+            effectApplied: false,
+            reason: "subscription_status_not_upgradable",
+          },
+        };
+      }
+
+      const syncResult = await applyBillingSubscriptionUpgrade({
+        subscription,
+        change,
+        invoice,
+        actorType: "webhook",
+        nowIso,
+        source: "billing-webhook-upgrade",
+        description: `Upgrade aplicado via ${normalizedEvent.sourceTopic}.`,
+        dependencies: {
+          findActivePrice: this.dependencies.findActivePrice,
+          getProvider: this.dependencies.getProvider,
+          billingService: this.dependencies.billingService,
+          updateSubscriptionChange: this.dependencies.updateSubscriptionChange,
+          applyWorkspaceSubscriptionUpdate:
+            this.dependencies.applyWorkspaceSubscriptionUpdate,
+        },
+      });
+
+      return {
+        status: 200,
+        logLevel: "info",
+        event: "billing_webhook.upgrade_applied",
+        details: {
+          provider: normalizedEvent.provider,
+          providerEventId: normalizedEvent.providerEventId,
+          eventType: normalizedEvent.eventType,
+          resourceId: normalizedEvent.resourceId,
+          workspaceId: subscription.workspaceId,
+          subscriptionId: subscription.id,
+          invoiceId: invoice.id,
+          changeId: change.id,
+          changed: syncResult.changed,
+        },
+        body: {
+          handled: true,
+          workspaceId: subscription.workspaceId,
+          subscriptionId: subscription.id,
+          invoiceId: invoice.id,
+          upgraded: true,
         },
       };
     }

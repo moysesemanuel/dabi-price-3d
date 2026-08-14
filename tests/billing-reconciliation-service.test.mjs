@@ -5,6 +5,7 @@ import { BillingReconciliationService } from "../src/lib/billing/reconciliation-
 
 function createDependencies(overrides = {}) {
   const activations = [];
+  const appliedUpgrades = [];
   const pauses = [];
   const cancellations = [];
   const expirations = [];
@@ -16,6 +17,7 @@ function createDependencies(overrides = {}) {
 
   const base = {
     activations,
+    appliedUpgrades,
     pauses,
     cancellations,
     expirations,
@@ -36,6 +38,9 @@ function createDependencies(overrides = {}) {
       },
       async expireSubscription(subscriptionId, input) {
         expirations.push({ subscriptionId, input });
+      },
+      async applyUpgrade(subscriptionId, input) {
+        appliedUpgrades.push({ subscriptionId, input });
       },
       async applyScheduledChange(subscriptionId, input) {
         scheduledChanges.push({ subscriptionId, input });
@@ -66,6 +71,9 @@ function createDependencies(overrides = {}) {
       invoiceUpdates.push({ invoiceId, mutation });
       return null;
     },
+    async getSubscriptionChangeByInvoiceId() {
+      return null;
+    },
     async getDueSubscriptionChanges() {
       return [];
     },
@@ -74,7 +82,17 @@ function createDependencies(overrides = {}) {
       return null;
     },
     async findActivePrice() {
-      return { id: "price-1" };
+      return {
+        id: "price-1",
+        planId: "starter",
+        billingCycle: "monthly",
+        amountCents: 5000,
+        currency: "BRL",
+        activeFrom: "2026-01-01T00:00:00.000Z",
+        activeUntil: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      };
     },
     async listFailedWebhookEvents() {
       return [];
@@ -466,6 +484,138 @@ test("reconcileInvoice ativa assinatura pending quando Pix já foi pago", async 
   assert.equal(result.findings[0]?.code, "invoice_paid_subscription_not_active");
   assert.equal(dependencies.activations.length, 1);
   assert.equal(dependencies.workspaceUpdates[0]?.status, "active");
+});
+
+test("reconcileInvoice aplica upgrade pago para assinatura ativa", async () => {
+  const dependencies = createDependencies({
+    async getInvoiceById() {
+      return {
+        id: "inv-up-2",
+        subscriptionId: "sub-up-2",
+        workspaceId: "workspace-up-2",
+        priceId: "price-growth-monthly",
+        type: "upgrade",
+        status: "pending",
+        amountCents: 9900,
+        currency: "BRL",
+        periodStart: "2026-08-14T10:00:00.000Z",
+        periodEnd: "2026-09-14T10:00:00.000Z",
+        paymentMethod: "pix_manual",
+        provider: "mercado_pago",
+        providerPaymentId: "pay-up-2",
+        providerAuthorizedPaymentId: null,
+        paymentExpiresAt: "2026-08-14T14:00:00.000Z",
+        paidAt: null,
+        failedAt: null,
+        refundedAt: null,
+        createdAt: "2026-08-14T10:00:00.000Z",
+        updatedAt: "2026-08-14T10:00:00.000Z",
+      };
+    },
+    async getSubscriptionById() {
+      return {
+        id: "sub-up-2",
+        workspaceId: "workspace-up-2",
+        planId: "starter",
+        billingCycle: "monthly",
+        priceId: "price-starter-monthly",
+        status: "active",
+        autoRenew: true,
+        currentPeriodStart: "2026-08-14T10:00:00.000Z",
+        currentPeriodEnd: "2026-09-14T10:00:00.000Z",
+        gracePeriodEndsAt: null,
+        cancelAtPeriodEnd: false,
+        cancelRequestedAt: null,
+        endedAt: null,
+        accessUntil: "2026-09-14T10:00:00.000Z",
+        provider: "mercado_pago",
+        providerSubscriptionId: "mp-sub-up-2",
+        createdAt: "2026-08-14T10:00:00.000Z",
+        updatedAt: "2026-08-14T10:00:00.000Z",
+      };
+    },
+    async getSubscriptionChangeByInvoiceId(invoiceId) {
+      assert.equal(invoiceId, "inv-up-2");
+      return {
+        id: "chg-up-2",
+        subscriptionId: "sub-up-2",
+        workspaceId: "workspace-up-2",
+        type: "upgrade",
+        status: "pending_payment",
+        fromPlanId: "starter",
+        toPlanId: "growth",
+        fromBillingCycle: "monthly",
+        toBillingCycle: "monthly",
+        effectiveAt: "2026-08-14T10:00:00.000Z",
+        creditAmountCents: 1500,
+        chargeAmountCents: 11400,
+        invoiceId: "inv-up-2",
+        requestedByType: "user",
+        requestedById: "user-1",
+        createdAt: "2026-08-14T10:00:00.000Z",
+        appliedAt: null,
+        canceledAt: null,
+      };
+    },
+    async findActivePrice(input) {
+      assert.equal(input.planId, "growth");
+      return {
+        id: "price-growth-monthly",
+        planId: "growth",
+        billingCycle: "monthly",
+        amountCents: 14900,
+        currency: "BRL",
+        activeFrom: "2026-01-01T00:00:00.000Z",
+        activeUntil: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      };
+    },
+    getProvider() {
+      return {
+        async getManualPayment(providerPaymentId) {
+          assert.equal(providerPaymentId, "pay-up-2");
+          return {
+            provider: "mercado_pago",
+            providerPaymentId: "pay-up-2",
+            providerAuthorizedPaymentId: null,
+            status: "approved",
+            providerSubscriptionId: "mp-sub-up-2",
+            externalReference: "billing_invoice:inv-up-2",
+            paymentMethod: "pix_manual",
+            checkoutUrl: null,
+            qrCode: null,
+            qrCodeBase64: null,
+            expiresAt: "2026-08-14T14:00:00.000Z",
+          };
+        },
+        async updateSubscriptionAmount(input) {
+          assert.deepEqual(input, {
+            providerSubscriptionId: "mp-sub-up-2",
+            amountCents: 14900,
+            currency: "BRL",
+            billingCycle: "monthly",
+          });
+          return {
+            provider: "mercado_pago",
+            providerSubscriptionId: "mp-sub-up-2",
+            status: "active",
+            checkoutUrl: null,
+            externalReference: "billing_subscription:sub-up-2",
+            payerEmail: "owner@dabi.app",
+          };
+        },
+      };
+    },
+  });
+
+  const service = new BillingReconciliationService(dependencies);
+  const result = await service.reconcileInvoice("inv-up-2");
+
+  assert.equal(result.changed, 2);
+  assert.equal(dependencies.appliedUpgrades.length, 1);
+  assert.equal(dependencies.changeUpdates[0]?.mutation.status, "applied");
+  assert.equal(dependencies.workspaceUpdates[0]?.planId, "growth");
 });
 
 test("collectOperationalFindings expõe webhooks falhos para diagnóstico", async () => {
