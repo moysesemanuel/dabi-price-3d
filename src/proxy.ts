@@ -55,7 +55,7 @@ export async function proxy(request: NextRequest) {
     isApiRequest,
     entitlements,
     onboardingCompleted: preferences.onboardingCompleted,
-    subscriptionStatus: preferences.subscription.status,
+    accessReason: entitlements.accessReason,
     requestUrl: request.url,
     pathname: request.nextUrl.pathname,
     search: request.nextUrl.search,

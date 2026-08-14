@@ -14,12 +14,6 @@ test("reaproveita checkout pendente do billing quando o plano continua o mesmo",
         status: "pending",
         providerSubscriptionId: "sub-123",
       },
-      legacySubscription: {
-        planId: "starter",
-        billingCycle: "monthly",
-        status: "unpaid",
-        mercadoPagoSubscriptionId: null,
-      },
     }),
     {
       type: "resume_pending_checkout",
@@ -38,12 +32,6 @@ test("substitui checkout pendente do billing quando o plano muda", () => {
         billingCycle: "monthly",
         status: "pending",
         providerSubscriptionId: "sub-123",
-      },
-      legacySubscription: {
-        planId: "growth",
-        billingCycle: "monthly",
-        status: "pending",
-        mercadoPagoSubscriptionId: "sub-123",
       },
     }),
     {
@@ -64,12 +52,6 @@ test("substitui checkout pendente do billing quando a assinatura local nao tem p
         status: "pending",
         providerSubscriptionId: null,
       },
-      legacySubscription: {
-        planId: "growth",
-        billingCycle: "monthly",
-        status: "pending",
-        mercadoPagoSubscriptionId: "sub-123",
-      },
     }),
     {
       type: "replace_pending_checkout",
@@ -89,56 +71,10 @@ test("bloqueia nova contratacao quando o billing atual ja concede acesso", () =>
         status: "scheduled_cancel",
         providerSubscriptionId: "sub-123",
       },
-      legacySubscription: {
-        planId: "growth",
-        billingCycle: "monthly",
-        status: "active",
-        mercadoPagoSubscriptionId: "sub-123",
-      },
     }),
     {
       type: "block_active_subscription",
       source: "billing",
-    },
-  );
-});
-
-test("reaproveita checkout pendente legado quando ainda nao existe billing atual", () => {
-  assert.deepEqual(
-    resolveSubscriptionCheckoutFlow({
-      selectedPlanId: "starter",
-      selectedBillingCycle: "monthly",
-      billingSubscription: null,
-      legacySubscription: {
-        planId: "starter",
-        billingCycle: "monthly",
-        status: "pending",
-        mercadoPagoSubscriptionId: "sub-123",
-      },
-    }),
-    {
-      type: "resume_pending_checkout",
-      source: "legacy",
-    },
-  );
-});
-
-test("nao reutiliza checkout legado de outro plano", () => {
-  assert.deepEqual(
-    resolveSubscriptionCheckoutFlow({
-      selectedPlanId: "starter",
-      selectedBillingCycle: "monthly",
-      billingSubscription: null,
-      legacySubscription: {
-        planId: "growth",
-        billingCycle: "monthly",
-        status: "pending",
-        mercadoPagoSubscriptionId: "sub-123",
-      },
-    }),
-    {
-      type: "replace_pending_checkout",
-      source: "legacy",
     },
   );
 });
@@ -149,12 +85,6 @@ test("workspace unpaid sem pendencia abre um novo checkout", () => {
       selectedPlanId: "starter",
       selectedBillingCycle: "monthly",
       billingSubscription: null,
-      legacySubscription: {
-        planId: "starter",
-        billingCycle: "monthly",
-        status: "unpaid",
-        mercadoPagoSubscriptionId: null,
-      },
     }),
     {
       type: "create_new_checkout",
@@ -173,12 +103,6 @@ test("substitui checkout pendente quando o ciclo muda no mesmo plano", () => {
         billingCycle: "monthly",
         status: "pending",
         providerSubscriptionId: "sub-123",
-      },
-      legacySubscription: {
-        planId: "growth",
-        billingCycle: "monthly",
-        status: "pending",
-        mercadoPagoSubscriptionId: "sub-123",
       },
     }),
     {

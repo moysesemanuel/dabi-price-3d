@@ -195,35 +195,6 @@ test("activateSubscription ativa assinatura pendente e define período", async (
   assert.equal(repository.auditEvents.at(-1)?.action, "subscription.activated");
 });
 
-test("importLegacySubscription materializa assinatura legada e registra auditoria", async () => {
-  const repository = createInMemoryBillingRepository();
-  const service = new BillingService(repository);
-
-  const subscription = await service.importLegacySubscription({
-    workspaceId: "workspace-legacy",
-    planId: "growth",
-    billingCycle: "annual",
-    status: "active",
-    autoRenew: true,
-    provider: "mercado_pago",
-    providerSubscriptionId: "mp-legacy-1",
-    legacyStatus: "active",
-  });
-
-  assert.equal(subscription.workspaceId, "workspace-legacy");
-  assert.equal(subscription.status, "active");
-  assert.equal(subscription.planId, "growth");
-  assert.equal(subscription.providerSubscriptionId, "mp-legacy-1");
-  assert.equal(
-    repository.auditEvents.at(-1)?.action,
-    "subscription.imported_from_legacy",
-  );
-  assert.equal(
-    repository.auditEvents.at(-1)?.metadata?.legacyStatus,
-    "active",
-  );
-});
-
 test("renewSubscription atualiza o período e registra renovação", async () => {
   const repository = createInMemoryBillingRepository();
   const service = new BillingService(repository);

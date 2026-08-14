@@ -194,15 +194,13 @@ export default async function PlansPage({
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_340px]">
         <div className="app-card p-6 sm:p-7">
           <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--accent)]">
-            {subscriptionStatus === "trial"
-              ? "Plano de avaliação"
-              : subscriptionStatus === "unpaid"
-                ? "Contratação pendente"
-                : subscriptionStatus === "pending"
-                  ? "Pagamento pendente"
-                  : hasPaidAccess
-                    ? "Plano em uso"
-                    : "Acesso bloqueado"}
+            {subscriptionStatus === "unpaid"
+              ? "Contratação pendente"
+              : subscriptionStatus === "pending"
+                ? "Pagamento pendente"
+                : hasPaidAccess
+                  ? "Plano em uso"
+                  : "Acesso bloqueado"}
           </p>
           <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -330,11 +328,7 @@ export default async function PlansPage({
           const subscriptionStatus = preferences.subscription.status;
 
           const isSubscriptionPlan = plan.id === currentPlan.id;
-          const isCurrent =
-            isSubscriptionPlan &&
-            (subscriptionStatus === "internal" ||
-              subscriptionStatus === "trial" ||
-              subscriptionStatus === "active");
+          const isCurrent = isSubscriptionPlan && hasPaidAccess;
 
           const isPending =
             isSubscriptionPlan && subscriptionStatus === "pending";

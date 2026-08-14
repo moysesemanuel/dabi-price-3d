@@ -1267,19 +1267,26 @@ export async function getWorkspacePreferences(workspaceId: string) {
   );
 
   if (!billingSubscription) {
-    return preferences;
+    return normalizeAppPreferences({
+      ...preferences,
+      subscription: {
+        ...defaultAppPreferences.subscription,
+        seatsUsed: preferences.subscription.seatsUsed,
+        checkoutStartedAt: preferences.subscription.checkoutStartedAt,
+      },
+    });
   }
 
   return normalizeAppPreferences({
     ...preferences,
     subscription: {
-      ...preferences.subscription,
+      ...defaultAppPreferences.subscription,
+      seatsUsed: preferences.subscription.seatsUsed,
+      checkoutStartedAt: preferences.subscription.checkoutStartedAt,
       planId: billingSubscription.plan_id,
       billingCycle: billingSubscription.billing_cycle,
       status: billingSubscription.status,
-      mercadoPagoSubscriptionId:
-        billingSubscription.provider_subscription_id ??
-        preferences.subscription.mercadoPagoSubscriptionId,
+      mercadoPagoSubscriptionId: billingSubscription.provider_subscription_id,
     },
   });
 }

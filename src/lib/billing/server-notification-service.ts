@@ -1,6 +1,5 @@
 import "server-only";
 
-import { ensureLegacyWorkspaceBillingMigration } from "./server-legacy-migration-service.ts";
 import { findCurrentBillingSubscriptionForWorkspace } from "./repository.ts";
 import {
   resolveBillingNotification,
@@ -22,10 +21,6 @@ export async function getWorkspaceBillingNotification(input: {
       now: input.now,
     });
   }
-
-  await ensureLegacyWorkspaceBillingMigration({
-    workspaceId: input.workspaceId,
-  });
 
   const billingSubscription = await findCurrentBillingSubscriptionForWorkspace(
     input.workspaceId,

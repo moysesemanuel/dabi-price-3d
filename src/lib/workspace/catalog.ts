@@ -2,9 +2,7 @@ export type WorkspaceRole = "owner" | "manager" | "operator";
 export type WorkspacePlanId = "starter" | "growth" | "scale";
 export type WorkspaceBillingCycle = "monthly" | "annual";
 export type SubscriptionStatus =
-  | "internal"
   | "unpaid"
-  | "trial"
   | "pending"
   | "active"
   | "past_due"

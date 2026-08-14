@@ -277,8 +277,8 @@ export const defaultAppPreferences: AppPreferences = {
   applyPresetToNewCalculations: true,
   onboardingCompleted: false,
   subscription: {
-    planId: "growth",
-    status: "internal",
+    planId: "starter",
+    status: "unpaid",
     billingCycle: "monthly",
     seatsUsed: 1,
     mercadoPagoSubscriptionId: null,
@@ -641,7 +641,6 @@ function normalizeWorkspaceSubscription(
 
   const status =
     subscription?.status === "unpaid" ||
-    subscription?.status === "trial" ||
     subscription?.status === "pending" ||
     subscription?.status === "active" ||
     subscription?.status === "past_due" ||

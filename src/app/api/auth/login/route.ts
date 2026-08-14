@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { loginWithEmailPassword, setSessionCookie } from "@/lib/auth/session";
+import { getWorkspaceEntitlements } from "@/lib/billing/server-entitlement-service";
 import { getWorkspacePreferences } from "@/lib/server/platform";
 import { resolveDefaultWorkspaceAppPath } from "@/lib/workspace/subscription-access";
 
@@ -40,12 +41,16 @@ export async function POST(request: Request) {
   const cookieStore = await cookies();
   setSessionCookie(cookieStore, authResult.sessionToken, authResult.expiresAt);
   const preferences = await getWorkspacePreferences(authResult.session.workspace.id);
+  const entitlements = await getWorkspaceEntitlements({
+    workspaceId: authResult.session.workspace.id,
+    fallbackSubscription: preferences.subscription,
+  });
 
   return Response.json({
     session: authResult.session,
     redirectTo: resolveNextPath(body.next, {
       onboardingCompleted: preferences.onboardingCompleted,
-      subscriptionStatus: preferences.subscription.status,
+      accessReason: entitlements.accessReason,
     }),
   });
 }
@@ -54,7 +59,7 @@ function resolveNextPath(
   nextPath: string | undefined,
   fallbackState: {
     onboardingCompleted: boolean;
-    subscriptionStatus: Parameters<typeof resolveDefaultWorkspaceAppPath>[0]["subscriptionStatus"];
+    accessReason: Parameters<typeof resolveDefaultWorkspaceAppPath>[0]["accessReason"];
   },
 ) {
   if (typeof nextPath !== "string") {

@@ -1,5 +1,9 @@
 import type { BillingSubscriptionStatus } from "./types.ts";
-import { getWorkspacePlan, type SubscriptionStatus, type WorkspacePlanId } from "../workspace/catalog.ts";
+import {
+  getWorkspacePlan,
+  type SubscriptionStatus,
+  type WorkspacePlanId,
+} from "../workspace/catalog.ts";
 
 export type WorkspaceEntitlementAccessReason =
   | "active"
@@ -87,8 +91,6 @@ export function resolveWorkspaceEntitlementAccessReason(input: {
   }
 
   switch (status) {
-    case "internal":
-    case "trial":
     case "active":
       return "active";
     case "past_due":
@@ -145,7 +147,6 @@ export function resolveHistoryLimitPlanId(
 ) {
   if (
     subscription.status === "unpaid" ||
-    subscription.status === "trial" ||
     subscription.status === "pending" ||
     !subscription.planId
   ) {

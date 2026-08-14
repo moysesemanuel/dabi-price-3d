@@ -1,21 +1,14 @@
-import type { SubscriptionStatus, WorkspacePlanId } from "../workspace/catalog.ts";
+import type { WorkspacePlanId } from "../workspace/catalog.ts";
 import type { BillingPlanId, BillingSubscriptionStatus } from "./types.ts";
 import type { BillingCycle } from "./types.ts";
 
-export type PendingCheckoutSource = "billing" | "legacy";
+export type PendingCheckoutSource = "billing";
 
 type BillingCheckoutSubscription = {
   planId: BillingPlanId;
   billingCycle: BillingCycle;
   status: BillingSubscriptionStatus;
   providerSubscriptionId: string | null;
-};
-
-type LegacyCheckoutSubscription = {
-  planId: WorkspacePlanId;
-  billingCycle: BillingCycle;
-  status: SubscriptionStatus;
-  mercadoPagoSubscriptionId: string | null;
 };
 
 export type SubscriptionCheckoutFlowDecision =
@@ -44,7 +37,6 @@ export function resolveSubscriptionCheckoutFlow(input: {
   selectedPlanId: WorkspacePlanId;
   selectedBillingCycle: BillingCycle;
   billingSubscription: BillingCheckoutSubscription | null;
-  legacySubscription: LegacyCheckoutSubscription;
 }): SubscriptionCheckoutFlowDecision {
   if (input.billingSubscription) {
     return resolveBillingCheckoutFlow({
@@ -54,7 +46,10 @@ export function resolveSubscriptionCheckoutFlow(input: {
     });
   }
 
-  return resolveLegacyCheckoutFlow(input);
+  return {
+    type: "create_new_checkout",
+    source: "none",
+  } as const;
 }
 
 function resolveBillingCheckoutFlow(input: {
@@ -91,42 +86,6 @@ function resolveBillingCheckoutFlow(input: {
         source: "billing",
       } as const;
   }
-}
-
-function resolveLegacyCheckoutFlow(input: {
-  selectedPlanId: WorkspacePlanId;
-  selectedBillingCycle: BillingCycle;
-  legacySubscription: LegacyCheckoutSubscription;
-}) {
-  if (input.legacySubscription.status === "active") {
-    return {
-      type: "block_active_subscription",
-      source: "legacy",
-    } as const;
-  }
-
-  if (input.legacySubscription.status === "paused") {
-    return {
-      type: "block_paused_subscription",
-      source: "legacy",
-    } as const;
-  }
-
-  if (input.legacySubscription.status === "pending") {
-    return resolvePendingCheckoutFlow({
-      selectedPlanId: input.selectedPlanId,
-      selectedBillingCycle: input.selectedBillingCycle,
-      currentPlanId: input.legacySubscription.planId,
-      currentBillingCycle: input.legacySubscription.billingCycle,
-      subscriptionId: input.legacySubscription.mercadoPagoSubscriptionId,
-      source: "legacy",
-    });
-  }
-
-  return {
-    type: "create_new_checkout",
-    source: "none",
-  } as const;
 }
 
 function resolvePendingCheckoutFlow(input: {

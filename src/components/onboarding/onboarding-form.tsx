@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { resolveWorkspaceAccessReason } from "@/lib/workspace/subscription-access";
 import {
   businessPresets,
   businessTypeMeta,
@@ -76,7 +77,9 @@ export function OnboardingForm({
 
       const defaultDestination = resolveDefaultWorkspaceAppPath({
         onboardingCompleted: true,
-        subscriptionStatus: initialPreferences.subscription.status,
+        accessReason: resolveWorkspaceAccessReason(
+          initialPreferences.subscription,
+        ),
       });
 
       router.push(

@@ -10,10 +10,22 @@ import {
   resolveHistoryLimitPlanId,
 } from "../src/lib/workspace/subscription-access.ts";
 
-test("internal, trial e active mantem acesso ao produto", () => {
-  assert.equal(canAccessPaidWorkspaceFeatures("internal"), true);
-  assert.equal(canAccessPaidWorkspaceFeatures("trial"), true);
+test("active, past_due e scheduled_cancel mantem acesso ao produto", () => {
   assert.equal(canAccessPaidWorkspaceFeatures("active"), true);
+  assert.equal(
+    canAccessPaidWorkspaceFeatures({
+      status: "past_due",
+      gracePeriodEndsAt: "2026-08-20T00:00:00.000Z",
+    }),
+    true,
+  );
+  assert.equal(
+    canAccessPaidWorkspaceFeatures({
+      status: "scheduled_cancel",
+      currentPeriodEnd: "2026-08-20T00:00:00.000Z",
+    }),
+    true,
+  );
 });
 
 test("unpaid, pending, paused e canceled nao liberam acesso pago", () => {
@@ -27,42 +39,42 @@ test("resolve a rota padrao conforme onboarding e entitlement", () => {
   assert.equal(
     resolveDefaultWorkspaceAppPath({
       onboardingCompleted: false,
-      subscriptionStatus: "unpaid",
+      accessReason: "no_subscription",
     }),
     "/app/onboarding",
   );
   assert.equal(
     resolveDefaultWorkspaceAppPath({
       onboardingCompleted: true,
-      subscriptionStatus: "unpaid",
+      accessReason: "no_subscription",
     }),
     "/app/planos",
   );
   assert.equal(
     resolveDefaultWorkspaceAppPath({
       onboardingCompleted: true,
-      subscriptionStatus: "pending",
+      accessReason: "pending",
     }),
     "/app/checkout",
   );
   assert.equal(
     resolveDefaultWorkspaceAppPath({
       onboardingCompleted: true,
-      subscriptionStatus: "active",
+      accessReason: "active",
     }),
     "/app/precificacao",
   );
   assert.equal(
     resolveDefaultWorkspaceAppPath({
       onboardingCompleted: true,
-      subscriptionStatus: "paused",
+      accessReason: "paused",
     }),
     "/app/assinatura",
   );
   assert.equal(
     resolveDefaultWorkspaceAppPath({
       onboardingCompleted: true,
-      subscriptionStatus: "canceled",
+      accessReason: "canceled",
     }),
     "/app/assinatura",
   );

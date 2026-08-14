@@ -1,5 +1,5 @@
 import type { WorkspaceEntitlements } from "../billing/entitlement-service.ts";
-import type { SubscriptionStatus } from "../workspace/catalog.ts";
+import type { WorkspaceEntitlementAccessReason } from "../billing/entitlement-service.ts";
 import {
   canAccessApiPathWithoutPaidWorkspace,
   canAccessAppPathWithoutPaidWorkspace,
@@ -13,14 +13,17 @@ export function resolveAppRouteProtection(input: {
   pathname: string;
   search: string;
   isApiRequest?: boolean;
-  hasPaidWorkspaceAccess?: boolean;
   onboardingCompleted?: boolean;
-  subscriptionStatus?: SubscriptionStatus;
+  accessReason?: WorkspaceEntitlementAccessReason;
   entitlements?: WorkspaceEntitlements;
 }) {
-  const subscriptionStatus = input.subscriptionStatus ?? "unpaid";
+  const accessReason =
+    input.accessReason ?? input.entitlements?.accessReason ?? "no_subscription";
   const canUseApp =
-    input.entitlements?.canUseApp ?? input.hasPaidWorkspaceAccess !== false;
+    input.entitlements?.canUseApp ??
+    (accessReason === "active" ||
+      accessReason === "grace_period" ||
+      accessReason === "scheduled_cancel");
 
   if (input.isApiRequest) {
     if (canAccessAdministrativeApiPath(input.pathname)) {
@@ -49,15 +52,12 @@ export function resolveAppRouteProtection(input: {
       redirectUrl: null,
       status: 403,
       responseBody: {
-        error:
-          getWorkspaceAccessBlockedMessage(
-            input.entitlements?.accessReason ?? subscriptionStatus,
-          ) ??
+        error: getWorkspaceAccessBlockedMessage(accessReason) ??
           "A assinatura atual não libera esta funcionalidade.",
         code: "SUBSCRIPTION_REQUIRED",
         redirectTo: resolveDefaultWorkspaceAppPath({
           onboardingCompleted: input.onboardingCompleted ?? false,
-          subscriptionStatus,
+          accessReason,
         }),
       },
     };
@@ -74,7 +74,7 @@ export function resolveAppRouteProtection(input: {
     const redirectUrl = new URL(
       resolveDefaultWorkspaceAppPath({
         onboardingCompleted: input.onboardingCompleted ?? false,
-        subscriptionStatus,
+        accessReason,
       }),
       input.requestUrl,
     );

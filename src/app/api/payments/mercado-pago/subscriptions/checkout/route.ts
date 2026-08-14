@@ -7,7 +7,6 @@ import {
   findCurrentBillingSubscriptionForWorkspace,
   updateBillingSubscription,
 } from "@/lib/billing/repository";
-import { ensureLegacyWorkspaceBillingMigration } from "@/lib/billing/server-legacy-migration-service";
 import { createBillingService } from "@/lib/billing/server-service";
 import type { BillingSubscription } from "@/lib/billing/types";
 import {
@@ -38,9 +37,6 @@ type CheckoutSubscriptionPayload = {
   planId?: string;
   billingCycle?: string;
 };
-
-type WorkspacePreferencesSubscription =
-  Awaited<ReturnType<typeof getWorkspacePreferences>>["subscription"];
 
 export async function POST(request: Request) {
   const requestContext = createRouteRequestContext(
@@ -132,10 +128,6 @@ export async function POST(request: Request) {
     );
   }
 
-  await ensureLegacyWorkspaceBillingMigration({
-    workspaceId: session.workspace.id,
-  });
-
   const currentPreferences = await getWorkspacePreferences(session.workspace.id);
   const currentSubscription = currentPreferences.subscription;
   const currentBillingSubscription = await findCurrentBillingSubscriptionForWorkspace(
@@ -152,7 +144,6 @@ export async function POST(request: Request) {
           providerSubscriptionId: currentBillingSubscription.providerSubscriptionId,
         }
       : null,
-    legacySubscription: currentSubscription,
   });
 
   if (checkoutFlow.type === "block_active_subscription") {
@@ -186,10 +177,8 @@ export async function POST(request: Request) {
     const recoveryResponse = await reconcilePendingCheckout({
       requestContext,
       session,
-      source: checkoutFlow.source,
       shouldResumeCheckout: true,
-      currentBillingSubscription,
-      currentSubscription,
+      currentBillingSubscription: currentBillingSubscription!,
       selectedPlanId: planId,
       selectedBillingCycle: billingCycle,
       selectedPlanLabel: selectedPlan.label,
@@ -232,10 +221,8 @@ export async function POST(request: Request) {
       const replacementResponse = await reconcilePendingCheckout({
         requestContext,
         session,
-        source: checkoutFlow.source,
         shouldResumeCheckout: false,
-        currentBillingSubscription,
-        currentSubscription,
+        currentBillingSubscription: currentBillingSubscription!,
         selectedPlanId: planId,
         selectedBillingCycle: billingCycle,
         selectedPlanLabel: selectedPlan.label,
@@ -282,7 +269,7 @@ export async function POST(request: Request) {
         userId: session.user.id,
         planId,
         billingCycle,
-        legacyStatus: currentSubscription.status,
+        workspaceStatus: currentSubscription.status,
         billingStatus: currentBillingSubscription?.status ?? null,
       },
     );
@@ -437,10 +424,8 @@ export async function POST(request: Request) {
 async function reconcilePendingCheckout(input: {
   requestContext: ReturnType<typeof createRouteRequestContext>;
   session: AuthenticatedWorkspaceSession;
-  source: "billing" | "legacy";
   shouldResumeCheckout: boolean;
-  currentBillingSubscription: BillingSubscription | null;
-  currentSubscription: WorkspacePreferencesSubscription;
+  currentBillingSubscription: BillingSubscription;
   selectedPlanId: WorkspacePlanId;
   selectedBillingCycle: BillingSubscription["billingCycle"];
   selectedPlanLabel: string;
@@ -448,23 +433,16 @@ async function reconcilePendingCheckout(input: {
   provider: ReturnType<typeof getBillingProvider>;
 }) {
   const providerSubscriptionId =
-    input.source === "billing"
-      ? input.currentBillingSubscription?.providerSubscriptionId ?? null
-      : input.currentSubscription.mercadoPagoSubscriptionId;
-  const pendingPlanId =
-    input.source === "billing"
-      ? input.currentBillingSubscription?.planId ?? input.currentSubscription.planId
-      : input.currentSubscription.planId;
+    input.currentBillingSubscription.providerSubscriptionId;
+  const pendingPlanId = input.currentBillingSubscription.planId;
 
   if (!providerSubscriptionId) {
     if (!input.shouldResumeCheckout) {
       await clearPendingCheckoutState({
         session: input.session,
-        source: input.source,
         currentBillingSubscription: input.currentBillingSubscription,
-        currentSubscription: input.currentSubscription,
         billingService: input.billingService,
-        nextLegacyStatus: "unpaid",
+        nextMirrorStatus: "unpaid",
         providerSubscriptionId: null,
         sourceName: "mercado-pago-checkout-replacement",
         description:
@@ -484,7 +462,6 @@ async function reconcilePendingCheckout(input: {
     {
       workspaceId: input.session.workspace.id,
       userId: input.session.user.id,
-      source: input.source,
       planId: pendingPlanId,
       selectedPlanId: input.selectedPlanId,
       selectedBillingCycle: input.selectedBillingCycle,
@@ -507,9 +484,7 @@ async function reconcilePendingCheckout(input: {
       if (!input.shouldResumeCheckout) {
         await cancelPendingCheckoutForReplacement({
           session: input.session,
-          source: input.source,
           currentBillingSubscription: input.currentBillingSubscription,
-          currentSubscription: input.currentSubscription,
           providerSubscriptionId,
           selectedPlanLabel: input.selectedPlanLabel,
           billingService: input.billingService,
@@ -526,7 +501,6 @@ async function reconcilePendingCheckout(input: {
         {
           workspaceId: input.session.workspace.id,
           userId: input.session.user.id,
-          source: input.source,
           planId: pendingPlanId,
           selectedPlanId: input.selectedPlanId,
           selectedBillingCycle: input.selectedBillingCycle,
@@ -547,9 +521,7 @@ async function reconcilePendingCheckout(input: {
       if (!input.shouldResumeCheckout) {
         await cancelPendingCheckoutForReplacement({
           session: input.session,
-          source: input.source,
           currentBillingSubscription: input.currentBillingSubscription,
-          currentSubscription: input.currentSubscription,
           providerSubscriptionId,
           selectedPlanLabel: input.selectedPlanLabel,
           billingService: input.billingService,
@@ -566,7 +538,6 @@ async function reconcilePendingCheckout(input: {
         {
           workspaceId: input.session.workspace.id,
           userId: input.session.user.id,
-          source: input.source,
           planId: pendingPlanId,
           selectedPlanId: input.selectedPlanId,
           selectedBillingCycle: input.selectedBillingCycle,
@@ -589,9 +560,7 @@ async function reconcilePendingCheckout(input: {
     if (recovery.type === "sync_local_status") {
       await syncPendingCheckoutStatus({
         session: input.session,
-        source: input.source,
         currentBillingSubscription: input.currentBillingSubscription,
-        currentSubscription: input.currentSubscription,
         billingService: input.billingService,
         providerSubscriptionId,
         nextStatus: recovery.nextStatus,
@@ -606,11 +575,9 @@ async function reconcilePendingCheckout(input: {
     if (recovery.type === "allow_new_checkout") {
       await clearPendingCheckoutState({
         session: input.session,
-        source: input.source,
         currentBillingSubscription: input.currentBillingSubscription,
-        currentSubscription: input.currentSubscription,
         billingService: input.billingService,
-        nextLegacyStatus: recovery.nextStatus,
+        nextMirrorStatus: recovery.nextStatus,
         providerSubscriptionId: recovery.clearSubscriptionId
           ? null
           : providerSubscriptionId,
@@ -629,7 +596,6 @@ async function reconcilePendingCheckout(input: {
           {
             workspaceId: input.session.workspace.id,
             userId: input.session.user.id,
-            source: input.source,
             planId: pendingPlanId,
             selectedPlanId: input.selectedPlanId,
             selectedBillingCycle: input.selectedBillingCycle,
@@ -648,7 +614,6 @@ async function reconcilePendingCheckout(input: {
       {
         workspaceId: input.session.workspace.id,
         userId: input.session.user.id,
-        source: input.source,
         planId: pendingPlanId,
         selectedPlanId: input.selectedPlanId,
         selectedBillingCycle: input.selectedBillingCycle,
@@ -670,11 +635,9 @@ async function reconcilePendingCheckout(input: {
     if (isMercadoPagoApiError(error) && error.status === 404) {
       await clearPendingCheckoutState({
         session: input.session,
-        source: input.source,
         currentBillingSubscription: input.currentBillingSubscription,
-        currentSubscription: input.currentSubscription,
         billingService: input.billingService,
-        nextLegacyStatus: "unpaid",
+        nextMirrorStatus: "unpaid",
         providerSubscriptionId: null,
         sourceName: "mercado-pago-checkout-recovery",
         description:
@@ -688,7 +651,6 @@ async function reconcilePendingCheckout(input: {
         {
           workspaceId: input.session.workspace.id,
           userId: input.session.user.id,
-          source: input.source,
           planId: pendingPlanId,
           selectedPlanId: input.selectedPlanId,
           selectedBillingCycle: input.selectedBillingCycle,
@@ -707,7 +669,6 @@ async function reconcilePendingCheckout(input: {
       {
         workspaceId: input.session.workspace.id,
         userId: input.session.user.id,
-        source: input.source,
         planId: pendingPlanId,
         selectedPlanId: input.selectedPlanId,
         selectedBillingCycle: input.selectedBillingCycle,
@@ -730,9 +691,7 @@ async function reconcilePendingCheckout(input: {
 
 async function cancelPendingCheckoutForReplacement(input: {
   session: AuthenticatedWorkspaceSession;
-  source: "billing" | "legacy";
-  currentBillingSubscription: BillingSubscription | null;
-  currentSubscription: WorkspacePreferencesSubscription;
+  currentBillingSubscription: BillingSubscription;
   providerSubscriptionId: string;
   selectedPlanLabel: string;
   billingService: ReturnType<typeof createBillingService>;
@@ -748,11 +707,9 @@ async function cancelPendingCheckoutForReplacement(input: {
 
   await clearPendingCheckoutState({
     session: input.session,
-    source: input.source,
     currentBillingSubscription: input.currentBillingSubscription,
-    currentSubscription: input.currentSubscription,
     billingService: input.billingService,
-    nextLegacyStatus: "unpaid",
+    nextMirrorStatus: "unpaid",
     providerSubscriptionId: null,
     sourceName: "mercado-pago-checkout-replacement",
     description: `A contratação pendente anterior foi encerrada para trocar o plano antes do primeiro pagamento e abrir o checkout de ${input.selectedPlanLabel}.`,
@@ -761,25 +718,16 @@ async function cancelPendingCheckoutForReplacement(input: {
 
 async function clearPendingCheckoutState(input: {
   session: AuthenticatedWorkspaceSession;
-  source: "billing" | "legacy";
-  currentBillingSubscription: BillingSubscription | null;
-  currentSubscription: WorkspacePreferencesSubscription;
+  currentBillingSubscription: BillingSubscription;
   billingService: ReturnType<typeof createBillingService>;
-  nextLegacyStatus: WorkspacePreferencesSubscription["status"];
+  nextMirrorStatus: Awaited<ReturnType<typeof getWorkspacePreferences>>["subscription"]["status"];
   providerSubscriptionId: string | null;
   sourceName: string;
   description: string;
 }) {
-  const planId =
-    input.source === "billing"
-      ? input.currentBillingSubscription?.planId ?? input.currentSubscription.planId
-      : input.currentSubscription.planId;
+  const planId = input.currentBillingSubscription.planId;
 
-  if (
-    input.source === "billing" &&
-    input.currentBillingSubscription &&
-    input.currentBillingSubscription.status === "pending"
-  ) {
+  if (input.currentBillingSubscription.status === "pending") {
     await input.billingService.finalizeCancellation(input.currentBillingSubscription.id, {
       actorType: "system",
     });
@@ -788,7 +736,7 @@ async function clearPendingCheckoutState(input: {
   await applyWorkspaceSubscriptionUpdate({
     workspaceId: input.session.workspace.id,
     planId,
-    status: input.nextLegacyStatus,
+    status: input.nextMirrorStatus,
     source: input.sourceName,
     mercadoPagoSubscriptionId: input.providerSubscriptionId,
     description: input.description,
@@ -797,24 +745,15 @@ async function clearPendingCheckoutState(input: {
 
 async function syncPendingCheckoutStatus(input: {
   session: AuthenticatedWorkspaceSession;
-  source: "billing" | "legacy";
-  currentBillingSubscription: BillingSubscription | null;
-  currentSubscription: WorkspacePreferencesSubscription;
+  currentBillingSubscription: BillingSubscription;
   billingService: ReturnType<typeof createBillingService>;
   providerSubscriptionId: string;
   nextStatus: "active" | "paused";
   description: string;
 }) {
-  const planId =
-    input.source === "billing"
-      ? input.currentBillingSubscription?.planId ?? input.currentSubscription.planId
-      : input.currentSubscription.planId;
+  const planId = input.currentBillingSubscription.planId;
 
-  if (
-    input.source === "billing" &&
-    input.currentBillingSubscription &&
-    input.currentBillingSubscription.status === "pending"
-  ) {
+  if (input.currentBillingSubscription.status === "pending") {
     if (input.nextStatus === "active") {
       await input.billingService.activateSubscription(input.currentBillingSubscription.id, {
         actorType: "system",

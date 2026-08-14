@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { OnboardingForm } from "@/components/onboarding/onboarding-form";
 import { requireCurrentAuthSession } from "@/lib/auth/session";
+import { getWorkspaceEntitlements } from "@/lib/billing/server-entitlement-service";
 import { getWorkspacePreferences } from "@/lib/server/platform";
 import { resolveDefaultWorkspaceAppPath } from "@/lib/workspace/subscription-access";
 
@@ -25,12 +26,16 @@ export default async function OnboardingPage({
   const session = await requireCurrentAuthSession();
 
   const preferences = await getWorkspacePreferences(session.workspace.id);
+  const entitlements = await getWorkspaceEntitlements({
+    workspaceId: session.workspace.id,
+    fallbackSubscription: preferences.subscription,
+  });
 
   if (preferences.onboardingCompleted) {
     redirect(
       resolveDefaultWorkspaceAppPath({
         onboardingCompleted: preferences.onboardingCompleted,
-        subscriptionStatus: preferences.subscription.status,
+        accessReason: entitlements.accessReason,
       }),
     );
   }

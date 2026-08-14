@@ -78,7 +78,7 @@ test("workspace pouco estruturado aparece como em estruturação", () => {
     onboardingCompleted: false,
     subscription: {
       planId: "growth",
-      status: "trial",
+      status: "unpaid",
       seatsUsed: 1,
     },
   });

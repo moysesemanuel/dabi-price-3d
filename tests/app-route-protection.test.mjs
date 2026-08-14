@@ -20,6 +20,7 @@ test("protege /app sem sessao e preserva a rota de retorno", () => {
 test("libera /app quando a sessao existe", () => {
   const result = resolveAppRouteProtection({
     hasSession: true,
+    accessReason: "active",
     requestUrl: "http://127.0.0.1:3005/app/precificacao",
     pathname: "/app/precificacao",
     search: "",
@@ -32,9 +33,8 @@ test("libera /app quando a sessao existe", () => {
 test("redireciona workspace unpaid para onboarding quando ainda nao concluiu a configuracao", () => {
   const result = resolveAppRouteProtection({
     hasSession: true,
-    hasPaidWorkspaceAccess: false,
     onboardingCompleted: false,
-    subscriptionStatus: "unpaid",
+    accessReason: "no_subscription",
     requestUrl: "http://127.0.0.1:3005/app/precificacao",
     pathname: "/app/precificacao",
     search: "",
@@ -47,9 +47,8 @@ test("redireciona workspace unpaid para onboarding quando ainda nao concluiu a c
 test("redireciona workspace unpaid para planos apos onboarding", () => {
   const result = resolveAppRouteProtection({
     hasSession: true,
-    hasPaidWorkspaceAccess: false,
     onboardingCompleted: true,
-    subscriptionStatus: "unpaid",
+    accessReason: "no_subscription",
     requestUrl: "http://127.0.0.1:3005/app/precificacao",
     pathname: "/app/precificacao",
     search: "",
@@ -62,9 +61,8 @@ test("redireciona workspace unpaid para planos apos onboarding", () => {
 test("redireciona workspace pending para checkout", () => {
   const result = resolveAppRouteProtection({
     hasSession: true,
-    hasPaidWorkspaceAccess: false,
     onboardingCompleted: true,
-    subscriptionStatus: "pending",
+    accessReason: "pending",
     requestUrl: "http://127.0.0.1:3005/app/precificacao",
     pathname: "/app/precificacao",
     search: "",
@@ -77,9 +75,8 @@ test("redireciona workspace pending para checkout", () => {
 test("permite rotas de billing para workspace sem acesso pago", () => {
   const result = resolveAppRouteProtection({
     hasSession: true,
-    hasPaidWorkspaceAccess: false,
     onboardingCompleted: true,
-    subscriptionStatus: "pending",
+    accessReason: "pending",
     isApiRequest: true,
     requestUrl: "http://127.0.0.1:3005/api/payments/mercado-pago/subscriptions/checkout",
     pathname: "/api/payments/mercado-pago/subscriptions/checkout",
@@ -92,9 +89,8 @@ test("permite rotas de billing para workspace sem acesso pago", () => {
 test("permite checkout Pix manual para workspace sem acesso pago", () => {
   const result = resolveAppRouteProtection({
     hasSession: true,
-    hasPaidWorkspaceAccess: false,
     onboardingCompleted: true,
-    subscriptionStatus: "pending",
+    accessReason: "pending",
     isApiRequest: true,
     requestUrl: "http://127.0.0.1:3005/api/billing/checkout/pix",
     pathname: "/api/billing/checkout/pix",
@@ -107,9 +103,8 @@ test("permite checkout Pix manual para workspace sem acesso pago", () => {
 test("permite APIs administrativas mesmo sem acesso pago ao workspace", () => {
   const result = resolveAppRouteProtection({
     hasSession: true,
-    hasPaidWorkspaceAccess: false,
     onboardingCompleted: true,
-    subscriptionStatus: "paused",
+    accessReason: "paused",
     isApiRequest: true,
     requestUrl: "http://127.0.0.1:3005/api/admin/users",
     pathname: "/api/admin/users",
@@ -134,7 +129,7 @@ test("mantem acesso quando o entitlement está em scheduled_cancel", () => {
       accessReason: "scheduled_cancel",
     },
     onboardingCompleted: true,
-    subscriptionStatus: "active",
+    accessReason: "scheduled_cancel",
     requestUrl: "http://127.0.0.1:3005/app/precificacao",
     pathname: "/app/precificacao",
     search: "",
@@ -146,9 +141,8 @@ test("mantem acesso quando o entitlement está em scheduled_cancel", () => {
 test("bloqueia APIs de produto para workspace sem acesso pago", () => {
   const result = resolveAppRouteProtection({
     hasSession: true,
-    hasPaidWorkspaceAccess: false,
     onboardingCompleted: true,
-    subscriptionStatus: "paused",
+    accessReason: "paused",
     isApiRequest: true,
     requestUrl: "http://127.0.0.1:3005/api/workspace/calculations",
     pathname: "/api/workspace/calculations",
@@ -164,9 +158,8 @@ test("bloqueia APIs de produto para workspace sem acesso pago", () => {
 test("bloqueia APIs de produto para workspace pending apontando para checkout", () => {
   const result = resolveAppRouteProtection({
     hasSession: true,
-    hasPaidWorkspaceAccess: false,
     onboardingCompleted: true,
-    subscriptionStatus: "pending",
+    accessReason: "pending",
     isApiRequest: true,
     requestUrl: "http://127.0.0.1:3005/api/workspace/calculations",
     pathname: "/api/workspace/calculations",

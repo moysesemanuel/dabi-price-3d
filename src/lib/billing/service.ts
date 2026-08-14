@@ -183,66 +183,6 @@ export class BillingService {
     return subscription;
   }
 
-  async importLegacySubscription(
-    input: BillingServiceActor & {
-      workspaceId: string;
-      planId: BillingPlanId;
-      billingCycle: BillingCycle;
-      status: BillingSubscriptionStatus;
-      autoRenew?: boolean;
-      priceId?: string | null;
-      provider?: BillingSubscription["provider"];
-      providerSubscriptionId?: BillingSubscription["providerSubscriptionId"];
-      currentPeriodStart?: string | null;
-      currentPeriodEnd?: string | null;
-      gracePeriodEndsAt?: string | null;
-      cancelAtPeriodEnd?: boolean;
-      cancelRequestedAt?: string | null;
-      endedAt?: string | null;
-      accessUntil?: string | null;
-      legacyStatus?: string | null;
-    },
-  ) {
-    const subscription = await this.repository.createSubscription({
-      workspaceId: input.workspaceId,
-      planId: input.planId,
-      billingCycle: input.billingCycle,
-      priceId: input.priceId ?? null,
-      status: input.status,
-      autoRenew: input.autoRenew ?? false,
-      currentPeriodStart: input.currentPeriodStart ?? null,
-      currentPeriodEnd: input.currentPeriodEnd ?? null,
-      gracePeriodEndsAt: input.gracePeriodEndsAt ?? null,
-      cancelAtPeriodEnd: input.cancelAtPeriodEnd ?? false,
-      cancelRequestedAt: input.cancelRequestedAt ?? null,
-      endedAt: input.endedAt ?? null,
-      accessUntil: input.accessUntil ?? null,
-      provider: input.provider ?? null,
-      providerSubscriptionId: input.providerSubscriptionId ?? null,
-    });
-
-    if (!subscription) {
-      throw new Error("Failed to import legacy billing subscription.");
-    }
-
-    await this.repository.appendAuditEvent({
-      workspaceId: subscription.workspaceId,
-      subscriptionId: subscription.id,
-      actorType: input.actorType ?? "system",
-      actorId: input.actorId ?? null,
-      action: "subscription.imported_from_legacy",
-      metadata: {
-        planId: subscription.planId,
-        billingCycle: subscription.billingCycle,
-        status: subscription.status,
-        legacyStatus: input.legacyStatus ?? null,
-        providerSubscriptionId: subscription.providerSubscriptionId,
-      },
-    });
-
-    return subscription;
-  }
-
   async activateSubscription(
     subscriptionId: string,
     input: BillingServiceActor & {
