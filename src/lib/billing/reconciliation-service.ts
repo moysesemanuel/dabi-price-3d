@@ -61,6 +61,9 @@ export type BillingReconciliationServiceDependencies = {
     | "applyScheduledChange"
   >;
   getSubscriptionById(subscriptionId: string): Promise<BillingSubscription | null>;
+  listSubscriptionsForProviderReconciliation(
+    limit: number,
+  ): Promise<BillingSubscription[]>;
   listSubscriptionsForExpiration(asOf: string): Promise<BillingSubscription[]>;
   listSubscriptionsForGracePeriodEnd(asOf: string): Promise<BillingSubscription[]>;
   listSubscriptionsForScheduledCancellation(
@@ -71,6 +74,7 @@ export type BillingReconciliationServiceDependencies = {
     startedBefore: string;
   }): Promise<BillingSubscription[]>;
   getInvoiceById(invoiceId: string): Promise<BillingInvoice | null>;
+  listInvoicesForProviderReconciliation(limit: number): Promise<BillingInvoice[]>;
   listInvoicesForExpiration(asOf: string): Promise<BillingInvoice[]>;
   updateInvoice(
     invoiceId: string,
@@ -551,6 +555,34 @@ export class BillingReconciliationService {
       changed,
       findings,
     };
+  }
+
+  async reconcileProviderState(
+    limit = 100,
+  ): Promise<BillingReconciliationRunResult> {
+    const [subscriptions, invoices] = await Promise.all([
+      this.dependencies.listSubscriptionsForProviderReconciliation(limit),
+      this.dependencies.listInvoicesForProviderReconciliation(limit),
+    ]);
+    const findings: BillingReconciliationFinding[] = [];
+    let processed = 0;
+    let changed = 0;
+
+    for (const subscription of subscriptions) {
+      const result = await this.reconcileSubscription(subscription.id);
+      processed += result.processed;
+      changed += result.changed;
+      findings.push(...result.findings);
+    }
+
+    for (const invoice of invoices) {
+      const result = await this.reconcileInvoice(invoice.id);
+      processed += result.processed;
+      changed += result.changed;
+      findings.push(...result.findings);
+    }
+
+    return { processed, changed, findings };
   }
 
   async processExpiredSubscriptions(): Promise<BillingReconciliationRunResult> {
