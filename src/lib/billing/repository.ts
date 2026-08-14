@@ -6,6 +6,8 @@ import { ensurePlatformReady } from "@/lib/server/platform";
 import {
   currentBillingSubscriptionStatuses,
   type BillingPrice,
+  type BillingSubscription,
+  type BillingWebhookEvent,
   type BillingAuditActorType,
   type BillingCycle,
   type BillingInvoiceStatus,
@@ -30,6 +32,26 @@ type BillingPriceRow = {
   created_at: string;
   updated_at: string;
 };
+
+type BillingSubscriptionMutation = Partial<
+  Pick<
+    BillingSubscription,
+    | "planId"
+    | "billingCycle"
+    | "priceId"
+    | "status"
+    | "autoRenew"
+    | "currentPeriodStart"
+    | "currentPeriodEnd"
+    | "gracePeriodEndsAt"
+    | "cancelAtPeriodEnd"
+    | "cancelRequestedAt"
+    | "endedAt"
+    | "accessUntil"
+    | "provider"
+    | "providerSubscriptionId"
+  >
+>;
 
 type BillingSubscriptionRow = {
   id: string;
@@ -102,7 +124,7 @@ export async function findCurrentBillingSubscriptionForWorkspace(
     LIMIT 1
   `) as BillingSubscriptionRow[];
 
-  return rows[0] ?? null;
+  return rows[0] ? mapBillingSubscriptionRow(rows[0]) : null;
 }
 
 export async function findBillingSubscriptionByProviderSubscriptionId(input: {
@@ -138,7 +160,39 @@ export async function findBillingSubscriptionByProviderSubscriptionId(input: {
     LIMIT 1
   `) as BillingSubscriptionRow[];
 
-  return rows[0] ?? null;
+  return rows[0] ? mapBillingSubscriptionRow(rows[0]) : null;
+}
+
+export async function getBillingSubscriptionById(subscriptionId: string) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      id,
+      workspace_id,
+      plan_id,
+      billing_cycle,
+      price_id,
+      status,
+      auto_renew,
+      current_period_start,
+      current_period_end,
+      grace_period_ends_at,
+      cancel_at_period_end,
+      cancel_requested_at,
+      ended_at,
+      access_until,
+      provider,
+      provider_subscription_id,
+      created_at,
+      updated_at
+    FROM billing_subscriptions
+    WHERE id = ${subscriptionId}
+    LIMIT 1
+  `) as BillingSubscriptionRow[];
+
+  return rows[0] ? mapBillingSubscriptionRow(rows[0]) : null;
 }
 
 export async function createBillingSubscription(input: {
@@ -223,7 +277,95 @@ export async function createBillingSubscription(input: {
       updated_at
   `) as BillingSubscriptionRow[];
 
-  return rows[0] ?? null;
+  return rows[0] ? mapBillingSubscriptionRow(rows[0]) : null;
+}
+
+export async function updateBillingSubscription(
+  subscriptionId: string,
+  mutation: BillingSubscriptionMutation,
+) {
+  await ensurePlatformReady();
+
+  const currentSubscription = await getBillingSubscriptionById(subscriptionId);
+
+  if (!currentSubscription) {
+    return null;
+  }
+
+  const sql = getSql();
+  const rows = (await sql`
+    UPDATE billing_subscriptions
+    SET
+      plan_id = ${resolvePatchedValue(mutation, "planId", currentSubscription.planId)},
+      billing_cycle = ${resolvePatchedValue(
+        mutation,
+        "billingCycle",
+        currentSubscription.billingCycle,
+      )},
+      price_id = ${resolvePatchedValue(mutation, "priceId", currentSubscription.priceId)},
+      status = ${resolvePatchedValue(mutation, "status", currentSubscription.status)},
+      auto_renew = ${resolvePatchedValue(mutation, "autoRenew", currentSubscription.autoRenew)},
+      current_period_start = ${resolvePatchedValue(
+        mutation,
+        "currentPeriodStart",
+        currentSubscription.currentPeriodStart,
+      )},
+      current_period_end = ${resolvePatchedValue(
+        mutation,
+        "currentPeriodEnd",
+        currentSubscription.currentPeriodEnd,
+      )},
+      grace_period_ends_at = ${resolvePatchedValue(
+        mutation,
+        "gracePeriodEndsAt",
+        currentSubscription.gracePeriodEndsAt,
+      )},
+      cancel_at_period_end = ${resolvePatchedValue(
+        mutation,
+        "cancelAtPeriodEnd",
+        currentSubscription.cancelAtPeriodEnd,
+      )},
+      cancel_requested_at = ${resolvePatchedValue(
+        mutation,
+        "cancelRequestedAt",
+        currentSubscription.cancelRequestedAt,
+      )},
+      ended_at = ${resolvePatchedValue(mutation, "endedAt", currentSubscription.endedAt)},
+      access_until = ${resolvePatchedValue(
+        mutation,
+        "accessUntil",
+        currentSubscription.accessUntil,
+      )},
+      provider = ${resolvePatchedValue(mutation, "provider", currentSubscription.provider)},
+      provider_subscription_id = ${resolvePatchedValue(
+        mutation,
+        "providerSubscriptionId",
+        currentSubscription.providerSubscriptionId,
+      )},
+      updated_at = NOW()
+    WHERE id = ${subscriptionId}
+    RETURNING
+      id,
+      workspace_id,
+      plan_id,
+      billing_cycle,
+      price_id,
+      status,
+      auto_renew,
+      current_period_start,
+      current_period_end,
+      grace_period_ends_at,
+      cancel_at_period_end,
+      cancel_requested_at,
+      ended_at,
+      access_until,
+      provider,
+      provider_subscription_id,
+      created_at,
+      updated_at
+  `) as BillingSubscriptionRow[];
+
+  return rows[0] ? mapBillingSubscriptionRow(rows[0]) : null;
 }
 
 export async function createBillingPrice(input: {
@@ -272,7 +414,7 @@ export async function createBillingPrice(input: {
       updated_at
   `) as BillingPriceRow[];
 
-  return rows[0] ?? null;
+  return rows[0] ? mapBillingPriceRow(rows[0]) : null;
 }
 
 export async function findActiveBillingPrice(input: {
@@ -445,7 +587,7 @@ export async function createBillingWebhookEvent(input: {
       updated_at
   `) as BillingWebhookEventRow[];
 
-  return rows[0] ?? null;
+  return rows[0] ? mapBillingWebhookEventRow(rows[0]) : null;
 }
 
 export async function updateBillingWebhookEventStatus(input: {
@@ -489,13 +631,14 @@ export async function updateBillingWebhookEventStatus(input: {
       updated_at
   `) as BillingWebhookEventRow[];
 
-  return rows[0] ?? null;
+  return rows[0] ? mapBillingWebhookEventRow(rows[0]) : null;
 }
 
 export type {
   BillingPriceRow,
   BillingSubscriptionRow,
   BillingWebhookEventRow,
+  BillingSubscriptionMutation,
   BillingCycle,
   BillingInvoiceStatus,
   BillingInvoiceType,
@@ -518,4 +661,54 @@ function mapBillingPriceRow(row: BillingPriceRow): BillingPrice {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function mapBillingSubscriptionRow(row: BillingSubscriptionRow): BillingSubscription {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    planId: row.plan_id,
+    billingCycle: row.billing_cycle,
+    priceId: row.price_id,
+    status: row.status,
+    autoRenew: row.auto_renew,
+    currentPeriodStart: row.current_period_start,
+    currentPeriodEnd: row.current_period_end,
+    gracePeriodEndsAt: row.grace_period_ends_at,
+    cancelAtPeriodEnd: row.cancel_at_period_end,
+    cancelRequestedAt: row.cancel_requested_at,
+    endedAt: row.ended_at,
+    accessUntil: row.access_until,
+    provider: row.provider,
+    providerSubscriptionId: row.provider_subscription_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapBillingWebhookEventRow(row: BillingWebhookEventRow): BillingWebhookEvent {
+  return {
+    id: row.id,
+    provider: row.provider,
+    providerEventId: row.provider_event_id,
+    eventType: row.event_type,
+    resourceId: row.resource_id,
+    payloadHash: row.payload_hash,
+    status: row.status,
+    attempts: row.attempts,
+    receivedAt: row.received_at,
+    processedAt: row.processed_at,
+    errorCode: row.error_code,
+    errorMessage: row.error_message,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function resolvePatchedValue<TKey extends keyof BillingSubscriptionMutation>(
+  mutation: BillingSubscriptionMutation,
+  key: TKey,
+  currentValue: BillingSubscriptionMutation[TKey],
+): BillingSubscriptionMutation[TKey] {
+  return Object.hasOwn(mutation, key) ? mutation[key] : currentValue;
 }
