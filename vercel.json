@@ -1,17 +1,3 @@
 {
-  "buildCommand": "npm run build:webpack",
-  "crons": [
-    {
-      "path": "/api/cron/billing/maintenance",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/cron/billing/abandoned-checkouts",
-      "schedule": "5 3 * * *"
-    },
-    {
-      "path": "/api/cron/billing/provider-reconciliation",
-      "schedule": "0 */6 * * *"
-    }
-  ]
+  "buildCommand": "npm run build:webpack"
 }
