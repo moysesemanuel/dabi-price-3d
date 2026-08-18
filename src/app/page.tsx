@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import horizontalLogo from "@/app/dabi-price-horizontal.svg";
 import whiteLogo from "@/app/logo-dabi-branco.svg";
-import { workspacePlans } from "@/lib/settings/app-preferences";
+import { LandingPlanCards } from "@/components/public/landing-plan-cards";
 import { segmentCards } from "@/lib/public/segment-landings";
 
 const hiddenCostItems = [
@@ -193,10 +193,6 @@ const footerLinks = [
 ];
 
 export default function LandingPage() {
-  const starterPlan = workspacePlans.find((plan) => plan.id === "starter");
-  const growthPlan = workspacePlans.find((plan) => plan.id === "growth");
-  const scalePlan = workspacePlans.find((plan) => plan.id === "scale");
-
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#fffdf9] text-[#21352d]">
       <section className="border-b border-[#e6e1d4] bg-[radial-gradient(circle_at_top_left,rgba(255,213,181,0.32),transparent_28%),radial-gradient(circle_at_88%_14%,rgba(223,241,230,0.48),transparent_24%),linear-gradient(180deg,#fffefb_0%,#fff8f2_100%)]">
@@ -714,49 +710,7 @@ export default function LandingPage() {
             </h2>
           </div>
 
-          <div className="mt-10 grid gap-4 lg:grid-cols-3">
-            <PlanCard
-              eyebrow="Entrada"
-              title={starterPlan?.label ?? "DaBi Essencial"}
-              price={starterPlan?.monthlyPriceLabel ?? "R$ 49"}
-              description="Para começar a organizar sua precificação com estrutura."
-              items={[
-                "Controle essencial de custos",
-                "Histórico operacional inicial",
-                "Leitura básica da viabilidade",
-              ]}
-              href="/cadastro?plan=starter"
-              cta="Começar agora"
-            />
-            <PlanCard
-              eyebrow="Mais escolhido"
-              title={growthPlan?.label ?? "DaBi Pro"}
-              price={growthPlan?.monthlyPriceLabel ?? "R$ 149"}
-              description="Para quem vende regularmente e precisa proteger margem."
-              items={[
-                "Precificação completa",
-                "Comparação de canais",
-                "Histórico ampliado",
-                "Recursos avançados e suporte prioritário",
-              ]}
-              href="/cadastro?plan=growth"
-              cta="Assinar Pro"
-              highlighted
-            />
-            <PlanCard
-              eyebrow="Consultivo"
-              title={scalePlan?.label ?? "DaBi Equipe"}
-              price={scalePlan?.monthlyPriceLabel ?? "Sob consulta"}
-              description="Para operações com time, volume e necessidade de desenho comercial."
-              items={[
-                "Mais usuários e histórico",
-                "Acompanhamento consultivo",
-                "Prioridade máxima em suporte e evolução",
-              ]}
-              href="/contato?plan=scale&origin=site"
-              cta="Falar com consultor"
-            />
-          </div>
+          <LandingPlanCards />
 
           <p className="mt-5 text-center text-base text-[#4f6259]">
             Escolha o plano ideal para o momento do seu negócio e comece a precificar com mais segurança.
@@ -1128,67 +1082,6 @@ function ComparisonPanel({
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-function PlanCard({
-  eyebrow,
-  title,
-  price,
-  description,
-  items,
-  href,
-  cta,
-  highlighted = false,
-}: {
-  eyebrow: string;
-  title: string;
-  price: string;
-  description: string;
-  items: string[];
-  href: string;
-  cta: string;
-  highlighted?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-[34px] border p-6 shadow-[0_20px_48px_rgba(41,55,45,0.06)] ${
-        highlighted
-          ? "border-[#f0d7c8] bg-[#fff7f1]"
-          : "border-[#e7e1d6] bg-white"
-      }`}
-    >
-      <p className="font-mono text-xs uppercase tracking-[0.24em] text-[#b8511d]">
-        {eyebrow}
-      </p>
-      <h3 className="mt-4 text-[2.15rem] font-semibold tracking-[-0.05em] text-[#17261f]">
-        {title}
-      </h3>
-      <p className="mt-4 text-lg leading-9 text-[#42574d]">{description}</p>
-      <p className="mt-5 text-4xl font-semibold tracking-[-0.06em] text-[#21352d]">
-        {price}
-      </p>
-      <div className="mt-6 grid gap-3">
-        {items.map((item) => (
-          <div key={item} className="flex items-start gap-3">
-            <span className="mt-1 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-[#eef8f3] text-[10px] font-bold text-[#20543f]">
-              ✓
-            </span>
-            <p className="text-base leading-8 text-[#42574d]">{item}</p>
-          </div>
-        ))}
-      </div>
-      <Link
-        href={href}
-        className={`mt-8 inline-flex w-full items-center justify-center rounded-full px-5 py-3.5 text-base font-semibold transition ${
-          highlighted
-            ? "bg-[#21352d] text-white hover:bg-[#17251f]"
-            : "border border-[#d7e3dc] bg-white text-[#21352d] hover:border-[#21352d]"
-        }`}
-      >
-        {cta}
-      </Link>
     </div>
   );
 }
