@@ -3,8 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-type WorkspacePlanId = "starter" | "growth" | "scale";
-type PlanUrlMap = Record<WorkspacePlanId, string | null>;
+type WorkspacePlanId = "starter" | "growth";
 type MercadoPagoGeneratedTestUser = {
   id: number;
   nickname: string;
@@ -17,14 +16,9 @@ type MercadoPagoGeneratedTestUser = {
 const planOptions: Array<{ id: WorkspacePlanId; label: string }> = [
   { id: "starter", label: "DaBi Essencial" },
   { id: "growth", label: "DaBi Pro" },
-  { id: "scale", label: "DaBi Equipe" },
 ];
 
-export function MercadoPagoTestSubscriptionCard({
-  planUrls,
-}: {
-  planUrls: PlanUrlMap;
-}) {
+export function MercadoPagoTestSubscriptionCard() {
   const router = useRouter();
   const [planId, setPlanId] = useState<WorkspacePlanId>("starter");
   const [payerEmail, setPayerEmail] = useState("");
@@ -84,24 +78,48 @@ export function MercadoPagoTestSubscriptionCard({
             type="button"
             disabled={!canSubmit}
             onClick={() => {
-              setFeedback(null);
-              const checkoutUrl = planUrls[planId];
-
-              if (!checkoutUrl) {
-                setFeedback(
-                  "Esse plano ainda não tem URL de assinatura configurada no Mercado Pago.",
-                );
-                return;
-              }
-
-              const checkoutWindow = window.open(checkoutUrl, "_blank", "noopener,noreferrer");
-
               startTransition(async () => {
-                if (checkoutWindow) {
-                  return;
-                }
+                setFeedback(null);
 
-                window.location.assign(checkoutUrl);
+                try {
+                  const response = await fetch(
+                    "/api/payments/mercado-pago/subscriptions/start",
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({
+                        planId,
+                        payerEmail,
+                      }),
+                    },
+                  );
+
+                  const payload = (await response.json().catch(() => null)) as
+                    | {
+                        error?: string;
+                        requestId?: string;
+                        initPoint?: string;
+                      }
+                    | null;
+
+                  if (!response.ok || !payload?.initPoint) {
+                    setFeedback(
+                      payload?.error
+                        ? `${payload.error}${payload.requestId ? ` · requestId ${payload.requestId}` : ""}`
+                        : "Não foi possível iniciar o checkout de teste.",
+                    );
+                    return;
+                  }
+
+                  window.location.assign(payload.initPoint);
+                  return;
+                } catch {
+                  setFeedback(
+                    "Não foi possível abrir o checkout de teste agora. Tente novamente em instantes.",
+                  );
+                }
               });
             }}
             className="app-button app-button-primary w-full justify-center disabled:cursor-not-allowed disabled:opacity-60"
@@ -222,11 +240,11 @@ export function MercadoPagoTestSubscriptionCard({
       </div>
 
       <div className="mt-6 rounded-[22px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.72)] px-5 py-4 text-sm text-[var(--muted)]">
-        Use comprador de teste do Mercado Pago e cartão de teste. Este botão abre a
-        URL de assinatura já configurada para o plano, igual ao fluxo público. Se a lista
-        de contas de teste mostrar só `User ID` e `Usuário`, use o botão acima:
-        a API do Mercado Pago devolve o `email` do comprador de teste, que é o dado exigido
-        pela assinatura.
+        Use comprador de teste do Mercado Pago e cartão de teste. Este botão cria o
+        preapproval pelo backend e abre o `init_point` retornado pela integração, igual
+        ao fluxo novo de checkout pendente. Se a lista de contas de teste mostrar só
+        `User ID` e `Usuário`, use o botão acima: a API do Mercado Pago devolve o
+        `email` do comprador de teste, que é o dado exigido pela assinatura.
       </div>
 
       <div className="mt-4 rounded-[22px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.72)] px-5 py-4 text-sm text-[var(--muted)]">

@@ -189,6 +189,18 @@ export async function POST(request: Request) {
   backUrl.searchParams.set("origin", "mercado-pago");
   backUrl.searchParams.set("plan", planId);
 
+  logRouteEvent(
+    requestContext,
+    "info",
+    "mercado_pago_checkout.create_started",
+    {
+      workspaceId: session.workspace.id,
+      userId: session.user.id,
+      planId,
+      status: currentSubscription.status,
+    },
+  );
+
   try {
     const subscription = await createMercadoPagoSubscriptionCheckout({
       planId,
@@ -226,13 +238,13 @@ export async function POST(request: Request) {
     logRouteEvent(
       requestContext,
       "info",
-      "mercado_pago_subscription_checkout_created",
+      "mercado_pago_checkout.create_succeeded",
       {
         workspaceId: session.workspace.id,
         userId: session.user.id,
         planId,
         subscriptionId: subscription.id,
-        accessTokenSource: "production",
+        status: "pending",
       },
     );
 
@@ -250,11 +262,12 @@ export async function POST(request: Request) {
     logRouteEvent(
       requestContext,
       "error",
-      "mercado_pago_subscription_checkout_failed",
+      "mercado_pago_checkout.create_failed",
       {
         workspaceId: session.workspace.id,
         userId: session.user.id,
         planId,
+        status: currentSubscription.status,
         error: serializeError(error),
       },
     );
