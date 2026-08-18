@@ -10,10 +10,22 @@ import {
   resolveHistoryLimitPlanId,
 } from "../src/lib/workspace/subscription-access.ts";
 
-test("internal, trial e active mantem acesso ao produto", () => {
-  assert.equal(canAccessPaidWorkspaceFeatures("internal"), true);
-  assert.equal(canAccessPaidWorkspaceFeatures("trial"), true);
+test("active, past_due e scheduled_cancel mantem acesso ao produto", () => {
   assert.equal(canAccessPaidWorkspaceFeatures("active"), true);
+  assert.equal(
+    canAccessPaidWorkspaceFeatures({
+      status: "past_due",
+      gracePeriodEndsAt: "2026-08-20T00:00:00.000Z",
+    }),
+    true,
+  );
+  assert.equal(
+    canAccessPaidWorkspaceFeatures({
+      status: "scheduled_cancel",
+      currentPeriodEnd: "2026-08-20T00:00:00.000Z",
+    }),
+    true,
+  );
 });
 
 test("unpaid, pending, paused e canceled nao liberam acesso pago", () => {
@@ -27,29 +39,53 @@ test("resolve a rota padrao conforme onboarding e entitlement", () => {
   assert.equal(
     resolveDefaultWorkspaceAppPath({
       onboardingCompleted: false,
-      subscriptionStatus: "unpaid",
+      accessReason: "no_subscription",
     }),
     "/app/onboarding",
   );
   assert.equal(
     resolveDefaultWorkspaceAppPath({
       onboardingCompleted: true,
-      subscriptionStatus: "unpaid",
+      accessReason: "no_subscription",
     }),
     "/app/planos",
   );
   assert.equal(
     resolveDefaultWorkspaceAppPath({
       onboardingCompleted: true,
-      subscriptionStatus: "active",
+      accessReason: "pending",
+    }),
+    "/app/checkout",
+  );
+  assert.equal(
+    resolveDefaultWorkspaceAppPath({
+      onboardingCompleted: true,
+      accessReason: "active",
     }),
     "/app/precificacao",
+  );
+  assert.equal(
+    resolveDefaultWorkspaceAppPath({
+      onboardingCompleted: true,
+      accessReason: "paused",
+    }),
+    "/app/assinatura",
+  );
+  assert.equal(
+    resolveDefaultWorkspaceAppPath({
+      onboardingCompleted: true,
+      accessReason: "canceled",
+    }),
+    "/app/assinatura",
   );
 });
 
 test("mantem apenas as rotas liberadas sem pagamento", () => {
+  assert.equal(canAccessAppPathWithoutPaidWorkspace("/app/checkout"), true);
   assert.equal(canAccessAppPathWithoutPaidWorkspace("/app/planos"), true);
   assert.equal(canAccessAppPathWithoutPaidWorkspace("/app/conta"), true);
+  assert.equal(canAccessAppPathWithoutPaidWorkspace("/app/assinatura"), true);
+  assert.equal(canAccessAppPathWithoutPaidWorkspace("/app/assinatura/historico"), true);
   assert.equal(canAccessAppPathWithoutPaidWorkspace("/app/precificacao"), false);
   assert.equal(
     canAccessApiPathWithoutPaidWorkspace("/api/workspace/preferences"),
@@ -59,6 +95,10 @@ test("mantem apenas as rotas liberadas sem pagamento", () => {
     canAccessApiPathWithoutPaidWorkspace(
       "/api/payments/mercado-pago/subscriptions/checkout",
     ),
+    true,
+  );
+  assert.equal(
+    canAccessApiPathWithoutPaidWorkspace("/api/billing/checkout/pix"),
     true,
   );
   assert.equal(

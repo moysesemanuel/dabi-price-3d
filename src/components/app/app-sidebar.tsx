@@ -253,9 +253,10 @@ const navigationSections: NavigationSection[] = [
       { href: "/app/ajuda", label: "Ajuda", icon: QuestionCircleIcon },
       { href: "/app/suporte", label: "Suporte", icon: HeadsetIcon },
       { href: "/app/conta", label: "Conta", icon: PersonCircleIcon },
+      { href: "/app/assinatura", label: "Assinatura", icon: WalletIcon },
       {
-        href: "/app/usuarios",
-        label: "Usuários",
+        href: "/admin/dashboard",
+        label: "Admin",
         icon: PeopleIcon,
         superAdminOnly: true,
       },
@@ -344,14 +345,19 @@ const confectioneryNavigationSections: NavigationSection[] = [
         label: "Meu Perfil",
         icon: PersonCircleIcon,
       },
+      {
+        href: "/app/assinatura",
+        label: "Assinatura",
+        icon: WalletIcon,
+      },
     ],
   },
   {
     id: "admin",
     items: [
       {
-        href: "/app/usuarios",
-        label: "Usuários",
+        href: "/admin/dashboard",
+        label: "Admin",
         icon: PeopleIcon,
         superAdminOnly: true,
       },
@@ -428,6 +434,7 @@ export function AppSidebar({
         if (!entry.superAdminOnly || platformRole === "super_admin") {
           if (
             !hasPaidWorkspaceAccess &&
+            !entry.href.startsWith("/admin/") &&
             !canAccessAppPathWithoutPaidWorkspace(entry.href)
           ) {
             return entries;
@@ -1012,10 +1019,10 @@ function SidebarFooter({
               </div>
 
               <Link
-                href="/app/planos"
+                href="/app/assinatura"
                 className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${mutedActionClassName}`}
               >
-                Ver planos
+                Assinatura
               </Link>
             </div>
           </div>
@@ -1064,11 +1071,11 @@ function SidebarFooter({
             </span>
           </div>
           <Link
-            href="/app/planos"
+            href="/app/assinatura"
             className={`block rounded-full border px-3 py-2 text-xs font-semibold transition ${mutedActionClassName}`}
-            title="Ver planos"
+            title="Ver assinatura"
           >
-            Planos
+            Assinatura
           </Link>
           <button
             type="button"

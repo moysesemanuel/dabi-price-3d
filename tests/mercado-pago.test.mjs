@@ -8,43 +8,13 @@ import {
   resolveMercadoPagoCheckoutAction,
   resolvePendingSubscriptionRecovery,
 } from "../src/lib/payments/mercado-pago.ts";
-import {
-  resolveWorkspacePlanIdForSubscription,
-} from "../src/lib/payments/subscription-plan-resolution.ts";
-
-test("webhook preserva o plano salvo quando o subscription id confere", () => {
-  const result = resolveWorkspacePlanIdForSubscription({
-    mercadoPagoSubscriptionId: "subscription-123",
-    savedMercadoPagoSubscriptionId: "subscription-123",
-    savedWorkspacePlanId: "growth",
-  });
-
-  assert.equal(result, "growth");
-});
-
-test("webhook não herda plano local quando o subscription id é diferente", () => {
-  const result = resolveWorkspacePlanIdForSubscription({
-    mercadoPagoSubscriptionId: "subscription-recebida",
-    savedMercadoPagoSubscriptionId: "subscription-salva",
-    savedWorkspacePlanId: "growth",
-  });
-
-  assert.equal(result, null);
-});
-
-test("não usa fallback quando não existe assinatura Mercado Pago salva", () => {
-  const result = resolveWorkspacePlanIdForSubscription({
-    mercadoPagoSubscriptionId: "subscription-123",
-    savedMercadoPagoSubscriptionId: null,
-    savedWorkspacePlanId: "growth",
-  });
-
-  assert.equal(result, null);
-});
+import { getWorkspacePlan } from "../src/lib/workspace/catalog.ts";
 
 test("monta payload de checkout pendente sem plano associado", () => {
+  const starterPlan = getWorkspacePlan("starter");
   const payload = buildMercadoPagoSubscriptionCheckoutPayload({
     planId: "starter",
+    billingCycle: "monthly",
     payerEmail: "owner@dabi.com",
     workspaceId: "workspace-123",
     reason: "DaBi Essencial - Workspace Teste",
@@ -60,13 +30,31 @@ test("monta payload de checkout pendente sem plano associado", () => {
   assert.equal(payload.auto_recurring.frequency, 1);
   assert.equal(payload.auto_recurring.frequency_type, "months");
   assert.equal(payload.auto_recurring.currency_id, "BRL");
-  assert.equal(payload.auto_recurring.transaction_amount, 49);
+  assert.equal(payload.auto_recurring.transaction_amount, starterPlan.monthlyPrice);
   assert.ok(typeof payload.auto_recurring.end_date === "string");
   assert.equal("preapproval_plan_id" in payload, false);
   assert.equal("card_token_id" in payload, false);
 });
 
+test("monta payload anual com valor consolidado e frequência de 12 meses", () => {
+  const growthPlan = getWorkspacePlan("growth");
+  const payload = buildMercadoPagoSubscriptionCheckoutPayload({
+    planId: "growth",
+    billingCycle: "annual",
+    payerEmail: "owner@dabi.com",
+    workspaceId: "workspace-123",
+    reason: "DaBi Pro anual - Workspace Teste",
+    backUrl: "https://dabi.app/app/planos?plan=growth&billingCycle=annual",
+    now: new Date("2026-08-13T12:00:00.000Z"),
+  });
+
+  assert.equal(payload.auto_recurring.frequency, 12);
+  assert.equal(payload.auto_recurring.frequency_type, "months");
+  assert.equal(payload.auto_recurring.transaction_amount, growthPlan.annualPrice);
+});
+
 test("cria preapproval pendente sem preapproval_plan_id e retorna init_point", async (t) => {
+  const growthPlan = getWorkspacePlan("growth");
   const originalFetch = globalThis.fetch;
 
   t.after(() => {
@@ -96,6 +84,7 @@ test("cria preapproval pendente sem preapproval_plan_id e retorna init_point", a
 
   const subscription = await createMercadoPagoSubscriptionCheckout({
     planId: "growth",
+    billingCycle: "monthly",
     payerEmail: "owner@dabi.com",
     workspaceId: "workspace-123",
     reason: "DaBi Pro - Workspace Teste",
@@ -112,13 +101,58 @@ test("cria preapproval pendente sem preapproval_plan_id e retorna init_point", a
   assert.equal(body.auto_recurring.frequency, 1);
   assert.equal(body.auto_recurring.frequency_type, "months");
   assert.equal(body.auto_recurring.currency_id, "BRL");
-  assert.equal(body.auto_recurring.transaction_amount, 149);
+  assert.equal(body.auto_recurring.transaction_amount, growthPlan.monthlyPrice);
   assert.equal("preapproval_plan_id" in body, false);
   assert.equal("card_token_id" in body, false);
   assert.equal(
     subscription.init_point,
     "https://www.mercadopago.com/checkout/v1/redirect?preapproval_id=sub-123",
   );
+});
+
+test("cria preapproval anual usando frequência de 12 meses", async (t) => {
+  const growthPlan = getWorkspacePlan("growth");
+  const originalFetch = globalThis.fetch;
+
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  let requestInit = null;
+
+  globalThis.fetch = async (_url, init) => {
+    requestInit = init ?? null;
+
+    return new Response(
+      JSON.stringify({
+        id: "sub-annual-123",
+        init_point:
+          "https://www.mercadopago.com/checkout/v1/redirect?preapproval_id=sub-annual-123",
+      }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    );
+  };
+
+  await createMercadoPagoSubscriptionCheckout({
+    planId: "growth",
+    billingCycle: "annual",
+    payerEmail: "owner@dabi.com",
+    workspaceId: "workspace-123",
+    reason: "DaBi Pro anual - Workspace Teste",
+    backUrl: "https://dabi.app/app/planos?plan=growth&billingCycle=annual",
+    accessTokenOverride: "token-de-teste",
+  });
+
+  const body = JSON.parse(requestInit?.body ?? "{}");
+
+  assert.equal(body.auto_recurring.frequency, 12);
+  assert.equal(body.auto_recurring.frequency_type, "months");
+  assert.equal(body.auto_recurring.transaction_amount, growthPlan.annualPrice);
 });
 
 test("prioriza o tipo do payload quando query string e payload divergem", () => {

@@ -8,10 +8,14 @@ import {
 import type { PricingFormState } from "@/lib/pricing/initial-pricing-form";
 import { resolveHistoryLimitPlanId } from "../workspace/subscription-access";
 import {
+  getWorkspaceBillingCycleLabel,
   getWorkspacePlan,
+  resolveWorkspacePlanPrice,
+  resolveWorkspacePlanPriceLabel,
   workspaceRoleMeta,
   workspacePlans,
   type SubscriptionStatus,
+  type WorkspaceBillingCycle,
   type WorkspacePlan,
   type WorkspacePlanId,
   type WorkspaceRole,
@@ -37,6 +41,7 @@ export type {
   WorkspacePlanId,
   WorkspaceRole,
   WorkspaceSubscription,
+  WorkspaceBillingCycle,
 };
 
 export type PricingPolicyDefaults = Pick<
@@ -88,7 +93,14 @@ export type BusinessPreset = {
 const PREFERENCES_EVENT = "dabi-price-3d:app-preferences-updated";
 const STORAGE_KEY = "dabi-price-3d:app-preferences";
 const BUSINESS_TYPE_COOKIE = "dabi-price-3d:business-type";
-export { getWorkspacePlan, workspaceRoleMeta, workspacePlans };
+export {
+  getWorkspaceBillingCycleLabel,
+  getWorkspacePlan,
+  resolveWorkspacePlanPrice,
+  resolveWorkspacePlanPriceLabel,
+  workspaceRoleMeta,
+  workspacePlans,
+};
 export const businessTypeCookieName = BUSINESS_TYPE_COOKIE;
 
 export const companyPaymentMethodMeta: Record<
@@ -265,8 +277,9 @@ export const defaultAppPreferences: AppPreferences = {
   applyPresetToNewCalculations: true,
   onboardingCompleted: false,
   subscription: {
-    planId: "growth",
-    status: "internal",
+    planId: "starter",
+    status: "unpaid",
+    billingCycle: "monthly",
     seatsUsed: 1,
     mercadoPagoSubscriptionId: null,
     checkoutStartedAt: null,
@@ -628,11 +641,13 @@ function normalizeWorkspaceSubscription(
 
   const status =
     subscription?.status === "unpaid" ||
-    subscription?.status === "trial" ||
     subscription?.status === "pending" ||
     subscription?.status === "active" ||
+    subscription?.status === "past_due" ||
+    subscription?.status === "scheduled_cancel" ||
     subscription?.status === "paused" ||
-    subscription?.status === "canceled"
+    subscription?.status === "canceled" ||
+    subscription?.status === "expired"
       ? subscription.status
       : defaultAppPreferences.subscription.status;
 
@@ -651,6 +666,8 @@ function normalizeWorkspaceSubscription(
   return {
     planId: plan.id,
     status,
+    billingCycle:
+      subscription?.billingCycle === "annual" ? "annual" : "monthly",
     seatsUsed: Math.max(
       1,
       Math.round(

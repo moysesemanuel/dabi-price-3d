@@ -5,8 +5,10 @@ import { useState } from "react";
 
 export function RegisterForm({
   selectedPlan,
+  selectedBillingCycle = "monthly",
 }: {
   selectedPlan?: "starter" | "growth";
+  selectedBillingCycle?: "monthly" | "annual";
 }) {
   const router = useRouter();
 
@@ -58,7 +60,7 @@ export function RegisterForm({
       const redirectTo = payload?.redirectTo ?? "/app/onboarding";
 
       const destination = selectedPlan
-        ? `${redirectTo}?plan=${selectedPlan}`
+        ? `${redirectTo}?plan=${selectedPlan}&billingCycle=${selectedBillingCycle}`
         : redirectTo;
 
       router.push(destination);

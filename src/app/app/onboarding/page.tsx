@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { OnboardingForm } from "@/components/onboarding/onboarding-form";
 import { requireCurrentAuthSession } from "@/lib/auth/session";
+import { getWorkspaceEntitlements } from "@/lib/billing/server-entitlement-service";
 import { getWorkspacePreferences } from "@/lib/server/platform";
 import { resolveDefaultWorkspaceAppPath } from "@/lib/workspace/subscription-access";
 
@@ -9,6 +10,7 @@ export default async function OnboardingPage({
 }: {
   searchParams?: Promise<{
     plan?: string;
+    billingCycle?: string;
   }>;
 }) {
 
@@ -18,16 +20,21 @@ export default async function OnboardingPage({
     params.plan === "starter" || params.plan === "growth"
       ? params.plan
       : undefined;
+  const selectedBillingCycle =
+    params.billingCycle === "annual" ? "annual" : "monthly";
 
   const session = await requireCurrentAuthSession();
 
   const preferences = await getWorkspacePreferences(session.workspace.id);
+  const entitlements = await getWorkspaceEntitlements({
+    workspaceId: session.workspace.id,
+  });
 
   if (preferences.onboardingCompleted) {
     redirect(
       resolveDefaultWorkspaceAppPath({
         onboardingCompleted: preferences.onboardingCompleted,
-        subscriptionStatus: preferences.subscription.status,
+        accessReason: entitlements.accessReason,
       }),
     );
   }
@@ -53,6 +60,7 @@ export default async function OnboardingPage({
         <OnboardingForm
           initialPreferences={preferences}
           selectedPlan={selectedPlan}
+          selectedBillingCycle={selectedBillingCycle}
         />
       </div>
     </div>

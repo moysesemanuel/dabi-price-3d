@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 type MercadoPagoSubscriptionManageButtonProps = {
-  action: "pause" | "resume" | "cancel";
+  action: "resume" | "cancel";
   label: string;
   className?: string;
 };

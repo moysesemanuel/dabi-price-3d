@@ -149,10 +149,10 @@ export function HomeDashboardClient({
               conforme a faixa contratada.
             </p>
             <Link
-              href="/app/planos"
+              href="/app/assinatura"
               className="app-button app-button-secondary mt-5 w-full"
             >
-              Ver planos
+              Ver assinatura
             </Link>
           </div>
         </aside>

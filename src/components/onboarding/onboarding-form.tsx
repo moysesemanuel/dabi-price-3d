@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { resolveWorkspaceAccessReason } from "@/lib/workspace/subscription-access";
 import {
   businessPresets,
   businessTypeMeta,
@@ -12,11 +13,13 @@ import { resolveDefaultWorkspaceAppPath } from "@/lib/workspace/subscription-acc
 type OnboardingFormProps = {
   initialPreferences: AppPreferences;
   selectedPlan?: "starter" | "growth";
+  selectedBillingCycle?: "monthly" | "annual";
 };
 
 export function OnboardingForm({
   initialPreferences,
   selectedPlan,
+  selectedBillingCycle = "monthly",
 }: OnboardingFormProps) {
   const router = useRouter();
 
@@ -74,12 +77,14 @@ export function OnboardingForm({
 
       const defaultDestination = resolveDefaultWorkspaceAppPath({
         onboardingCompleted: true,
-        subscriptionStatus: initialPreferences.subscription.status,
+        accessReason: resolveWorkspaceAccessReason(
+          initialPreferences.subscription,
+        ),
       });
 
       router.push(
         selectedPlan
-          ? `/app/planos?plan=${selectedPlan}&origin=onboarding`
+          ? `/app/planos?plan=${selectedPlan}&billingCycle=${selectedBillingCycle}&origin=onboarding`
           : defaultDestination,
       );
 

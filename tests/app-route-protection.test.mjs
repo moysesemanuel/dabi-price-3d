@@ -20,6 +20,7 @@ test("protege /app sem sessao e preserva a rota de retorno", () => {
 test("libera /app quando a sessao existe", () => {
   const result = resolveAppRouteProtection({
     hasSession: true,
+    accessReason: "active",
     requestUrl: "http://127.0.0.1:3005/app/precificacao",
     pathname: "/app/precificacao",
     search: "",
@@ -32,9 +33,8 @@ test("libera /app quando a sessao existe", () => {
 test("redireciona workspace unpaid para onboarding quando ainda nao concluiu a configuracao", () => {
   const result = resolveAppRouteProtection({
     hasSession: true,
-    hasPaidWorkspaceAccess: false,
     onboardingCompleted: false,
-    subscriptionStatus: "unpaid",
+    accessReason: "no_subscription",
     requestUrl: "http://127.0.0.1:3005/app/precificacao",
     pathname: "/app/precificacao",
     search: "",
@@ -47,9 +47,8 @@ test("redireciona workspace unpaid para onboarding quando ainda nao concluiu a c
 test("redireciona workspace unpaid para planos apos onboarding", () => {
   const result = resolveAppRouteProtection({
     hasSession: true,
-    hasPaidWorkspaceAccess: false,
     onboardingCompleted: true,
-    subscriptionStatus: "unpaid",
+    accessReason: "no_subscription",
     requestUrl: "http://127.0.0.1:3005/app/precificacao",
     pathname: "/app/precificacao",
     search: "",
@@ -59,12 +58,25 @@ test("redireciona workspace unpaid para planos apos onboarding", () => {
   assert.equal(result.redirectUrl, "http://127.0.0.1:3005/app/planos");
 });
 
+test("redireciona workspace pending para checkout", () => {
+  const result = resolveAppRouteProtection({
+    hasSession: true,
+    onboardingCompleted: true,
+    accessReason: "pending",
+    requestUrl: "http://127.0.0.1:3005/app/precificacao",
+    pathname: "/app/precificacao",
+    search: "",
+  });
+
+  assert.equal(result.type, "redirect");
+  assert.equal(result.redirectUrl, "http://127.0.0.1:3005/app/checkout");
+});
+
 test("permite rotas de billing para workspace sem acesso pago", () => {
   const result = resolveAppRouteProtection({
     hasSession: true,
-    hasPaidWorkspaceAccess: false,
     onboardingCompleted: true,
-    subscriptionStatus: "pending",
+    accessReason: "pending",
     isApiRequest: true,
     requestUrl: "http://127.0.0.1:3005/api/payments/mercado-pago/subscriptions/checkout",
     pathname: "/api/payments/mercado-pago/subscriptions/checkout",
@@ -74,12 +86,63 @@ test("permite rotas de billing para workspace sem acesso pago", () => {
   assert.equal(result.type, "allow");
 });
 
+test("permite checkout Pix manual para workspace sem acesso pago", () => {
+  const result = resolveAppRouteProtection({
+    hasSession: true,
+    onboardingCompleted: true,
+    accessReason: "pending",
+    isApiRequest: true,
+    requestUrl: "http://127.0.0.1:3005/api/billing/checkout/pix",
+    pathname: "/api/billing/checkout/pix",
+    search: "",
+  });
+
+  assert.equal(result.type, "allow");
+});
+
+test("permite APIs administrativas mesmo sem acesso pago ao workspace", () => {
+  const result = resolveAppRouteProtection({
+    hasSession: true,
+    onboardingCompleted: true,
+    accessReason: "paused",
+    isApiRequest: true,
+    requestUrl: "http://127.0.0.1:3005/api/admin/users",
+    pathname: "/api/admin/users",
+    search: "",
+  });
+
+  assert.equal(result.type, "allow");
+});
+
+test("mantem acesso quando o entitlement está em scheduled_cancel", () => {
+  const result = resolveAppRouteProtection({
+    hasSession: true,
+    entitlements: {
+      canUseApp: true,
+      canUsePricing: true,
+      canExportPdf: true,
+      canViewHistory: true,
+      canManageIntegrations: true,
+      historyLimit: 200,
+      seatsLimit: 3,
+      canManageBilling: true,
+      accessReason: "scheduled_cancel",
+    },
+    onboardingCompleted: true,
+    accessReason: "scheduled_cancel",
+    requestUrl: "http://127.0.0.1:3005/app/precificacao",
+    pathname: "/app/precificacao",
+    search: "",
+  });
+
+  assert.equal(result.type, "allow");
+});
+
 test("bloqueia APIs de produto para workspace sem acesso pago", () => {
   const result = resolveAppRouteProtection({
     hasSession: true,
-    hasPaidWorkspaceAccess: false,
     onboardingCompleted: true,
-    subscriptionStatus: "paused",
+    accessReason: "paused",
     isApiRequest: true,
     requestUrl: "http://127.0.0.1:3005/api/workspace/calculations",
     pathname: "/api/workspace/calculations",
@@ -89,5 +152,21 @@ test("bloqueia APIs de produto para workspace sem acesso pago", () => {
   assert.equal(result.type, "deny");
   assert.equal(result.status, 403);
   assert.equal(result.responseBody.code, "SUBSCRIPTION_REQUIRED");
-  assert.equal(result.responseBody.redirectTo, "/app/planos");
+  assert.equal(result.responseBody.redirectTo, "/app/assinatura");
+});
+
+test("bloqueia APIs de produto para workspace pending apontando para checkout", () => {
+  const result = resolveAppRouteProtection({
+    hasSession: true,
+    onboardingCompleted: true,
+    accessReason: "pending",
+    isApiRequest: true,
+    requestUrl: "http://127.0.0.1:3005/api/workspace/calculations",
+    pathname: "/api/workspace/calculations",
+    search: "",
+  });
+
+  assert.equal(result.type, "deny");
+  assert.equal(result.status, 403);
+  assert.equal(result.responseBody.redirectTo, "/app/checkout");
 });

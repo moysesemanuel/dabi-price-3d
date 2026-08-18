@@ -2,13 +2,13 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { resolveAppRouteProtection } from "@/lib/auth/app-route-protection";
+import { getWorkspaceEntitlements } from "@/lib/billing/server-entitlement-service";
 import { authSessionCookieName } from "@/lib/auth/session";
 import {
   getAuthenticatedSessionByToken,
   getWorkspacePreferences,
   isPlatformPersistenceAvailable,
 } from "@/lib/server/platform";
-import { canAccessPaidWorkspaceFeatures } from "@/lib/workspace/subscription-access";
 
 export async function proxy(request: NextRequest) {
   const isApiRequest = request.nextUrl.pathname.startsWith("/api/");
@@ -46,14 +46,15 @@ export async function proxy(request: NextRequest) {
   }
 
   const preferences = await getWorkspacePreferences(session.workspace.id);
+  const entitlements = await getWorkspaceEntitlements({
+    workspaceId: session.workspace.id,
+  });
   const protection = resolveAppRouteProtection({
     hasSession: true,
     isApiRequest,
-    hasPaidWorkspaceAccess: canAccessPaidWorkspaceFeatures(
-      preferences.subscription,
-    ),
+    entitlements,
     onboardingCompleted: preferences.onboardingCompleted,
-    subscriptionStatus: preferences.subscription.status,
+    accessReason: entitlements.accessReason,
     requestUrl: request.url,
     pathname: request.nextUrl.pathname,
     search: request.nextUrl.search,
