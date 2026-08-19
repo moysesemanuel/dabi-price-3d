@@ -822,3 +822,60 @@ test("collectOperationalFindings expõe webhooks falhos para diagnóstico", asyn
   assert.equal(result.findings[0]?.code, "webhook_processing_failed");
   assert.equal(result.findings[0]?.webhookEventId, "evt-1");
 });
+
+test("reconcileProviderState percorre assinaturas e invoices selecionadas para o lote", async () => {
+  const calls = [];
+  const subscription = {
+    id: "sub-provider-batch-1",
+    workspaceId: "workspace-provider-batch-1",
+    planId: "growth",
+    billingCycle: "monthly",
+    priceId: "price-growth-monthly",
+    status: "active",
+    autoRenew: true,
+    currentPeriodStart: "2026-08-01T00:00:00.000Z",
+    currentPeriodEnd: "2026-09-01T00:00:00.000Z",
+    gracePeriodEndsAt: null,
+    cancelAtPeriodEnd: false,
+    cancelRequestedAt: null,
+    endedAt: null,
+    accessUntil: "2026-09-01T00:00:00.000Z",
+    provider: "mercado_pago",
+    providerSubscriptionId: "mp-sub-provider-batch-1",
+    createdAt: "2026-08-01T00:00:00.000Z",
+    updatedAt: "2026-08-14T00:00:00.000Z",
+  };
+  const dependencies = createDependencies({
+    async listSubscriptionsForProviderReconciliation(limit) {
+      calls.push(["subscriptions", limit]);
+      return [subscription];
+    },
+    async listInvoicesForProviderReconciliation(limit) {
+      calls.push(["invoices", limit]);
+      return [];
+    },
+    async getSubscriptionById(subscriptionId) {
+      assert.equal(subscriptionId, subscription.id);
+      return subscription;
+    },
+    getProvider() {
+      return {
+        async getSubscription(providerSubscriptionId) {
+          assert.equal(providerSubscriptionId, subscription.providerSubscriptionId);
+          return { status: "active" };
+        },
+      };
+    },
+  });
+
+  const service = new BillingReconciliationService(dependencies);
+  const result = await service.reconcileProviderState(25);
+
+  assert.deepEqual(calls, [
+    ["subscriptions", 25],
+    ["invoices", 25],
+  ]);
+  assert.equal(result.processed, 1);
+  assert.equal(result.changed, 0);
+  assert.deepEqual(result.findings, []);
+});
