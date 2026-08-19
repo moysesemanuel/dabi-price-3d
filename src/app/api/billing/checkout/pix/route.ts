@@ -112,18 +112,6 @@ export async function POST(request: Request) {
     );
   }
 
-  if (planId === "scale") {
-    return jsonWithRequestId(
-      requestContext,
-      {
-        error:
-          "O plano DaBi Equipe possui contratação consultiva e não pode ser gerado por Pix direto.",
-        code: "PIX_CHECKOUT_CONSULTATIVE_PLAN",
-      },
-      { status: 409 },
-    );
-  }
-
   const currentBillingSubscription =
     await findCurrentBillingSubscriptionForWorkspace(session.workspace.id);
 

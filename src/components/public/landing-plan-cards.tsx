@@ -108,11 +108,10 @@ function CycleButton({
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`rounded-full px-4 py-2 text-sm font-semibold transition sm:px-5 ${
-        active
+      className={`rounded-full px-4 py-2 text-sm font-semibold transition sm:px-5 ${active
           ? "bg-[#21352d] text-white shadow-[0_4px_12px_rgba(33,53,45,0.16)]"
           : "text-[#5f7468] hover:text-[#21352d]"
-      }`}
+        }`}
     >
       {children}
     </button>
@@ -130,24 +129,17 @@ function LandingPlanCard({
 }) {
   const price =
     billingCycle === "annual" ? plan.annualPriceLabel : plan.monthlyPriceLabel;
-  const isConsultative = plan.id === "scale";
-  const href = isConsultative
-    ? {
-        pathname: "/contato",
-        query: { plan: plan.id, origin: "site", billingCycle },
-      }
-    : {
-        pathname: "/cadastro",
-        query: { plan: plan.id, billingCycle },
-      };
+  const href = {
+    pathname: "/cadastro",
+    query: { plan: plan.id, billingCycle },
+  };
 
   return (
     <article
-      className={`rounded-[34px] border p-6 shadow-[0_20px_48px_rgba(41,55,45,0.06)] ${
-        content.highlighted
+      className={`rounded-[34px] border p-6 shadow-[0_20px_48px_rgba(41,55,45,0.06)] ${content.highlighted
           ? "border-[#f0d7c8] bg-[#fff7f1]"
           : "border-[#e7e1d6] bg-white"
-      }`}
+        }`}
     >
       <p className="font-mono text-xs uppercase tracking-[0.24em] text-[#b8511d]">
         {content.eyebrow}
@@ -162,11 +154,9 @@ function LandingPlanCard({
         {price}
       </p>
       <p className="mt-2 text-sm text-[#60736a]">
-        {isConsultative
-          ? "Condições definidas com o time comercial"
-          : billingCycle === "annual"
-            ? "valor total anual"
-            : "por workspace / mês"}
+        {billingCycle === "annual"
+          ? "valor total anual"
+          : "por workspace / mês"}
       </p>
       <div className="mt-6 grid gap-3">
         {content.items.map((item) => (
@@ -180,11 +170,10 @@ function LandingPlanCard({
       </div>
       <Link
         href={href}
-        className={`mt-8 inline-flex w-full items-center justify-center rounded-full px-5 py-3.5 text-base font-semibold transition ${
-          content.highlighted
+        className={`mt-8 inline-flex w-full items-center justify-center rounded-full px-5 py-3.5 text-base font-semibold transition ${content.highlighted
             ? "bg-[#21352d] text-white hover:bg-[#17251f]"
             : "border border-[#d7e3dc] bg-white text-[#21352d] hover:border-[#21352d]"
-        }`}
+          }`}
       >
         {content.cta}
       </Link>

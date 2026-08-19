@@ -116,18 +116,6 @@ export async function POST(request: Request) {
     );
   }
 
-  if (planId === "scale") {
-    return jsonWithRequestId(
-      requestContext,
-      {
-        error:
-          "O plano DaBi Equipe possui contratação consultiva e não pode ser assinado diretamente pelo checkout.",
-        code: "SUBSCRIPTION_CHECKOUT_CONSULTATIVE_PLAN",
-      },
-      { status: 409 },
-    );
-  }
-
   const currentPreferences = await getWorkspacePreferences(session.workspace.id);
   const currentSubscription = currentPreferences.subscription;
   const currentBillingSubscription = await findCurrentBillingSubscriptionForWorkspace(

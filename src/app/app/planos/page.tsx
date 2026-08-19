@@ -127,35 +127,35 @@ export default async function PlansPage({
   const preferences =
     session && isPlatformPersistenceAvailable()
       ? await getWorkspacePreferences(session.workspace.id).catch(
-          () => defaultAppPreferences,
-        )
+        () => defaultAppPreferences,
+      )
       : defaultAppPreferences;
   const billingSubscription =
     session && isPlatformPersistenceAvailable()
       ? await findCurrentBillingSubscriptionForWorkspace(session.workspace.id).catch(
-          () => null,
-        )
+        () => null,
+      )
       : null;
   const scheduledDowngrade =
     billingSubscription && isPlatformPersistenceAvailable()
       ? await findLatestOpenBillingSubscriptionChange({
-          subscriptionId: billingSubscription.id,
-          type: "downgrade",
-        }).catch(() => null)
+        subscriptionId: billingSubscription.id,
+        type: "downgrade",
+      }).catch(() => null)
       : null;
   const pendingUpgrade =
     billingSubscription && isPlatformPersistenceAvailable()
       ? await findLatestOpenBillingSubscriptionChange({
-          subscriptionId: billingSubscription.id,
-          type: "upgrade",
-        }).catch(() => null)
+        subscriptionId: billingSubscription.id,
+        type: "upgrade",
+      }).catch(() => null)
       : null;
   const pendingCycleChange =
     billingSubscription && isPlatformPersistenceAvailable()
       ? await findLatestOpenBillingSubscriptionChange({
-          subscriptionId: billingSubscription.id,
-          type: "cycle_change",
-        }).catch(() => null)
+        subscriptionId: billingSubscription.id,
+        type: "cycle_change",
+      }).catch(() => null)
       : null;
   const currentPlan = getWorkspacePlan(
     preferences.subscription.planId,
@@ -245,9 +245,8 @@ export default async function PlansPage({
             />
             <PlanStat
               label="Equipe incluída"
-              value={`${currentPlan.seatsIncluded} ${
-                currentPlan.seatsIncluded === 1 ? "usuário" : "usuários"
-              }`}
+              value={`${currentPlan.seatsIncluded} ${currentPlan.seatsIncluded === 1 ? "usuário" : "usuários"
+                }`}
             />
           </div>
 
@@ -266,11 +265,10 @@ export default async function PlansPage({
                       billingCycle: "monthly",
                     },
                   }}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                    cycleSelection === "monthly"
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${cycleSelection === "monthly"
                       ? "bg-[var(--accent)] text-white"
                       : "text-[var(--muted)] hover:text-[var(--foreground)]"
-                  }`}
+                    }`}
                 >
                   Mensal
                 </Link>
@@ -283,11 +281,10 @@ export default async function PlansPage({
                       billingCycle: "annual",
                     },
                   }}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                    cycleSelection === "annual"
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${cycleSelection === "annual"
                       ? "bg-[var(--accent)] text-white"
                       : "text-[var(--muted)] hover:text-[var(--foreground)]"
-                  }`}
+                    }`}
                 >
                   Anual · 12 meses
                 </Link>
@@ -321,11 +318,11 @@ export default async function PlansPage({
               ? `O downgrade para ${scheduledDowngradePlan.label} já está agendado para o fim do período atual. Até lá, o workspace continua usando ${currentPlan.label}.`
               : pendingUpgradePlan
                 ? `Existe um upgrade em aberto para ${pendingUpgradePlan.label}. O plano atual só muda depois da confirmação do pagamento desse Pix.`
-              : subscriptionStatus === "unpaid"
-                ? "Conclua a contratação para liberar a precificadora e os demais módulos pagos do workspace."
-                : subscriptionStatus === "pending"
-                  ? `Você iniciou a contratação ${currentBillingCycle === "annual" ? "anual" : "mensal"} deste plano, mas o pagamento ainda não foi concluído.`
-                  : "O upgrade pode seguir pelo fluxo público de assinatura com Mercado Pago ou, quando fizer mais sentido reduzir a faixa, o downgrade é agendado para o próximo ciclo."}
+                : subscriptionStatus === "unpaid"
+                  ? "Conclua a contratação para liberar a precificadora e os demais módulos pagos do workspace."
+                  : subscriptionStatus === "pending"
+                    ? `Você iniciou a contratação ${currentBillingCycle === "annual" ? "anual" : "mensal"} deste plano, mas o pagamento ainda não foi concluído.`
+                    : "O upgrade pode seguir pelo fluxo público de assinatura com Mercado Pago ou, quando fizer mais sentido reduzir a faixa, o downgrade é agendado para o próximo ciclo."}
           </p>
           <div className="mt-5 grid gap-3">
             <Link
@@ -341,8 +338,8 @@ export default async function PlansPage({
               {pendingUpgradePlan
                 ? "Revisar upgrade"
                 : subscriptionStatus === "pending"
-                ? "Continuar pagamento"
-                : "Falar sobre upgrade"}
+                  ? "Continuar pagamento"
+                  : "Falar sobre upgrade"}
             </Link>
             <Link
               href="/app/perfil-empresa"
@@ -368,8 +365,7 @@ export default async function PlansPage({
           const isCanceled =
             isSubscriptionPlan && subscriptionStatus === "canceled";
 
-          const checkoutPlanId =
-            plan.id === "starter" || plan.id === "growth" ? plan.id : null;
+          const checkoutPlanId = plan.id;
 
           const isSelected = selectedPlan === plan.id;
           const canScheduleDowngrade = canSchedulePlanDowngrade({
@@ -442,11 +438,9 @@ export default async function PlansPage({
                   {resolveWorkspacePlanPriceLabel(plan, selectedBillingCycle)}
                 </p>
                 <p className="mt-1 text-sm text-[var(--muted)]">
-                  {plan.id === "scale"
-                    ? "atendimento comercial"
-                    : selectedBillingCycle === "annual"
-                      ? "pagamento antecipado por 12 meses"
-                      : "por workspace / mês"}
+                  {selectedBillingCycle === "annual"
+                    ? "pagamento antecipado por 12 meses"
+                    : "por workspace / mês"}
                 </p>
               </div>
 
@@ -504,13 +498,6 @@ export default async function PlansPage({
                     className="app-button app-button-secondary w-full"
                   >
                     Ver detalhes da assinatura
-                  </Link>
-                ) : plan.id === "scale" ? (
-                  <Link
-                    href="/contato"
-                    className="app-button app-button-primary w-full"
-                  >
-                    Falar sobre o DaBi Equipe
                   </Link>
                 ) : isPendingUpgradeTarget ? (
                   <Link
@@ -694,11 +681,11 @@ function canRequestPlanUpgrade(input: {
 function canRequestBillingCycleChange(subscription: BillingSubscription | null) {
   return Boolean(
     subscription &&
-      subscription.status === "active" &&
-      subscription.autoRenew &&
-      !subscription.cancelAtPeriodEnd &&
-      subscription.currentPeriodStart &&
-      subscription.currentPeriodEnd,
+    subscription.status === "active" &&
+    subscription.autoRenew &&
+    !subscription.cancelAtPeriodEnd &&
+    subscription.currentPeriodStart &&
+    subscription.currentPeriodEnd,
   );
 }
 
