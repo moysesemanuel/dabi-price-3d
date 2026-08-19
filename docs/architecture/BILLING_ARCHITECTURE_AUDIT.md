@@ -263,12 +263,15 @@ Atendido:
 
 ### Seção 30/31/33 — Jobs, reconciliação e frequência operacional
 
-Status: `parcial`
+Status: `ok`
 
-Lacunas:
+Atendido:
 
-- o serviço existe, mas falta o encadeamento operacional da rotina completa
-- a frequência sugerida dos jobs não está representada por rotas/cron/runner no projeto
+- `BillingReconciliationRunner` agrupa expiração, fim de tolerância, cancelamento agendado, mudanças agendadas e invoices expiradas
+- a limpeza de checkouts abandonados roda separadamente, preservando a janela configurável de 30 dias
+- a reconciliação periódica consulta assinaturas e invoices pendentes no provider sem copiar diretamente o status remoto para o domínio
+- `vercel.json` define manutenção a cada 15 minutos, limpeza diária e reconciliação remota a cada 6 horas
+- os endpoints de cron exigem `CRON_SECRET` por header Bearer
 
 ### Seção 32 — Concorrência e transações
 

@@ -304,6 +304,42 @@ export async function listBillingSubscriptionsForScheduledCancellation(asOf: str
   return rows.map(mapBillingSubscriptionRow);
 }
 
+export async function listBillingSubscriptionsForProviderReconciliation(
+  limit = 100,
+) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      id,
+      workspace_id,
+      plan_id,
+      billing_cycle,
+      price_id,
+      status,
+      auto_renew,
+      current_period_start,
+      current_period_end,
+      grace_period_ends_at,
+      cancel_at_period_end,
+      cancel_requested_at,
+      ended_at,
+      access_until,
+      provider,
+      provider_subscription_id,
+      created_at,
+      updated_at
+    FROM billing_subscriptions
+    WHERE status = ANY(${currentBillingSubscriptionStatuses})
+      AND provider IS NOT NULL
+    ORDER BY updated_at ASC
+    LIMIT ${limit}
+  `) as BillingSubscriptionRow[];
+
+  return rows.map(mapBillingSubscriptionRow);
+}
+
 export async function findBillingSubscriptionByProviderSubscriptionId(input: {
   provider: BillingProviderName;
   providerSubscriptionId: string;
@@ -918,6 +954,46 @@ export async function listBillingInvoicesForExpiration(asOf: string) {
       AND payment_expires_at IS NOT NULL
       AND payment_expires_at <= ${asOf}
     ORDER BY payment_expires_at ASC
+  `) as BillingInvoiceRow[];
+
+  return rows.map(mapBillingInvoiceRow);
+}
+
+export async function listBillingInvoicesForProviderReconciliation(limit = 100) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      id,
+      subscription_id,
+      workspace_id,
+      price_id,
+      type,
+      status,
+      amount_cents,
+      currency,
+      period_start,
+      period_end,
+      payment_method,
+      provider,
+      provider_payment_id,
+      provider_authorized_payment_id,
+      payment_expires_at,
+      paid_at,
+      failed_at,
+      refunded_at,
+      created_at,
+      updated_at
+    FROM billing_invoices
+    WHERE status = 'pending'
+      AND provider IS NOT NULL
+      AND (
+        provider_payment_id IS NOT NULL
+        OR provider_authorized_payment_id IS NOT NULL
+      )
+    ORDER BY updated_at ASC
+    LIMIT ${limit}
   `) as BillingInvoiceRow[];
 
   return rows.map(mapBillingInvoiceRow);

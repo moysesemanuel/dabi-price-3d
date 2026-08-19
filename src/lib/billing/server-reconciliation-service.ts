@@ -7,6 +7,8 @@ import {
   getBillingSubscriptionChangeByInvoiceId,
   getBillingSubscriptionById,
   getDueBillingSubscriptionChanges,
+  listBillingInvoicesForProviderReconciliation,
+  listBillingSubscriptionsForProviderReconciliation,
   listAbandonedPendingBillingSubscriptions,
   listBillingInvoicesForExpiration,
   listBillingSubscriptionsForExpiration,
@@ -25,12 +27,16 @@ export function createBillingReconciliationService() {
   return new BillingReconciliationService({
     billingService: createBillingService(),
     getSubscriptionById: getBillingSubscriptionById,
+    listSubscriptionsForProviderReconciliation:
+      listBillingSubscriptionsForProviderReconciliation,
     listSubscriptionsForExpiration: listBillingSubscriptionsForExpiration,
     listSubscriptionsForGracePeriodEnd: listBillingSubscriptionsForGracePeriodEnd,
     listSubscriptionsForScheduledCancellation:
       listBillingSubscriptionsForScheduledCancellation,
     listAbandonedPendingSubscriptions: listAbandonedPendingBillingSubscriptions,
     getInvoiceById: getBillingInvoiceById,
+    listInvoicesForProviderReconciliation:
+      listBillingInvoicesForProviderReconciliation,
     listInvoicesForExpiration: listBillingInvoicesForExpiration,
     updateInvoice: updateBillingInvoice,
     getSubscriptionChangeByInvoiceId: getBillingSubscriptionChangeByInvoiceId,
