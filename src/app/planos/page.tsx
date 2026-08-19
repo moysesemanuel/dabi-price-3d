@@ -142,35 +142,35 @@ export default async function PublicPlansPage({
   const preferences =
     session && isPlatformPersistenceAvailable()
       ? await getWorkspacePreferences(session.workspace.id).catch(
-          () => defaultAppPreferences,
-        )
+        () => defaultAppPreferences,
+      )
       : defaultAppPreferences;
 
-  const resolveStarterOrGrowthHref = (planId: "starter" | "growth") =>
+  const resolvePlanHref = (planId: "starter" | "growth" | "scale") =>
     session
       ? preferences.onboardingCompleted
         ? {
-            pathname: "/app/planos",
-            query: {
-              plan: planId,
-              billingCycle: selectedBillingCycle,
-              origin,
-            },
-          }
+          pathname: "/app/planos",
+          query: {
+            plan: planId,
+            billingCycle: selectedBillingCycle,
+            origin,
+          },
+        }
         : {
-            pathname: "/app/onboarding",
-            query: {
-              plan: planId,
-              billingCycle: selectedBillingCycle,
-            },
-          }
-      : {
-          pathname: "/cadastro",
+          pathname: "/app/onboarding",
           query: {
             plan: planId,
             billingCycle: selectedBillingCycle,
           },
-        };
+        }
+      : {
+        pathname: "/cadastro",
+        query: {
+          plan: planId,
+          billingCycle: selectedBillingCycle,
+        },
+      };
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#fffefc_0%,#f6fbf7_36%,#fff6fa_100%)] text-[#274338]">
@@ -238,11 +238,10 @@ export default async function PublicPlansPage({
                     billingCycle: "monthly",
                   },
                 }}
-                className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
-                  selectedBillingCycle === "monthly"
-                    ? "bg-[#24473c] text-white"
-                    : "text-[#7e9689] hover:text-[#274338]"
-                }`}
+                className={`rounded-full px-5 py-2 text-sm font-semibold transition ${selectedBillingCycle === "monthly"
+                  ? "bg-[#24473c] text-white"
+                  : "text-[#7e9689] hover:text-[#274338]"
+                  }`}
               >
                 Mensal
               </Link>
@@ -254,11 +253,10 @@ export default async function PublicPlansPage({
                     billingCycle: "annual",
                   },
                 }}
-                className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
-                  selectedBillingCycle === "annual"
-                    ? "bg-[#24473c] text-white"
-                    : "text-[#7e9689] hover:text-[#274338]"
-                }`}
+                className={`rounded-full px-5 py-2 text-sm font-semibold transition ${selectedBillingCycle === "annual"
+                  ? "bg-[#24473c] text-white"
+                  : "text-[#7e9689] hover:text-[#274338]"
+                  }`}
               >
                 Anual · 12 meses
               </Link>
@@ -301,11 +299,9 @@ export default async function PublicPlansPage({
                     {resolveWorkspacePlanPriceLabel(plan, selectedBillingCycle)}
                   </p>
                   <p className="mt-2 text-sm text-[#7e9689]">
-                    {plan.id === "scale"
-                      ? "atendimento comercial"
-                      : selectedBillingCycle === "annual"
-                        ? "pagamento antecipado por 12 meses de acesso"
-                        : "por workspace / mês"}
+                    {selectedBillingCycle === "annual"
+                      ? "pagamento antecipado por 12 meses de acesso"
+                      : "por workspace / mês"}
                   </p>
                 </div>
 
@@ -316,33 +312,15 @@ export default async function PublicPlansPage({
                 </div>
 
                 <div className="mt-8 grid gap-3">
-                  {plan.id === "scale" ? (
-                    <Link
-                      href={{
-                        pathname: "/contato",
-                        query: {
-                          plan: plan.id,
-                          origin,
-                        },
-                      }}
-                      className={`inline-flex items-center justify-center rounded-[16px] px-5 py-3 text-sm font-semibold transition ${isHighlighted
+                  <Link
+                    href={resolvePlanHref(plan.id)}
+                    className={`inline-flex items-center justify-center rounded-[16px] px-5 py-3 text-sm font-semibold transition ${isHighlighted
                         ? "bg-[#24473c] text-white hover:bg-[#1d3a31]"
                         : "border border-[#dcebe3] bg-white text-[#274338] hover:bg-[#f8fcfa]"
-                        }`}
-                    >
-                      Falar sobre o DaBi Equipe
-                    </Link>
-                  ) : (
-                    <Link
-                      href={resolveStarterOrGrowthHref(plan.id)}
-                      className={`inline-flex items-center justify-center rounded-[16px] px-5 py-3 text-sm font-semibold transition ${isHighlighted
-                        ? "bg-[#24473c] text-white hover:bg-[#1d3a31]"
-                        : "border border-[#dcebe3] bg-white text-[#274338] hover:bg-[#f8fcfa]"
-                        }`}
-                    >
-                      Começar com {plan.label}
-                    </Link>
-                  )}
+                      }`}
+                  >
+                    Começar com {plan.label}
+                  </Link>
                   <Link
                     href={{
                       pathname: "/contato",
@@ -476,7 +454,7 @@ export default async function PublicPlansPage({
 
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Link
-              href={resolveStarterOrGrowthHref("growth")}
+              href={resolvePlanHref("growth")}
               className="inline-flex items-center justify-center rounded-[16px] bg-white px-6 py-4 text-sm font-semibold text-[#cf6f94] transition hover:bg-[#fff7fa]"
             >
               Começar com DaBi Pro

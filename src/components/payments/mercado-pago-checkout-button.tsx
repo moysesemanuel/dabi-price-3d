@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 type MercadoPagoCheckoutButtonProps = {
-  planId: "starter" | "growth";
+  planId: "starter" | "growth" | "scale";
   billingCycle?: "monthly" | "annual";
   label?: string;
   className?: string;
