@@ -1,6 +1,6 @@
 # Arquitetura de Billing — DaBi Price
 
-> **Status:** arquitetura funcional definida antes da implementação  
+> **Status:** arquitetura central implementada; jobs operacionais ativos; homologações externas ainda pendentes  
 > **Objetivo:** documentar o desenho de billing do DaBi Price para suportar planos, ciclos mensal/anual, Pix manual, Pix Automático, cartão, upgrade, downgrade, cancelamento, paywall, webhooks, reconciliação, auditoria e administração sem acoplar o domínio ao Mercado Pago.
 
 ---
@@ -42,15 +42,23 @@ O domínio não deve conhecer diretamente conceitos específicos do provider com
 
 ## 2. Planos e ciclos
 
-Planos oficiais:
+Planos comerciais oficiais:
 
 ```text
-DaBi Start  → start
-DaBi Pro    → pro
-DaBi Max    → max
+DaBi Start
+DaBi Pro
+DaBi Max
 ```
 
-Os IDs internos devem permanecer estáveis mesmo que o nome comercial mude no futuro.
+IDs técnicos atualmente preservados na implementação:
+
+```text
+starter
+growth
+scale
+```
+
+A arquitetura originalmente propôs `start/pro/max`, mas a implementação manteve `starter/growth/scale` para evitar uma migração sem ganho funcional. Os IDs internos devem permanecer estáveis mesmo que o nome comercial mude no futuro.
 
 Ciclos:
 
@@ -1349,32 +1357,51 @@ Exemplo: se um webhook já recuperou uma assinatura de `past_due` para `active`,
 
 ---
 
-## 33. Frequência inicial dos jobs
+## 33. Frequência e scheduler dos jobs
 
-Sugestão:
+A aplicação não depende do Vercel Cron. Em produção, o scheduler atual é o **Upstash QStash**, usado somente como gatilho externo para endpoints HTTP autenticados do DaBi Price.
+
+Arquitetura operacional:
 
 ```text
-reconciliação de pagamentos
-→ 5–10 minutos
-
-past_due / tolerância
-→ 15 minutos
-
-expiração
-→ 15 minutos
-
-cancelamento agendado
-→ 15 minutos
-
-mudanças agendadas
-→ 15 minutos
-
-limpeza de pending
-→ diária
-
-reconciliação geral provider
-→ algumas vezes por dia
+Upstash QStash
+    ↓
+HTTPS GET
+    ↓
+Vercel /api/cron/billing/*
+    ↓
+Authorization: Bearer <CRON_SECRET>
+    ↓
+BillingReconciliationRunner
+    ↓
+BillingService
 ```
+
+Schedules atuais:
+
+```text
+maintenance
+/api/cron/billing/maintenance
+*/15 * * * *
+
+provider-reconciliation
+/api/cron/billing/provider-reconciliation
+0 */6 * * *
+
+abandoned-checkouts
+/api/cron/billing/abandoned-checkouts
+5 3 * * *
+```
+
+O job `maintenance` cobre expiração, fim de tolerância, cancelamentos agendados, mudanças agendadas e invoices expiradas. A reconciliação com o provider roda separadamente, assim como a limpeza de checkouts abandonados.
+
+Todos os endpoints exigem o mesmo `CRON_SECRET` configurado no ambiente da Vercel e enviado pelo scheduler no formato:
+
+```http
+Authorization: Bearer <CRON_SECRET>
+```
+
+O scheduler é uma preocupação operacional substituível. No futuro, QStash pode ser trocado por Vercel Cron, Cloud Scheduler, GitHub Actions ou outro mecanismo sem alterar o domínio de billing.
 
 Liberação após pagamento deve ocorrer via webhook; job é rede de segurança.
 
@@ -1549,15 +1576,9 @@ Implementar as regras centrais sem depender do Mercado Pago.
 
 ## Fase 4 — Planos e preços
 
-Migrar conceitualmente:
+Os nomes comerciais são DaBi Start, DaBi Pro e DaBi Max, mantendo os IDs técnicos `starter/growth/scale` já estabilizados pela implementação.
 
-```text
-starter → start
-growth  → pro
-scale   → max
-```
-
-Adicionar preços monthly/annual.
+Adicionar/manter preços `monthly` e `annual` sem exigir migração estética dos IDs técnicos.
 
 ## Fase 5 — Entitlements
 
@@ -1624,7 +1645,9 @@ adapter
 
 ## Fase 13 — Jobs e reconciliação
 
-Implementar:
+Status atual: **implementado e operacional**.
+
+Componentes:
 
 ```text
 expiration
@@ -1635,6 +1658,8 @@ expired invoices
 abandoned checkout
 provider reconciliation
 ```
+
+Os endpoints ficam em `/api/cron/billing/*` e o agendamento de produção é feito pelo Upstash QStash, autenticado por `CRON_SECRET`.
 
 ## Fase 14 — Cancelamento
 
@@ -1786,10 +1811,12 @@ Entitlements centralizados
 
 Webhooks idempotentes
 Reconciliação automática
+Jobs operacionais autenticados
+Scheduler externo substituível
 
 Auditoria completa
 Super Admin
 Dashboards de billing
 ```
 
-Sem que as regras centrais dependam diretamente do Mercado Pago.
+Sem que as regras centrais dependam diretamente do Mercado Pago, da Vercel ou do scheduler externo utilizado em produção.
