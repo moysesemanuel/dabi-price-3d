@@ -223,6 +223,7 @@ export async function POST(request: Request) {
 
     const payment = await provider.createManualPayment({
       externalReference: `billing_invoice:${invoice.id}`,
+      idempotencyKey: invoice.id,
       payerEmail: session.user.email,
       reason: `${selectedPlan.label} - ${session.workspace.name}`,
       amountCents: price.amountCents,

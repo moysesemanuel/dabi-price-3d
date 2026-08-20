@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   buildMercadoPagoSubscriptionCheckoutPayload,
   createMercadoPagoSubscriptionCheckout,
+  createMercadoPagoPixPayment,
   extractMercadoPagoWebhookTopic,
   resolveMercadoPagoCheckoutAction,
   resolvePendingSubscriptionRecovery,
@@ -155,6 +156,70 @@ test("cria preapproval anual usando frequência de 12 meses", async (t) => {
   assert.equal(body.auto_recurring.frequency, 12);
   assert.equal(body.auto_recurring.frequency_type, "months");
   assert.equal(body.auto_recurring.transaction_amount, growthPlan.annualPrice);
+});
+
+test("Pix manual envia idempotency key estável ao Mercado Pago", async (t) => {
+  const originalFetch = globalThis.fetch;
+
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const receivedKeys = [];
+
+  globalThis.fetch = async (_url, init) => {
+    receivedKeys.push(init?.headers?.["X-Idempotency-Key"]);
+
+    return new Response(
+      JSON.stringify({
+        id: 987654,
+        status: "pending",
+        external_reference: "billing_invoice:inv-1",
+        payment_method_id: "pix",
+        point_of_interaction: {
+          transaction_data: {
+            qr_code: "0002012636pix",
+            qr_code_base64: "YXNkZg==",
+          },
+        },
+      }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    );
+  };
+
+  const input = {
+    externalReference: "billing_invoice:inv-1",
+    idempotencyKey: "inv-1",
+    payerEmail: "owner@dabi.app",
+    reason: "Pix manual",
+    amountCents: 4900,
+    currency: "BRL",
+    accessTokenOverride: "token-de-teste",
+  };
+
+  await createMercadoPagoPixPayment(input);
+  await createMercadoPagoPixPayment(input);
+
+  assert.deepEqual(receivedKeys, ["inv-1", "inv-1"]);
+});
+
+test("não ignora outro erro 400 ao cancelar preapproval pending", () => {
+  const error = new MercadoPagoApiError({
+    status: 400,
+    path: "/preapproval/sub-123",
+    responseText: "Bad request",
+    mode: "mutation",
+  });
+
+  assert.equal(
+    canIgnorePendingSubscriptionCancellationError("pending", error),
+    false,
+  );
 });
 
 test("prioriza o tipo do payload quando query string e payload divergem", () => {

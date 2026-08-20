@@ -129,6 +129,7 @@ export async function POST(request: Request) {
 
     const payment = await provider.createManualPayment({
       externalReference: `billing_invoice:${cycleChange.invoice.id}`,
+      idempotencyKey: cycleChange.invoice.id,
       payerEmail: session.user.email,
       reason: `Mudança de ciclo mensal para anual - ${session.workspace.name}`,
       amountCents: cycleChange.invoice.amountCents,

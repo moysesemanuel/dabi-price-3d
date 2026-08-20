@@ -265,6 +265,7 @@ export async function createMercadoPagoRecurringSubscription(input: {
 
 export async function createMercadoPagoPixPayment(input: {
   externalReference: string;
+  idempotencyKey: string;
   payerEmail: string | null;
   reason: string;
   amountCents: number;
@@ -276,6 +277,8 @@ export async function createMercadoPagoPixPayment(input: {
     "/v1/payments",
     buildMercadoPagoPixPaymentPayload(input),
     input.accessTokenOverride,
+    "POST",
+    input.idempotencyKey,
   );
 }
 
@@ -523,10 +526,22 @@ export function canIgnorePendingSubscriptionCancellationError(
   subscriptionStatus: string | null | undefined,
   error: unknown,
 ) {
+  if (
+    subscriptionStatus !== "pending" ||
+    !isMercadoPagoApiError(error)
+  ) {
+    return false;
+  }
+
+  if (error.status === 404) {
+    return true;
+  }
+
   return (
-    subscriptionStatus === "pending" &&
-    isMercadoPagoApiError(error) &&
-    (error.status === 400 || error.status === 404)
+    error.status === 400 &&
+    error.responseText.includes(
+      "Invalid preapproval status param: canceled",
+    )
   );
 }
 
@@ -747,6 +762,7 @@ async function mercadoPagoApiMutation<T>(
   body: Record<string, unknown>,
   accessTokenOverride?: string,
   method: "POST" | "PUT" = "POST",
+  idempotencyKey?: string,
 ) {
 
   const accessToken = accessTokenOverride ?? getMercadoPagoAccessToken();
@@ -764,7 +780,7 @@ async function mercadoPagoApiMutation<T>(
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
       ...(method === "POST"
-        ? { "X-Idempotency-Key": randomUUID() }
+        ? { "X-Idempotency-Key": idempotencyKey ?? randomUUID() }
         : {}),
     },
     body: JSON.stringify(body),

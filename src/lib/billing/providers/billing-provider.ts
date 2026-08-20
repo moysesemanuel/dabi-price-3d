@@ -35,6 +35,7 @@ export type BillingProviderPayment = {
 
 export type BillingProviderManualPaymentInput = {
   externalReference: string;
+  idempotencyKey: string;
   payerEmail: string | null;
   reason: string;
   amountCents: number;
