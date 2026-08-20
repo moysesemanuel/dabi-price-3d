@@ -3,7 +3,7 @@ import {
   resolveWorkspacePlanPrice,
   type WorkspacePlanId,
 } from "../workspace/catalog.ts";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import type { BillingCycle } from "../billing/types.ts";
 
 export type MercadoPagoWebhookTopic =
@@ -265,6 +265,7 @@ export async function createMercadoPagoRecurringSubscription(input: {
 
 export async function createMercadoPagoPixPayment(input: {
   externalReference: string;
+  idempotencyKey: string;
   payerEmail: string | null;
   reason: string;
   amountCents: number;
@@ -276,6 +277,8 @@ export async function createMercadoPagoPixPayment(input: {
     "/v1/payments",
     buildMercadoPagoPixPaymentPayload(input),
     input.accessTokenOverride,
+    "POST",
+    input.idempotencyKey,
   );
 }
 
@@ -519,6 +522,29 @@ export function isMercadoPagoApiError(error: unknown): error is MercadoPagoApiEr
   return error instanceof MercadoPagoApiError;
 }
 
+export function canIgnorePendingSubscriptionCancellationError(
+  subscriptionStatus: string | null | undefined,
+  error: unknown,
+) {
+  if (
+    subscriptionStatus !== "pending" ||
+    !isMercadoPagoApiError(error)
+  ) {
+    return false;
+  }
+
+  if (error.status === 404) {
+    return true;
+  }
+
+  return (
+    error.status === 400 &&
+    error.responseText.includes(
+      "Invalid preapproval status param: canceled",
+    )
+  );
+}
+
 export function normalizeMercadoPagoSubscriptionStatus(
   status: string | null | undefined,
 ): NormalizedMercadoPagoSubscriptionStatus {
@@ -736,6 +762,7 @@ async function mercadoPagoApiMutation<T>(
   body: Record<string, unknown>,
   accessTokenOverride?: string,
   method: "POST" | "PUT" = "POST",
+  idempotencyKey?: string,
 ) {
 
   const accessToken = accessTokenOverride ?? getMercadoPagoAccessToken();
@@ -752,6 +779,9 @@ async function mercadoPagoApiMutation<T>(
       Accept: "application/json",
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
+      ...(method === "POST"
+        ? { "X-Idempotency-Key": idempotencyKey ?? randomUUID() }
+        : {}),
     },
     body: JSON.stringify(body),
     cache: "no-store",

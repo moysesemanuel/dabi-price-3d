@@ -11,7 +11,7 @@ import {
 import { createBillingService } from "@/lib/billing/server-service";
 import { normalizeBillingManualPaymentState } from "@/lib/billing/manual-payment-status";
 import type { BillingSubscription } from "@/lib/billing/types";
-import { isMercadoPagoApiError } from "@/lib/payments/mercado-pago";
+import { canIgnorePendingSubscriptionCancellationError } from "@/lib/payments/mercado-pago";
 import {
   createRouteRequestContext,
   jsonWithRequestId,
@@ -223,6 +223,7 @@ export async function POST(request: Request) {
 
     const payment = await provider.createManualPayment({
       externalReference: `billing_invoice:${invoice.id}`,
+      idempotencyKey: invoice.id,
       payerEmail: session.user.email,
       reason: `${selectedPlan.label} - ${session.workspace.name}`,
       amountCents: price.amountCents,
@@ -369,7 +370,12 @@ async function replaceCurrentPendingState(input: {
           input.currentBillingSubscription.providerSubscriptionId,
         );
       } catch (error) {
-        if (!(isMercadoPagoApiError(error) && error.status === 404)) {
+        if (
+          !canIgnorePendingSubscriptionCancellationError(
+            input.currentBillingSubscription.status,
+            error,
+          )
+        ) {
           throw error;
         }
       }

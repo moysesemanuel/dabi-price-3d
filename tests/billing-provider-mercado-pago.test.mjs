@@ -161,6 +161,7 @@ test("provider cria pagamento manual Pix sem expor o payload cru do provider", a
     async createManualPayment(input) {
       assert.deepEqual(input, {
         externalReference: "billing_invoice:inv-1",
+        idempotencyKey: "inv-1",
         payerEmail: "owner@dabi.app",
         reason: "Pix manual",
         amountCents: 14900,
@@ -202,6 +203,7 @@ test("provider cria pagamento manual Pix sem expor o payload cru do provider", a
 
   const payment = await provider.createManualPayment({
     externalReference: "billing_invoice:inv-1",
+    idempotencyKey: "inv-1",
     payerEmail: "owner@dabi.app",
     reason: "Pix manual",
     amountCents: 14900,
