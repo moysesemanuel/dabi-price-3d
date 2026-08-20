@@ -103,6 +103,7 @@ export type MercadoPagoPixPaymentPayload = {
     email: string;
   };
   date_of_expiration: string;
+  notification_url?: string;
 };
 
 export type NormalizedMercadoPagoSubscriptionStatus =
@@ -271,6 +272,7 @@ export async function createMercadoPagoPixPayment(input: {
   amountCents: number;
   currency: string;
   expiresInMinutes?: number;
+  notificationUrl?: string;
   accessTokenOverride?: string;
 }) {
   return mercadoPagoApiMutation<MercadoPagoPayment>(
@@ -360,6 +362,7 @@ export function buildMercadoPagoPixPaymentPayload(input: {
   amountCents: number;
   currency: string;
   expiresInMinutes?: number;
+  notificationUrl?: string;
   now?: Date;
 }): MercadoPagoPixPaymentPayload {
   const payerEmail = normalizeOptionalString(input.payerEmail);
@@ -396,6 +399,9 @@ export function buildMercadoPagoPixPaymentPayload(input: {
       email: payerEmail,
     },
     date_of_expiration: expirationDate.toISOString(),
+    ...(input.notificationUrl
+      ? { notification_url: input.notificationUrl }
+      : {}),
   };
 }
 
