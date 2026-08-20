@@ -216,6 +216,10 @@ export async function POST(request: Request) {
       amountCents: upgradeRequest.invoice.amountCents,
       currency: upgradeRequest.invoice.currency,
       returnUrl: new URL("/app/assinatura/upgrade", request.url).toString(),
+      notificationUrl: new URL(
+        "/api/payments/mercado-pago/webhook?source_news=webhooks",
+        request.url,
+      ).toString(),
     });
 
     if (!payment.providerPaymentId || !payment.qrCode) {

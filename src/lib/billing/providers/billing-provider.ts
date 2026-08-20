@@ -41,6 +41,7 @@ export type BillingProviderManualPaymentInput = {
   amountCents: number;
   currency: string;
   returnUrl: string | null;
+  notificationUrl: string;
 };
 
 export type BillingProviderManualPayment = BillingProviderPayment & {

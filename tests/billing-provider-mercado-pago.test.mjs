@@ -144,6 +144,8 @@ test("payload Pix manual converte centavos, exige pagador e calcula expiração"
     currency: "BRL",
     expiresInMinutes: 90,
     now: new Date("2026-08-14T10:00:00.000Z"),
+    notificationUrl:
+      "https://dabi.app/api/payments/mercado-pago/webhook?source_news=webhooks",
   });
 
   assert.equal(payload.external_reference, "billing_invoice:inv-1");
@@ -151,6 +153,10 @@ test("payload Pix manual converte centavos, exige pagador e calcula expiração"
   assert.equal(payload.payment_method_id, "pix");
   assert.equal(payload.payer.email, "owner@dabi.app");
   assert.equal(payload.date_of_expiration, "2026-08-14T11:30:00.000Z");
+  assert.equal(
+  payload.notification_url,
+  "https://dabi.app/api/payments/mercado-pago/webhook?source_news=webhooks",
+);
 });
 
 test("provider cria pagamento manual Pix sem expor o payload cru do provider", async () => {
@@ -167,6 +173,8 @@ test("provider cria pagamento manual Pix sem expor o payload cru do provider", a
         amountCents: 14900,
         currency: "BRL",
         returnUrl: "https://dabi.app/app/checkout",
+        notificationUrl:
+          "https://dabi.app/api/payments/mercado-pago/webhook?source_news=webhooks",
       });
 
       return {
@@ -209,6 +217,7 @@ test("provider cria pagamento manual Pix sem expor o payload cru do provider", a
     amountCents: 14900,
     currency: "BRL",
     returnUrl: "https://dabi.app/app/checkout",
+    notificationUrl: "https://dabi.app/api/payments/mercado-pago/webhook?source_news=webhooks",
   });
 
   assert.deepEqual(payment, {

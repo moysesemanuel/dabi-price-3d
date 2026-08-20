@@ -229,6 +229,10 @@ export async function POST(request: Request) {
       amountCents: price.amountCents,
       currency: price.currency,
       returnUrl: new URL("/app/checkout", request.url).toString(),
+      notificationUrl: new URL(
+        "/api/payments/mercado-pago/webhook?source_news=webhooks",
+        request.url,
+      ).toString(),
     });
 
     if (!payment.providerPaymentId || !payment.qrCode) {
