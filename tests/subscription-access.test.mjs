@@ -15,14 +15,14 @@ test("active, past_due e scheduled_cancel mantem acesso ao produto", () => {
   assert.equal(
     canAccessPaidWorkspaceFeatures({
       status: "past_due",
-      gracePeriodEndsAt: "2026-08-20T00:00:00.000Z",
+      gracePeriodEndsAt: "2099-08-20T00:00:00.000Z",
     }),
     true,
   );
   assert.equal(
     canAccessPaidWorkspaceFeatures({
       status: "scheduled_cancel",
-      currentPeriodEnd: "2026-08-20T00:00:00.000Z",
+      currentPeriodEnd: "2099-08-20T00:00:00.000Z",
     }),
     true,
   );

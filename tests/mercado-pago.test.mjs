@@ -7,6 +7,8 @@ import {
   extractMercadoPagoWebhookTopic,
   resolveMercadoPagoCheckoutAction,
   resolvePendingSubscriptionRecovery,
+  canIgnorePendingSubscriptionCancellationError,
+  MercadoPagoApiError,
 } from "../src/lib/payments/mercado-pago.ts";
 import { getWorkspacePlan } from "../src/lib/workspace/catalog.ts";
 
@@ -252,5 +254,47 @@ test("canceled continua permitindo nova contratação", () => {
       mercadoPagoSubscriptionId: "sub-123",
     }),
     "create_new_checkout",
+  );
+});
+
+test("ignora erro 400 ao cancelar preapproval pending", () => {
+  const error = new MercadoPagoApiError({
+    status: 400,
+    path: "/preapproval/sub-123",
+    responseText: "Invalid preapproval status param: canceled",
+    mode: "mutation",
+  });
+
+  assert.equal(
+    canIgnorePendingSubscriptionCancellationError("pending", error),
+    true,
+  );
+});
+
+test("ignora erro 404 ao cancelar preapproval pending", () => {
+  const error = new MercadoPagoApiError({
+    status: 404,
+    path: "/preapproval/sub-123",
+    responseText: "Not found",
+    mode: "mutation",
+  });
+
+  assert.equal(
+    canIgnorePendingSubscriptionCancellationError("pending", error),
+    true,
+  );
+});
+
+test("não ignora erro inesperado ao cancelar preapproval pending", () => {
+  const error = new MercadoPagoApiError({
+    status: 500,
+    path: "/preapproval/sub-123",
+    responseText: "Internal error",
+    mode: "mutation",
+  });
+
+  assert.equal(
+    canIgnorePendingSubscriptionCancellationError("pending", error),
+    false,
   );
 });

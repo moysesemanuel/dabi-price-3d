@@ -3,7 +3,7 @@ import {
   resolveWorkspacePlanPrice,
   type WorkspacePlanId,
 } from "../workspace/catalog.ts";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import type { BillingCycle } from "../billing/types.ts";
 
 export type MercadoPagoWebhookTopic =
@@ -519,6 +519,17 @@ export function isMercadoPagoApiError(error: unknown): error is MercadoPagoApiEr
   return error instanceof MercadoPagoApiError;
 }
 
+export function canIgnorePendingSubscriptionCancellationError(
+  subscriptionStatus: string | null | undefined,
+  error: unknown,
+) {
+  return (
+    subscriptionStatus === "pending" &&
+    isMercadoPagoApiError(error) &&
+    (error.status === 400 || error.status === 404)
+  );
+}
+
 export function normalizeMercadoPagoSubscriptionStatus(
   status: string | null | undefined,
 ): NormalizedMercadoPagoSubscriptionStatus {
@@ -752,6 +763,9 @@ async function mercadoPagoApiMutation<T>(
       Accept: "application/json",
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
+      ...(method === "POST"
+        ? { "X-Idempotency-Key": randomUUID() }
+        : {}),
     },
     body: JSON.stringify(body),
     cache: "no-store",

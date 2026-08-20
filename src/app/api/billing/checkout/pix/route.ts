@@ -11,7 +11,7 @@ import {
 import { createBillingService } from "@/lib/billing/server-service";
 import { normalizeBillingManualPaymentState } from "@/lib/billing/manual-payment-status";
 import type { BillingSubscription } from "@/lib/billing/types";
-import { isMercadoPagoApiError } from "@/lib/payments/mercado-pago";
+import { canIgnorePendingSubscriptionCancellationError } from "@/lib/payments/mercado-pago";
 import {
   createRouteRequestContext,
   jsonWithRequestId,
@@ -369,7 +369,12 @@ async function replaceCurrentPendingState(input: {
           input.currentBillingSubscription.providerSubscriptionId,
         );
       } catch (error) {
-        if (!(isMercadoPagoApiError(error) && error.status === 404)) {
+        if (
+          !canIgnorePendingSubscriptionCancellationError(
+            input.currentBillingSubscription.status,
+            error,
+          )
+        ) {
           throw error;
         }
       }
