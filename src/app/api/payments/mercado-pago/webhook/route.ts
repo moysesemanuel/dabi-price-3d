@@ -61,7 +61,7 @@ export async function POST(request: Request) {
       topic: envelope.topic,
       dataId: envelope.dataId,
       providerEventId: envelope.providerEventId,
-      payload,
+      liveMode: payload?.live_mode ?? null,
     });
 
     return jsonWithRequestId(
@@ -71,6 +71,49 @@ export async function POST(request: Request) {
         code: "MP_WEBHOOK_INVALID_PAYLOAD",
       },
       { status: 400 },
+    );
+  }
+
+  const webhookSecret = getMercadoPagoWebhookSecret();
+
+  if (!webhookSecret) {
+    logRouteEvent(requestContext, "error", "mercado_pago_webhook.secret_missing", {
+      liveMode: payload?.live_mode ?? null,
+    });
+
+    return jsonWithRequestId(
+      requestContext,
+      {
+        error: "MERCADO_PAGO_WEBHOOK_SECRET é obrigatório para processar webhooks.",
+        code: "MP_WEBHOOK_SECRET_MISSING",
+      },
+      { status: 503 },
+    );
+  }
+
+  if (
+    !verifyMercadoPagoWebhookSignature({
+      xSignature,
+      xRequestId,
+      dataId: envelope.dataId,
+      secret: webhookSecret,
+    })
+  ) {
+    logRouteEvent(requestContext, "warn", "mercado_pago_webhook.signature_rejected", {
+      topic: envelope.topic,
+      dataId: envelope.dataId,
+      providerEventId: envelope.providerEventId,
+      xRequestId,
+      hasSignature: Boolean(xSignature),
+    });
+
+    return jsonWithRequestId(
+      requestContext,
+      {
+        error: "Assinatura do webhook do Mercado Pago inválida.",
+        code: "MP_WEBHOOK_INVALID_SIGNATURE",
+      },
+      { status: 401 },
     );
   }
 
@@ -94,35 +137,6 @@ export async function POST(request: Request) {
             : "MP_WEBHOOK_ACCESS_TOKEN_MISSING",
       },
       { status: 503 },
-    );
-  }
-
-  const webhookSecret = getMercadoPagoWebhookSecret();
-
-  if (
-    webhookSecret &&
-    !verifyMercadoPagoWebhookSignature({
-      xSignature,
-      xRequestId,
-      dataId: envelope.dataId,
-      secret: webhookSecret,
-    })
-  ) {
-    logRouteEvent(requestContext, "warn", "mercado_pago_webhook.signature_rejected", {
-      topic: envelope.topic,
-      dataId: envelope.dataId,
-      providerEventId: envelope.providerEventId,
-      xRequestId,
-      hasSignature: Boolean(xSignature),
-    });
-
-    return jsonWithRequestId(
-      requestContext,
-      {
-        error: "Assinatura do webhook do Mercado Pago inválida.",
-        code: "MP_WEBHOOK_INVALID_SIGNATURE",
-      },
-      { status: 401 },
     );
   }
 

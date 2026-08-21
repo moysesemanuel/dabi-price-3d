@@ -272,6 +272,10 @@ MERCADO_PAGO_TEST_ACCESS_TOKEN=
 MERCADO_PAGO_TEST_SITE_ID=MLB
 ```
 
+`MERCADO_PAGO_WEBHOOK_SECRET` e obrigatória: o endpoint de webhook rejeita
+qualquer evento se ela não estiver configurada ou se a assinatura recebida for
+inválida.
+
 Com isso:
 
 - o CTA `Garantir meu acesso` da página pública de planos abre a assinatura do plano configurado
