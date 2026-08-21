@@ -21,8 +21,8 @@ acesso ao produto.
 
 ## 1. Estado de assinatura do workspace
 
-**Prioridade:** critica  
-**Responsavel:** a definir  
+**Prioridade:** critica
+**Responsavel:** a definir
 **Status:** verificado; não requer alteração de código
 
 ### Verificação
@@ -45,8 +45,8 @@ do Mercado Pago, inclusive apos eventos atrasados, duplicados ou terminais.
 
 ## 2. Seguranca do webhook do Mercado Pago
 
-**Prioridade:** critica  
-**Responsavel:** a definir  
+**Prioridade:** critica
+**Responsavel:** a definir
 **Status:** código concluído; aguarda configuração e homologação
 
 ### Problema
@@ -73,8 +73,8 @@ eventos validos duplicados geram apenas um efeito.
 
 ## 3. Protecao de autenticacao contra abuso
 
-**Prioridade:** alta  
-**Responsavel:** a definir  
+**Prioridade:** alta
+**Responsavel:** a definir
 **Status:** código concluído; aguarda validação em infraestrutura compartilhada
 
 ### Problema
@@ -100,8 +100,8 @@ consistente em todas as instancias da aplicacao.
 
 ## 4. Validacao em homologacao
 
-**Prioridade:** alta  
-**Responsavel:** a definir  
+**Prioridade:** alta
+**Responsavel:** a definir
 **Status:** pendente; requer ambiente externo do Mercado Pago
 
 ### Cenarios obrigatorios
@@ -120,8 +120,8 @@ indevida de acesso.
 
 ## 5. Operacao e publicacao
 
-**Prioridade:** media  
-**Responsavel:** a definir  
+**Prioridade:** media
+**Responsavel:** a definir
 **Status:** runbook documentado; aguarda configuração e validação de produção
 
 ### Acoes
