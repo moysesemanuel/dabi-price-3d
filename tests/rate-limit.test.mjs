@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   consumeRateLimit,
   getClientIpAddress,
+  getRateLimitStatus,
   resetRateLimitStateForTests,
 } from "../src/lib/server/rate-limit.ts";
 
@@ -62,6 +63,55 @@ test("rate limit reseta estado entre cenarios de teste", async () => {
 
   assert.equal(afterReset.allowed, true);
   assert.equal(afterReset.remaining, 0);
+});
+
+test("login válido não consome o limite por e-mail", async () => {
+  const input = {
+    key: "login:email:owner@dabi.com",
+    maxAttempts: 5,
+    windowMs: 60_000,
+  };
+
+  const beforeLogin = await getRateLimitStatus(input);
+  const afterValidLogin = await getRateLimitStatus(input);
+
+  assert.equal(beforeLogin.allowed, true);
+  assert.equal(beforeLogin.remaining, 5);
+  assert.equal(afterValidLogin.allowed, true);
+  assert.equal(afterValidLogin.remaining, 5);
+});
+
+test("falhas consecutivas de login são limitadas por e-mail", async () => {
+  const input = {
+    key: "login:email:owner@dabi.com",
+    maxAttempts: 3,
+    windowMs: 60_000,
+  };
+
+  await consumeRateLimit(input);
+  await consumeRateLimit(input);
+  await consumeRateLimit(input);
+
+  const blocked = await getRateLimitStatus(input);
+
+  assert.equal(blocked.allowed, false);
+  assert.equal(blocked.remaining, 0);
+  assert.ok(blocked.retryAfterSeconds >= 1);
+});
+
+test("limite por IP de login permanece ativo antes da autenticação", async () => {
+  const input = {
+    key: "login:ip:203.0.113.10",
+    maxAttempts: 2,
+    windowMs: 60_000,
+  };
+
+  await consumeRateLimit(input);
+  await consumeRateLimit(input);
+  const blocked = await consumeRateLimit(input);
+
+  assert.equal(blocked.allowed, false);
+  assert.equal(blocked.remaining, 0);
 });
 
 test("getClientIpAddress prioriza x-forwarded-for", () => {

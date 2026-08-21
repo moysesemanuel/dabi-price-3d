@@ -2,7 +2,11 @@ import { cookies } from "next/headers";
 import { loginWithEmailPassword, setSessionCookie } from "@/lib/auth/session";
 import { getWorkspaceEntitlements } from "@/lib/billing/server-entitlement-service";
 import { getWorkspacePreferences } from "@/lib/server/platform";
-import { consumeRateLimit, getClientIpAddress } from "@/lib/server/rate-limit";
+import {
+  consumeRateLimit,
+  getClientIpAddress,
+  getRateLimitStatus,
+} from "@/lib/server/rate-limit";
 import { resolveDefaultWorkspaceAppPath } from "@/lib/workspace/subscription-access";
 
 type LoginRequestPayload = {
@@ -36,7 +40,7 @@ export async function POST(request: Request) {
     maxAttempts: 10,
     windowMs: 1000 * 60 * 15,
   });
-  const emailRateLimit = await consumeRateLimit({
+  const emailRateLimit = await getRateLimitStatus({
     key: `login:email:${email.toLowerCase()}`,
     maxAttempts: 5,
     windowMs: 1000 * 60 * 15,
@@ -62,6 +66,24 @@ export async function POST(request: Request) {
   const authResult = await loginWithEmailPassword({ email, password });
 
   if (!authResult) {
+    const failedEmailRateLimit = await consumeRateLimit({
+      key: `login:email:${email.toLowerCase()}`,
+      maxAttempts: 5,
+      windowMs: 1000 * 60 * 15,
+    });
+
+    if (!failedEmailRateLimit.allowed) {
+      return Response.json(
+        { error: "Muitas tentativas de acesso. Aguarde alguns minutos e tente novamente." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(failedEmailRateLimit.retryAfterSeconds),
+          },
+        },
+      );
+    }
+
     return Response.json(
       { error: "E-mail ou senha inválidos." },
       { status: 401 },

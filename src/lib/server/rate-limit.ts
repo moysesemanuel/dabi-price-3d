@@ -37,6 +37,16 @@ export async function consumeRateLimit(
   return consumeInMemoryRateLimit(input);
 }
 
+export async function getRateLimitStatus(
+  input: ConsumeRateLimitInput,
+): Promise<ConsumeRateLimitResult> {
+  if (hasDatabaseUrl()) {
+    return getDatabaseRateLimitStatus(input);
+  }
+
+  return getInMemoryRateLimitStatus(input);
+}
+
 function consumeInMemoryRateLimit(
   input: ConsumeRateLimitInput,
 ): ConsumeRateLimitResult {
@@ -74,6 +84,30 @@ function consumeInMemoryRateLimit(
 
   return {
     allowed: true,
+    remaining: Math.max(0, input.maxAttempts - currentWindow.count),
+    retryAfterSeconds: Math.max(
+      1,
+      Math.ceil((currentWindow.resetAt - now) / 1000),
+    ),
+  };
+}
+
+function getInMemoryRateLimitStatus(
+  input: ConsumeRateLimitInput,
+): ConsumeRateLimitResult {
+  const now = Date.now();
+  const currentWindow = rateLimitWindows.get(input.key);
+
+  if (!currentWindow || currentWindow.resetAt <= now) {
+    return {
+      allowed: true,
+      remaining: input.maxAttempts,
+      retryAfterSeconds: Math.ceil(input.windowMs / 1000),
+    };
+  }
+
+  return {
+    allowed: currentWindow.count < input.maxAttempts,
     remaining: Math.max(0, input.maxAttempts - currentWindow.count),
     retryAfterSeconds: Math.max(
       1,
@@ -129,6 +163,41 @@ async function consumeDatabaseRateLimit(
     allowed: attempts <= input.maxAttempts,
     remaining: Math.max(0, input.maxAttempts - attempts),
     retryAfterSeconds,
+  };
+}
+
+async function getDatabaseRateLimitStatus(
+  input: ConsumeRateLimitInput,
+): Promise<ConsumeRateLimitResult> {
+  await ensureRateLimitStore();
+
+  const sql = getSql();
+  const keyHash = createHash("sha256").update(input.key).digest("hex");
+  const rows = (await sql`
+    SELECT attempts, reset_at
+    FROM api_rate_limits
+    WHERE rate_limit_key = ${keyHash}
+  `) as Array<{ attempts: number; reset_at: string }>;
+  const result = rows[0];
+  const now = Date.now();
+
+  if (!result || new Date(result.reset_at).getTime() <= now) {
+    return {
+      allowed: true,
+      remaining: input.maxAttempts,
+      retryAfterSeconds: Math.ceil(input.windowMs / 1000),
+    };
+  }
+
+  const attempts = Number(result.attempts);
+
+  return {
+    allowed: attempts < input.maxAttempts,
+    remaining: Math.max(0, input.maxAttempts - attempts),
+    retryAfterSeconds: Math.max(
+      1,
+      Math.ceil((new Date(result.reset_at).getTime() - now) / 1000),
+    ),
   };
 }
 

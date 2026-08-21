@@ -15,11 +15,11 @@ import {
 } from "../src/lib/payments/mercado-pago.ts";
 import { getWorkspacePlan } from "../src/lib/workspace/catalog.ts";
 
-test("aceita assinatura de webhook recente e rejeita timestamp expirado", () => {
+test("aceita assinatura de webhook com HMAC válido independentemente da idade do ts", () => {
   const dataId = "payment-123";
   const requestId = "request-123";
   const secret = "webhook-secret";
-  const timestamp = "1786622400";
+  const timestamp = "1";
   const signature = createHmac("sha256", secret)
     .update(`id:${dataId};request-id:${requestId};ts:${timestamp};`)
     .digest("hex");
@@ -29,14 +29,35 @@ test("aceita assinatura de webhook recente e rejeita timestamp expirado", () => 
     xRequestId: requestId,
     dataId,
     secret,
-    now: new Date("2026-08-13T12:00:00.000Z"),
   };
 
   assert.equal(verifyMercadoPagoWebhookSignature(input), true);
+});
+
+test("rejeita HMAC inválido e segredo ausente de forma segura", () => {
+  const dataId = "payment-123";
+  const requestId = "request-123";
+  const secret = "webhook-secret";
+  const timestamp = "1";
+  const signature = createHmac("sha256", secret)
+    .update(`id:${dataId};request-id:${requestId};ts:${timestamp};`)
+    .digest("hex");
+
   assert.equal(
     verifyMercadoPagoWebhookSignature({
-      ...input,
-      now: new Date("2026-08-13T12:06:00.000Z"),
+      xSignature: `ts=${timestamp},v1=invalid-${signature}`,
+      xRequestId: requestId,
+      dataId,
+      secret,
+    }),
+    false,
+  );
+  assert.equal(
+    verifyMercadoPagoWebhookSignature({
+      xSignature: `ts=${timestamp},v1=${signature}`,
+      xRequestId: requestId,
+      dataId,
+      secret: "",
     }),
     false,
   );

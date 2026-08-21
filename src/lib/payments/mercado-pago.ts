@@ -657,8 +657,6 @@ export function verifyMercadoPagoWebhookSignature(input: {
   xRequestId: string | null;
   dataId: string;
   secret: string;
-  now?: Date;
-  maxAgeMs?: number;
 }) {
   const xSignature = normalizeOptionalString(input.xSignature);
   const xRequestId = normalizeOptionalString(input.xRequestId);
@@ -679,21 +677,6 @@ export function verifyMercadoPagoWebhookSignature(input: {
   const expectedDigest = normalizeOptionalString(signatureParts.v1);
 
   if (!ts || !expectedDigest) {
-    return false;
-  }
-
-  const timestampSeconds = Number(ts);
-  const timestampMs = timestampSeconds * 1000;
-  const nowMs = input.now?.getTime() ?? Date.now();
-  const maxAgeMs = input.maxAgeMs ?? 5 * 60 * 1000;
-
-  if (
-    !Number.isFinite(timestampMs) ||
-    !Number.isFinite(nowMs) ||
-    !Number.isFinite(maxAgeMs) ||
-    maxAgeMs < 0 ||
-    Math.abs(nowMs - timestampMs) > maxAgeMs
-  ) {
     return false;
   }
 
