@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import test from "node:test";
 
 import {
@@ -10,8 +11,57 @@ import {
   resolvePendingSubscriptionRecovery,
   canIgnorePendingSubscriptionCancellationError,
   MercadoPagoApiError,
+  verifyMercadoPagoWebhookSignature,
 } from "../src/lib/payments/mercado-pago.ts";
 import { getWorkspacePlan } from "../src/lib/workspace/catalog.ts";
+
+test("aceita assinatura de webhook com HMAC válido independentemente da idade do ts", () => {
+  const dataId = "payment-123";
+  const requestId = "request-123";
+  const secret = "webhook-secret";
+  const timestamp = "1";
+  const signature = createHmac("sha256", secret)
+    .update(`id:${dataId};request-id:${requestId};ts:${timestamp};`)
+    .digest("hex");
+
+  const input = {
+    xSignature: `ts=${timestamp},v1=${signature}`,
+    xRequestId: requestId,
+    dataId,
+    secret,
+  };
+
+  assert.equal(verifyMercadoPagoWebhookSignature(input), true);
+});
+
+test("rejeita HMAC inválido e segredo ausente de forma segura", () => {
+  const dataId = "payment-123";
+  const requestId = "request-123";
+  const secret = "webhook-secret";
+  const timestamp = "1";
+  const signature = createHmac("sha256", secret)
+    .update(`id:${dataId};request-id:${requestId};ts:${timestamp};`)
+    .digest("hex");
+
+  assert.equal(
+    verifyMercadoPagoWebhookSignature({
+      xSignature: `ts=${timestamp},v1=invalid-${signature}`,
+      xRequestId: requestId,
+      dataId,
+      secret,
+    }),
+    false,
+  );
+  assert.equal(
+    verifyMercadoPagoWebhookSignature({
+      xSignature: `ts=${timestamp},v1=${signature}`,
+      xRequestId: requestId,
+      dataId,
+      secret: "",
+    }),
+    false,
+  );
+});
 
 test("monta payload de checkout pendente sem plano associado", () => {
   const starterPlan = getWorkspacePlan("starter");

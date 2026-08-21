@@ -30,12 +30,12 @@ export async function POST(request: Request) {
   }
 
   const clientIp = getClientIpAddress(request);
-  const ipRateLimit = consumeRateLimit({
+  const ipRateLimit = await consumeRateLimit({
     key: `password-recovery:reset:ip:${clientIp}`,
     maxAttempts: 8,
     windowMs: 1000 * 60 * 15,
   });
-  const tokenRateLimit = consumeRateLimit({
+  const tokenRateLimit = await consumeRateLimit({
     key: `password-recovery:reset:token:${token}`,
     maxAttempts: 5,
     windowMs: 1000 * 60 * 30,

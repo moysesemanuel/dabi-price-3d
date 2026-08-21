@@ -10,12 +10,12 @@ export async function GET(request: Request) {
   }
 
   const clientIp = getClientIpAddress(request);
-  const ipRateLimit = consumeRateLimit({
+  const ipRateLimit = await consumeRateLimit({
     key: `password-recovery:verify:ip:${clientIp}`,
     maxAttempts: 20,
     windowMs: 1000 * 60 * 15,
   });
-  const tokenRateLimit = consumeRateLimit({
+  const tokenRateLimit = await consumeRateLimit({
     key: `password-recovery:verify:token:${token}`,
     maxAttempts: 12,
     windowMs: 1000 * 60 * 15,
