@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import test from "node:test";
 
 import {
@@ -10,8 +11,36 @@ import {
   resolvePendingSubscriptionRecovery,
   canIgnorePendingSubscriptionCancellationError,
   MercadoPagoApiError,
+  verifyMercadoPagoWebhookSignature,
 } from "../src/lib/payments/mercado-pago.ts";
 import { getWorkspacePlan } from "../src/lib/workspace/catalog.ts";
+
+test("aceita assinatura de webhook recente e rejeita timestamp expirado", () => {
+  const dataId = "payment-123";
+  const requestId = "request-123";
+  const secret = "webhook-secret";
+  const timestamp = "1786622400";
+  const signature = createHmac("sha256", secret)
+    .update(`id:${dataId};request-id:${requestId};ts:${timestamp};`)
+    .digest("hex");
+
+  const input = {
+    xSignature: `ts=${timestamp},v1=${signature}`,
+    xRequestId: requestId,
+    dataId,
+    secret,
+    now: new Date("2026-08-13T12:00:00.000Z"),
+  };
+
+  assert.equal(verifyMercadoPagoWebhookSignature(input), true);
+  assert.equal(
+    verifyMercadoPagoWebhookSignature({
+      ...input,
+      now: new Date("2026-08-13T12:06:00.000Z"),
+    }),
+    false,
+  );
+});
 
 test("monta payload de checkout pendente sem plano associado", () => {
   const starterPlan = getWorkspacePlan("starter");
