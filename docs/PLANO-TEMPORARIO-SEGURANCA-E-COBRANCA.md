@@ -102,7 +102,7 @@ consistente em todas as instancias da aplicacao.
 
 **Prioridade:** alta  
 **Responsavel:** a definir  
-**Status:** pendente
+**Status:** pendente; requer ambiente externo do Mercado Pago
 
 ### Cenarios obrigatorios
 
@@ -122,23 +122,63 @@ indevida de acesso.
 
 **Prioridade:** media  
 **Responsavel:** a definir  
-**Status:** pendente
+**Status:** runbook documentado; aguarda configuração e validação de produção
 
 ### Acoes
 
-- [ ] Documentar variaveis obrigatorias de producao, incluindo segredo do
-  webhook e credenciais do Mercado Pago.
-- [ ] Criar alertas para falhas de webhook, falhas de reconciliacao e
-  divergencias entre assinatura e acesso.
-- [ ] Definir runbook para pagamentos pendentes, eventos falhos e estados
-  inconsistentes.
-- [ ] Revisar logs para evitar exposicao de dados sensiveis.
+- [x] Documentar variáveis obrigatórias de produção em `.env.example`,
+  incluindo `MERCADO_PAGO_WEBHOOK_SECRET` e `CRON_SECRET`.
+- [x] Confirmar o console existente de eventos e backlog em `/admin/eventos`
+  e `/admin/sistema`.
+- [x] Definir o runbook abaixo para pagamentos pendentes, eventos falhos e
+  estados inconsistentes.
+- [x] Remover o payload bruto dos logs de erro de webhook.
+- [ ] Configurar alertas externos a partir dos logs e do backlog operacional.
+- [ ] Confirmar no provedor de deploy que os jobs e variáveis estão ativos.
 - [ ] Concluir revisao de seguranca antes da publicacao.
 
 ### Criterio de aceite
 
 A equipe consegue identificar, diagnosticar e corrigir falhas de cobranca sem
 alterar manualmente o acesso de forma insegura.
+
+## Runbook operacional
+
+### Rotina
+
+- Acompanhar `/admin/sistema` e `/admin/eventos` ao menos uma vez por dia útil.
+- Investigar imediatamente qualquer `webhook_processing_failed` ou backlog de
+  reconciliação diferente de zero.
+- Confirmar que os jobs externos usam `Authorization: Bearer <CRON_SECRET>`:
+  `maintenance` a cada 15 minutos, `provider-reconciliation` a cada 6 horas e
+  `abandoned-checkouts` diariamente às 03:05.
+
+### Pagamento confirmado sem acesso
+
+1. Localizar a invoice e a assinatura em `/admin/assinaturas`.
+2. Conferir o evento correspondente em `/admin/eventos` e o ID do pagamento
+   no Mercado Pago.
+3. Executar ou aguardar a reconciliação do provider; não conceder acesso
+   manualmente enquanto o estado do pagamento não estiver confirmado.
+4. Se for necessário usar `accessUntil` como exceção, registrar a justificativa
+   no histórico administrativo e remover a exceção após a reconciliação.
+
+### Webhook recusado ou falho
+
+1. Para `MP_WEBHOOK_SECRET_MISSING`, configurar o segredo no ambiente e
+   reenviar o evento pelo Mercado Pago.
+2. Para `MP_WEBHOOK_INVALID_SIGNATURE`, confirmar o segredo e a URL cadastrada
+   no Mercado Pago. Não desabilitar a validação como forma de contingência.
+3. Para falha de processamento, consultar o `requestId`, o evento no painel e
+   executar a reconciliação depois de corrigir a causa.
+
+### Falha de cron ou reconciliação
+
+1. Verificar se `CRON_SECRET` existe e se o agendador envia o header `Bearer`.
+2. Consultar a entrega no QStash e a resposta HTTP do endpoint de cron.
+3. Corrigir a configuração e reexecutar apenas o job afetado.
+4. Registrar o incidente quando houver alteração de acesso, pagamento ou dado
+   comercial.
 
 ## Condicao para remocao deste arquivo
 
