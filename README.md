@@ -126,6 +126,10 @@ Há rate limit nas rotas de recuperação:
 - verificação por IP e token
 - redefinição por IP e token
 
+Login e cadastro também são limitados por IP e e-mail. Com `DATABASE_URL`, os
+contadores são compartilhados entre as instâncias da aplicação; sem banco, o
+modo local usa apenas memória de processo.
+
 ### E-mail transacional
 
 Para envio real de e-mail na recuperação, configure:

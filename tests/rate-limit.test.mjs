@@ -10,23 +10,23 @@ test.beforeEach(() => {
   resetRateLimitStateForTests();
 });
 
-test("rate limit bloqueia apos exceder a janela", () => {
-  const first = consumeRateLimit({
+test("rate limit bloqueia apos exceder a janela", async () => {
+  const first = await consumeRateLimit({
     key: "recovery:ip:127.0.0.1",
     maxAttempts: 3,
     windowMs: 60_000,
   });
-  const second = consumeRateLimit({
+  const second = await consumeRateLimit({
     key: "recovery:ip:127.0.0.1",
     maxAttempts: 3,
     windowMs: 60_000,
   });
-  const third = consumeRateLimit({
+  const third = await consumeRateLimit({
     key: "recovery:ip:127.0.0.1",
     maxAttempts: 3,
     windowMs: 60_000,
   });
-  const blocked = consumeRateLimit({
+  const blocked = await consumeRateLimit({
     key: "recovery:ip:127.0.0.1",
     maxAttempts: 3,
     windowMs: 60_000,
@@ -43,8 +43,8 @@ test("rate limit bloqueia apos exceder a janela", () => {
   assert.ok(blocked.retryAfterSeconds >= 1);
 });
 
-test("rate limit reseta estado entre cenarios de teste", () => {
-  const allowed = consumeRateLimit({
+test("rate limit reseta estado entre cenarios de teste", async () => {
+  const allowed = await consumeRateLimit({
     key: "recovery:token:abc",
     maxAttempts: 1,
     windowMs: 60_000,
@@ -54,7 +54,7 @@ test("rate limit reseta estado entre cenarios de teste", () => {
 
   resetRateLimitStateForTests();
 
-  const afterReset = consumeRateLimit({
+  const afterReset = await consumeRateLimit({
     key: "recovery:token:abc",
     maxAttempts: 1,
     windowMs: 60_000,

@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { loginWithEmailPassword, setSessionCookie } from "@/lib/auth/session";
 import { getWorkspaceEntitlements } from "@/lib/billing/server-entitlement-service";
 import { getWorkspacePreferences } from "@/lib/server/platform";
+import { consumeRateLimit, getClientIpAddress } from "@/lib/server/rate-limit";
 import { resolveDefaultWorkspaceAppPath } from "@/lib/workspace/subscription-access";
 
 type LoginRequestPayload = {
@@ -26,6 +27,35 @@ export async function POST(request: Request) {
     return Response.json(
       { error: "Informe e-mail e senha para entrar." },
       { status: 400 },
+    );
+  }
+
+  const clientIp = getClientIpAddress(request);
+  const ipRateLimit = await consumeRateLimit({
+    key: `login:ip:${clientIp}`,
+    maxAttempts: 10,
+    windowMs: 1000 * 60 * 15,
+  });
+  const emailRateLimit = await consumeRateLimit({
+    key: `login:email:${email.toLowerCase()}`,
+    maxAttempts: 5,
+    windowMs: 1000 * 60 * 15,
+  });
+
+  if (!ipRateLimit.allowed || !emailRateLimit.allowed) {
+    const retryAfterSeconds = Math.max(
+      ipRateLimit.retryAfterSeconds,
+      emailRateLimit.retryAfterSeconds,
+    );
+
+    return Response.json(
+      { error: "Muitas tentativas de acesso. Aguarde alguns minutos e tente novamente." },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(retryAfterSeconds),
+        },
+      },
     );
   }
 
