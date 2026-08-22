@@ -226,9 +226,9 @@ Validação em Production e Preview entre 21/08/2026 e 22/08/2026:
   do workspace B. A tentativa de B excluir o ID de A não alterou o registro;
   a resposta idempotente inicial de `200` foi corrigida para `404`, antes de
   qualquer exclusão ou evento de auditoria, e revalidada no Preview.
-- As contas e workspaces descartáveis deste teste, incluindo as duas tentativas
-  sem checkout causadas pelo domínio `.invalid`, ainda precisam ser removidos
-  pela administração do banco após limpar as exceções de `accessUntil`.
+- As exceções de `accessUntil`, contas, workspaces e registros descartáveis
+  deste teste, incluindo as duas tentativas sem checkout causadas pelo domínio
+  `.invalid`, foram removidos pela administração do banco após a validação.
 
 ## Critério de aceite
 
