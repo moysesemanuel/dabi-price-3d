@@ -100,6 +100,29 @@ test("convite local ativa membro por token e permite login com a nova senha", ()
   assert.equal(activatedMember?.userStatus, "active");
 });
 
+test("token local de redefinicao expirado nao pode ser verificado nem consumido", () => {
+  const issuedToken = createLocalDevelopmentPasswordResetToken({
+    email: bootstrapConfig.email,
+  });
+
+  assert.ok(issuedToken);
+  const originalDateNow = Date.now;
+  Date.now = () => new Date(issuedToken.expiresAt).getTime();
+
+  try {
+    assert.equal(verifyLocalDevelopmentPasswordResetToken(issuedToken.token), null);
+    assert.equal(
+      consumeLocalDevelopmentPasswordResetToken({
+        token: issuedToken.token,
+        password: buildTestPassword("expired"),
+      }),
+      null,
+    );
+  } finally {
+    Date.now = originalDateNow;
+  }
+});
+
 test("owner local pode ser transferido para outro membro", () => {
   const invitedMember = inviteLocalDevelopmentWorkspaceMember({
     fullName: "Gestora Local",

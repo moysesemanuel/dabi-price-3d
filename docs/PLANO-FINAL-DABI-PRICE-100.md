@@ -178,8 +178,8 @@ Provar em infraestrutura real que o hardening já implementado funciona corretam
 - [x] Recuperação de senha protegida.
 - [x] Reset protegido.
 - [x] Token inválido tratado.
-- [ ] Token expirado tratado.
-- [ ] Sessão expirada tratada.
+- [x] Token expirado tratado.
+- [x] Sessão expirada tratada.
 - [x] Logout invalidando sessão corretamente.
 - [x] Cookie com configuração segura em produção.
 
