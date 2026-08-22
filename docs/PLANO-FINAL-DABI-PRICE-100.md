@@ -847,6 +847,14 @@ Sentry + e-mail
 
 ou equivalente.
 
+## Bloqueio operacional
+
+- O repositório não contém integração ou credencial de Sentry, PagerDuty,
+  Datadog, Slack ou serviço equivalente. Há logs estruturados, `requestId` e
+  backlog administrativo para diagnóstico, mas eles não enviam alertas por si
+  só. A conclusão desta fase requer escolher o provedor, conceder acesso e
+  configurar o canal de destino na infraestrutura externa.
+
 ## Critério de aceite
 
 Falhas críticas geram alerta sem depender de abrir manualmente o painel administrativo.
