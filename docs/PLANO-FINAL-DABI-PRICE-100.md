@@ -494,6 +494,11 @@ Onde necessário:
   subscription, subscription change, auditoria e a projeção de preferências;
   uma correção segura requer uma fronteira transacional/claim de domínio
   desenhada para todos esses efeitos, não um update condicional isolado.
+- O cliente HTTP do Neon suporta transações não interativas. Como as rotinas
+  de billing precisam consultar o Mercado Pago entre alterações de estado, um
+  lock de banco isolado não cobre o fluxo inteiro. A próxima implementação
+  deve introduzir claim durável de invoice com recuperação de processamento
+  interrompido antes de marcar esses cenários como seguros.
 
 ## Critério de aceite
 
@@ -948,7 +953,7 @@ git diff --check
 - A suíte atual cobre regras de precificação, estado e entitlement, Billing
   Service, adaptadores Mercado Pago, webhooks, recuperação/autenticação local,
   controle de acesso e jobs de reconciliação. Em 22/08/2026, `lint`,
-  `typecheck`, `test:pricing` (198 testes), `build:webpack` e
+  `typecheck`, `test:pricing` (202 testes), `build:webpack` e
   `git diff --check` passaram.
 - Testes contra banco real, E2E de browser e homologações externas não foram
   marcados: eles precisam da infraestrutura e dos fluxos manuais definidos nas
