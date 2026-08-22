@@ -82,6 +82,9 @@ function createDependencies(overrides = {}) {
     async collectOperationalFindings() {
       return [{ code: "webhook_processing_failed" }];
     },
+    async runProviderReconciliation() {
+      return { processed: 3, changed: 1, findings: 1, steps: {} };
+    },
     async getSubscriptionRecord() {
       return {
         subscriptionId: "sub-1",
@@ -244,4 +247,21 @@ test("inspectProviderState consulta o provider remoto e audita a inspeção", as
 
   assert.equal(inspection.remoteSubscription.providerSubscriptionId, "mp-sub-1");
   assert.equal(dependencies.auditEvents[0]?.action, "subscription.provider_inspected");
+});
+
+test("super admin dispara reconciliacao limitada e auditada", async () => {
+  const dependencies = createDependencies();
+  const service = new BillingAdminService(dependencies);
+
+  const result = await service.runProviderReconciliation({
+    session: createSession(),
+  });
+
+  assert.deepEqual(result, { processed: 3, changed: 1, findings: 1, steps: {} });
+  assert.deepEqual(dependencies.auditEvents[0], {
+    actorType: "super_admin",
+    actorId: "user-1",
+    action: "billing.provider_reconciliation_requested",
+    metadata: { limit: 20, processed: 3, changed: 1, findings: 1 },
+  });
 });

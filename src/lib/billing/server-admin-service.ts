@@ -21,9 +21,11 @@ import {
   updateBillingSubscription,
 } from "./repository.ts";
 import { createBillingReconciliationService } from "./server-reconciliation-service.ts";
+import { createBillingReconciliationRunner } from "./server-reconciliation-runner.ts";
 
 export function createBillingAdminService() {
   const reconciliationService = createBillingReconciliationService();
+  const reconciliationRunner = createBillingReconciliationRunner();
 
   return new BillingAdminService({
     isPersistenceEnabled: isPlatformPersistenceAvailable,
@@ -37,6 +39,9 @@ export function createBillingAdminService() {
     async collectOperationalFindings(limit) {
       const result = await reconciliationService.collectOperationalFindings(limit);
       return result.findings;
+    },
+    runProviderReconciliation(limit) {
+      return reconciliationRunner.runProviderReconciliation(limit);
     },
     getSubscriptionRecord: getBillingAdminSubscriptionRecord,
     getSubscriptionById: getBillingSubscriptionById,

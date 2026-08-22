@@ -499,7 +499,7 @@ Permitir operação segura sem acesso direto ao banco.
 - [x] Visualizar auditoria.
 - [x] Visualizar mudanças de plano.
 - [x] Visualizar backlog.
-- [ ] Disparar reconciliação segura.
+- [x] Disparar reconciliação segura.
 - [ ] Cancelar assinatura administrativamente.
 - [ ] Visualizar divergência DaBi × Mercado Pago.
 - [ ] Corrigir exceções por fluxo controlado.
