@@ -79,8 +79,8 @@ Garantir que produção não dependa de configuração implícita, local ou não
 - [ ] `MERCADO_PAGO_TEST_ACCESS_TOKEN`, onde aplicável
 - [ ] `MERCADO_PAGO_TEST_SITE_ID`
 - [ ] `CRON_SECRET`
-- [ ] `RESEND_API_KEY`
-- [ ] `AUTH_EMAIL_FROM`
+- [x] `RESEND_API_KEY`
+- [x] `AUTH_EMAIL_FROM`
 - [ ] `BLOB_READ_WRITE_TOKEN`
 - [ ] `MELI_CLIENT_ID`
 - [ ] `MELI_CLIENT_SECRET`
@@ -92,7 +92,7 @@ Garantir que produção não dependa de configuração implícita, local ou não
 ## Configuração
 
 - [ ] Separar claramente Development / Preview / Production.
-- [ ] Confirmar que nenhum secret está exposto como `NEXT_PUBLIC_*`.
+- [x] Confirmar que nenhum secret está exposto como `NEXT_PUBLIC_*`.
 - [ ] Remover variáveis mortas.
 - [ ] Confirmar HTTPS em URLs externas.
 - [ ] Verificar que Deployment Protection da Vercel não bloqueia providers externos necessários.
@@ -137,8 +137,11 @@ Verificação em 21/08/2026:
   Vercel após autorização explícita.
 - As variáveis `ECOMMERCE_*` presentes na Vercel não têm referência no
   repositório e precisam de confirmação de propriedade antes de remoção.
-- `RESEND_API_KEY` e `AUTH_EMAIL_FROM` não estão configuradas na Vercel;
-  recuperação de senha por e-mail real permanece pendente.
+- Recuperação de senha foi validada ponta a ponta com Resend: o envio foi
+  aceito, recebido no Gmail, o token abriu a redefinição, a senha foi alterada
+  e o login remoto funcionou. O remetente `onboarding@resend.dev` permanece
+  limitado ao e-mail da conta Resend; um domínio próprio verificado continua
+  necessário antes do envio para usuários finais.
 - A execução automática dos três jobs depende de acesso ao QStash ou de
   evidência de entregas recentes.
 
