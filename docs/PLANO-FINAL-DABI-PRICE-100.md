@@ -500,7 +500,7 @@ Permitir operação segura sem acesso direto ao banco.
 - [x] Visualizar mudanças de plano.
 - [x] Visualizar backlog.
 - [x] Disparar reconciliação segura.
-- [ ] Cancelar assinatura administrativamente.
+- [x] Cancelar assinatura administrativamente.
 - [ ] Visualizar divergência DaBi × Mercado Pago.
 - [ ] Corrigir exceções por fluxo controlado.
 - [x] Atualizar `accessUntil` com justificativa.

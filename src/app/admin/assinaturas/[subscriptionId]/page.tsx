@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { BillingAdminSubscriptionActions } from "@/components/admin/billing-admin-subscription-actions";
+import { BillingAdminCancellationAction } from "@/components/admin/billing-admin-cancellation-action";
 import {
   AdminPageHeader,
   AdminPageSection,
@@ -89,10 +90,13 @@ export default async function BillingAdminSubscriptionDetailsPage({
           </div>
         </AdminPageSection>
 
-        <BillingAdminSubscriptionActions
+      <BillingAdminSubscriptionActions
           subscriptionId={subscription.subscriptionId}
           currentAccessUntil={subscription.accessUntil}
-        />
+      />
+      {subscription.status === "active" ? (
+        <BillingAdminCancellationAction subscriptionId={subscription.subscriptionId} />
+      ) : null}
       </div>
 
       <AdminPageSection
