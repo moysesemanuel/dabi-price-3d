@@ -449,7 +449,7 @@ Eliminar condições de corrida capazes de produzir estado comercial inválido.
 - [x] webhook vs webhook
 - [ ] webhook vs reconciliation
 - [ ] reconciliation vs reconciliation
-- [ ] checkout simultâneo
+- [x] checkout simultâneo
 - [ ] upgrade simultâneo
 - [ ] downgrade simultâneo
 - [ ] cancelamento vs pagamento
@@ -484,6 +484,16 @@ Onde necessário:
 - A suíte executa dez entregas concorrentes do mesmo evento `approved` e
   confirma uma única atualização de assinatura; as nove restantes recebem
   `200` como entrega duplicada em processamento, sem novo efeito.
+- Checkout recorrente e Pix usam a mesma reivindicação atômica em
+  `workspace_preferences`: somente a primeira requisição do workspace grava
+  `checkoutStartedAt`; as concorrentes recebem `409` até a liberação ou o
+  vencimento controlado de dez minutos. Isso impede a criação simultânea de
+  novas assinaturas e invoices locais antes da chamada ao provider.
+- Webhook versus reconciliação, reconciliações concorrentes e mutações de
+  assinatura versus pagamento continuam abertos. Eles atravessam invoice,
+  subscription, subscription change, auditoria e a projeção de preferências;
+  uma correção segura requer uma fronteira transacional/claim de domínio
+  desenhada para todos esses efeitos, não um update condicional isolado.
 
 ## Critério de aceite
 
