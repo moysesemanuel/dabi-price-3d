@@ -157,10 +157,10 @@ Provar em infraestrutura real que o hardening já implementado funciona corretam
 ## Webhook Mercado Pago
 
 - [ ] Assinatura válida é aceita.
-- [ ] Assinatura inválida retorna `401`.
-- [ ] Ausência de assinatura é rejeitada.
+- [x] Assinatura inválida retorna `401`.
+- [x] Ausência de assinatura é rejeitada.
 - [ ] Ausência de `MERCADO_PAGO_WEBHOOK_SECRET` falha de forma segura.
-- [ ] Payload inválido é rejeitado.
+- [x] Payload inválido é rejeitado.
 - [ ] Evento duplicado produz um único efeito.
 - [ ] Nenhum payload bruto sensível aparece nos logs.
 - [ ] Nenhum token aparece nos logs.
@@ -168,12 +168,12 @@ Provar em infraestrutura real que o hardening já implementado funciona corretam
 
 ## Autenticação
 
-- [ ] Brute force por IP limitado.
-- [ ] Brute force por e-mail limitado.
-- [ ] Login correto não bloqueia indevidamente o usuário.
+- [x] Brute force por IP limitado.
+- [x] Brute force por e-mail limitado.
+- [x] Login correto não bloqueia indevidamente o usuário.
 - [ ] Múltiplas instâncias compartilham o contador.
-- [ ] Bloqueio retorna `429`.
-- [ ] Resposta inclui `Retry-After`.
+- [x] Bloqueio retorna `429`.
+- [x] Resposta inclui `Retry-After`.
 - [ ] Cadastro protegido.
 - [ ] Recuperação de senha protegida.
 - [ ] Reset protegido.
@@ -191,6 +191,19 @@ Provar em infraestrutura real que o hardening já implementado funciona corretam
 - [ ] Acesso direto por URL não contorna autorização.
 - [ ] Usuário de um workspace não lê outro workspace.
 - [ ] Operações cross-workspace indevidas são bloqueadas.
+
+## Registro de execução
+
+Validação em produção em 21/08/2026:
+
+- Seis falhas para o mesmo e-mail sintético retornaram cinco `401` e um `429`
+  com `Retry-After`.
+- Tentativas com e-mails sintéticos distintos atingiram o limite por IP e
+  retornaram `429` com `Retry-After`.
+- O login válido do super admin foi confirmado após a redefinição de senha.
+- Webhook com payload inválido retornou `400`; payload válido com HMAC inválido
+  ou sem `x-signature` retornou `401`, antes de qualquer consulta ao provider.
+- Cron sem `Authorization` retornou `401`.
 
 ## Critério de aceite
 
