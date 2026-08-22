@@ -156,12 +156,12 @@ Provar em infraestrutura real que o hardening já implementado funciona corretam
 
 ## Webhook Mercado Pago
 
-- [ ] Assinatura válida é aceita.
+- [x] Assinatura válida é aceita.
 - [x] Assinatura inválida retorna `401`.
 - [x] Ausência de assinatura é rejeitada.
-- [ ] Ausência de `MERCADO_PAGO_WEBHOOK_SECRET` falha de forma segura.
+- [x] Ausência de `MERCADO_PAGO_WEBHOOK_SECRET` falha de forma segura.
 - [x] Payload inválido é rejeitado.
-- [ ] Evento duplicado produz um único efeito.
+- [x] Evento duplicado produz um único efeito.
 - [x] Nenhum payload bruto sensível aparece nos logs.
 - [x] Nenhum token aparece nos logs.
 - [ ] Evento válido aparece na superfície administrativa correspondente.
@@ -237,6 +237,10 @@ Validação em Production e Preview entre 21/08/2026 e 22/08/2026:
 - O consumo persistente de token de recuperação passou a executar como uma
   única operação atômica: valida validade e uso prévio, atualiza senha/status e
   invalida sessões sem permitir que duas requisições reutilizem o mesmo token.
+- A suíte automatizada cobre HMAC SHA-256 válido mesmo com `ts` antigo,
+  ausência de secret, assinatura inválida e o curto-circuito idempotente de
+  webhooks já processados. A confirmação de ponta a ponta com evento real
+  permanece na Fase 3.
 
 ## Critério de aceite
 
