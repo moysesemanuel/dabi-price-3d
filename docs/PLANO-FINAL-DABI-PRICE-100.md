@@ -930,7 +930,7 @@ git diff --check
 - [ ] Autorização.
 - [ ] IDOR.
 - [ ] Mass assignment.
-- [ ] Open redirect.
+- [x] Open redirect.
 - [ ] Validação de inputs.
 - [ ] SQL.
 - [ ] Upload.
@@ -969,6 +969,8 @@ git diff --check
   `Referrer-Policy` e `Permissions-Policy` globalmente. CSP permanece fora
   desta alteração por exigir inventário das integrações externas antes de ser
   restritiva.
+- O login só aceita `next` iniciado por `/app`; valores externos retornam ao
+  caminho interno calculado pela situação de entitlement e onboarding.
 
 ## Critério de aceite
 
