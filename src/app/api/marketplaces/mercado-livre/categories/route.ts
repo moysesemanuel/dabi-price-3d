@@ -9,6 +9,7 @@ import {
   createRouteRequestContext,
   jsonWithRequestId,
   logRouteEvent,
+  serializeError,
 } from "@/lib/server/route-observability";
 
 type MercadoLivreDomainDiscoveryItem = {
@@ -58,22 +59,13 @@ export async function GET(request: Request) {
     logRouteEvent(requestContext, "error", "meli.categories.lookup_failed", {
       categoryId,
       query,
-      error:
-        error instanceof Error
-          ? {
-              name: error.name,
-              message: error.message,
-            }
-          : String(error),
+      error: serializeError(error),
     });
 
     return jsonWithRequestId(
       requestContext,
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Falha ao carregar categorias do Mercado Livre.",
+        error: GENERIC_CATEGORIES_ERROR,
         code: "MELI_CATEGORIES_LOOKUP_FAILED",
       },
       { status: 502 },

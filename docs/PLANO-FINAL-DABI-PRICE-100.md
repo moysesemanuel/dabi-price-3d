@@ -1005,6 +1005,10 @@ git diff --check
   detalhes e stacks são limitados aos logs sanitizados. O SQL usa o cliente
   parametrizado `@neondatabase/serverless`, sem interpolação de entrada em
   strings de query.
+- A consulta de categorias do Mercado Livre passou a registrar exceções pelo
+  sanitizador central e a retornar somente a mensagem pública genérica. Assim,
+  uma falha de upstream não pode devolver nem registrar mensagem bruta que
+  contenha detalhes operacionais ou credenciais.
 
 ## Critério de aceite
 
