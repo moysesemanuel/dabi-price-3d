@@ -912,7 +912,7 @@ git diff --check
 - [ ] Stack traces.
 - [ ] Mensagens de erro.
 - [ ] Logs.
-- [ ] PII.
+- [x] PII.
 - [ ] Dependências vulneráveis.
 - [x] Rotas de debug/teste esquecidas.
 - [ ] Todas as rotas `/api`.
@@ -936,6 +936,9 @@ git diff --check
 - `.env.example` relaciona todas as integrações operacionais sem valores
   efetivos. A árvore versionada de `src/app/api` não possui handlers de debug
   ou teste expostos.
+- O sanitizador central de logs remove e-mails, tokens, segredos, senhas,
+  cookies, assinaturas, QR codes e credenciais de OAuth, inclusive em objetos
+  aninhados. Eventos de billing preservam IDs técnicos para diagnóstico.
 
 ## Critério de aceite
 

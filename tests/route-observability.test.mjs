@@ -90,8 +90,10 @@ test("observabilidade mascara credenciais em detalhes e mensagens de erro", () =
       nested: {
         password: "password-should-not-appear",
         cookie: "cookie-should-not-appear",
+        email: "nested@example.com",
       },
       authorization: "Bearer bearer-token-should-not-appear",
+      payerEmail: "payer@example.com",
       error: new Error(
         "upstream failed with token=token-should-not-appear and Bearer bearer-token-should-not-appear",
       ),
@@ -103,7 +105,9 @@ test("observabilidade mascara credenciais em detalhes e mensagens de erro", () =
   assert.equal(loggedPayload.accessToken, "[REDACTED]");
   assert.equal(loggedPayload.nested.password, "[REDACTED]");
   assert.equal(loggedPayload.nested.cookie, "[REDACTED]");
+  assert.equal(loggedPayload.nested.email, "[REDACTED]");
   assert.equal(loggedPayload.authorization, "[REDACTED]");
+  assert.equal(loggedPayload.payerEmail, "[REDACTED]");
   assert.equal(loggedPayload.error.message.includes("token-should-not-appear"), false);
   assert.equal(loggedPayload.error.message.includes("bearer-token-should-not-appear"), false);
 });

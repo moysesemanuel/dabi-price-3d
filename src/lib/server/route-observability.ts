@@ -12,7 +12,7 @@ export type RouteRequestContext = {
 
 const REDACTED_LOG_VALUE = "[REDACTED]";
 const sensitiveLogFieldPattern =
-  /^(?:authorization|api[-_]?key|access[-_]?token|refresh[-_]?token|token|secret|password|cookie|signature|code[-_]?(?:verifier|challenge)|qr[-_]?code)$/i;
+  /^(?:authorization|api[-_]?key|access[-_]?token|refresh[-_]?token|token|secret|password|cookie|signature|code[-_]?(?:verifier|challenge)|qr[-_]?code|(?:payer[-_]?|user[-_]?)?email)$/i;
 const sensitiveLogValuePatterns = [
   /(Bearer\s+)[A-Za-z0-9._~+/=-]+/gi,
   /((?:access[-_]?token|refresh[-_]?token|token|secret|password|authorization|cookie|signature|code[-_]?(?:verifier|challenge))\s*[=:]\s*)("[^"]*"|'[^']*'|[^\s,}&]+)/gi,
