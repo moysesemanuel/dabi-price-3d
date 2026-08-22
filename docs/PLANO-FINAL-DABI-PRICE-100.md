@@ -176,7 +176,7 @@ Provar em infraestrutura real que o hardening já implementado funciona corretam
 - [x] Resposta inclui `Retry-After`.
 - [ ] Cadastro protegido.
 - [x] Recuperação de senha protegida.
-- [ ] Reset protegido.
+- [x] Reset protegido.
 - [x] Token inválido tratado.
 - [ ] Token expirado tratado.
 - [ ] Sessão expirada tratada.
@@ -234,6 +234,9 @@ Validação em Production e Preview entre 21/08/2026 e 22/08/2026:
   observabilidade agora mascara tokens, segredos, senhas, cookies,
   `Authorization` e credenciais presentes em mensagens e stack traces; os três
   logs diretos restantes passam pela mesma serialização.
+- O consumo persistente de token de recuperação passou a executar como uma
+  única operação atômica: valida validade e uso prévio, atualiza senha/status e
+  invalida sessões sem permitir que duas requisições reutilizem o mesmo token.
 
 ## Critério de aceite
 

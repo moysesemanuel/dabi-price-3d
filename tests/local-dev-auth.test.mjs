@@ -79,6 +79,13 @@ test("convite local ativa membro por token e permite login com a nova senha", ()
   assert.equal(resetResult?.email, invitedMember.email);
   assert.equal(resetResult?.status, "invited");
   assert.equal(
+    consumeLocalDevelopmentPasswordResetToken({
+      token: issuedToken.token,
+      password: operatorResetPassword,
+    }),
+    null,
+  );
+  assert.equal(
     verifyLocalDevelopmentCredentials({
       email: invitedMember.email,
       password: operatorResetPassword,
