@@ -1,8 +1,12 @@
 import { getAdminUsersSnapshot } from "@/lib/auth/admin-users";
-import { requireCurrentAuthSession } from "@/lib/auth/session";
+import { getCurrentAuthSession } from "@/lib/auth/session";
 
 export async function GET() {
-  const session = await requireCurrentAuthSession();
+  const session = await getCurrentAuthSession();
+
+  if (!session) {
+    return Response.json({ error: "Nao autenticado." }, { status: 401 });
+  }
 
   try {
     const snapshot = await getAdminUsersSnapshot(session);
