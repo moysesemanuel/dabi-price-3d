@@ -717,28 +717,37 @@ Homologar completamente o núcleo funcional do produto.
 
 ## Casos
 
-- [ ] Material.
-- [ ] Energia.
-- [ ] Mão de obra.
-- [ ] Manutenção.
-- [ ] Embalagem.
-- [ ] Perdas.
-- [ ] Margem.
-- [ ] Impostos.
-- [ ] Taxas.
-- [ ] Canais de venda.
-- [ ] Modelos de negócio.
-- [ ] Arredondamentos.
-- [ ] Valores zero.
-- [ ] Valores extremos.
+- [x] Material.
+- [x] Energia.
+- [x] Mão de obra.
+- [x] Manutenção.
+- [x] Embalagem.
+- [x] Perdas.
+- [x] Margem.
+- [x] Impostos.
+- [x] Taxas.
+- [x] Canais de venda.
+- [x] Modelos de negócio.
+- [x] Arredondamentos.
+- [x] Valores zero.
+- [x] Valores extremos.
 - [ ] Histórico.
 - [ ] Edição.
 - [ ] Duplicação, se oficialmente suportada.
-- [ ] Limites por plano.
+- [x] Limites por plano.
 
 ## Critério de aceite
 
 O mesmo input produz o mesmo resultado independentemente da UI, com regras financeiras cobertas por testes.
+
+## Registro de execução
+
+- O motor 3D possui testes determinísticos para material, energia, mão de
+  obra, manutenção, embalagem, frete, perdas, margem, impostos e taxas. A
+  suíte também cobre arredondamento comercial, canais e modelos de venda,
+  valores zerados, uma carga alta finita e limites de histórico por plano.
+- Histórico persistido, edição e duplicação continuam pendentes de teste de
+  integração/E2E, pois não são regras puras do motor financeiro.
 
 ---
 
