@@ -232,6 +232,7 @@ test("grantAccessUntil atualiza exceção administrativa e audita a ação", asy
     session: createSession(),
     subscriptionId: "sub-1",
     accessUntil: "2026-09-10T10:00:00.000Z",
+    reason: "Extensão aprovada após indisponibilidade do provider.",
   });
 
   assert.equal(updated.accessUntil, "2026-09-10T10:00:00.000Z");
@@ -244,8 +245,27 @@ test("grantAccessUntil atualiza exceção administrativa e audita a ação", asy
     metadata: {
       previousAccessUntil: "2026-09-01T00:00:00.000Z",
       nextAccessUntil: "2026-09-10T10:00:00.000Z",
+      reason: "Extensão aprovada após indisponibilidade do provider.",
     },
   });
+});
+
+test("grantAccessUntil exige justificativa para a exceção administrativa", async () => {
+  const service = new BillingAdminService(createDependencies());
+
+  await assert.rejects(
+    () =>
+      service.grantAccessUntil({
+        session: createSession(),
+        subscriptionId: "sub-1",
+        accessUntil: "2026-09-10T10:00:00.000Z",
+        reason: "   ",
+      }),
+    (error) =>
+      error instanceof BillingAdminServiceError &&
+      error.code === "ADMIN_BILLING_ACCESS_UNTIL_REASON_REQUIRED" &&
+      error.status === 400,
+  );
 });
 
 test("inspectProviderState consulta o provider remoto e audita a inspeção", async () => {

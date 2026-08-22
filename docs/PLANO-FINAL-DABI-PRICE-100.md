@@ -522,7 +522,7 @@ Permitir operação segura sem acesso direto ao banco.
 - [x] Disparar reconciliação segura.
 - [x] Cancelar assinatura administrativamente.
 - [x] Visualizar divergência DaBi × Mercado Pago.
-- [ ] Corrigir exceções por fluxo controlado.
+- [x] Corrigir exceções por fluxo controlado.
 - [x] Atualizar `accessUntil` com justificativa.
 - [x] Registrar histórico de toda ação administrativa.
 
@@ -533,6 +533,9 @@ Permitir operação segura sem acesso direto ao banco.
   com assinatura local pendente ou provider cancelado com assinatura local
   ativa. O resultado deixa de ser somente uma contagem e aponta workspace,
   assinatura e invoice afetados.
+- A concessão ou remoção de `accessUntil` exige justificativa de até 500
+  caracteres. O serviço valida o motivo, a interface impede envio vazio e a
+  auditoria registra ator, valor anterior, valor novo e justificativa.
 
 - A área `/admin` possui telas para workspaces, usuários, assinaturas,
   pagamentos, eventos e sistema. O detalhe da assinatura reúne invoices,

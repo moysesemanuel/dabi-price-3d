@@ -14,6 +14,7 @@ export function BillingAdminSubscriptionActions({
   const [draftAccessUntil, setDraftAccessUntil] = useState(
     normalizeDateTimeLocalValue(currentAccessUntil),
   );
+  const [accessUntilReason, setAccessUntilReason] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isInspecting, setIsInspecting] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -34,6 +35,7 @@ export function BillingAdminSubscriptionActions({
           },
           body: JSON.stringify({
             accessUntil: nextAccessUntil,
+            reason: accessUntilReason,
           }),
         },
       );
@@ -49,6 +51,7 @@ export function BillingAdminSubscriptionActions({
       setDraftAccessUntil(
         normalizeDateTimeLocalValue(payload?.subscription?.accessUntil ?? null),
       );
+      setAccessUntilReason("");
     } catch (error) {
       setFeedback(
         error instanceof Error
@@ -120,7 +123,8 @@ export function BillingAdminSubscriptionActions({
         </label>
         <p className="mt-2 text-xs leading-6 text-[var(--muted)]">
           A data abaixo concede exceção administrativa de acesso. Limpar o campo
-          remove a exceção manual.
+          remove a exceção manual. Toda mudança exige justificativa e fica na
+          auditoria da assinatura.
         </p>
         <input
           type="datetime-local"
@@ -128,6 +132,17 @@ export function BillingAdminSubscriptionActions({
           onChange={(event) => setDraftAccessUntil(event.target.value)}
           className="mt-4 w-full rounded-[16px] border border-[var(--panel-border)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent)]"
         />
+        <label className="mt-4 block text-sm font-medium text-[var(--foreground)]">
+          Justificativa
+          <textarea
+            value={accessUntilReason}
+            onChange={(event) => setAccessUntilReason(event.target.value)}
+            maxLength={500}
+            rows={3}
+            placeholder="Ex.: prazo adicional aprovado pelo suporte devido a indisponibilidade do provider."
+            className="mt-2 w-full resize-y rounded-[16px] border border-[var(--panel-border)] bg-white px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent)]"
+          />
+        </label>
         <div className="mt-4 flex flex-wrap gap-3">
           <button
             type="button"
@@ -136,7 +151,7 @@ export function BillingAdminSubscriptionActions({
                 draftAccessUntil ? new Date(draftAccessUntil).toISOString() : null,
               )
             }
-            disabled={isSaving}
+            disabled={isSaving || !accessUntilReason.trim()}
             className="app-button app-button-primary"
           >
             {isSaving ? "Salvando..." : "Salvar accessUntil"}
@@ -147,7 +162,7 @@ export function BillingAdminSubscriptionActions({
               setDraftAccessUntil("");
               void handleAccessUntilSave(null);
             }}
-            disabled={isSaving}
+            disabled={isSaving || !accessUntilReason.trim()}
             className="app-button app-button-secondary"
           >
             Remover exceção

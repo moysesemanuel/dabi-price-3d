@@ -286,6 +286,7 @@ export class BillingAdminService {
     session: AuthenticatedWorkspaceSession;
     subscriptionId: string;
     accessUntil: string | null;
+    reason: string;
   }) {
     this.assertSuperAdmin(input.session);
     this.assertPersistence();
@@ -306,6 +307,16 @@ export class BillingAdminService {
       throw new BillingAdminServiceError(
         "Informe uma data valida para accessUntil.",
         "ADMIN_BILLING_INVALID_ACCESS_UNTIL",
+        400,
+      );
+    }
+
+    const reason = input.reason.trim();
+
+    if (!reason || reason.length > 500) {
+      throw new BillingAdminServiceError(
+        "Informe uma justificativa de até 500 caracteres para a exceção.",
+        "ADMIN_BILLING_ACCESS_UNTIL_REASON_REQUIRED",
         400,
       );
     }
@@ -334,6 +345,7 @@ export class BillingAdminService {
       metadata: {
         previousAccessUntil: subscription.accessUntil,
         nextAccessUntil: input.accessUntil,
+        reason,
       },
     });
 
