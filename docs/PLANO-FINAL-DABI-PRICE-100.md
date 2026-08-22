@@ -48,15 +48,16 @@ Parar de criar novas funcionalidades até terminar o escopo já definido.
 
 ## Ações
 
-- [ ] Usar `main` como baseline oficial.
-- [ ] Criar branch de fechamento:
+- [x] Usar `main` como baseline oficial.
+- [x] Criar branch de fechamento:
   ```bash
   release/dabi-price-100-percent
   ```
-- [ ] Não adicionar features fora deste plano.
-- [ ] Documentar todas as funcionalidades consideradas oficiais.
-- [ ] Registrar este arquivo no repositório.
-- [ ] Registrar commit inicial do ciclo de fechamento.
+- [x] Não adicionar features fora deste plano.
+- [x] Documentar todas as funcionalidades consideradas oficiais em
+  `docs/ESCOPO-OFICIAL-DABI-PRICE.md`.
+- [x] Registrar este arquivo no repositório.
+- [x] Registrar commit inicial do ciclo de fechamento.
 
 ## Critério de aceite
 
