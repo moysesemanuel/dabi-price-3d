@@ -897,7 +897,7 @@ git diff --check
 
 ## Auditoria
 
-- [ ] Secrets commitados.
+- [x] Secrets commitados.
 - [ ] `.env.example`.
 - [ ] Cookies.
 - [ ] CSRF onde aplicável.
@@ -917,6 +917,18 @@ git diff --check
 - [ ] Dependências vulneráveis.
 - [ ] Rotas de debug/teste esquecidas.
 - [ ] Todas as rotas `/api`.
+
+## Registro de execução
+
+- A busca no repositório rastreado não encontrou valores literais para os
+  secrets operacionais conhecidos. Arquivos de ambiente e dependências foram
+  excluídos da verificação por não serem código versionado.
+- `npm audit --omit=dev --audit-level=high`, executado em 22/08/2026, reportou
+  cinco vulnerabilidades altas transitivas: `next@16.2.6`/`postcss`/`sharp`,
+  `nanoid` e `undici`. A correção automática completa propõe
+  `next@16.3.2`, fora da versão compatível atualmente exigida. Atualizar a
+  dependência deve ser tratado como mudança controlada com nova validação de
+  Next.js, não via `npm audit fix --force`.
 
 ## Critério de aceite
 
