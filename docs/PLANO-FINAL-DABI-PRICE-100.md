@@ -355,10 +355,10 @@ Homologar toda a recorrência real.
 
 ## Cenários
 
-- [ ] Assinatura criada.
+- [x] Assinatura criada.
 - [ ] Checkout abandonado.
-- [ ] Cartão aprovado.
-- [ ] Subscription ativa.
+- [x] Cartão aprovado.
+- [x] Subscription ativa.
 - [ ] Primeira cobrança.
 - [ ] Renovação.
 - [ ] Falha na renovação.
@@ -373,6 +373,17 @@ Homologar toda a recorrência real.
 - [ ] Webhook atrasado.
 - [ ] Webhook fora de ordem.
 - [ ] Reconciliação corrigindo divergência.
+
+## Evidência de homologação
+
+- Em 22/08/2026, no ambiente HML isolado, uma conta compradora de teste do
+  Mercado Pago concluiu uma assinatura recorrente por cartão.
+- O workspace ficou com plano ativo e acesso liberado em `/app/assinatura`.
+- O painel administrativo registrou assinatura `active` com identificador do
+  provider, webhook de assinatura/pagamento processado e nenhuma divergência
+  aberta no dashboard.
+- A confirmação cobre a criação e a ativação inicial; renovação, falhas,
+  cancelamentos e demais cenários desta fase continuam pendentes.
 
 ## Critério de aceite
 

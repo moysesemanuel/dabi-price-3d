@@ -47,7 +47,7 @@ do Mercado Pago, inclusive apos eventos atrasados, duplicados ou terminais.
 
 **Prioridade:** critica
 **Responsavel:** a definir
-**Status:** código concluído; aguarda configuração e homologação
+**Status:** código concluído; configuração e assinatura válida homologadas em HML
 
 ### Problema
 
@@ -63,8 +63,10 @@ validacao opcional.
   consultar o provedor.
 - [x] Preservar a idempotência por evento existente no serviço de billing.
 - [x] Registrar falhas com metadados mínimos, sem payload bruto.
-- [ ] Configurar o segredo de webhook em todos os ambientes de deploy.
-- [ ] Homologar assinatura válida, inválida e ausente com o Mercado Pago.
+- [x] Configurar o segredo de webhook no ambiente de homologação.
+- [x] Homologar assinatura válida com o Mercado Pago no ambiente de
+  homologação.
+- [ ] Homologar assinatura inválida e secret ausente em ambiente externo.
 
 ### Criterio de aceite
 
@@ -117,6 +119,14 @@ consistente em todas as instancias da aplicacao.
 
 Todos os cenarios possuem evidencia de teste e nao ha concessao ou revogacao
 indevida de acesso.
+
+### Evidência parcial registrada em 22/08/2026
+
+- Assinatura recorrente de teste por cartão criada e aprovada em HML.
+- Assinatura local `active`, com identificador do provider e acesso liberado.
+- Webhook de assinatura/pagamento processado e dashboard sem divergência.
+- Os cenários de inadimplência, pausa, cancelamento, eventos anômalos e Pix
+  continuam pendentes.
 
 ## 5. Operacao e publicacao
 
