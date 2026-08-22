@@ -934,7 +934,7 @@ git diff --check
 - [ ] Validação de inputs.
 - [ ] SQL.
 - [ ] Upload.
-- [ ] Headers.
+- [x] Headers.
 - [ ] Stack traces.
 - [ ] Mensagens de erro.
 - [ ] Logs.
@@ -965,6 +965,10 @@ git diff --check
 - O sanitizador central de logs remove e-mails, tokens, segredos, senhas,
   cookies, assinaturas, QR codes e credenciais de OAuth, inclusive em objetos
   aninhados. Eventos de billing preservam IDs técnicos para diagnóstico.
+- O `next.config.ts` aplica `X-Content-Type-Options`, `X-Frame-Options`,
+  `Referrer-Policy` e `Permissions-Policy` globalmente. CSP permanece fora
+  desta alteração por exigir inventário das integrações externas antes de ser
+  restritiva.
 
 ## Critério de aceite
 
