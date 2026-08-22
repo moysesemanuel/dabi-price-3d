@@ -973,6 +973,10 @@ git diff --check
   `Referrer-Policy` e `Permissions-Policy` globalmente. CSP permanece fora
   desta alteração por exigir inventário das integrações externas antes de ser
   restritiva.
+- O Preview do PR é protegido por Deployment Protection e responde com `302`
+  para o SSO da Vercel antes de alcançar a aplicação; por isso, a confirmação
+  remota dos headers do app deve ser feita após o merge em Production ou com
+  bypass autenticado, sem desabilitar essa proteção.
 - O login só aceita `next` iniciado por `/app`; valores externos retornam ao
   caminho interno calculado pela situação de entitlement e onboarding.
 
