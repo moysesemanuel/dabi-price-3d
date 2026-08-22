@@ -93,7 +93,7 @@ Garantir que produção não dependa de configuração implícita, local ou não
 
 - [ ] Separar claramente Development / Preview / Production.
 - [x] Confirmar que nenhum secret está exposto como `NEXT_PUBLIC_*`.
-- [ ] Remover variáveis mortas.
+- [x] Remover variáveis mortas.
 - [ ] Confirmar HTTPS em URLs externas.
 - [x] Verificar que Deployment Protection da Vercel não bloqueia providers externos necessários.
 
@@ -133,10 +133,10 @@ Verificação em 21/08/2026:
   confirmando que a Deployment Protection não a bloqueia.
 - Não há referência no código a `NEXT_PUBLIC_*`; as variáveis legadas
   `NEXT_PUBLIC_MP_SUBSCRIPTION_STARTER_URL` e
-  `NEXT_PUBLIC_MP_SUBSCRIPTION_GROWTH_URL` ainda precisam ser removidas da
-  Vercel após autorização explícita.
+  `NEXT_PUBLIC_MP_SUBSCRIPTION_GROWTH_URL` foram removidas da Vercel em
+  21/08/2026.
 - As variáveis `ECOMMERCE_*` presentes na Vercel não têm referência no
-  repositório e precisam de confirmação de propriedade antes de remoção.
+  repositório e foram removidas de Preview e Production em 21/08/2026.
 - Recuperação de senha foi validada ponta a ponta com Resend: o envio foi
   aceito, recebido no Gmail, o token abriu a redefinição, a senha foi alterada
   e o login remoto funcionou. O remetente `onboarding@resend.dev` permanece
