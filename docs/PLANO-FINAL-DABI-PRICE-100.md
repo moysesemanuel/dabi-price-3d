@@ -78,7 +78,7 @@ Garantir que produção não dependa de configuração implícita, local ou não
 - [ ] `MERCADO_PAGO_WEBHOOK_SECRET`
 - [ ] `MERCADO_PAGO_TEST_ACCESS_TOKEN`, onde aplicável
 - [ ] `MERCADO_PAGO_TEST_SITE_ID`
-- [ ] `CRON_SECRET`
+- [x] `CRON_SECRET`
 - [x] `RESEND_API_KEY`
 - [x] `AUTH_EMAIL_FROM`
 - [ ] `BLOB_READ_WRITE_TOKEN`
@@ -95,7 +95,7 @@ Garantir que produção não dependa de configuração implícita, local ou não
 - [x] Confirmar que nenhum secret está exposto como `NEXT_PUBLIC_*`.
 - [ ] Remover variáveis mortas.
 - [ ] Confirmar HTTPS em URLs externas.
-- [ ] Verificar que Deployment Protection da Vercel não bloqueia providers externos necessários.
+- [x] Verificar que Deployment Protection da Vercel não bloqueia providers externos necessários.
 
 ## QStash
 
@@ -112,11 +112,11 @@ abandoned-checkouts
 5 3 * * *
 ```
 
-- [ ] `maintenance` entregue automaticamente.
-- [ ] `provider-reconciliation` entregue automaticamente.
-- [ ] `abandoned-checkouts` entregue automaticamente.
-- [ ] Todos enviam `Authorization: Bearer <CRON_SECRET>`.
-- [ ] Todos recebem `HTTP 200`.
+- [x] `maintenance` entregue automaticamente.
+- [x] `provider-reconciliation` entregue automaticamente.
+- [x] `abandoned-checkouts` entregue automaticamente.
+- [x] Todos enviam `Authorization: Bearer <CRON_SECRET>`.
+- [x] Todos recebem `HTTP 200`.
 - [ ] Falhas ficam observáveis.
 
 ## Critério de aceite
@@ -143,7 +143,8 @@ Verificação em 21/08/2026:
   limitado ao e-mail da conta Resend; um domínio próprio verificado continua
   necessário antes do envio para usuários finais.
 - A execução automática dos três jobs depende de acesso ao QStash ou de
-  evidência de entregas recentes.
+  evidência de entregas recentes. Em 21/08/2026, os três schedules foram
+  confirmados no QStash como `Delivered` com `HTTP 200`.
 
 ---
 
