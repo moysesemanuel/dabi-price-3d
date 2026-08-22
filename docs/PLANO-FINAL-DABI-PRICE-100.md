@@ -189,12 +189,12 @@ Provar em infraestrutura real que o hardening já implementado funciona corretam
 - [x] APIs administrativas protegidas.
 - [x] Roles respeitadas.
 - [x] Acesso direto por URL não contorna autorização.
-- [ ] Usuário de um workspace não lê outro workspace.
-- [ ] Operações cross-workspace indevidas são bloqueadas.
+- [x] Usuário de um workspace não lê outro workspace.
+- [x] Operações cross-workspace indevidas são bloqueadas.
 
 ## Registro de execução
 
-Validação em produção em 21/08/2026:
+Validação em Production e Preview entre 21/08/2026 e 22/08/2026:
 
 - Seis falhas para o mesmo e-mail sintético retornaram cinco `401` e um `429`
   com `Retry-After`.
@@ -220,9 +220,15 @@ Validação em produção em 21/08/2026:
 - O cookie de sessão emitido em Production contém `Secure`, `HttpOnly` e
   `SameSite=Lax`. A solicitação de recuperação atingiu `429` com e-mail
   sintético, e o reset com token sintético inválido retornou `400`.
-- O isolamento cross-workspace com dados de produto permanece pendente: exige
-  dois workspaces de teste com entitlement ativo; não foi criado checkout ou
-  cobrança para contornar essa pré-condição.
+- Dois workspaces de QA receberam Pix de sandbox pendente e uma exceção
+  temporária e auditável de `accessUntil`, sem marcar qualquer pagamento como
+  confirmado. Um cálculo criado no workspace A não foi listado para a sessão
+  do workspace B. A tentativa de B excluir o ID de A não alterou o registro;
+  a resposta idempotente inicial de `200` foi corrigida para `404`, antes de
+  qualquer exclusão ou evento de auditoria, e revalidada no Preview.
+- As contas e workspaces descartáveis deste teste, incluindo as duas tentativas
+  sem checkout causadas pelo domínio `.invalid`, ainda precisam ser removidos
+  pela administração do banco após limpar as exceções de `accessUntil`.
 
 ## Critério de aceite
 
