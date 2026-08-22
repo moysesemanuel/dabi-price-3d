@@ -12,10 +12,7 @@ import {
   findLatestOpenBillingSubscriptionChange,
 } from "@/lib/billing/repository";
 import type { BillingSubscription } from "@/lib/billing/types";
-import {
-  getWorkspacePreferences,
-  isPlatformPersistenceAvailable,
-} from "@/lib/server/platform";
+import { isPlatformPersistenceAvailable } from "@/lib/server/platform";
 import {
   defaultAppPreferences,
   getWorkspaceBillingCycleLabel,
@@ -124,12 +121,6 @@ export default async function PlansPage({
     params.billingCycle === "annual" ? "annual" : "monthly";
 
   const session = await getCurrentAuthSession();
-  const preferences =
-    session && isPlatformPersistenceAvailable()
-      ? await getWorkspacePreferences(session.workspace.id).catch(
-        () => defaultAppPreferences,
-      )
-      : defaultAppPreferences;
   const billingSubscription =
     session && isPlatformPersistenceAvailable()
       ? await findCurrentBillingSubscriptionForWorkspace(session.workspace.id).catch(
@@ -157,13 +148,20 @@ export default async function PlansPage({
         type: "cycle_change",
       }).catch(() => null)
       : null;
-  const currentPlan = getWorkspacePlan(
-    preferences.subscription.planId,
-  );
-
-  const subscriptionStatus = preferences.subscription.status;
-  const hasPaidAccess = canAccessPaidWorkspaceFeatures(preferences.subscription);
-  const currentBillingCycle = preferences.subscription.billingCycle;
+  const subscription = billingSubscription
+    ? {
+        planId: billingSubscription.planId,
+        status: billingSubscription.status,
+        billingCycle: billingSubscription.billingCycle,
+        accessUntil: billingSubscription.accessUntil,
+        currentPeriodEnd: billingSubscription.currentPeriodEnd,
+        gracePeriodEndsAt: billingSubscription.gracePeriodEndsAt,
+      }
+    : defaultAppPreferences.subscription;
+  const currentPlan = getWorkspacePlan(subscription.planId);
+  const subscriptionStatus = subscription.status;
+  const hasPaidAccess = canAccessPaidWorkspaceFeatures(subscription);
+  const currentBillingCycle = subscription.billingCycle;
   const selectedBillingCycle = hasPaidAccess
     ? currentBillingCycle
     : requestedBillingCycle;

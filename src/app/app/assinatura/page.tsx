@@ -61,14 +61,14 @@ export default async function SubscriptionPage() {
         currentPeriodEnd: billingSubscription.currentPeriodEnd,
         gracePeriodEndsAt: billingSubscription.gracePeriodEndsAt,
       }
-    : preferences.subscription;
+    : defaultAppPreferences.subscription;
   const entitlements = resolveWorkspaceEntitlements({
     subscription,
   });
   const currentPlan = getWorkspacePlan(subscription.planId ?? "starter");
   const statusLabel = billingSubscription
     ? getBillingStatusLabel(billingSubscription.status)
-    : getSubscriptionStatusLabel(preferences.subscription.status);
+    : getSubscriptionStatusLabel(subscription.status);
   const statusPresentation = getAccessPresentation(entitlements.accessReason);
   const nextRelevantDate =
     billingSubscription?.gracePeriodEndsAt ??

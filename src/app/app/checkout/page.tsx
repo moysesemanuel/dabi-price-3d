@@ -99,11 +99,13 @@ export default async function CheckoutPage({
   const displayPlan = getWorkspacePlan(
     pendingSubscription?.planId ??
       highlightedPlanId ??
-      preferences.subscription.planId,
+      defaultAppPreferences.subscription.planId,
   );
   const displayBillingCycle =
     pendingSubscription?.billingCycle ??
-    (highlightedPlan ? selectedBillingCycle : preferences.subscription.billingCycle);
+    (highlightedPlan
+      ? selectedBillingCycle
+      : defaultAppPreferences.subscription.billingCycle);
 
   return (
     <div className="app-page space-y-6">

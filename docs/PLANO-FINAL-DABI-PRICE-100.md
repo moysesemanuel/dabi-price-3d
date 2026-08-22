@@ -597,6 +597,24 @@ assinatura corrente foi corrigida para também retornar uma assinatura com
 de entitlement concede a exceção sem alterar esse status ou simular pagamento
 aprovado. A remoção do fallback legado continua pendente nesta fase.
 
+## Registro de auditoria
+
+- Em 22/08/2026, a auditoria classificou a projeção em
+  `workspace_preferences` como read model temporário: ela é sanitizada antes
+  de persistir e não pode registrar plano, ciclo, status ou identificador do
+  provider como fonte comercial.
+- As telas `/app/assinatura`, `/app/planos`, `/app/checkout` e `/app/conta`
+  passaram a obter plano, ciclo e status somente de `BillingSubscription`.
+  Na ausência de assinatura corrente, elas usam o baseline `starter/unpaid`,
+  nunca valores persistidos nas preferências.
+- `checkoutStartedAt` permanece nas preferências exclusivamente como metadado
+  de retomada de checkout; ele não concede acesso nem determina plano ou
+  status. A projeção também preserva `seatsUsed`, que é dado operacional.
+- Ainda é necessário retirar o read model depois de uma migração/backfill
+  comprovada e de validar em produção os workspaces históricos sem assinatura
+  em billing. Até lá, as preferências continuam como compatibilidade de
+  apresentação, não como fonte de verdade.
+
 ## Arquitetura final esperada
 
 ```text
