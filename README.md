@@ -264,12 +264,10 @@ O funil público principal hoje passa por:
 - `/planos`
 - `/contato`
 
-Para ligar um plano diretamente à assinatura do Mercado Pago, configure:
+O fluxo atual cria a assinatura pelo billing integrado, usando a API do Mercado
+Pago. Configure:
 
 ```env
-NEXT_PUBLIC_MP_SUBSCRIPTION_STARTER_URL=
-NEXT_PUBLIC_MP_SUBSCRIPTION_GROWTH_URL=
-NEXT_PUBLIC_MP_SUBSCRIPTION_SCALE_URL=
 MERCADO_PAGO_ACCESS_TOKEN=
 MERCADO_PAGO_WEBHOOK_SECRET=
 MERCADO_PAGO_TEST_ACCESS_TOKEN=
@@ -282,9 +280,10 @@ inválida.
 
 Com isso:
 
-- o CTA `Garantir meu acesso` da página pública de planos abre a assinatura do plano configurado
-- a página `/contato` passa a mostrar o botão `Assinar com Mercado Pago` quando o plano tiver URL
-- planos sem URL continuam no fluxo consultivo
+- o checkout e a assinatura são criados pela plataforma com
+  `external_reference` do workspace
+- o webhook vincula eventos recebidos ao workspace e atualiza o billing de
+  forma idempotente
 
 ### Webhook de assinatura
 

@@ -123,6 +123,25 @@ abandoned-checkouts
 
 Todos os serviços externos funcionam a partir da configuração de produção, sem dependência da máquina local.
 
+## Registro de execução
+
+Verificação em 21/08/2026:
+
+- A produção e o preview têm as variáveis operacionais de banco, billing,
+  Mercado Livre, ERP, cron e Blob configuradas.
+- A rota pública do webhook do Mercado Pago respondeu à validação de payload,
+  confirmando que a Deployment Protection não a bloqueia.
+- Não há referência no código a `NEXT_PUBLIC_*`; as variáveis legadas
+  `NEXT_PUBLIC_MP_SUBSCRIPTION_STARTER_URL` e
+  `NEXT_PUBLIC_MP_SUBSCRIPTION_GROWTH_URL` ainda precisam ser removidas da
+  Vercel após autorização explícita.
+- As variáveis `ECOMMERCE_*` presentes na Vercel não têm referência no
+  repositório e precisam de confirmação de propriedade antes de remoção.
+- `RESEND_API_KEY` e `AUTH_EMAIL_FROM` não estão configuradas na Vercel;
+  recuperação de senha por e-mail real permanece pendente.
+- A execução automática dos três jobs depende de acesso ao QStash ou de
+  evidência de entregas recentes.
+
 ---
 
 # Fase 2 — Segurança definitiva
