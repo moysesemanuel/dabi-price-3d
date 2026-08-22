@@ -489,22 +489,32 @@ Permitir operação segura sem acesso direto ao banco.
 
 ## Funcionalidades obrigatórias
 
-- [ ] Localizar workspace.
-- [ ] Localizar usuário.
-- [ ] Visualizar assinatura.
-- [ ] Visualizar invoices.
-- [ ] Consultar provider.
-- [ ] Visualizar pagamentos.
-- [ ] Visualizar webhooks.
-- [ ] Visualizar auditoria.
-- [ ] Visualizar mudanças de plano.
-- [ ] Visualizar backlog.
+- [x] Localizar workspace.
+- [x] Localizar usuário.
+- [x] Visualizar assinatura.
+- [x] Visualizar invoices.
+- [x] Consultar provider.
+- [x] Visualizar pagamentos.
+- [x] Visualizar webhooks.
+- [x] Visualizar auditoria.
+- [x] Visualizar mudanças de plano.
+- [x] Visualizar backlog.
 - [ ] Disparar reconciliação segura.
 - [ ] Cancelar assinatura administrativamente.
 - [ ] Visualizar divergência DaBi × Mercado Pago.
 - [ ] Corrigir exceções por fluxo controlado.
-- [ ] Atualizar `accessUntil` com justificativa.
-- [ ] Registrar histórico de toda ação administrativa.
+- [x] Atualizar `accessUntil` com justificativa.
+- [x] Registrar histórico de toda ação administrativa.
+
+## Registro de execução
+
+- A área `/admin` possui telas para workspaces, usuários, assinaturas,
+  pagamentos, eventos e sistema. O detalhe da assinatura reúne invoices,
+  mudanças e auditoria; as ações de inspeção do provider e `accessUntil`
+  exigem super admin e gravam auditoria.
+- Ainda faltam ações administrativas controladas para cancelar assinaturas e
+  disparar reconciliação. A lista de divergências é somente de leitura, logo
+  não substitui esses fluxos.
 
 ## Regra
 
