@@ -204,6 +204,10 @@ Validação em produção em 21/08/2026:
 - Webhook com payload inválido retornou `400`; payload válido com HMAC inválido
   ou sem `x-signature` retornou `401`, antes de qualquer consulta ao provider.
 - Cron sem `Authorization` retornou `401`.
+- Uma chamada anônima a uma API administrativa retornava `500`; a correção foi
+  publicada na branch de conclusão e validada no Preview, onde os cinco
+  handlers de `/api/admin/*` retornaram `401` sem sessão. A confirmação em
+  Production permanece pendente de promoção da branch.
 
 ## Critério de aceite
 
