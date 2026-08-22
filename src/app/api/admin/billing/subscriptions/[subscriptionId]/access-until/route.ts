@@ -1,5 +1,5 @@
 import { createBillingAdminService } from "@/lib/billing/server-admin-service";
-import { requireCurrentAuthSession } from "@/lib/auth/session";
+import { getCurrentAuthSession } from "@/lib/auth/session";
 
 type UpdateAccessUntilPayload = {
   accessUntil?: string | null;
@@ -9,7 +9,12 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ subscriptionId: string }> },
 ) {
-  const session = await requireCurrentAuthSession();
+  const session = await getCurrentAuthSession();
+
+  if (!session) {
+    return Response.json({ error: "Nao autenticado." }, { status: 401 });
+  }
+
   const { subscriptionId } = await context.params;
   let body: UpdateAccessUntilPayload;
 

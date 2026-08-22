@@ -2,7 +2,7 @@ import {
   deletePlatformUserForSession,
   updatePlatformUserProfileForSession,
 } from "@/lib/auth/admin-users";
-import { requireCurrentAuthSession } from "@/lib/auth/session";
+import { getCurrentAuthSession } from "@/lib/auth/session";
 
 type UpdatePlatformUserPayload = {
   fullName?: string;
@@ -13,7 +13,12 @@ export async function PUT(
   request: Request,
   context: { params: Promise<{ userId: string }> },
 ) {
-  const session = await requireCurrentAuthSession();
+  const session = await getCurrentAuthSession();
+
+  if (!session) {
+    return Response.json({ error: "Nao autenticado." }, { status: 401 });
+  }
+
   const { userId } = await context.params;
   let body: UpdatePlatformUserPayload;
 
@@ -65,7 +70,12 @@ export async function DELETE(
   _request: Request,
   context: { params: Promise<{ userId: string }> },
 ) {
-  const session = await requireCurrentAuthSession();
+  const session = await getCurrentAuthSession();
+
+  if (!session) {
+    return Response.json({ error: "Nao autenticado." }, { status: 401 });
+  }
+
   const { userId } = await context.params;
 
   try {
