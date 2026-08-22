@@ -87,7 +87,7 @@ Garantir que produção não dependa de configuração implícita, local ou não
 - [x] `MELI_REDIRECT_URI`
 - [x] `ERP_APP_URL`
 - [x] `PRICING_INTEGRATION_TOKEN`
-- [ ] Demais variáveis efetivamente utilizadas pelo código.
+- [x] Demais variáveis efetivamente utilizadas pelo código.
 
 ## Configuração
 
@@ -149,6 +149,12 @@ Verificação em 21/08/2026:
   Preview. Development contém somente `BLOB_READ_WRITE_TOKEN`,
   `BLOB_STORE_ID` e `BLOB_WEBHOOK_PUBLIC_KEY`; não há segredo de produção
   configurado nesse ambiente.
+- A comparação estática entre `process.env.*` e `.env.example` confirmou que
+  os valores configuráveis usados pelo código estão documentados, incluindo
+  bootstrap, contexto opcional do ERP e o fallback legado do Mercado Livre.
+  `NODE_ENV` e `VERCEL_ENV` são fornecidas pela plataforma. As URLs fixas de
+  Mercado Pago, Mercado Livre, Resend e Frankfurter usam HTTPS; os valores de
+  `ERP_APP_URL` e `MELI_REDIRECT_URI` seguem pendentes de confirmação externa.
 
 ---
 
