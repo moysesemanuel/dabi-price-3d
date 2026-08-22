@@ -480,6 +480,16 @@ Classificar:
 - [ ] migrar
 - [ ] remover
 
+## Achado de produção
+
+Em 21/08/2026, o workspace do super admin apresentou `pending` nas
+preferências legadas sem assinatura corrente no billing. Uma assinatura
+`canceled` com `accessUntil` futuro não é selecionada como assinatura corrente,
+portanto sua exceção administrativa não alcança os entitlements e o fallback
+legado continua bloqueando o acesso. A correção deve preservar o estado
+comercial cancelado e tornar a exceção administrativa explícita e auditável,
+sem simular pagamento aprovado.
+
 ## Arquitetura final esperada
 
 ```text
