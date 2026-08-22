@@ -6,6 +6,7 @@ import {
   FindingsList,
   SummaryGrid,
 } from "@/components/admin/billing-admin-ui";
+import { BillingAdminReconciliationAction } from "@/components/admin/billing-admin-reconciliation-action";
 import { createBillingAdminService } from "@/lib/billing/server-admin-service";
 import { requireCurrentAuthSession } from "@/lib/auth/session";
 
@@ -75,6 +76,8 @@ export default async function BillingAdminSystemPage() {
               description="Acompanhe falhas, eventos processados e backlog de reconciliação."
             />
           </div>
+
+          {snapshot.persistence.enabled ? <BillingAdminReconciliationAction /> : null}
 
           {!snapshot.persistence.enabled ? (
             <div className="mt-4">

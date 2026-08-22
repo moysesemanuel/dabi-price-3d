@@ -3,6 +3,7 @@ import { getCurrentAuthSession } from "@/lib/auth/session";
 
 type UpdateAccessUntilPayload = {
   accessUntil?: string | null;
+  reason?: string;
 };
 
 export async function POST(
@@ -28,12 +29,14 @@ export async function POST(
     typeof body.accessUntil === "string"
       ? body.accessUntil.trim() || null
       : body.accessUntil ?? null;
+  const reason = typeof body.reason === "string" ? body.reason.trim() : "";
 
   try {
     const subscription = await createBillingAdminService().grantAccessUntil({
       session,
       subscriptionId,
       accessUntil,
+      reason,
     });
 
     return Response.json({ subscription });
@@ -57,6 +60,8 @@ function mapBillingAdminError(error: unknown) {
       return "Assinatura nao encontrada.";
     case "Informe uma data valida para accessUntil.":
       return "Informe uma data valida para accessUntil.";
+    case "Informe uma justificativa de até 500 caracteres para a exceção.":
+      return "Informe uma justificativa de até 500 caracteres para a exceção.";
     case "Esse ambiente nao possui persistencia de billing habilitada.":
       return "Esse ambiente nao possui persistencia de billing habilitada.";
     default:

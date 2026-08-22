@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   createRouteRequestContext,
   jsonWithRequestId,
+  logRouteEvent,
   serializeError,
 } from "../src/lib/server/route-observability.ts";
 
@@ -68,4 +69,45 @@ test("serializeError normaliza erros e strings", () => {
 
   assert.equal(serializedError.message, "falha de teste");
   assert.equal(serializedString.message, "erro literal");
+});
+
+test("observabilidade mascara credenciais em detalhes e mensagens de erro", () => {
+  const originalConsoleError = console.error;
+  let loggedPayload = null;
+
+  console.error = (_message, payload) => {
+    loggedPayload = payload;
+  };
+
+  try {
+    const context = createRouteRequestContext(
+      new Request("http://127.0.0.1:3005/api/test"),
+      "/api/test",
+    );
+
+    logRouteEvent(context, "error", "test.credentials_rejected", {
+      accessToken: "access-token-should-not-appear",
+      nested: {
+        password: "password-should-not-appear",
+        cookie: "cookie-should-not-appear",
+        email: "nested@example.com",
+      },
+      authorization: "Bearer bearer-token-should-not-appear",
+      payerEmail: "payer@example.com",
+      error: new Error(
+        "upstream failed with token=token-should-not-appear and Bearer bearer-token-should-not-appear",
+      ),
+    });
+  } finally {
+    console.error = originalConsoleError;
+  }
+
+  assert.equal(loggedPayload.accessToken, "[REDACTED]");
+  assert.equal(loggedPayload.nested.password, "[REDACTED]");
+  assert.equal(loggedPayload.nested.cookie, "[REDACTED]");
+  assert.equal(loggedPayload.nested.email, "[REDACTED]");
+  assert.equal(loggedPayload.authorization, "[REDACTED]");
+  assert.equal(loggedPayload.payerEmail, "[REDACTED]");
+  assert.equal(loggedPayload.error.message.includes("token-should-not-appear"), false);
+  assert.equal(loggedPayload.error.message.includes("bearer-token-should-not-appear"), false);
 });

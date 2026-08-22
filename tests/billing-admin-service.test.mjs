@@ -82,6 +82,21 @@ function createDependencies(overrides = {}) {
     async collectOperationalFindings() {
       return [{ code: "webhook_processing_failed" }];
     },
+    async runProviderReconciliation() {
+      return {
+        processed: 3,
+        changed: 1,
+        findings: [
+          {
+            code: "provider_active_local_pending",
+            workspaceId: "workspace-1",
+            subscriptionId: "sub-1",
+            details: { providerSubscriptionId: "mp-sub-1" },
+          },
+        ],
+        steps: {},
+      };
+    },
     async getSubscriptionRecord() {
       return {
         subscriptionId: "sub-1",
@@ -217,6 +232,7 @@ test("grantAccessUntil atualiza exceção administrativa e audita a ação", asy
     session: createSession(),
     subscriptionId: "sub-1",
     accessUntil: "2026-09-10T10:00:00.000Z",
+    reason: "Extensão aprovada após indisponibilidade do provider.",
   });
 
   assert.equal(updated.accessUntil, "2026-09-10T10:00:00.000Z");
@@ -229,8 +245,27 @@ test("grantAccessUntil atualiza exceção administrativa e audita a ação", asy
     metadata: {
       previousAccessUntil: "2026-09-01T00:00:00.000Z",
       nextAccessUntil: "2026-09-10T10:00:00.000Z",
+      reason: "Extensão aprovada após indisponibilidade do provider.",
     },
   });
+});
+
+test("grantAccessUntil exige justificativa para a exceção administrativa", async () => {
+  const service = new BillingAdminService(createDependencies());
+
+  await assert.rejects(
+    () =>
+      service.grantAccessUntil({
+        session: createSession(),
+        subscriptionId: "sub-1",
+        accessUntil: "2026-09-10T10:00:00.000Z",
+        reason: "   ",
+      }),
+    (error) =>
+      error instanceof BillingAdminServiceError &&
+      error.code === "ADMIN_BILLING_ACCESS_UNTIL_REASON_REQUIRED" &&
+      error.status === 400,
+  );
 });
 
 test("inspectProviderState consulta o provider remoto e audita a inspeção", async () => {
@@ -244,4 +279,45 @@ test("inspectProviderState consulta o provider remoto e audita a inspeção", as
 
   assert.equal(inspection.remoteSubscription.providerSubscriptionId, "mp-sub-1");
   assert.equal(dependencies.auditEvents[0]?.action, "subscription.provider_inspected");
+});
+
+test("super admin dispara reconciliacao limitada e auditada", async () => {
+  const dependencies = createDependencies();
+  const service = new BillingAdminService(dependencies);
+
+  const result = await service.runProviderReconciliation({
+    session: createSession(),
+  });
+
+  assert.deepEqual(result, {
+    processed: 3,
+    changed: 1,
+    findings: [
+      {
+        code: "provider_active_local_pending",
+        workspaceId: "workspace-1",
+        subscriptionId: "sub-1",
+        details: { providerSubscriptionId: "mp-sub-1" },
+      },
+    ],
+    steps: {},
+  });
+  assert.deepEqual(dependencies.auditEvents[0], {
+    actorType: "super_admin",
+    actorId: "user-1",
+    action: "billing.provider_reconciliation_requested",
+    metadata: {
+      limit: 20,
+      processed: 3,
+      changed: 1,
+      findings: [
+        {
+          code: "provider_active_local_pending",
+          workspaceId: "workspace-1",
+          subscriptionId: "sub-1",
+          details: { providerSubscriptionId: "mp-sub-1" },
+        },
+      ],
+    },
+  });
 });

@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { requireCurrentAuthSession } from "@/lib/auth/session";
 import { getMercadoLivreApiCredentials } from "@/lib/marketplaces/mercado-livre-auth";
 import type { MercadoLivreListingTypeId } from "@/lib/marketplaces/mercado-livre";
 import { mapMercadoLivreOperationalError } from "@/lib/server/operational-messages";
@@ -15,6 +16,7 @@ type PredictedCategory = {
 };
 
 export async function GET(request: NextRequest) {
+  await requireCurrentAuthSession();
   const requestContext = createRouteRequestContext(
     request,
     "/api/meli/free-shipping-cost",

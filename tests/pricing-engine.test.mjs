@@ -142,3 +142,101 @@ test("preço por margem inclui custo fixo, taxas variáveis e margem alvo", () =
   assert.equal(Number(result.finalPrice.toFixed(2)), 11.9);
   assert.equal(Number(result.realMarginPercentage.toFixed(2)), 24.5);
 });
+
+test("compõe material, energia, manutenção, embalagem, frete, mão de obra e tributos", () => {
+  const result = calculate3DPrice(
+    createBaseInput({
+      pricingMode: "manual",
+      manualSalePrice: 100,
+      weightGrams: 100,
+      filamentSpoolPrice: 100,
+      filamentSpoolWeightGrams: 1000,
+      printTimeHours: 2,
+      printTimeMinutes: 0,
+      printerPowerWatts: 100,
+      kwhPrice: 1,
+      maintenanceCostPerHour: 3,
+      packagingCost: 4,
+      shippingCost: 5,
+      laborTimeHours: 1,
+      laborTimeMinutes: 0,
+      laborCostPerHour: 20,
+      lossPercentage: 0,
+      marketplaceFeePercentage: 10,
+      marketplaceFixedFee: 2,
+      taxPercentage: 5,
+    }),
+  );
+
+  assert.equal(result.materialCost, 10);
+  assert.equal(result.energyCost, 0.2);
+  assert.equal(result.maintenanceCost, 6);
+  assert.equal(result.packagingTotalCost, 4);
+  assert.equal(result.shippingTotalCost, 5);
+  assert.equal(result.laborTotalCost, 20);
+  assert.equal(Number(result.baseCost.toFixed(2)), 45.2);
+  assert.equal(result.marketplaceFee, 10);
+  assert.equal(result.marketplaceFixedFeeCost, 2);
+  assert.equal(result.taxCost, 5);
+  assert.equal(Number(result.netProfit.toFixed(2)), 37.8);
+});
+
+test("valores zerados mantêm o resultado financeiro válido e finito", () => {
+  const result = calculate3DPrice(
+    createBaseInput({
+      weightGrams: 0,
+      printTimeHours: 0,
+      printTimeMinutes: 0,
+      shippingCost: 0,
+      filamentSpoolPrice: 0,
+      filamentSpoolWeightGrams: 0,
+      printerPowerWatts: 0,
+      kwhPrice: 0,
+      packagingCost: 0,
+      laborTimeHours: 0,
+      laborTimeMinutes: 0,
+      laborCostPerHour: 0,
+      maintenanceCostPerHour: 0,
+      lossPercentage: 0,
+      profitMarginPercentage: 0,
+      marketplaceFeePercentage: 0,
+      marketplaceFixedFee: 0,
+      taxPercentage: 0,
+    }),
+  );
+
+  assert.equal(result.isValid, true);
+  assert.equal(result.finalPrice, 0);
+  assert.equal(result.netProfit, 0);
+  assert.ok(Object.values(result).every((value) => typeof value !== "number" || Number.isFinite(value)));
+});
+
+test("carga alta de precificação mantém custos e preço finitos", () => {
+  const result = calculate3DPrice(
+    createBaseInput({
+      weightGrams: 100_000,
+      printTimeHours: 10_000,
+      printTimeMinutes: 0,
+      filamentSpoolPrice: 100_000,
+      filamentSpoolWeightGrams: 100_000,
+      printerPowerWatts: 10_000,
+      kwhPrice: 100,
+      packagingCost: 100_000,
+      shippingCost: 100_000,
+      laborTimeHours: 10_000,
+      laborTimeMinutes: 0,
+      laborCostPerHour: 100,
+      maintenanceCostPerHour: 100,
+      lossPercentage: 20,
+      profitMarginPercentage: 30,
+      marketplaceFeePercentage: 20,
+      marketplaceFixedFee: 100_000,
+      taxPercentage: 10,
+    }),
+  );
+
+  assert.equal(result.isValid, true);
+  assert.ok(Number.isFinite(result.costWithLoss));
+  assert.ok(Number.isFinite(result.finalPrice));
+  assert.ok(result.finalPrice >= result.costWithLoss);
+});

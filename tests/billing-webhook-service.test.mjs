@@ -3,6 +3,86 @@ import test from "node:test";
 
 import { BillingWebhookService } from "../src/lib/billing/webhook-service.ts";
 
+test("entrega concorrente nao executa os efeitos do webhook duas vezes", async () => {
+  const statusUpdates = [];
+  let claimAvailable = true;
+  let sideEffects = 0;
+  const event = {
+    id: "evt-concurrent-1",
+    provider: "mercado_pago",
+    providerEventId: "req-concurrent-1",
+    eventType: "subscription_preapproval",
+    resourceId: "sub-concurrent-1",
+    payloadHash: "hash-concurrent-1",
+    status: "received",
+    attempts: 0,
+    receivedAt: "2026-08-22T00:00:00.000Z",
+    processedAt: null,
+    errorCode: null,
+    errorMessage: null,
+    createdAt: "2026-08-22T00:00:00.000Z",
+    updatedAt: "2026-08-22T00:00:00.000Z",
+  };
+  const service = new BillingWebhookService({
+    async createWebhookEvent() { return event; },
+    async claimWebhookEventProcessing() {
+      if (!claimAvailable) return null;
+      claimAvailable = false;
+      return { ...event, status: "processing", attempts: 1 };
+    },
+    async updateWebhookEventStatus(input) { statusUpdates.push(input); return null; },
+    async getInvoiceById() { throw new Error("not used"); },
+    async findInvoiceByProviderPaymentId() { throw new Error("not used"); },
+    async findInvoiceByProviderAuthorizedPaymentId() { throw new Error("not used"); },
+    async createInvoice() { throw new Error("not used"); },
+    async updateInvoice() { throw new Error("not used"); },
+    async getSubscriptionById() { throw new Error("not used"); },
+    async findSubscriptionByProviderSubscriptionId() {
+      return {
+        id: "sub-concurrent-1", workspaceId: "workspace-concurrent-1", planId: "growth",
+        billingCycle: "monthly", priceId: "price-1", status: "pending", autoRenew: true,
+        currentPeriodStart: null, currentPeriodEnd: null, gracePeriodEndsAt: null,
+        cancelAtPeriodEnd: false, cancelRequestedAt: null, endedAt: null, accessUntil: null,
+        provider: "mercado_pago", providerSubscriptionId: "mp-sub-concurrent-1",
+        createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z",
+      };
+    },
+    async findUserByEmail() { throw new Error("not used"); },
+    async findPrimaryWorkspaceForUser() { throw new Error("not used"); },
+    async applyWorkspaceSubscriptionUpdate() { sideEffects += 1; return { changed: true }; },
+    async getSubscriptionChangeByInvoiceId() { throw new Error("not used"); },
+    async updateSubscriptionChange() { throw new Error("not used"); },
+    async findActivePrice() { throw new Error("not used"); },
+    getProvider() { return null; },
+    billingService: {
+      async activateSubscription() { throw new Error("not used"); },
+      async renewSubscription() { throw new Error("not used"); },
+      async markPastDue() { throw new Error("not used"); },
+      async applyUpgrade() { throw new Error("not used"); },
+      async applyCycleChange() { throw new Error("not used"); },
+    },
+  });
+  const input = {
+    provider: "mercado_pago", providerEventId: "req-concurrent-1", eventType: "subscription_preapproval",
+    resourceId: "sub-concurrent-1", payloadHash: "hash-concurrent-1", kind: "subscription",
+    sourceTopic: "subscription_preapproval", recurringChargeApproved: false,
+    subscription: {
+      providerSubscriptionId: "mp-sub-concurrent-1", status: "active", externalReference: null,
+      payerEmail: null, workspaceHints: { workspaceId: "workspace-concurrent-1", email: null },
+    },
+  };
+  const outcomes = await Promise.all(
+    Array.from({ length: 10 }, () => service.processEvent(input)),
+  );
+  assert.equal(outcomes.filter((outcome) => outcome.body.handled).length, 1);
+  assert.equal(
+    outcomes.filter((outcome) => outcome.body.finalStatus === "processing").length,
+    9,
+  );
+  assert.equal(sideEffects, 1);
+  assert.deepEqual(statusUpdates.map((entry) => entry.status), ["processed"]);
+});
+
 test("sincroniza evento de assinatura e persiste webhook como processed", async () => {
   const statusUpdates = [];
   const service = new BillingWebhookService({

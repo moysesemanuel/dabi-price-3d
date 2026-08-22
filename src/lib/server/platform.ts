@@ -395,28 +395,6 @@ export async function findUserById(userId: string) {
   return rows[0] ?? null;
 }
 
-export async function updateUserPassword(input: {
-  userId: string;
-  passwordHash: string;
-}) {
-  await ensurePlatformReady();
-
-  const sql = getSql();
-
-  await sql`
-    UPDATE users
-    SET
-      password_hash = ${input.passwordHash},
-      updated_at = NOW()
-    WHERE id = ${input.userId}
-  `;
-
-  await sql`
-    DELETE FROM user_sessions
-    WHERE user_id = ${input.userId}
-  `;
-}
-
 export async function issuePasswordResetToken(
   email: string,
   options?: {
@@ -515,37 +493,58 @@ export async function consumePasswordResetToken(input: {
   passwordHash: string;
 }) {
   await ensurePlatformReady();
+  const sql = getSql();
+  const tokenHash = hashOpaqueToken(input.token);
+  const rows = (await sql`
+    WITH consumed_token AS (
+      UPDATE password_reset_tokens t
+      SET consumed_at = NOW()
+      FROM users u
+      WHERE t.token_hash = ${tokenHash}
+        AND t.consumed_at IS NULL
+        AND t.expires_at > NOW()
+        AND u.id = t.user_id
+      RETURNING t.id, t.user_id, u.email, u.status, t.expires_at
+    ),
+    updated_user AS (
+      UPDATE users u
+      SET
+        password_hash = ${input.passwordHash},
+        status = CASE
+          WHEN u.status = 'active' THEN u.status
+          ELSE 'active'
+        END,
+        updated_at = NOW()
+      FROM consumed_token t
+      WHERE u.id = t.user_id
+      RETURNING u.id
+    ),
+    invalidated_sessions AS (
+      DELETE FROM user_sessions s
+      USING updated_user u
+      WHERE s.user_id = u.id
+    )
+    SELECT id, user_id, email, status, expires_at
+    FROM consumed_token
+  `) as Array<
+    Pick<
+      PasswordResetTokenLookupRow,
+      "id" | "user_id" | "email" | "status" | "expires_at"
+    >
+  >;
+  const consumedToken = rows[0];
 
-  const verifiedToken = await verifyPasswordResetToken(input.token);
-
-  if (!verifiedToken) {
+  if (!consumedToken) {
     return null;
   }
 
-  await updateUserPassword({
-    userId: verifiedToken.userId,
-    passwordHash: input.passwordHash,
-  });
-
-  const sql = getSql();
-
-  await sql`
-    UPDATE password_reset_tokens
-    SET consumed_at = NOW()
-    WHERE id = ${verifiedToken.id}
-  `;
-
-  if (verifiedToken.status !== "active") {
-    await sql`
-      UPDATE users
-      SET
-        status = 'active',
-        updated_at = NOW()
-      WHERE id = ${verifiedToken.userId}
-    `;
-  }
-
-  return verifiedToken;
+  return {
+    id: consumedToken.id,
+    userId: consumedToken.user_id,
+    email: consumedToken.email,
+    status: consumedToken.status,
+    expiresAt: consumedToken.expires_at,
+  };
 }
 
 export async function findPrimaryWorkspaceForUser(userId: string) {
@@ -1510,7 +1509,7 @@ export async function saveCalculationSnapshot(input: {
   const sql = getSql();
   const normalizedItem = normalizeCalculationInput(input.item);
 
-  await sql`
+  const savedRows = (await sql`
     INSERT INTO calculation_snapshots (
       id,
       workspace_id,
@@ -1532,7 +1531,14 @@ export async function saveCalculationSnapshot(input: {
       user_id = EXCLUDED.user_id,
       saved_at = EXCLUDED.saved_at,
       updated_at = NOW()
-  `;
+    WHERE calculation_snapshots.workspace_id = EXCLUDED.workspace_id
+    RETURNING id
+  `) as Array<{ id: string }>;
+
+  if (!savedRows[0]) {
+    // A snapshot ID belongs to another workspace; never overwrite cross-tenant data.
+    throw new Error("CALCULATION_ID_CONFLICT");
+  }
 
   const preferences = await getWorkspacePreferences(input.workspaceId);
   const historyLimit = resolveCalculationHistoryLimit(preferences);

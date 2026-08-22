@@ -4,6 +4,7 @@ import {
 } from "@/lib/auth/session";
 import { getWorkspaceEntitlements } from "@/lib/billing/server-entitlement-service";
 import type { SavedCalculation } from "@/lib/history/calculation-history";
+import { normalizeSavedCalculation } from "@/lib/history/workspace-calculations";
 import {
   appendAuditEvent,
   clearCalculationSnapshots,
@@ -72,21 +73,40 @@ export async function POST(request: Request) {
       { status: 403 },
     );
   }
-  let body: SavedCalculation;
+  let body: unknown;
 
   try {
-    body = (await request.json()) as SavedCalculation;
+    body = await request.json();
   } catch {
     return Response.json({ error: "Payload inválido." }, { status: 400 });
   }
 
+  const calculation = normalizeSavedCalculation(body);
+
+  if (!calculation) {
+    return Response.json({ error: "Payload inválido." }, { status: 400 });
+  }
+
   const currentItems = await listCalculationSnapshots(session.workspace.id);
-  const previousItem = currentItems.find((item) => item.id === body.id) ?? null;
-  const savedItem = await saveCalculationSnapshot({
-    workspaceId: session.workspace.id,
-    userId: session.user.id,
-    item: body,
-  });
+  const previousItem = currentItems.find((item) => item.id === calculation.id) ?? null;
+  let savedItem: SavedCalculation;
+
+  try {
+    savedItem = await saveCalculationSnapshot({
+      workspaceId: session.workspace.id,
+      userId: session.user.id,
+      item: calculation,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "CALCULATION_ID_CONFLICT") {
+      return Response.json(
+        { error: "Não foi possível salvar este cálculo. Gere um novo cálculo e tente novamente." },
+        { status: 409 },
+      );
+    }
+
+    throw error;
+  }
 
   await appendAuditEvent({
     workspaceId: session.workspace.id,

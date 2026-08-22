@@ -102,6 +102,11 @@ export type BillingWebhookServiceDependencies = {
     payloadHash: string;
     status?: BillingWebhookEventStatus;
   }): Promise<BillingWebhookEvent | null>;
+  claimWebhookEventProcessing?(input: {
+    provider: BillingProviderName;
+    providerEventId: string;
+    eventType: string;
+  }): Promise<BillingWebhookEvent | null>;
   updateWebhookEventStatus(input: {
     provider: BillingProviderName;
     providerEventId: string;
@@ -263,12 +268,41 @@ export class BillingWebhookService {
       };
     }
 
-    await this.dependencies.updateWebhookEventStatus({
-      provider: normalizedEvent.provider,
-      providerEventId: normalizedEvent.providerEventId,
-      eventType: normalizedEvent.eventType,
-      status: "processing",
-    });
+    const claimedEvent = this.dependencies.claimWebhookEventProcessing
+      ? await this.dependencies.claimWebhookEventProcessing({
+          provider: normalizedEvent.provider,
+          providerEventId: normalizedEvent.providerEventId,
+          eventType: normalizedEvent.eventType,
+        })
+      : null;
+
+    if (this.dependencies.claimWebhookEventProcessing && !claimedEvent) {
+      return {
+        status: 200,
+        logLevel: "info",
+        event: "billing_webhook.in_progress_duplicate",
+        details: {
+          provider: normalizedEvent.provider,
+          providerEventId: normalizedEvent.providerEventId,
+          eventType: normalizedEvent.eventType,
+          resourceId: normalizedEvent.resourceId,
+        },
+        body: {
+          handled: false,
+          duplicate: true,
+          finalStatus: "processing",
+        },
+      };
+    }
+
+    if (!this.dependencies.claimWebhookEventProcessing) {
+      await this.dependencies.updateWebhookEventStatus({
+        provider: normalizedEvent.provider,
+        providerEventId: normalizedEvent.providerEventId,
+        eventType: normalizedEvent.eventType,
+        status: "processing",
+      });
+    }
 
     try {
       const outcome = await this.processNormalizedEvent(normalizedEvent);

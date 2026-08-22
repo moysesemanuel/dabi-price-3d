@@ -10,6 +10,15 @@ export type RouteRequestContext = {
   startedAt: number;
 };
 
+const REDACTED_LOG_VALUE = "[REDACTED]";
+const sensitiveLogFieldPattern =
+  /^(?:authorization|api[-_]?key|access[-_]?token|refresh[-_]?token|token|secret|password|cookie|signature|code[-_]?(?:verifier|challenge)|qr[-_]?code|(?:payer[-_]?|user[-_]?)?email)$/i;
+const sensitiveLogValuePatterns = [
+  /(Bearer\s+)[A-Za-z0-9._~+/=-]+/gi,
+  /((?:access[-_]?token|refresh[-_]?token|token|secret|password|authorization|cookie|signature|code[-_]?(?:verifier|challenge))\s*[=:]\s*)("[^"]*"|'[^']*'|[^\s,}&]+)/gi,
+  /([?&](?:access_token|refresh_token|token|secret|password|code_verifier|code_challenge)=)[^&#\s]+/gi,
+];
+
 export function createRouteRequestContext(
   request: Request,
   route: string,
@@ -72,13 +81,13 @@ export function serializeError(error: unknown) {
   if (error instanceof Error) {
     return {
       name: error.name,
-      message: error.message,
-      stack: error.stack?.split("\n").slice(0, 5).join("\n"),
+      message: sanitizeLogString(error.message),
+      stack: sanitizeLogString(error.stack?.split("\n").slice(0, 5).join("\n")),
     };
   }
 
   if (typeof error === "string") {
-    return { message: error };
+    return { message: sanitizeLogString(error) };
   }
 
   return {
@@ -89,7 +98,25 @@ export function serializeError(error: unknown) {
 
 function sanitizeLogObject(input: Record<string, unknown>) {
   return Object.fromEntries(
-    Object.entries(input).map(([key, value]) => [key, sanitizeUnknownValue(value)]),
+    Object.entries(input).map(([key, value]) => [
+      key,
+      isSensitiveLogField(key) ? REDACTED_LOG_VALUE : sanitizeUnknownValue(value),
+    ]),
+  );
+}
+
+function isSensitiveLogField(key: string) {
+  return sensitiveLogFieldPattern.test(key.trim());
+}
+
+function sanitizeLogString(value: string | undefined) {
+  if (!value) {
+    return value;
+  }
+
+  return sensitiveLogValuePatterns.reduce(
+    (sanitized, pattern) => sanitized.replace(pattern, `$1${REDACTED_LOG_VALUE}`),
+    value,
   );
 }
 
@@ -99,7 +126,12 @@ function sanitizeUnknownValue(value: unknown): unknown {
   }
 
   if (
-    typeof value === "string" ||
+    typeof value === "string"
+  ) {
+    return sanitizeLogString(value);
+  }
+
+  if (
     typeof value === "number" ||
     typeof value === "boolean"
   ) {
@@ -118,7 +150,9 @@ function sanitizeUnknownValue(value: unknown): unknown {
     return Object.fromEntries(
       Object.entries(value).map(([key, nestedValue]) => [
         key,
-        sanitizeUnknownValue(nestedValue),
+        isSensitiveLogField(key)
+          ? REDACTED_LOG_VALUE
+          : sanitizeUnknownValue(nestedValue),
       ]),
     );
   }

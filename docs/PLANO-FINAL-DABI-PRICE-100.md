@@ -73,21 +73,21 @@ Garantir que produção não dependa de configuração implícita, local ou não
 
 ## Variáveis a validar
 
-- [ ] `DATABASE_URL`
-- [ ] `MERCADO_PAGO_ACCESS_TOKEN`
-- [ ] `MERCADO_PAGO_WEBHOOK_SECRET`
-- [ ] `MERCADO_PAGO_TEST_ACCESS_TOKEN`, onde aplicável
-- [ ] `MERCADO_PAGO_TEST_SITE_ID`
+- [x] `DATABASE_URL`
+- [x] `MERCADO_PAGO_ACCESS_TOKEN`
+- [x] `MERCADO_PAGO_WEBHOOK_SECRET`
+- [x] `MERCADO_PAGO_TEST_ACCESS_TOKEN`, onde aplicável
+- [x] `MERCADO_PAGO_TEST_SITE_ID`
 - [x] `CRON_SECRET`
 - [x] `RESEND_API_KEY`
 - [x] `AUTH_EMAIL_FROM`
-- [ ] `BLOB_READ_WRITE_TOKEN`
-- [ ] `MELI_CLIENT_ID`
-- [ ] `MELI_CLIENT_SECRET`
-- [ ] `MELI_REDIRECT_URI`
-- [ ] `ERP_APP_URL`
-- [ ] `PRICING_INTEGRATION_TOKEN`
-- [ ] Demais variáveis efetivamente utilizadas pelo código.
+- [x] `BLOB_READ_WRITE_TOKEN`
+- [x] `MELI_CLIENT_ID`
+- [x] `MELI_CLIENT_SECRET`
+- [x] `MELI_REDIRECT_URI`
+- [x] `ERP_APP_URL`
+- [x] `PRICING_INTEGRATION_TOKEN`
+- [x] Demais variáveis efetivamente utilizadas pelo código.
 
 ## Configuração
 
@@ -145,6 +145,16 @@ Verificação em 21/08/2026:
 - A execução automática dos três jobs depende de acesso ao QStash ou de
   evidência de entregas recentes. Em 21/08/2026, os três schedules foram
   confirmados no QStash como `Delivered` com `HTTP 200`.
+- A listagem da Vercel em 22/08/2026 confirmou essas variáveis em Production e
+  Preview. Development contém somente `BLOB_READ_WRITE_TOKEN`,
+  `BLOB_STORE_ID` e `BLOB_WEBHOOK_PUBLIC_KEY`; não há segredo de produção
+  configurado nesse ambiente.
+- A comparação estática entre `process.env.*` e `.env.example` confirmou que
+  os valores configuráveis usados pelo código estão documentados, incluindo
+  bootstrap, contexto opcional do ERP e o fallback legado do Mercado Livre.
+  `NODE_ENV` e `VERCEL_ENV` são fornecidas pela plataforma. As URLs fixas de
+  Mercado Pago, Mercado Livre, Resend e Frankfurter usam HTTPS; os valores de
+  `ERP_APP_URL` e `MELI_REDIRECT_URI` seguem pendentes de confirmação externa.
 
 ---
 
@@ -156,14 +166,14 @@ Provar em infraestrutura real que o hardening já implementado funciona corretam
 
 ## Webhook Mercado Pago
 
-- [ ] Assinatura válida é aceita.
+- [x] Assinatura válida é aceita.
 - [x] Assinatura inválida retorna `401`.
 - [x] Ausência de assinatura é rejeitada.
-- [ ] Ausência de `MERCADO_PAGO_WEBHOOK_SECRET` falha de forma segura.
+- [x] Ausência de `MERCADO_PAGO_WEBHOOK_SECRET` falha de forma segura.
 - [x] Payload inválido é rejeitado.
-- [ ] Evento duplicado produz um único efeito.
-- [ ] Nenhum payload bruto sensível aparece nos logs.
-- [ ] Nenhum token aparece nos logs.
+- [x] Evento duplicado produz um único efeito.
+- [x] Nenhum payload bruto sensível aparece nos logs.
+- [x] Nenhum token aparece nos logs.
 - [ ] Evento válido aparece na superfície administrativa correspondente.
 
 ## Autenticação
@@ -171,15 +181,15 @@ Provar em infraestrutura real que o hardening já implementado funciona corretam
 - [x] Brute force por IP limitado.
 - [x] Brute force por e-mail limitado.
 - [x] Login correto não bloqueia indevidamente o usuário.
-- [ ] Múltiplas instâncias compartilham o contador.
+- [x] Múltiplas instâncias compartilham o contador.
 - [x] Bloqueio retorna `429`.
 - [x] Resposta inclui `Retry-After`.
 - [ ] Cadastro protegido.
 - [x] Recuperação de senha protegida.
-- [ ] Reset protegido.
+- [x] Reset protegido.
 - [x] Token inválido tratado.
-- [ ] Token expirado tratado.
-- [ ] Sessão expirada tratada.
+- [x] Token expirado tratado.
+- [x] Sessão expirada tratada.
 - [x] Logout invalidando sessão corretamente.
 - [x] Cookie com configuração segura em produção.
 
@@ -229,6 +239,18 @@ Validação em Production e Preview entre 21/08/2026 e 22/08/2026:
 - As exceções de `accessUntil`, contas, workspaces e registros descartáveis
   deste teste, incluindo as duas tentativas sem checkout causadas pelo domínio
   `.invalid`, foram removidos pela administração do banco após a validação.
+- O rate limit usa `api_rate_limits` no banco quando `DATABASE_URL` está
+  configurada, portanto mantém o contador entre instâncias. A camada comum de
+  observabilidade agora mascara tokens, segredos, senhas, cookies,
+  `Authorization` e credenciais presentes em mensagens e stack traces; os três
+  logs diretos restantes passam pela mesma serialização.
+- O consumo persistente de token de recuperação passou a executar como uma
+  única operação atômica: valida validade e uso prévio, atualiza senha/status e
+  invalida sessões sem permitir que duas requisições reutilizem o mesmo token.
+- A suíte automatizada cobre HMAC SHA-256 válido mesmo com `ts` antigo,
+  ausência de secret, assinatura inválida e o curto-circuito idempotente de
+  webhooks já processados. A confirmação de ponta a ponta com evento real
+  permanece na Fase 3.
 
 ## Critério de aceite
 
@@ -424,10 +446,10 @@ Eliminar condições de corrida capazes de produzir estado comercial inválido.
 
 ## Cenários a auditar
 
-- [ ] webhook vs webhook
+- [x] webhook vs webhook
 - [ ] webhook vs reconciliation
 - [ ] reconciliation vs reconciliation
-- [ ] checkout simultâneo
+- [x] checkout simultâneo
 - [ ] upgrade simultâneo
 - [ ] downgrade simultâneo
 - [ ] cancelamento vs pagamento
@@ -440,18 +462,43 @@ Onde necessário:
 
 - [ ] Transações.
 - [ ] Locking.
-- [ ] Atomicidade.
-- [ ] Unique constraints.
+- [x] Atomicidade.
+- [x] Unique constraints.
 - [ ] Optimistic concurrency.
 - [ ] `SELECT ... FOR UPDATE` ou equivalente.
-- [ ] Idempotency keys.
+- [x] Idempotency keys.
 - [ ] Retries seguros.
 
 ## Testes
 
-- [ ] Criar testes concorrentes.
-- [ ] Exemplo: 10 webhooks simultâneos `approved`.
-- [ ] Resultado esperado: uma única mudança efetiva.
+- [x] Criar testes concorrentes.
+- [x] Exemplo: 10 webhooks simultâneos `approved`.
+- [x] Resultado esperado: uma única mudança efetiva.
+
+## Registro de execução
+
+- O evento do provider possui unicidade por `provider`, `provider_event_id` e
+  `event_type`. Antes de qualquer efeito comercial, o processamento agora é
+  reivindicado por `UPDATE` atômico somente quando o status é `received` ou
+  `failed`.
+- A suíte executa dez entregas concorrentes do mesmo evento `approved` e
+  confirma uma única atualização de assinatura; as nove restantes recebem
+  `200` como entrega duplicada em processamento, sem novo efeito.
+- Checkout recorrente e Pix usam a mesma reivindicação atômica em
+  `workspace_preferences`: somente a primeira requisição do workspace grava
+  `checkoutStartedAt`; as concorrentes recebem `409` até a liberação ou o
+  vencimento controlado de dez minutos. Isso impede a criação simultânea de
+  novas assinaturas e invoices locais antes da chamada ao provider.
+- Webhook versus reconciliação, reconciliações concorrentes e mutações de
+  assinatura versus pagamento continuam abertos. Eles atravessam invoice,
+  subscription, subscription change, auditoria e a projeção de preferências;
+  uma correção segura requer uma fronteira transacional/claim de domínio
+  desenhada para todos esses efeitos, não um update condicional isolado.
+- O cliente HTTP do Neon suporta transações não interativas. Como as rotinas
+  de billing precisam consultar o Mercado Pago entre alterações de estado, um
+  lock de banco isolado não cobre o fluxo inteiro. A próxima implementação
+  deve introduzir claim durável de invoice com recuperação de processamento
+  interrompido antes de marcar esses cenários como seguros.
 
 ## Critério de aceite
 
@@ -467,22 +514,41 @@ Permitir operação segura sem acesso direto ao banco.
 
 ## Funcionalidades obrigatórias
 
-- [ ] Localizar workspace.
-- [ ] Localizar usuário.
-- [ ] Visualizar assinatura.
-- [ ] Visualizar invoices.
-- [ ] Consultar provider.
-- [ ] Visualizar pagamentos.
-- [ ] Visualizar webhooks.
-- [ ] Visualizar auditoria.
-- [ ] Visualizar mudanças de plano.
-- [ ] Visualizar backlog.
-- [ ] Disparar reconciliação segura.
-- [ ] Cancelar assinatura administrativamente.
-- [ ] Visualizar divergência DaBi × Mercado Pago.
-- [ ] Corrigir exceções por fluxo controlado.
-- [ ] Atualizar `accessUntil` com justificativa.
-- [ ] Registrar histórico de toda ação administrativa.
+- [x] Localizar workspace.
+- [x] Localizar usuário.
+- [x] Visualizar assinatura.
+- [x] Visualizar invoices.
+- [x] Consultar provider.
+- [x] Visualizar pagamentos.
+- [x] Visualizar webhooks.
+- [x] Visualizar auditoria.
+- [x] Visualizar mudanças de plano.
+- [x] Visualizar backlog.
+- [x] Disparar reconciliação segura.
+- [x] Cancelar assinatura administrativamente.
+- [x] Visualizar divergência DaBi × Mercado Pago.
+- [x] Corrigir exceções por fluxo controlado.
+- [x] Atualizar `accessUntil` com justificativa.
+- [x] Registrar histórico de toda ação administrativa.
+
+## Registro de execução
+
+- A ação de reconciliação no console de super admin passa a renderizar os
+  findings retornados pelo provider, incluindo divergências como provider ativo
+  com assinatura local pendente ou provider cancelado com assinatura local
+  ativa. O resultado deixa de ser somente uma contagem e aponta workspace,
+  assinatura e invoice afetados.
+- A concessão ou remoção de `accessUntil` exige justificativa de até 500
+  caracteres. O serviço valida o motivo, a interface impede envio vazio e a
+  auditoria registra ator, valor anterior, valor novo e justificativa.
+
+- A área `/admin` possui telas para workspaces, usuários, assinaturas,
+  pagamentos, eventos e sistema. O detalhe da assinatura reúne invoices,
+  mudanças e auditoria; as ações de inspeção do provider e `accessUntil`
+  exigem super admin e gravam auditoria.
+- Ainda faltam ações administrativas controladas para cancelar assinaturas e
+  disparar reconciliação. A lista de divergências é somente de leitura, logo
+  não substitui esses fluxos.
 
 ## Regra
 
@@ -525,12 +591,11 @@ Classificar:
 ## Achado de produção
 
 Em 21/08/2026, o workspace do super admin apresentou `pending` nas
-preferências legadas sem assinatura corrente no billing. Uma assinatura
-`canceled` com `accessUntil` futuro não é selecionada como assinatura corrente,
-portanto sua exceção administrativa não alcança os entitlements e o fallback
-legado continua bloqueando o acesso. A correção deve preservar o estado
-comercial cancelado e tornar a exceção administrativa explícita e auditável,
-sem simular pagamento aprovado.
+preferências legadas sem assinatura corrente no billing. A consulta de
+assinatura corrente foi corrigida para também retornar uma assinatura com
+`accessUntil` futuro, inclusive se o status comercial for `canceled`. O motor
+de entitlement concede a exceção sem alterar esse status ou simular pagamento
+aprovado. A remoção do fallback legado continua pendente nesta fase.
 
 ## Arquitetura final esperada
 
@@ -626,12 +691,12 @@ landing
 
 ## Recuperação de senha
 
-- [ ] Solicitação.
-- [ ] E-mail real via Resend.
-- [ ] Link.
-- [ ] Token.
-- [ ] Nova senha.
-- [ ] Login com nova senha.
+- [x] Solicitação.
+- [x] E-mail real via Resend.
+- [x] Link.
+- [x] Token.
+- [x] Nova senha.
+- [x] Login com nova senha.
 - [ ] Token não reutilizável.
 
 ## Gestão da conta
@@ -647,6 +712,14 @@ landing
 - [ ] Múltiplos usuários.
 - [ ] Limite de seats por plano.
 
+## Registro de execução
+
+- Em 21/08/2026, a recuperação foi validada no ambiente remoto: solicitação
+  aceita pelo Resend, e-mail entregue no Gmail, link aberto, senha atualizada
+  e login realizado com a nova credencial. A suíte local também cobre expiração
+  e consumo único de token. A confirmação do consumo único contra Neon real
+  permanece pendente.
+
 ---
 
 # Fase 11 — Precificação
@@ -657,28 +730,37 @@ Homologar completamente o núcleo funcional do produto.
 
 ## Casos
 
-- [ ] Material.
-- [ ] Energia.
-- [ ] Mão de obra.
-- [ ] Manutenção.
-- [ ] Embalagem.
-- [ ] Perdas.
-- [ ] Margem.
-- [ ] Impostos.
-- [ ] Taxas.
-- [ ] Canais de venda.
-- [ ] Modelos de negócio.
-- [ ] Arredondamentos.
-- [ ] Valores zero.
-- [ ] Valores extremos.
+- [x] Material.
+- [x] Energia.
+- [x] Mão de obra.
+- [x] Manutenção.
+- [x] Embalagem.
+- [x] Perdas.
+- [x] Margem.
+- [x] Impostos.
+- [x] Taxas.
+- [x] Canais de venda.
+- [x] Modelos de negócio.
+- [x] Arredondamentos.
+- [x] Valores zero.
+- [x] Valores extremos.
 - [ ] Histórico.
 - [ ] Edição.
 - [ ] Duplicação, se oficialmente suportada.
-- [ ] Limites por plano.
+- [x] Limites por plano.
 
 ## Critério de aceite
 
 O mesmo input produz o mesmo resultado independentemente da UI, com regras financeiras cobertas por testes.
+
+## Registro de execução
+
+- O motor 3D possui testes determinísticos para material, energia, mão de
+  obra, manutenção, embalagem, frete, perdas, margem, impostos e taxas. A
+  suíte também cobre arredondamento comercial, canais e modelos de venda,
+  valores zerados, uma carga alta finita e limites de histórico por plano.
+- Histórico persistido, edição e duplicação continuam pendentes de teste de
+  integração/E2E, pois não são regras puras do motor financeiro.
 
 ---
 
@@ -730,8 +812,15 @@ precificação
 
 ## Legado
 
-- [ ] Avaliar fallback de token por ambiente.
+- [x] Avaliar fallback de token por ambiente.
 - [ ] Remover se não fizer parte do comportamento oficial de produção.
+
+## Registro de execução
+
+- O fallback `MELI_ACCESS_TOKEN`/`MELI_USER_ID` só é considerado quando não há
+  persistência de plataforma. Com `DATABASE_URL`, as credenciais são OAuth
+  persistente e isolado por workspace. O fallback continua documentado para
+  desenvolvimento local até a confirmação de que não possui consumidor ativo.
 
 ---
 
@@ -809,6 +898,14 @@ Sentry + e-mail
 
 ou equivalente.
 
+## Bloqueio operacional
+
+- O repositório não contém integração ou credencial de Sentry, PagerDuty,
+  Datadog, Slack ou serviço equivalente. Há logs estruturados, `requestId` e
+  backlog administrativo para diagnóstico, mas eles não enviam alertas por si
+  só. A conclusão desta fase requer escolher o provedor, conceder acesso e
+  configurar o canal de destino na infraestrutura externa.
+
 ## Critério de aceite
 
 Falhas críticas geram alerta sem depender de abrir manualmente o painel administrativo.
@@ -819,17 +916,17 @@ Falhas críticas geram alerta sem depender de abrir manualmente o painel adminis
 
 ## Unitários
 
-- [ ] Regras puras do domínio.
+- [x] Regras puras do domínio.
 
 ## Integração
 
 - [ ] Repository.
 - [ ] Database.
-- [ ] Billing Service.
-- [ ] Webhook.
-- [ ] Auth.
-- [ ] Provider adapters.
-- [ ] Jobs/reconciliation.
+- [x] Billing Service.
+- [x] Webhook.
+- [x] Auth.
+- [x] Provider adapters.
+- [x] Jobs/reconciliation.
 
 ## E2E
 
@@ -856,8 +953,22 @@ npm run build:webpack
 git diff --check
 ```
 
-- [ ] Todos verdes.
-- [ ] Evoluir `npm run check` para representar toda a suíte final, se necessário.
+- [x] Todos verdes.
+- [x] Evoluir `npm run check` para representar toda a suíte final, se necessário.
+
+## Registro de execução
+
+- A suíte atual cobre regras de precificação, estado e entitlement, Billing
+  Service, adaptadores Mercado Pago, webhooks, recuperação/autenticação local,
+  controle de acesso e jobs de reconciliação. Em 22/08/2026, `lint`,
+  `typecheck`, `test:pricing` (202 testes), `build:webpack` e
+  `git diff --check` passaram.
+- Testes contra banco real, E2E de browser e homologações externas não foram
+  marcados: eles precisam da infraestrutura e dos fluxos manuais definidos nas
+  fases correspondentes.
+- `npm run check` executa lint, typecheck, a suíte `test:pricing` e o build
+  Webpack, concentrando toda a validação local obrigatória do plano em um
+  comando.
 
 ---
 
@@ -865,26 +976,80 @@ git diff --check
 
 ## Auditoria
 
-- [ ] Secrets commitados.
-- [ ] `.env.example`.
-- [ ] Cookies.
-- [ ] CSRF onde aplicável.
-- [ ] CORS.
-- [ ] Autorização.
-- [ ] IDOR.
-- [ ] Mass assignment.
-- [ ] Open redirect.
-- [ ] Validação de inputs.
-- [ ] SQL.
-- [ ] Upload.
-- [ ] Headers.
-- [ ] Stack traces.
-- [ ] Mensagens de erro.
-- [ ] Logs.
-- [ ] PII.
+- [x] Secrets commitados.
+- [x] `.env.example`.
+- [x] Cookies.
+- [x] CSRF onde aplicável.
+- [x] CORS.
+- [x] Autorização.
+- [x] IDOR.
+- [x] Mass assignment.
+- [x] Open redirect.
+- [x] Validação de inputs.
+- [x] SQL.
+- [x] Upload.
+- [x] Headers.
+- [x] Stack traces.
+- [x] Mensagens de erro.
+- [x] Logs.
+- [x] PII.
 - [ ] Dependências vulneráveis.
-- [ ] Rotas de debug/teste esquecidas.
-- [ ] Todas as rotas `/api`.
+- [x] Rotas de debug/teste esquecidas.
+- [x] Todas as rotas `/api`.
+
+## Registro de execução
+
+- A busca no repositório rastreado não encontrou valores literais para os
+  secrets operacionais conhecidos. Arquivos de ambiente e dependências foram
+  excluídos da verificação por não serem código versionado.
+- `npm audit --omit=dev --audit-level=high`, executado em 22/08/2026, reportou
+  cinco vulnerabilidades altas transitivas: `next@16.2.6`/`postcss`/`sharp`,
+  `nanoid` e `undici`. A correção automática completa propõe
+  `next@16.3.2`, fora da versão compatível atualmente exigida. Atualizar a
+  dependência deve ser tratado como mudança controlada com nova validação de
+  Next.js, não via `npm audit fix --force`.
+- A sessão usa cookie `HttpOnly`, `Secure` em produção e `SameSite=Lax`. Os
+  cookies temporários de OAuth têm a mesma proteção e o callback valida
+  `state` e PKCE. Não há configuração de CORS permissiva no código; as rotas
+  autenticadas também validam sessão no handler quando acionam credenciais de
+  terceiros.
+- `.env.example` relaciona todas as integrações operacionais sem valores
+  efetivos. A árvore versionada de `src/app/api` não possui handlers de debug
+  ou teste expostos.
+- O sanitizador central de logs remove e-mails, tokens, segredos, senhas,
+  cookies, assinaturas, QR codes e credenciais de OAuth, inclusive em objetos
+  aninhados. Eventos de billing preservam IDs técnicos para diagnóstico.
+- O `next.config.ts` aplica `X-Content-Type-Options`, `X-Frame-Options`,
+  `Referrer-Policy` e `Permissions-Policy` globalmente. CSP permanece fora
+  desta alteração por exigir inventário das integrações externas antes de ser
+  restritiva.
+- O Preview do PR é protegido por Deployment Protection e responde com `302`
+  para o SSO da Vercel antes de alcançar a aplicação; por isso, a confirmação
+  remota dos headers do app deve ser feita após o merge em Production ou com
+  bypass autenticado, sem desabilitar essa proteção.
+- O login só aceita `next` iniciado por `/app`; valores externos retornam ao
+  caminho interno calculado pela situação de entitlement e onboarding.
+- A revisão das rotas `/api` confirmou que os handlers de workspace usam o
+  `workspaceId` da sessão, os administrativos exigem super admin no serviço,
+  cron exige segredo e webhook exige HMAC. As exceções sem sessão são os
+  fluxos públicos intencionais (autenticação com rate limit, recuperação,
+  webhook assinado e cotação pública sem credenciais).
+- O `upsert` de `calculation_snapshots` agora atualiza uma colisão de `id`
+  somente se ela pertence ao mesmo workspace. Uma colisão entre tenants retorna
+  `409`, sem alterar a linha existente. A normalização de cálculos também
+  descarta campos não permitidos, inclusive `workspaceId` e `userId` enviados
+  pelo cliente.
+- Uploads exigem sessão antes de gerar token Blob, restringem prefixo, formato
+  e tamanho. Falhas inesperadas do SDK retornam mensagem genérica, sem expor
+  detalhes internos.
+- Rotas de mutação convertem falhas conhecidas em respostas controladas;
+  detalhes e stacks são limitados aos logs sanitizados. O SQL usa o cliente
+  parametrizado `@neondatabase/serverless`, sem interpolação de entrada em
+  strings de query.
+- A consulta de categorias do Mercado Livre passou a registrar exceções pelo
+  sanitizador central e a retornar somente a mensagem pública genérica. Assim,
+  uma falha de upstream não pode devolver nem registrar mensagem bruta que
+  contenha detalhes operacionais ou credenciais.
 
 ## Critério de aceite
 

@@ -1,6 +1,6 @@
 import type { BillingProvider } from "./providers/billing-provider.ts";
 import type { BillingService } from "./service.ts";
-import type { BillingSubscription } from "./types.ts";
+import type { BillingAuditActorType, BillingSubscription } from "./types.ts";
 
 export type ManageBillingSubscriptionAction = "cancel" | "resume";
 
@@ -45,9 +45,11 @@ export async function manageMercadoPagoBillingSubscription(input: {
   action: ManageBillingSubscriptionAction;
   subscription: ManagedBillingSubscription;
   actorId: string;
+  actorType?: BillingAuditActorType;
   dependencies: BillingSubscriptionManagerDependencies;
 }) {
   const { action, subscription, actorId, dependencies } = input;
+  const actorType = input.actorType ?? "user";
 
   if (
     subscription.provider !== "mercado_pago" ||
@@ -80,11 +82,11 @@ export async function manageMercadoPagoBillingSubscription(input: {
   const localSubscription =
     action === "cancel"
       ? await dependencies.billingService.scheduleCancellation(subscription.id, {
-          actorType: "user",
+          actorType,
           actorId,
         })
       : await dependencies.billingService.revertCancellation(subscription.id, {
-          actorType: "user",
+          actorType,
           actorId,
         });
 

@@ -193,7 +193,10 @@ export async function findCurrentBillingSubscriptionForWorkspace(
       updated_at
     FROM billing_subscriptions
     WHERE workspace_id = ${workspaceId}
-      AND status = ANY(${currentBillingSubscriptionStatuses})
+      AND (
+        status = ANY(${currentBillingSubscriptionStatuses})
+        OR access_until > NOW()
+      )
     ORDER BY created_at DESC
     LIMIT 1
   `) as BillingSubscriptionRow[];
@@ -1576,6 +1579,51 @@ export async function updateBillingWebhookEventStatus(input: {
     WHERE provider = ${input.provider}
       AND provider_event_id = ${input.providerEventId}
       AND event_type = ${input.eventType}
+    RETURNING
+      id,
+      provider,
+      provider_event_id,
+      event_type,
+      resource_id,
+      payload_hash,
+      status,
+      attempts,
+      received_at,
+      processed_at,
+      error_code,
+      error_message,
+      created_at,
+      updated_at
+  `) as BillingWebhookEventRow[];
+
+  return rows[0] ? mapBillingWebhookEventRow(rows[0]) : null;
+}
+
+/**
+ * Claims an event before side effects run, so concurrent deliveries cannot both
+ * process the same provider event.
+ */
+export async function claimBillingWebhookEventProcessing(input: {
+  provider: BillingProviderName;
+  providerEventId: string;
+  eventType: string;
+}) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    UPDATE billing_webhook_events
+    SET
+      status = 'processing',
+      attempts = attempts + 1,
+      processed_at = NULL,
+      error_code = NULL,
+      error_message = NULL,
+      updated_at = NOW()
+    WHERE provider = ${input.provider}
+      AND provider_event_id = ${input.providerEventId}
+      AND event_type = ${input.eventType}
+      AND status IN ('received', 'failed')
     RETURNING
       id,
       provider,
