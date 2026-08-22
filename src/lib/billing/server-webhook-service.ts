@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   appendBillingAuditEvent,
+  claimBillingWebhookEventProcessing,
   createBillingInvoice,
   createBillingSubscriptionChange,
   createBillingWebhookEvent,
@@ -47,6 +48,7 @@ export function createBillingWebhookService() {
 
   return new BillingWebhookService({
     createWebhookEvent: createBillingWebhookEvent,
+    claimWebhookEventProcessing: claimBillingWebhookEventProcessing,
     updateWebhookEventStatus: updateBillingWebhookEventStatus,
     getInvoiceById: getBillingInvoiceById,
     findInvoiceByProviderPaymentId: findBillingInvoiceByProviderPaymentId,

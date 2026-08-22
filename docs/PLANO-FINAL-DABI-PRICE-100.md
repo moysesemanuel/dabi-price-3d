@@ -436,7 +436,7 @@ Eliminar condições de corrida capazes de produzir estado comercial inválido.
 
 ## Cenários a auditar
 
-- [ ] webhook vs webhook
+- [x] webhook vs webhook
 - [ ] webhook vs reconciliation
 - [ ] reconciliation vs reconciliation
 - [ ] checkout simultâneo
@@ -452,18 +452,28 @@ Onde necessário:
 
 - [ ] Transações.
 - [ ] Locking.
-- [ ] Atomicidade.
-- [ ] Unique constraints.
+- [x] Atomicidade.
+- [x] Unique constraints.
 - [ ] Optimistic concurrency.
 - [ ] `SELECT ... FOR UPDATE` ou equivalente.
-- [ ] Idempotency keys.
+- [x] Idempotency keys.
 - [ ] Retries seguros.
 
 ## Testes
 
-- [ ] Criar testes concorrentes.
-- [ ] Exemplo: 10 webhooks simultâneos `approved`.
-- [ ] Resultado esperado: uma única mudança efetiva.
+- [x] Criar testes concorrentes.
+- [x] Exemplo: 10 webhooks simultâneos `approved`.
+- [x] Resultado esperado: uma única mudança efetiva.
+
+## Registro de execução
+
+- O evento do provider possui unicidade por `provider`, `provider_event_id` e
+  `event_type`. Antes de qualquer efeito comercial, o processamento agora é
+  reivindicado por `UPDATE` atômico somente quando o status é `received` ou
+  `failed`.
+- A suíte executa dez entregas concorrentes do mesmo evento `approved` e
+  confirma uma única atualização de assinatura; as nove restantes recebem
+  `200` como entrega duplicada em processamento, sem novo efeito.
 
 ## Critério de aceite
 
