@@ -521,12 +521,18 @@ Permitir operação segura sem acesso direto ao banco.
 - [x] Visualizar backlog.
 - [x] Disparar reconciliação segura.
 - [x] Cancelar assinatura administrativamente.
-- [ ] Visualizar divergência DaBi × Mercado Pago.
+- [x] Visualizar divergência DaBi × Mercado Pago.
 - [ ] Corrigir exceções por fluxo controlado.
 - [x] Atualizar `accessUntil` com justificativa.
 - [x] Registrar histórico de toda ação administrativa.
 
 ## Registro de execução
+
+- A ação de reconciliação no console de super admin passa a renderizar os
+  findings retornados pelo provider, incluindo divergências como provider ativo
+  com assinatura local pendente ou provider cancelado com assinatura local
+  ativa. O resultado deixa de ser somente uma contagem e aponta workspace,
+  assinatura e invoice afetados.
 
 - A área `/admin` possui telas para workspaces, usuários, assinaturas,
   pagamentos, eventos e sistema. O detalhe da assinatura reúne invoices,

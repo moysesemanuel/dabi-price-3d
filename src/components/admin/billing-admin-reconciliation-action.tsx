@@ -1,10 +1,13 @@
 "use client";
 
 import { startTransition, useState } from "react";
+import { FindingsList } from "./billing-admin-ui";
+import type { BillingReconciliationFinding } from "@/lib/billing/reconciliation-service";
 
 export function BillingAdminReconciliationAction() {
   const [isRunning, setIsRunning] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [findings, setFindings] = useState<BillingReconciliationFinding[]>([]);
 
   async function runReconciliation() {
     if (
@@ -17,6 +20,7 @@ export function BillingAdminReconciliationAction() {
 
     setIsRunning(true);
     setFeedback(null);
+    setFindings([]);
 
     try {
       const response = await fetch("/api/admin/billing/reconciliation", {
@@ -24,7 +28,12 @@ export function BillingAdminReconciliationAction() {
         headers: { Accept: "application/json" },
       });
       const payload = (await response.json().catch(() => null)) as
-        | { error?: string; processed?: number; changed?: number; findings?: number }
+        | {
+            error?: string;
+            processed?: number;
+            changed?: number;
+            findings?: BillingReconciliationFinding[];
+          }
         | null;
 
       if (!response.ok) {
@@ -32,8 +41,13 @@ export function BillingAdminReconciliationAction() {
       }
 
       startTransition(() => {
+        const nextFindings = Array.isArray(payload?.findings)
+          ? payload.findings
+          : [];
+
+        setFindings(nextFindings);
         setFeedback(
-          `Reconciliação concluída: ${payload?.processed ?? 0} processados, ${payload?.changed ?? 0} alterados, ${payload?.findings ?? 0} findings.`,
+          `Reconciliação concluída: ${payload?.processed ?? 0} processados, ${payload?.changed ?? 0} alterados, ${nextFindings.length} findings.`,
         );
       });
     } catch (error) {
@@ -62,6 +76,11 @@ export function BillingAdminReconciliationAction() {
         {isRunning ? "Reconciliando..." : "Executar reconciliação"}
       </button>
       {feedback ? <p className="mt-3 text-sm text-[var(--foreground)]">{feedback}</p> : null}
+      {findings.length > 0 ? (
+        <div className="mt-4">
+          <FindingsList findings={findings} />
+        </div>
+      ) : null}
     </div>
   );
 }

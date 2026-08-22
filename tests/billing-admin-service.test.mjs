@@ -83,7 +83,19 @@ function createDependencies(overrides = {}) {
       return [{ code: "webhook_processing_failed" }];
     },
     async runProviderReconciliation() {
-      return { processed: 3, changed: 1, findings: 1, steps: {} };
+      return {
+        processed: 3,
+        changed: 1,
+        findings: [
+          {
+            code: "provider_active_local_pending",
+            workspaceId: "workspace-1",
+            subscriptionId: "sub-1",
+            details: { providerSubscriptionId: "mp-sub-1" },
+          },
+        ],
+        steps: {},
+      };
     },
     async getSubscriptionRecord() {
       return {
@@ -257,11 +269,35 @@ test("super admin dispara reconciliacao limitada e auditada", async () => {
     session: createSession(),
   });
 
-  assert.deepEqual(result, { processed: 3, changed: 1, findings: 1, steps: {} });
+  assert.deepEqual(result, {
+    processed: 3,
+    changed: 1,
+    findings: [
+      {
+        code: "provider_active_local_pending",
+        workspaceId: "workspace-1",
+        subscriptionId: "sub-1",
+        details: { providerSubscriptionId: "mp-sub-1" },
+      },
+    ],
+    steps: {},
+  });
   assert.deepEqual(dependencies.auditEvents[0], {
     actorType: "super_admin",
     actorId: "user-1",
     action: "billing.provider_reconciliation_requested",
-    metadata: { limit: 20, processed: 3, changed: 1, findings: 1 },
+    metadata: {
+      limit: 20,
+      processed: 3,
+      changed: 1,
+      findings: [
+        {
+          code: "provider_active_local_pending",
+          workspaceId: "workspace-1",
+          subscriptionId: "sub-1",
+          details: { providerSubscriptionId: "mp-sub-1" },
+        },
+      ],
+    },
   });
 });
