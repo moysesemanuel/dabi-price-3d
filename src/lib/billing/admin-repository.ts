@@ -23,7 +23,8 @@ type BillingAdminSummaryRow = {
   expired_subscriptions: number | null;
   new_subscriptions_last_30_days: number | null;
   cancellations_last_30_days: number | null;
-  churn_rate_percent: number | null;
+  // PostgreSQL numeric values are returned as strings by the Neon driver.
+  churn_rate_percent: number | string | null;
   pending_payments: number | null;
   failed_payments: number | null;
   failed_webhooks: number | null;
@@ -590,7 +591,7 @@ function mapBillingAdminSummary(
     expiredSubscriptions: row.expired_subscriptions ?? 0,
     newSubscriptionsLast30Days: row.new_subscriptions_last_30_days ?? 0,
     cancellationsLast30Days: row.cancellations_last_30_days ?? 0,
-    churnRatePercent: row.churn_rate_percent ?? null,
+    churnRatePercent: normalizeNullableNumber(row.churn_rate_percent),
     pendingPayments: row.pending_payments ?? 0,
     failedPayments: row.failed_payments ?? 0,
     failedWebhooks: row.failed_webhooks ?? 0,
@@ -604,6 +605,16 @@ function mapBillingAdminSummary(
     pixAutomaticPayments: row.pix_automatic_payments ?? 0,
     cardPayments: row.card_payments ?? 0,
   };
+}
+
+function normalizeNullableNumber(value: number | string | null): number | null {
+  if (value === null) {
+    return null;
+  }
+
+  const normalized = typeof value === "number" ? value : Number(value);
+
+  return Number.isFinite(normalized) ? normalized : null;
 }
 
 function mapBillingAdminWorkspaceRow(
