@@ -898,9 +898,9 @@ git diff --check
 
 - [x] Secrets commitados.
 - [ ] `.env.example`.
-- [ ] Cookies.
-- [ ] CSRF onde aplicável.
-- [ ] CORS.
+- [x] Cookies.
+- [x] CSRF onde aplicável.
+- [x] CORS.
 - [ ] Autorização.
 - [ ] IDOR.
 - [ ] Mass assignment.
@@ -928,6 +928,11 @@ git diff --check
   `next@16.3.2`, fora da versão compatível atualmente exigida. Atualizar a
   dependência deve ser tratado como mudança controlada com nova validação de
   Next.js, não via `npm audit fix --force`.
+- A sessão usa cookie `HttpOnly`, `Secure` em produção e `SameSite=Lax`. Os
+  cookies temporários de OAuth têm a mesma proteção e o callback valida
+  `state` e PKCE. Não há configuração de CORS permissiva no código; as rotas
+  autenticadas também validam sessão no handler quando acionam credenciais de
+  terceiros.
 
 ## Critério de aceite
 
