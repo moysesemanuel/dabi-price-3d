@@ -230,6 +230,8 @@ export class BillingAdminService {
       this.dependencies.collectOperationalFindings(50),
     ]);
 
+    const churnRatePercent = normalizeChurnRatePercent(summary.churnRatePercent);
+
     return {
       generatedAt: nowIso,
       persistence: {
@@ -238,6 +240,7 @@ export class BillingAdminService {
       },
       summary: {
         ...summary,
+        churnRatePercent,
         reconciliationBacklog: Math.max(
           summary.reconciliationBacklog,
           findings.length,
@@ -454,6 +457,12 @@ export class BillingAdminService {
       );
     }
   }
+}
+
+function normalizeChurnRatePercent(value: number | null): number | null {
+  const normalized = typeof value === "number" ? value : Number(value);
+
+  return Number.isFinite(normalized) ? normalized : null;
 }
 
 function createEmptySummary(): BillingAdminSummary {

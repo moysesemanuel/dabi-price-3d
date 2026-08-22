@@ -224,6 +224,23 @@ test("snapshot administrativo retorna fallback vazio sem persistência", async (
   assert.deepEqual(snapshot.workspaces, []);
 });
 
+test("snapshot administrativo normaliza churn numérico retornado como texto", async () => {
+  const service = new BillingAdminService(
+    createDependencies({
+      async getSummary() {
+        return {
+          ...(await createDependencies().getSummary()),
+          churnRatePercent: "12.50",
+        };
+      },
+    }),
+  );
+
+  const snapshot = await service.getSnapshot(createSession());
+
+  assert.equal(snapshot.summary.churnRatePercent, 12.5);
+});
+
 test("grantAccessUntil atualiza exceção administrativa e audita a ação", async () => {
   const dependencies = createDependencies();
   const service = new BillingAdminService(dependencies);
