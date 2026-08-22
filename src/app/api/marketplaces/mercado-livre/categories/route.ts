@@ -3,6 +3,7 @@ import {
   type MercadoLivreOfficialCategoryNode,
   type MercadoLivreOfficialCategoryPathNode,
 } from "@/lib/marketplaces/mercado-livre";
+import { requireCurrentAuthSession } from "@/lib/auth/session";
 import { getMercadoLivreApiCredentials } from "@/lib/marketplaces/mercado-livre-auth";
 import {
   createRouteRequestContext,
@@ -38,6 +39,7 @@ const GENERIC_CATEGORIES_ERROR =
   "Falha ao carregar categorias do Mercado Livre.";
 
 export async function GET(request: Request) {
+  await requireCurrentAuthSession();
   const requestContext = createRouteRequestContext(
     request,
     "/api/marketplaces/mercado-livre/categories",

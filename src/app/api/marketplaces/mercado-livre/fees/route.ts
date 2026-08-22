@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { requireCurrentAuthSession } from "@/lib/auth/session";
 import { getMercadoLivreApiCredentials } from "@/lib/marketplaces/mercado-livre-auth";
 import {
   getMercadoLivreFeePreview,
@@ -19,6 +20,7 @@ type PredictedCategory = {
 };
 
 export async function GET(request: NextRequest) {
+  await requireCurrentAuthSession();
   const requestContext = createRouteRequestContext(
     request,
     "/api/marketplaces/mercado-livre/fees",
