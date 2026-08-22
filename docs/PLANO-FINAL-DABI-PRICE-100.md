@@ -186,9 +186,9 @@ Provar em infraestrutura real que o hardening já implementado funciona corretam
 ## Administração e autorização
 
 - [ ] `/admin/*` inacessível a usuário comum.
-- [ ] APIs administrativas protegidas.
+- [x] APIs administrativas protegidas.
 - [ ] Roles respeitadas.
-- [ ] Acesso direto por URL não contorna autorização.
+- [x] Acesso direto por URL não contorna autorização.
 - [ ] Usuário de um workspace não lê outro workspace.
 - [ ] Operações cross-workspace indevidas são bloqueadas.
 
@@ -206,8 +206,10 @@ Validação em produção em 21/08/2026:
 - Cron sem `Authorization` retornou `401`.
 - Uma chamada anônima a uma API administrativa retornava `500`; a correção foi
   publicada na branch de conclusão e validada no Preview, onde os cinco
-  handlers de `/api/admin/*` retornaram `401` sem sessão. A confirmação em
-  Production permanece pendente de promoção da branch.
+  handlers de `/api/admin/*` retornaram `401` sem sessão. Após o merge, a
+  mesma rota foi validada em Production com `401` e sem alteração de dados.
+- Acesso direto a `/admin/dashboard` sem sessão redireciona para
+  `/login?next=/admin/dashboard`.
 
 ## Critério de aceite
 
