@@ -691,12 +691,12 @@ landing
 
 ## Recuperação de senha
 
-- [ ] Solicitação.
-- [ ] E-mail real via Resend.
-- [ ] Link.
-- [ ] Token.
-- [ ] Nova senha.
-- [ ] Login com nova senha.
+- [x] Solicitação.
+- [x] E-mail real via Resend.
+- [x] Link.
+- [x] Token.
+- [x] Nova senha.
+- [x] Login com nova senha.
 - [ ] Token não reutilizável.
 
 ## Gestão da conta
@@ -711,6 +711,14 @@ landing
 - [ ] Operator.
 - [ ] Múltiplos usuários.
 - [ ] Limite de seats por plano.
+
+## Registro de execução
+
+- Em 21/08/2026, a recuperação foi validada no ambiente remoto: solicitação
+  aceita pelo Resend, e-mail entregue no Gmail, link aberto, senha atualizada
+  e login realizado com a nova credencial. A suíte local também cobre expiração
+  e consumo único de token. A confirmação do consumo único contra Neon real
+  permanece pendente.
 
 ---
 
