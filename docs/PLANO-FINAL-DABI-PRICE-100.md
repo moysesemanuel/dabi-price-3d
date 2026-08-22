@@ -215,7 +215,8 @@ Validação em produção em 21/08/2026:
   foi redirecionada de `/admin/dashboard` para `/app`; as APIs de membros
   retornaram `403` por entitlement antes de qualquer leitura. As sessões foram
   encerradas por `/api/auth/logout`, que foi seguido por `401` em
-  `/api/auth/session`.
+  `/api/auth/session`. As duas contas e seus workspaces de QA foram removidos
+  após essa validação.
 - O cookie de sessão emitido em Production contém `Secure`, `HttpOnly` e
   `SameSite=Lax`. A solicitação de recuperação atingiu `429` com e-mail
   sintético, e o reset com token sintético inválido retornou `400`.
