@@ -914,7 +914,7 @@ git diff --check
 - A suíte atual cobre regras de precificação, estado e entitlement, Billing
   Service, adaptadores Mercado Pago, webhooks, recuperação/autenticação local,
   controle de acesso e jobs de reconciliação. Em 22/08/2026, `lint`,
-  `typecheck`, `test:pricing` (195 testes), `build:webpack` e
+  `typecheck`, `test:pricing` (198 testes), `build:webpack` e
   `git diff --check` passaram.
 - Testes contra banco real, E2E de browser e homologações externas não foram
   marcados: eles precisam da infraestrutura e dos fluxos manuais definidos nas
@@ -931,21 +931,21 @@ git diff --check
 - [x] Cookies.
 - [x] CSRF onde aplicável.
 - [x] CORS.
-- [ ] Autorização.
-- [ ] IDOR.
-- [ ] Mass assignment.
+- [x] Autorização.
+- [x] IDOR.
+- [x] Mass assignment.
 - [x] Open redirect.
-- [ ] Validação de inputs.
-- [ ] SQL.
-- [ ] Upload.
+- [x] Validação de inputs.
+- [x] SQL.
+- [x] Upload.
 - [x] Headers.
-- [ ] Stack traces.
-- [ ] Mensagens de erro.
-- [ ] Logs.
+- [x] Stack traces.
+- [x] Mensagens de erro.
+- [x] Logs.
 - [x] PII.
 - [ ] Dependências vulneráveis.
 - [x] Rotas de debug/teste esquecidas.
-- [ ] Todas as rotas `/api`.
+- [x] Todas as rotas `/api`.
 
 ## Registro de execução
 
@@ -979,6 +979,23 @@ git diff --check
   bypass autenticado, sem desabilitar essa proteção.
 - O login só aceita `next` iniciado por `/app`; valores externos retornam ao
   caminho interno calculado pela situação de entitlement e onboarding.
+- A revisão das rotas `/api` confirmou que os handlers de workspace usam o
+  `workspaceId` da sessão, os administrativos exigem super admin no serviço,
+  cron exige segredo e webhook exige HMAC. As exceções sem sessão são os
+  fluxos públicos intencionais (autenticação com rate limit, recuperação,
+  webhook assinado e cotação pública sem credenciais).
+- O `upsert` de `calculation_snapshots` agora atualiza uma colisão de `id`
+  somente se ela pertence ao mesmo workspace. Uma colisão entre tenants retorna
+  `409`, sem alterar a linha existente. A normalização de cálculos também
+  descarta campos não permitidos, inclusive `workspaceId` e `userId` enviados
+  pelo cliente.
+- Uploads exigem sessão antes de gerar token Blob, restringem prefixo, formato
+  e tamanho. Falhas inesperadas do SDK retornam mensagem genérica, sem expor
+  detalhes internos.
+- Rotas de mutação convertem falhas conhecidas em respostas controladas;
+  detalhes e stacks são limitados aos logs sanitizados. O SQL usa o cliente
+  parametrizado `@neondatabase/serverless`, sem interpolação de entrada em
+  strings de query.
 
 ## Critério de aceite
 

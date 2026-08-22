@@ -47,7 +47,7 @@ export async function createProductImageUploadResponse(
     return NextResponse.json(
       {
         error:
-          error instanceof Error
+          error instanceof Error && error.message === "Destino de upload inválido."
             ? error.message
             : "Falha ao preparar o upload da imagem.",
       },

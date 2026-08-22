@@ -1509,7 +1509,7 @@ export async function saveCalculationSnapshot(input: {
   const sql = getSql();
   const normalizedItem = normalizeCalculationInput(input.item);
 
-  await sql`
+  const savedRows = (await sql`
     INSERT INTO calculation_snapshots (
       id,
       workspace_id,
@@ -1531,7 +1531,14 @@ export async function saveCalculationSnapshot(input: {
       user_id = EXCLUDED.user_id,
       saved_at = EXCLUDED.saved_at,
       updated_at = NOW()
-  `;
+    WHERE calculation_snapshots.workspace_id = EXCLUDED.workspace_id
+    RETURNING id
+  `) as Array<{ id: string }>;
+
+  if (!savedRows[0]) {
+    // A snapshot ID belongs to another workspace; never overwrite cross-tenant data.
+    throw new Error("CALCULATION_ID_CONFLICT");
+  }
 
   const preferences = await getWorkspacePreferences(input.workspaceId);
   const historyLimit = resolveCalculationHistoryLimit(preferences);
