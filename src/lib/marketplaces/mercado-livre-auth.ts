@@ -7,6 +7,7 @@ import {
   isPlatformPersistenceAvailable,
   saveMercadoLivreToken,
 } from "@/lib/server/platform";
+import { serializeError } from "@/lib/server/route-observability";
 const TOKEN_EXPIRY_SAFETY_WINDOW_MS = 5 * 60 * 1000;
 
 type StoredMercadoLivreTokenRow = {
@@ -82,7 +83,7 @@ export async function getMercadoLivreConnectionStatus(): Promise<MercadoLivreCon
     } catch (error) {
       console.error(
         "[mercado-livre] failed to resolve connection status for preferences",
-        error,
+        serializeError(error),
       );
 
       return {

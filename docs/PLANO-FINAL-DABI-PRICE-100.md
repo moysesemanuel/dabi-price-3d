@@ -162,8 +162,8 @@ Provar em infraestrutura real que o hardening já implementado funciona corretam
 - [ ] Ausência de `MERCADO_PAGO_WEBHOOK_SECRET` falha de forma segura.
 - [x] Payload inválido é rejeitado.
 - [ ] Evento duplicado produz um único efeito.
-- [ ] Nenhum payload bruto sensível aparece nos logs.
-- [ ] Nenhum token aparece nos logs.
+- [x] Nenhum payload bruto sensível aparece nos logs.
+- [x] Nenhum token aparece nos logs.
 - [ ] Evento válido aparece na superfície administrativa correspondente.
 
 ## Autenticação
@@ -171,7 +171,7 @@ Provar em infraestrutura real que o hardening já implementado funciona corretam
 - [x] Brute force por IP limitado.
 - [x] Brute force por e-mail limitado.
 - [x] Login correto não bloqueia indevidamente o usuário.
-- [ ] Múltiplas instâncias compartilham o contador.
+- [x] Múltiplas instâncias compartilham o contador.
 - [x] Bloqueio retorna `429`.
 - [x] Resposta inclui `Retry-After`.
 - [ ] Cadastro protegido.
@@ -229,6 +229,11 @@ Validação em Production e Preview entre 21/08/2026 e 22/08/2026:
 - As exceções de `accessUntil`, contas, workspaces e registros descartáveis
   deste teste, incluindo as duas tentativas sem checkout causadas pelo domínio
   `.invalid`, foram removidos pela administração do banco após a validação.
+- O rate limit usa `api_rate_limits` no banco quando `DATABASE_URL` está
+  configurada, portanto mantém o contador entre instâncias. A camada comum de
+  observabilidade agora mascara tokens, segredos, senhas, cookies,
+  `Authorization` e credenciais presentes em mensagens e stack traces; os três
+  logs diretos restantes passam pela mesma serialização.
 
 ## Critério de aceite
 

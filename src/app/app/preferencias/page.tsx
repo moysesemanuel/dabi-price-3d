@@ -8,6 +8,7 @@ import {
   getWorkspacePreferences,
   isPlatformPersistenceAvailable,
 } from "@/lib/server/platform";
+import { serializeError } from "@/lib/server/route-observability";
 import { defaultAppPreferences, type AppPreferences } from "@/lib/settings/app-preferences";
 
 export default async function PreferencesPage() {
@@ -21,7 +22,7 @@ export default async function PreferencesPage() {
   } catch (error) {
     console.error(
       "[preferences] failed to load Mercado Livre status for page render",
-      error,
+      serializeError(error),
     );
   }
 
@@ -34,7 +35,7 @@ export default async function PreferencesPage() {
       } catch (error) {
         console.error(
           "[preferences] failed to load workspace preferences for page render",
-          error,
+          serializeError(error),
         );
       }
     }
