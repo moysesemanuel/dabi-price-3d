@@ -546,9 +546,12 @@ Permitir operação segura sem acesso direto ao banco.
   pagamentos, eventos e sistema. O detalhe da assinatura reúne invoices,
   mudanças e auditoria; as ações de inspeção do provider e `accessUntil`
   exigem super admin e gravam auditoria.
-- Ainda faltam ações administrativas controladas para cancelar assinaturas e
-  disparar reconciliação. A lista de divergências é somente de leitura, logo
-  não substitui esses fluxos.
+- O console também permite disparar uma reconciliação limitada a 20 registros,
+  autenticada como super admin e registrada na auditoria. No detalhe da
+  assinatura ativa, o cancelamento administrativo agenda o fim da renovação no
+  provider e preserva o acesso até o período corrente terminar.
+- A lista de divergências continua somente de leitura; ela orienta a operação,
+  mas não permite alterar diretamente o estado comercial no banco.
 
 ## Regra
 
