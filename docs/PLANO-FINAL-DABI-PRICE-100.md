@@ -913,7 +913,7 @@ git diff --check
 ```
 
 - [x] Todos verdes.
-- [ ] Evoluir `npm run check` para representar toda a suíte final, se necessário.
+- [x] Evoluir `npm run check` para representar toda a suíte final, se necessário.
 
 ## Registro de execução
 
@@ -925,6 +925,9 @@ git diff --check
 - Testes contra banco real, E2E de browser e homologações externas não foram
   marcados: eles precisam da infraestrutura e dos fluxos manuais definidos nas
   fases correspondentes.
+- `npm run check` executa lint, typecheck, a suíte `test:pricing` e o build
+  Webpack, concentrando toda a validação local obrigatória do plano em um
+  comando.
 
 ---
 

@@ -13,7 +13,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:pricing": "node --no-warnings --experimental-specifier-resolution=node --test tests/*.test.mjs",
-    "check": "npm run lint && npm run typecheck && npm run test:pricing"
+    "check": "npm run lint && npm run typecheck && npm run test:pricing && npm run build:webpack"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
