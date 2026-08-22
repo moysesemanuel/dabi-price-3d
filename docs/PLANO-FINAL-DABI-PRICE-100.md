@@ -761,8 +761,15 @@ precificação
 
 ## Legado
 
-- [ ] Avaliar fallback de token por ambiente.
+- [x] Avaliar fallback de token por ambiente.
 - [ ] Remover se não fizer parte do comportamento oficial de produção.
+
+## Registro de execução
+
+- O fallback `MELI_ACCESS_TOKEN`/`MELI_USER_ID` só é considerado quando não há
+  persistência de plataforma. Com `DATABASE_URL`, as credenciais são OAuth
+  persistente e isolado por workspace. O fallback continua documentado para
+  desenvolvimento local até a confirmação de que não possui consumidor ativo.
 
 ---
 
