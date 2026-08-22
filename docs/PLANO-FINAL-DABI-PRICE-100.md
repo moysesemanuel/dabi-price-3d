@@ -175,26 +175,26 @@ Provar em infraestrutura real que o hardening já implementado funciona corretam
 - [x] Bloqueio retorna `429`.
 - [x] Resposta inclui `Retry-After`.
 - [ ] Cadastro protegido.
-- [ ] Recuperação de senha protegida.
+- [x] Recuperação de senha protegida.
 - [ ] Reset protegido.
-- [ ] Token inválido tratado.
+- [x] Token inválido tratado.
 - [ ] Token expirado tratado.
 - [ ] Sessão expirada tratada.
-- [ ] Logout invalidando sessão corretamente.
-- [ ] Cookie com configuração segura em produção.
+- [x] Logout invalidando sessão corretamente.
+- [x] Cookie com configuração segura em produção.
 
 ## Administração e autorização
 
-- [ ] `/admin/*` inacessível a usuário comum.
-- [ ] APIs administrativas protegidas.
-- [ ] Roles respeitadas.
-- [ ] Acesso direto por URL não contorna autorização.
-- [ ] Usuário de um workspace não lê outro workspace.
-- [ ] Operações cross-workspace indevidas são bloqueadas.
+- [x] `/admin/*` inacessível a usuário comum.
+- [x] APIs administrativas protegidas.
+- [x] Roles respeitadas.
+- [x] Acesso direto por URL não contorna autorização.
+- [x] Usuário de um workspace não lê outro workspace.
+- [x] Operações cross-workspace indevidas são bloqueadas.
 
 ## Registro de execução
 
-Validação em produção em 21/08/2026:
+Validação em Production e Preview entre 21/08/2026 e 22/08/2026:
 
 - Seis falhas para o mesmo e-mail sintético retornaram cinco `401` e um `429`
   com `Retry-After`.
@@ -206,8 +206,29 @@ Validação em produção em 21/08/2026:
 - Cron sem `Authorization` retornou `401`.
 - Uma chamada anônima a uma API administrativa retornava `500`; a correção foi
   publicada na branch de conclusão e validada no Preview, onde os cinco
-  handlers de `/api/admin/*` retornaram `401` sem sessão. A confirmação em
-  Production permanece pendente de promoção da branch.
+  handlers de `/api/admin/*` retornaram `401` sem sessão. Após o merge, a
+  mesma rota foi validada em Production com `401` e sem alteração de dados.
+- Acesso direto a `/admin/dashboard` sem sessão redireciona para
+  `/login?next=/admin/dashboard`.
+- Duas contas descartáveis com workspaces distintos e sem assinatura foram
+  criadas para validação. A conta comum recebeu `403` em `/api/admin/users` e
+  foi redirecionada de `/admin/dashboard` para `/app`; as APIs de membros
+  retornaram `403` por entitlement antes de qualquer leitura. As sessões foram
+  encerradas por `/api/auth/logout`, que foi seguido por `401` em
+  `/api/auth/session`. As duas contas e seus workspaces de QA foram removidos
+  após essa validação.
+- O cookie de sessão emitido em Production contém `Secure`, `HttpOnly` e
+  `SameSite=Lax`. A solicitação de recuperação atingiu `429` com e-mail
+  sintético, e o reset com token sintético inválido retornou `400`.
+- Dois workspaces de QA receberam Pix de sandbox pendente e uma exceção
+  temporária e auditável de `accessUntil`, sem marcar qualquer pagamento como
+  confirmado. Um cálculo criado no workspace A não foi listado para a sessão
+  do workspace B. A tentativa de B excluir o ID de A não alterou o registro;
+  a resposta idempotente inicial de `200` foi corrigida para `404`, antes de
+  qualquer exclusão ou evento de auditoria, e revalidada no Preview.
+- As exceções de `accessUntil`, contas, workspaces e registros descartáveis
+  deste teste, incluindo as duas tentativas sem checkout causadas pelo domínio
+  `.invalid`, foram removidos pela administração do banco após a validação.
 
 ## Critério de aceite
 
