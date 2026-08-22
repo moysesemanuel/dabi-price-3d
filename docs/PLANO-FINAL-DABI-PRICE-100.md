@@ -850,17 +850,17 @@ Falhas críticas geram alerta sem depender de abrir manualmente o painel adminis
 
 ## Unitários
 
-- [ ] Regras puras do domínio.
+- [x] Regras puras do domínio.
 
 ## Integração
 
 - [ ] Repository.
 - [ ] Database.
-- [ ] Billing Service.
-- [ ] Webhook.
-- [ ] Auth.
-- [ ] Provider adapters.
-- [ ] Jobs/reconciliation.
+- [x] Billing Service.
+- [x] Webhook.
+- [x] Auth.
+- [x] Provider adapters.
+- [x] Jobs/reconciliation.
 
 ## E2E
 
@@ -887,8 +887,19 @@ npm run build:webpack
 git diff --check
 ```
 
-- [ ] Todos verdes.
+- [x] Todos verdes.
 - [ ] Evoluir `npm run check` para representar toda a suíte final, se necessário.
+
+## Registro de execução
+
+- A suíte atual cobre regras de precificação, estado e entitlement, Billing
+  Service, adaptadores Mercado Pago, webhooks, recuperação/autenticação local,
+  controle de acesso e jobs de reconciliação. Em 22/08/2026, `lint`,
+  `typecheck`, `test:pricing` (195 testes), `build:webpack` e
+  `git diff --check` passaram.
+- Testes contra banco real, E2E de browser e homologações externas não foram
+  marcados: eles precisam da infraestrutura e dos fluxos manuais definidos nas
+  fases correspondentes.
 
 ---
 
