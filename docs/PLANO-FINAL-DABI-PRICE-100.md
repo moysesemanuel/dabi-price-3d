@@ -897,7 +897,7 @@ git diff --check
 ## Auditoria
 
 - [x] Secrets commitados.
-- [ ] `.env.example`.
+- [x] `.env.example`.
 - [x] Cookies.
 - [x] CSRF onde aplicável.
 - [x] CORS.
@@ -914,7 +914,7 @@ git diff --check
 - [ ] Logs.
 - [ ] PII.
 - [ ] Dependências vulneráveis.
-- [ ] Rotas de debug/teste esquecidas.
+- [x] Rotas de debug/teste esquecidas.
 - [ ] Todas as rotas `/api`.
 
 ## Registro de execução
@@ -933,6 +933,9 @@ git diff --check
   `state` e PKCE. Não há configuração de CORS permissiva no código; as rotas
   autenticadas também validam sessão no handler quando acionam credenciais de
   terceiros.
+- `.env.example` relaciona todas as integrações operacionais sem valores
+  efetivos. A árvore versionada de `src/app/api` não possui handlers de debug
+  ou teste expostos.
 
 ## Critério de aceite
 
