@@ -86,6 +86,37 @@ test("cancel agendado usa provider + billing service e espelha status legado", a
   ]);
 });
 
+test("cancelamento permite registrar ator super admin", async () => {
+  let receivedActorType = null;
+
+  await manageMercadoPagoBillingSubscription({
+    action: "cancel",
+    actorId: "admin-1",
+    actorType: "super_admin",
+    subscription: {
+      id: "sub-admin-1", workspaceId: "workspace-1", planId: "growth",
+      billingCycle: "monthly", status: "active", provider: "mercado_pago",
+      providerSubscriptionId: "mp-sub-admin-1",
+    },
+    dependencies: {
+      provider: {
+        async cancelSubscription() { return {}; },
+        async resumeSubscription() { throw new Error("not used"); },
+      },
+      billingService: {
+        async scheduleCancellation(_id, input) {
+          receivedActorType = input.actorType;
+          return { id: "sub-admin-1", workspaceId: "workspace-1", planId: "growth", billingCycle: "monthly", status: "scheduled_cancel" };
+        },
+        async revertCancellation() { throw new Error("not used"); },
+      },
+      async applyWorkspaceSubscriptionUpdate() {},
+    },
+  });
+
+  assert.equal(receivedActorType, "super_admin");
+});
+
 test("reversão de cancelamento reativa a renovação antes do fim do período", async () => {
   const calls = [];
 
