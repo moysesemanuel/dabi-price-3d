@@ -73,20 +73,20 @@ Garantir que produção não dependa de configuração implícita, local ou não
 
 ## Variáveis a validar
 
-- [ ] `DATABASE_URL`
-- [ ] `MERCADO_PAGO_ACCESS_TOKEN`
-- [ ] `MERCADO_PAGO_WEBHOOK_SECRET`
-- [ ] `MERCADO_PAGO_TEST_ACCESS_TOKEN`, onde aplicável
-- [ ] `MERCADO_PAGO_TEST_SITE_ID`
+- [x] `DATABASE_URL`
+- [x] `MERCADO_PAGO_ACCESS_TOKEN`
+- [x] `MERCADO_PAGO_WEBHOOK_SECRET`
+- [x] `MERCADO_PAGO_TEST_ACCESS_TOKEN`, onde aplicável
+- [x] `MERCADO_PAGO_TEST_SITE_ID`
 - [x] `CRON_SECRET`
 - [x] `RESEND_API_KEY`
 - [x] `AUTH_EMAIL_FROM`
-- [ ] `BLOB_READ_WRITE_TOKEN`
-- [ ] `MELI_CLIENT_ID`
-- [ ] `MELI_CLIENT_SECRET`
-- [ ] `MELI_REDIRECT_URI`
-- [ ] `ERP_APP_URL`
-- [ ] `PRICING_INTEGRATION_TOKEN`
+- [x] `BLOB_READ_WRITE_TOKEN`
+- [x] `MELI_CLIENT_ID`
+- [x] `MELI_CLIENT_SECRET`
+- [x] `MELI_REDIRECT_URI`
+- [x] `ERP_APP_URL`
+- [x] `PRICING_INTEGRATION_TOKEN`
 - [ ] Demais variáveis efetivamente utilizadas pelo código.
 
 ## Configuração
@@ -145,6 +145,10 @@ Verificação em 21/08/2026:
 - A execução automática dos três jobs depende de acesso ao QStash ou de
   evidência de entregas recentes. Em 21/08/2026, os três schedules foram
   confirmados no QStash como `Delivered` com `HTTP 200`.
+- A listagem da Vercel em 22/08/2026 confirmou essas variáveis em Production e
+  Preview. Development contém somente `BLOB_READ_WRITE_TOKEN`,
+  `BLOB_STORE_ID` e `BLOB_WEBHOOK_PUBLIC_KEY`; não há segredo de produção
+  configurado nesse ambiente.
 
 ---
 
