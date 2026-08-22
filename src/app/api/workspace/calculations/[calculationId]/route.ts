@@ -22,6 +22,10 @@ export async function DELETE(
   const currentItems = await listCalculationSnapshots(session.workspace.id);
   const deletedItem = currentItems.find((item) => item.id === calculationId) ?? null;
 
+  if (!deletedItem) {
+    return Response.json({ error: "Cálculo não encontrado." }, { status: 404 });
+  }
+
   await deleteCalculationSnapshot(session.workspace.id, calculationId);
   await appendAuditEvent({
     workspaceId: session.workspace.id,
