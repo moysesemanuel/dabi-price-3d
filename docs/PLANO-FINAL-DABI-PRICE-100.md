@@ -557,12 +557,11 @@ Classificar:
 ## Achado de produção
 
 Em 21/08/2026, o workspace do super admin apresentou `pending` nas
-preferências legadas sem assinatura corrente no billing. Uma assinatura
-`canceled` com `accessUntil` futuro não é selecionada como assinatura corrente,
-portanto sua exceção administrativa não alcança os entitlements e o fallback
-legado continua bloqueando o acesso. A correção deve preservar o estado
-comercial cancelado e tornar a exceção administrativa explícita e auditável,
-sem simular pagamento aprovado.
+preferências legadas sem assinatura corrente no billing. A consulta de
+assinatura corrente foi corrigida para também retornar uma assinatura com
+`accessUntil` futuro, inclusive se o status comercial for `canceled`. O motor
+de entitlement concede a exceção sem alterar esse status ou simular pagamento
+aprovado. A remoção do fallback legado continua pendente nesta fase.
 
 ## Arquitetura final esperada
 

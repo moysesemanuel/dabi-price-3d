@@ -193,7 +193,10 @@ export async function findCurrentBillingSubscriptionForWorkspace(
       updated_at
     FROM billing_subscriptions
     WHERE workspace_id = ${workspaceId}
-      AND status = ANY(${currentBillingSubscriptionStatuses})
+      AND (
+        status = ANY(${currentBillingSubscriptionStatuses})
+        OR access_until > NOW()
+      )
     ORDER BY created_at DESC
     LIMIT 1
   `) as BillingSubscriptionRow[];
