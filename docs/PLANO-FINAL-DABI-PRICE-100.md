@@ -623,9 +623,9 @@ campos sem consumidor
 
 Classificar:
 
-- [ ] necessária
-- [ ] migrar
-- [ ] remover
+- [x] necessária
+- [x] migrar
+- [x] remover
 
 ## Achado de produção
 
@@ -637,6 +637,10 @@ de entitlement concede a exceção sem alterar esse status ou simular pagamento
 aprovado.
 
 ## Execução automatizada
+
+- A auditoria classificou as projeções de assentos e claim de checkout como
+  necessárias apenas para operação; todas as decisões comerciais foram
+  migradas para o billing e os helpers sem consumidores foram removidos.
 
 - Em ambiente com `DATABASE_URL`, o serviço de entitlement não consulta mais
   `workspace_preferences.subscription` quando não existe `BillingSubscription`:
