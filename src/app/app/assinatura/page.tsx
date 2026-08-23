@@ -12,47 +12,35 @@ import {
 import type { BillingSubscription } from "@/lib/billing/types";
 import { getCurrentAuthSession } from "@/lib/auth/session";
 import {
-  getWorkspacePreferences,
-  isPlatformPersistenceAvailable,
-} from "@/lib/server/platform";
-import {
-  defaultAppPreferences,
   getWorkspaceBillingCycleLabel,
   getWorkspacePlan,
   resolveWorkspacePlanPriceLabel,
 } from "@/lib/settings/app-preferences";
-import { getSubscriptionStatusLabel } from "@/lib/workspace/subscription-access";
 
 export default async function SubscriptionPage() {
   const session = await getCurrentAuthSession();
-  const preferences =
-    session && isPlatformPersistenceAvailable()
-      ? await getWorkspacePreferences(session.workspace.id).catch(
-          () => defaultAppPreferences,
-        )
-      : defaultAppPreferences;
   const billingSubscription =
-    session && isPlatformPersistenceAvailable()
+    session
       ? await findCurrentBillingSubscriptionForWorkspace(session.workspace.id).catch(
           () => null,
         )
       : null;
   const scheduledDowngrade =
-    billingSubscription && isPlatformPersistenceAvailable()
+    billingSubscription
       ? await findLatestOpenBillingSubscriptionChange({
           subscriptionId: billingSubscription.id,
           type: "downgrade",
         }).catch(() => null)
       : null;
   const pendingUpgrade =
-    billingSubscription && isPlatformPersistenceAvailable()
+    billingSubscription
       ? await findLatestOpenBillingSubscriptionChange({
           subscriptionId: billingSubscription.id,
           type: "upgrade",
         }).catch(() => null)
       : null;
 
-  const subscription = billingSubscription
+  const entitlementSubscription = billingSubscription
     ? {
         planId: billingSubscription.planId,
         status: billingSubscription.status,
@@ -61,20 +49,20 @@ export default async function SubscriptionPage() {
         currentPeriodEnd: billingSubscription.currentPeriodEnd,
         gracePeriodEndsAt: billingSubscription.gracePeriodEndsAt,
       }
-    : preferences.subscription;
+    : null;
   const entitlements = resolveWorkspaceEntitlements({
-    subscription,
+    subscription: entitlementSubscription,
   });
-  const currentPlan = getWorkspacePlan(subscription.planId ?? "starter");
+  const currentPlan = getWorkspacePlan(billingSubscription?.planId ?? "starter");
   const statusLabel = billingSubscription
     ? getBillingStatusLabel(billingSubscription.status)
-    : getSubscriptionStatusLabel(preferences.subscription.status);
+    : "Sem assinatura corrente";
   const statusPresentation = getAccessPresentation(entitlements.accessReason);
   const nextRelevantDate =
     billingSubscription?.gracePeriodEndsAt ??
     billingSubscription?.currentPeriodEnd ??
     billingSubscription?.accessUntil ??
-    preferences.subscription.checkoutStartedAt;
+    null;
   const subscriptionManagementAction = billingSubscription
     ? resolveSubscriptionManagementAction(billingSubscription)
     : null;
@@ -254,14 +242,16 @@ export default async function SubscriptionPage() {
               value={currentPlan.label}
               note={formatSubscriptionPriceDisplay(
                 currentPlan,
-                subscription.billingCycle,
+                billingSubscription?.billingCycle ?? "monthly",
               )}
             />
             <SubscriptionDetail
               label="Ciclo"
-              value={getWorkspaceBillingCycleLabel(subscription.billingCycle)}
+              value={getWorkspaceBillingCycleLabel(
+                billingSubscription?.billingCycle ?? "monthly",
+              )}
               note={
-                subscription.billingCycle === "annual"
+                billingSubscription?.billingCycle === "annual"
                   ? "Pagamento antecipado com 12 meses de acesso liberados por ciclo."
                   : "Cobrança recorrente mensal enquanto a renovação automática permanecer ativa."
               }
@@ -278,9 +268,7 @@ export default async function SubscriptionPage() {
                   ? billingSubscription.autoRenew
                     ? "Ativa"
                     : "Desligada"
-                  : subscription.status === "pending"
-                    ? "Aguardando confirmação"
-                    : "Sem assinatura corrente"
+                  : "Sem assinatura corrente"
               }
               note="O comportamento depende do estado atual da assinatura projetada pelo billing."
             />
@@ -291,11 +279,11 @@ export default async function SubscriptionPage() {
             />
             <SubscriptionDetail
               label="Origem dos dados"
-              value={billingSubscription ? "Billing atual" : "Resumo projetado"}
+              value={billingSubscription ? "Billing atual" : "Sem assinatura"}
               note={
                 billingSubscription
                   ? "Lido da assinatura corrente do billing."
-                  : "Sem assinatura corrente ativa; a tela usa o snapshot projetado mais recente."
+                  : "Nenhum estado comercial legado é usado quando não há assinatura no billing."
               }
             />
           </div>

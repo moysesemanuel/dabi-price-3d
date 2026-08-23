@@ -643,6 +643,9 @@ aprovado.
   esse caso passa a ser `no_subscription`. O modo local sem persistência já
   resolve esse estado sem usar a projeção legada. As preferências ainda guardam
   metadados operacionais e o claim de checkout, mas não decidem acesso pago.
+- As telas de assinatura e de acompanhamento de upgrade usam a assinatura do
+  billing para apresentar plano e ciclo. Sem uma assinatura corrente, exibem o
+  estado neutro de ausência de assinatura em vez do espelho legado.
 
 ## Arquitetura final esperada
 
