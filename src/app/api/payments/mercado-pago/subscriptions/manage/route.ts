@@ -5,7 +5,7 @@ import { findCurrentBillingSubscriptionForWorkspace } from "@/lib/billing/reposi
 import { createBillingService } from "@/lib/billing/server-service";
 import { runWithServerBillingSubscriptionOperationClaim } from "@/lib/billing/server-subscription-operation-claim";
 import {
-  manageMercadoPagoBillingSubscription,
+  manageCurrentMercadoPagoBillingSubscription,
   ManageBillingSubscriptionError,
 } from "@/lib/billing/subscription-management";
 import { BillingSubscriptionOperationInProgressError } from "@/lib/billing/subscription-operation-claim";
@@ -124,33 +124,20 @@ export async function POST(request: Request) {
   try {
     const provider = getBillingProvider("mercado_pago");
     const billingService = createBillingService();
-    const result = await runWithServerBillingSubscriptionOperationClaim(
-      subscription.id,
-      async () => {
-        // Do not mutate the provider from a snapshot made before the claim.
-        const currentSubscription =
-          await findCurrentBillingSubscriptionForWorkspace(session.workspace.id);
-
-        if (!currentSubscription || currentSubscription.id !== subscription.id) {
-          throw new ManageBillingSubscriptionError(
-            "A assinatura foi alterada enquanto a operação estava sendo iniciada. Atualize a página e tente novamente.",
-            "SUBSCRIPTION_CHANGED_CONCURRENTLY",
-            409,
-          );
-        }
-
-        return manageMercadoPagoBillingSubscription({
-          action,
-          actorId: session.user.id,
-          subscription: currentSubscription,
-          dependencies: {
-            provider,
-            billingService,
-            applyWorkspaceSubscriptionUpdate,
-          },
-        });
+    const result = await manageCurrentMercadoPagoBillingSubscription({
+      action,
+      actorId: session.user.id,
+      subscription,
+      getCurrentSubscription: () =>
+        findCurrentBillingSubscriptionForWorkspace(session.workspace.id),
+      runWithSubscriptionOperation:
+        runWithServerBillingSubscriptionOperationClaim,
+      dependencies: {
+        provider,
+        billingService,
+        applyWorkspaceSubscriptionUpdate,
       },
-    );
+    });
 
     logRouteEvent(
       requestContext,

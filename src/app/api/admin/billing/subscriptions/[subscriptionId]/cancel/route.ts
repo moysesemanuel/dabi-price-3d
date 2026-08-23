@@ -6,7 +6,7 @@ import { createBillingService } from "@/lib/billing/server-service";
 import { runWithServerBillingSubscriptionOperationClaim } from "@/lib/billing/server-subscription-operation-claim";
 import {
   ManageBillingSubscriptionError,
-  manageMercadoPagoBillingSubscription,
+  manageCurrentMercadoPagoBillingSubscription,
 } from "@/lib/billing/subscription-management";
 import { BillingSubscriptionOperationInProgressError } from "@/lib/billing/subscription-operation-claim";
 import { applyWorkspaceSubscriptionUpdate } from "@/lib/server/platform";
@@ -36,32 +36,20 @@ export async function POST(
   }
 
   try {
-    const result = await runWithServerBillingSubscriptionOperationClaim(
-      subscription.id,
-      async () => {
-        const currentSubscription = await getBillingSubscriptionById(subscription.id);
-
-        if (!currentSubscription) {
-          throw new ManageBillingSubscriptionError(
-            "A assinatura foi removida enquanto a operação estava sendo iniciada.",
-            "SUBSCRIPTION_CHANGED_CONCURRENTLY",
-            409,
-          );
-        }
-
-        return manageMercadoPagoBillingSubscription({
-          action: "cancel",
-          actorId: session.user.id,
-          actorType: "super_admin",
-          subscription: currentSubscription,
-          dependencies: {
-            provider: getBillingProvider("mercado_pago"),
-            billingService: createBillingService(),
-            applyWorkspaceSubscriptionUpdate,
-          },
-        });
+    const result = await manageCurrentMercadoPagoBillingSubscription({
+      action: "cancel",
+      actorId: session.user.id,
+      actorType: "super_admin",
+      subscription,
+      getCurrentSubscription: () => getBillingSubscriptionById(subscription.id),
+      runWithSubscriptionOperation:
+        runWithServerBillingSubscriptionOperationClaim,
+      dependencies: {
+        provider: getBillingProvider("mercado_pago"),
+        billingService: createBillingService(),
+        applyWorkspaceSubscriptionUpdate,
       },
-    );
+    });
 
     return Response.json({
       ok: true,
