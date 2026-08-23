@@ -94,7 +94,7 @@ Garantir que produção não dependa de configuração implícita, local ou não
 - [ ] Separar claramente Development / Preview / Production.
 - [x] Confirmar que nenhum secret está exposto como `NEXT_PUBLIC_*`.
 - [x] Remover variáveis mortas.
-- [ ] Confirmar HTTPS em URLs externas.
+- [x] Confirmar HTTPS em URLs externas.
 - [x] Verificar que Deployment Protection da Vercel não bloqueia providers externos necessários.
 
 ## QStash
@@ -153,8 +153,9 @@ Verificação em 21/08/2026:
   os valores configuráveis usados pelo código estão documentados, incluindo
   bootstrap, contexto opcional do ERP e o fallback legado do Mercado Livre.
   `NODE_ENV` e `VERCEL_ENV` são fornecidas pela plataforma. As URLs fixas de
-  Mercado Pago, Mercado Livre, Resend e Frankfurter usam HTTPS; os valores de
-  `ERP_APP_URL` e `MELI_REDIRECT_URI` seguem pendentes de confirmação externa.
+  Mercado Pago, Mercado Livre, Resend e Frankfurter usam HTTPS. Em 22/08/2026,
+  `ERP_APP_URL` e `MELI_REDIRECT_URI` também foram confirmadas manualmente com
+  esquema `https` na Vercel.
 
 ---
 
@@ -993,7 +994,7 @@ git diff --check
 - [x] Mensagens de erro.
 - [x] Logs.
 - [x] PII.
-- [ ] Dependências vulneráveis.
+- [x] Dependências vulneráveis.
 - [x] Rotas de debug/teste esquecidas.
 - [x] Todas as rotas `/api`.
 
@@ -1002,12 +1003,12 @@ git diff --check
 - A busca no repositório rastreado não encontrou valores literais para os
   secrets operacionais conhecidos. Arquivos de ambiente e dependências foram
   excluídos da verificação por não serem código versionado.
-- `npm audit --omit=dev --audit-level=high`, executado em 22/08/2026, reportou
-  cinco vulnerabilidades altas transitivas: `next@16.2.6`/`postcss`/`sharp`,
-  `nanoid` e `undici`. A correção automática completa propõe
-  `next@16.3.2`, fora da versão compatível atualmente exigida. Atualizar a
-  dependência deve ser tratado como mudança controlada com nova validação de
-  Next.js, não via `npm audit fix --force`.
+- `npm audit` e `npm audit --omit=dev --audit-level=high`, reexecutados em
+  22/08/2026 após atualização controlada para `next@16.3.2`, override
+  transitivo de `undici@6.28.0` e updates compatíveis de desenvolvimento,
+  não reportam vulnerabilidades. A atualização também resolve a cadeia de
+  `postcss`, `sharp`, `nanoid`, `js-yaml` e `brace-expansion`, sem usar
+  `npm audit fix --force`.
 - A sessão usa cookie `HttpOnly`, `Secure` em produção e `SameSite=Lax`. Os
   cookies temporários de OAuth têm a mesma proteção e o callback valida
   `state` e PKCE. Não há configuração de CORS permissiva no código; as rotas
