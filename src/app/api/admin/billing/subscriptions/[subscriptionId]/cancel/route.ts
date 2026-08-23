@@ -3,10 +3,12 @@ import { getCurrentAuthSession } from "@/lib/auth/session";
 import { getBillingProvider } from "@/lib/billing/providers";
 import { getBillingSubscriptionById } from "@/lib/billing/repository";
 import { createBillingService } from "@/lib/billing/server-service";
+import { runWithServerBillingSubscriptionOperationClaim } from "@/lib/billing/server-subscription-operation-claim";
 import {
   ManageBillingSubscriptionError,
   manageMercadoPagoBillingSubscription,
 } from "@/lib/billing/subscription-management";
+import { BillingSubscriptionOperationInProgressError } from "@/lib/billing/subscription-operation-claim";
 import { applyWorkspaceSubscriptionUpdate } from "@/lib/server/platform";
 
 export async function POST(
@@ -34,17 +36,32 @@ export async function POST(
   }
 
   try {
-    const result = await manageMercadoPagoBillingSubscription({
-      action: "cancel",
-      actorId: session.user.id,
-      actorType: "super_admin",
-      subscription,
-      dependencies: {
-        provider: getBillingProvider("mercado_pago"),
-        billingService: createBillingService(),
-        applyWorkspaceSubscriptionUpdate,
+    const result = await runWithServerBillingSubscriptionOperationClaim(
+      subscription.id,
+      async () => {
+        const currentSubscription = await getBillingSubscriptionById(subscription.id);
+
+        if (!currentSubscription) {
+          throw new ManageBillingSubscriptionError(
+            "A assinatura foi removida enquanto a operação estava sendo iniciada.",
+            "SUBSCRIPTION_CHANGED_CONCURRENTLY",
+            409,
+          );
+        }
+
+        return manageMercadoPagoBillingSubscription({
+          action: "cancel",
+          actorId: session.user.id,
+          actorType: "super_admin",
+          subscription: currentSubscription,
+          dependencies: {
+            provider: getBillingProvider("mercado_pago"),
+            billingService: createBillingService(),
+            applyWorkspaceSubscriptionUpdate,
+          },
+        });
       },
-    });
+    );
 
     return Response.json({
       ok: true,
@@ -54,6 +71,16 @@ export async function POST(
   } catch (error) {
     if (error instanceof ManageBillingSubscriptionError) {
       return Response.json({ error: error.message, code: error.code }, { status: error.status });
+    }
+
+    if (error instanceof BillingSubscriptionOperationInProgressError) {
+      return Response.json(
+        {
+          error: "Uma atualização desta assinatura já está em andamento.",
+          code: "SUBSCRIPTION_OPERATION_IN_PROGRESS",
+        },
+        { status: 409 },
+      );
     }
 
     return Response.json(
