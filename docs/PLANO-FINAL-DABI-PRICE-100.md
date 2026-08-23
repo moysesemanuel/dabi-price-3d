@@ -668,6 +668,9 @@ aprovado.
 - A retenção de snapshots de cálculo no servidor determina o limite de
   histórico a partir da assinatura persistida no billing, sem consultar o
   espelho de preferências.
+- O cache local deixa de aplicar limite comercial por preferências após um
+  salvamento persistente; em modo local sem billing ele usa apenas um teto
+  técnico para evitar crescimento ilimitado.
 
 ## Arquitetura final esperada
 
