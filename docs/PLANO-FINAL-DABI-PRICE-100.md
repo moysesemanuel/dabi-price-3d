@@ -654,6 +654,8 @@ aprovado.
 - A tela de checkout lê pendência, plano, ciclo e início diretamente da
   assinatura do billing; sem pendência, usa apenas os parâmetros explícitos da
   nova contratação, sem recuperar dados de `workspace_preferences.subscription`.
+- O resumo de conta usa a assinatura corrente para plano e ciclo, mantendo
+  preferências apenas para os dados operacionais do workspace.
 
 ## Arquitetura final esperada
 
