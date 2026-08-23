@@ -3,10 +3,12 @@ import { getCurrentAuthSession } from "@/lib/auth/session";
 import { getBillingProvider } from "@/lib/billing/providers";
 import { getBillingSubscriptionById } from "@/lib/billing/repository";
 import { createBillingService } from "@/lib/billing/server-service";
+import { runWithServerBillingSubscriptionOperationClaim } from "@/lib/billing/server-subscription-operation-claim";
 import {
   ManageBillingSubscriptionError,
-  manageMercadoPagoBillingSubscription,
+  manageCurrentMercadoPagoBillingSubscription,
 } from "@/lib/billing/subscription-management";
+import { BillingSubscriptionOperationInProgressError } from "@/lib/billing/subscription-operation-claim";
 import { applyWorkspaceSubscriptionUpdate } from "@/lib/server/platform";
 
 export async function POST(
@@ -34,11 +36,14 @@ export async function POST(
   }
 
   try {
-    const result = await manageMercadoPagoBillingSubscription({
+    const result = await manageCurrentMercadoPagoBillingSubscription({
       action: "cancel",
       actorId: session.user.id,
       actorType: "super_admin",
       subscription,
+      getCurrentSubscription: () => getBillingSubscriptionById(subscription.id),
+      runWithSubscriptionOperation:
+        runWithServerBillingSubscriptionOperationClaim,
       dependencies: {
         provider: getBillingProvider("mercado_pago"),
         billingService: createBillingService(),
@@ -54,6 +59,16 @@ export async function POST(
   } catch (error) {
     if (error instanceof ManageBillingSubscriptionError) {
       return Response.json({ error: error.message, code: error.code }, { status: error.status });
+    }
+
+    if (error instanceof BillingSubscriptionOperationInProgressError) {
+      return Response.json(
+        {
+          error: "Uma atualização desta assinatura já está em andamento.",
+          code: "SUBSCRIPTION_OPERATION_IN_PROGRESS",
+        },
+        { status: 409 },
+      );
     }
 
     return Response.json(
