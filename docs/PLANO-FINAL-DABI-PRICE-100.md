@@ -646,6 +646,9 @@ aprovado.
 - As telas de assinatura e de acompanhamento de upgrade usam a assinatura do
   billing para apresentar plano e ciclo. Sem uma assinatura corrente, exibem o
   estado neutro de ausência de assinatura em vez do espelho legado.
+- A página interna de planos usa `BillingSubscription` para plano, status,
+  ciclo, elegibilidade e retomada de checkout. A leitura de tolerância e
+  `accessUntil` passa pelo serviço de entitlement do billing.
 
 ## Arquitetura final esperada
 

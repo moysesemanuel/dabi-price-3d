@@ -7,24 +7,20 @@ import { BillingUpgradePixButton } from "@/components/payments/billing-upgrade-p
 import { MercadoPagoCheckoutButton } from "@/components/payments/mercado-pago-checkout-button";
 import { ManualPixCheckoutButton } from "@/components/payments/manual-pix-checkout-button";
 import { getCurrentAuthSession } from "@/lib/auth/session";
+import { resolveWorkspaceEntitlements } from "@/lib/billing/entitlement-service";
 import {
   findCurrentBillingSubscriptionForWorkspace,
   findLatestOpenBillingSubscriptionChange,
 } from "@/lib/billing/repository";
 import type { BillingSubscription } from "@/lib/billing/types";
+import { isPlatformPersistenceAvailable } from "@/lib/server/platform";
 import {
-  getWorkspacePreferences,
-  isPlatformPersistenceAvailable,
-} from "@/lib/server/platform";
-import {
-  defaultAppPreferences,
   getWorkspaceBillingCycleLabel,
   getWorkspacePlan,
   resolveWorkspacePlanPriceLabel,
   workspacePlans,
 } from "@/lib/settings/app-preferences";
 import {
-  canAccessPaidWorkspaceFeatures,
   getSubscriptionStatusLabel,
 } from "@/lib/workspace/subscription-access";
 
@@ -124,12 +120,6 @@ export default async function PlansPage({
     params.billingCycle === "annual" ? "annual" : "monthly";
 
   const session = await getCurrentAuthSession();
-  const preferences =
-    session && isPlatformPersistenceAvailable()
-      ? await getWorkspacePreferences(session.workspace.id).catch(
-        () => defaultAppPreferences,
-      )
-      : defaultAppPreferences;
   const billingSubscription =
     session && isPlatformPersistenceAvailable()
       ? await findCurrentBillingSubscriptionForWorkspace(session.workspace.id).catch(
@@ -157,13 +147,21 @@ export default async function PlansPage({
         type: "cycle_change",
       }).catch(() => null)
       : null;
-  const currentPlan = getWorkspacePlan(
-    preferences.subscription.planId,
-  );
-
-  const subscriptionStatus = preferences.subscription.status;
-  const hasPaidAccess = canAccessPaidWorkspaceFeatures(preferences.subscription);
-  const currentBillingCycle = preferences.subscription.billingCycle;
+  const currentPlan = getWorkspacePlan(billingSubscription?.planId ?? "starter");
+  const subscriptionStatus = billingSubscription?.status ?? "unpaid";
+  const hasPaidAccess = billingSubscription
+    ? resolveWorkspaceEntitlements({
+        subscription: {
+        planId: billingSubscription.planId,
+        status: billingSubscription.status,
+        accessUntil: billingSubscription.accessUntil,
+        currentPeriodEnd: billingSubscription.currentPeriodEnd,
+        gracePeriodEndsAt: billingSubscription.gracePeriodEndsAt,
+        },
+      }).canUseApp
+    : false;
+  const currentBillingCycle =
+    billingSubscription?.billingCycle ?? requestedBillingCycle;
   const selectedBillingCycle = hasPaidAccess
     ? currentBillingCycle
     : requestedBillingCycle;
