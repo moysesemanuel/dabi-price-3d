@@ -1002,11 +1002,12 @@ git diff --check
 - A busca no repositório rastreado não encontrou valores literais para os
   secrets operacionais conhecidos. Arquivos de ambiente e dependências foram
   excluídos da verificação por não serem código versionado.
-- `npm audit --omit=dev --audit-level=high`, reexecutado em 22/08/2026 após
-  atualização controlada para `next@16.3.2` e override transitivo de
-  `undici@6.28.0`, não reporta vulnerabilidades de produção. A atualização
-  também resolve a cadeia transitiva de `postcss`, `sharp` e `nanoid`, sem
-  usar `npm audit fix --force`.
+- `npm audit` e `npm audit --omit=dev --audit-level=high`, reexecutados em
+  22/08/2026 após atualização controlada para `next@16.3.2`, override
+  transitivo de `undici@6.28.0` e updates compatíveis de desenvolvimento,
+  não reportam vulnerabilidades. A atualização também resolve a cadeia de
+  `postcss`, `sharp`, `nanoid`, `js-yaml` e `brace-expansion`, sem usar
+  `npm audit fix --force`.
 - A sessão usa cookie `HttpOnly`, `Secure` em produção e `SameSite=Lax`. Os
   cookies temporários de OAuth têm a mesma proteção e o callback valida
   `state` e PKCE. Não há configuração de CORS permissiva no código; as rotas
