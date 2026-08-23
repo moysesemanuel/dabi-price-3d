@@ -30,7 +30,7 @@ type MercadoLivreTokenResponse = {
 };
 
 export type MercadoLivreConnectionStatus = {
-  mode: "persistent" | "legacy-env" | "missing";
+  mode: "persistent" | "missing";
   connected: boolean;
   userId: string | null;
   expiresAt: string | null;
@@ -96,16 +96,6 @@ export async function getMercadoLivreConnectionStatus(): Promise<MercadoLivreCon
     }
   }
 
-  if (process.env.MELI_ACCESS_TOKEN && process.env.MELI_USER_ID) {
-    return {
-      mode: "legacy-env",
-      connected: true,
-      userId: process.env.MELI_USER_ID,
-      expiresAt: null,
-      updatedAt: null,
-    };
-  }
-
   return {
     mode: "missing",
     connected: false,
@@ -163,19 +153,9 @@ export async function getMercadoLivreApiCredentials() {
     }
   }
 
-  const accessToken = process.env.MELI_ACCESS_TOKEN;
-  const userId = process.env.MELI_USER_ID;
-
-  if (!accessToken || !userId) {
-    throw new Error(
-      "Configure MELI_ACCESS_TOKEN e MELI_USER_ID ou ative o fluxo OAuth persistente com Neon.",
-    );
-  }
-
-  return {
-    accessToken,
-    userId,
-  };
+  throw new Error(
+    "Mercado Livre OAuth por workspace requer DATABASE_URL, MELI_CLIENT_ID, MELI_CLIENT_SECRET e MELI_REDIRECT_URI.",
+  );
 }
 
 export async function exchangeMercadoLivreCode(

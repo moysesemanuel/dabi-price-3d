@@ -212,24 +212,9 @@ Nesse modo:
 - o app persiste `refresh_token`
 - o `access_token` é renovado automaticamente quando necessário
 
-#### Token legado por ambiente
-
-Fallback manual:
-
-```env
-MELI_ACCESS_TOKEN=
-MELI_USER_ID=
-```
-
-Nesse modo:
-
-- a integração funciona
-- mas não fica separada por workspace
-- a tela de preferências mostra que a origem da conexão é um token legado
-
 #### Sem configuração
 
-Sem OAuth persistente e sem token legado:
+Sem OAuth persistente:
 
 - o app continua funcionando
 - a precificadora usa prévia local de taxas
@@ -369,7 +354,7 @@ Principais grupos:
 
 - persistência e bootstrap: `DATABASE_URL`, `BOOTSTRAP_*`
 - recuperação de acesso: `RESEND_API_KEY`, `AUTH_EMAIL_FROM`
-- Mercado Livre: `MELI_CLIENT_*`, `MELI_REDIRECT_URI`, `MELI_ACCESS_TOKEN`, `MELI_USER_ID`
+- Mercado Livre: `MELI_CLIENT_*`, `MELI_REDIRECT_URI`
 - ERP: `ERP_APP_URL`, `PRICING_INTEGRATION_TOKEN`
 - Blob: `BLOB_READ_WRITE_TOKEN`
 
