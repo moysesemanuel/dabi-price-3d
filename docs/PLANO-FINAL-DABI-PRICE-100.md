@@ -656,6 +656,9 @@ aprovado.
   nova contratação, sem recuperar dados de `workspace_preferences.subscription`.
 - O resumo de conta usa a assinatura corrente para plano e ciclo, mantendo
   preferências apenas para os dados operacionais do workspace.
+- O checkout recorrente do Mercado Pago decide a situação atual exclusivamente
+  com `BillingSubscription`; o espelho legado deixou de ser consultado até para
+  enriquecer logs desse fluxo.
 
 ## Arquitetura final esperada
 
