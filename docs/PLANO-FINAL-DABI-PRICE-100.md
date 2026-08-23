@@ -715,6 +715,20 @@ landing
 
 ## Registro de execução
 
+- A gestão de membros possui convites, ativação por link de definição de senha,
+  remoção, transferência de ownership e as permissões distintas de owner,
+  manager e operator. As regras de autorização e os fluxos locais são cobertos
+  pela suíte automatizada.
+- Em 22/08/2026, o convite persistido passou a reservar a vaga no banco sob
+  lock do workspace e só insere a membership quando a contagem atual é menor
+  que o limite de assentos do entitlement. Convites concorrentes não podem
+  ultrapassar a capacidade do plano; convites pendentes também ocupam assento.
+- A interface recebe `409` com mensagem operacional quando o plano atingiu o
+  limite. A validação contra Neon real permanece pendente, pois a suíte local
+  não possui banco de integração para executar o lock SQL.
+
+## Registro de execução
+
 - Em 21/08/2026, a recuperação foi validada no ambiente remoto: solicitação
   aceita pelo Resend, e-mail entregue no Gmail, link aberto, senha atualizada
   e login realizado com a nova credencial. A suíte local também cobre expiração

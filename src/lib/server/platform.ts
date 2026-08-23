@@ -902,6 +902,7 @@ export async function inviteWorkspaceMember(input: {
   email: string;
   workspaceRole: string;
   invitedByUserId: string;
+  seatLimit: number;
 }) {
   await ensurePlatformReady();
 
@@ -975,7 +976,14 @@ export async function inviteWorkspaceMember(input: {
 
   const membershipId = randomUUID();
 
-  await sql`
+  // Serializes concurrent invites for this workspace before counting occupied seats.
+  const membershipRows = (await sql`
+    WITH locked_workspace AS (
+      SELECT id
+      FROM workspaces
+      WHERE id = ${input.workspaceId}
+      FOR UPDATE
+    )
     INSERT INTO workspace_memberships (
       id,
       workspace_id,
@@ -984,15 +992,32 @@ export async function inviteWorkspaceMember(input: {
       invited_by_user_id,
       created_at
     )
-    VALUES (
+    SELECT
       ${membershipId},
-      ${input.workspaceId},
+      locked_workspace.id,
       ${userId},
       ${normalizedRole},
       ${input.invitedByUserId},
       NOW()
-    )
-  `;
+    FROM locked_workspace
+    WHERE (
+      SELECT COUNT(*)
+      FROM workspace_memberships
+      WHERE workspace_id = ${input.workspaceId}
+    ) < ${Math.max(1, Math.floor(input.seatLimit))}
+    RETURNING id
+  `) as Array<{ id: string }>;
+
+  if (!membershipRows[0]) {
+    if (!existingUser) {
+      await sql`
+        DELETE FROM users
+        WHERE id = ${userId}
+      `;
+    }
+
+    throw new Error("SEAT_LIMIT_REACHED");
+  }
 
   await syncWorkspaceSeatUsage(input.workspaceId, input.invitedByUserId);
 
