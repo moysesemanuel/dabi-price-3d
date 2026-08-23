@@ -22,6 +22,7 @@ import {
   workspaceRoleMeta,
   writeAppPreferences,
 } from "@/lib/settings/app-preferences";
+import type { WorkspacePlanId } from "@/lib/workspace/catalog";
 
 const brandAccentOptions = [
   "#ff6a00",
@@ -35,9 +36,11 @@ const brandAccentOptions = [
 export function CompanyProfilePanel({
   initialPreferences,
   canEditBusinessType,
+  initialPlanId,
 }: {
   initialPreferences: AppPreferences;
   canEditBusinessType: boolean;
+  initialPlanId: WorkspacePlanId;
 }) {
   const router = useRouter();
   const [preferences, setPreferences] = useState<AppPreferences>(initialPreferences);
@@ -188,7 +191,7 @@ export function CompanyProfilePanel({
     : null;
   const profileChecklist = getCompanyProfileChecklist(preferences);
   const profileComplete = isCompanyProfileComplete(preferences);
-  const workspacePlan = getWorkspacePlan(preferences.subscription.planId);
+  const workspacePlan = getWorkspacePlan(initialPlanId);
   const paymentMethodsSummary = preferences.paymentMethods
     .map((method) => companyPaymentMethodMeta[method].label)
     .join(" · ");

@@ -662,6 +662,9 @@ aprovado.
 - O dashboard recebe sua leitura comercial do servidor: plano, ciclo e status
   vêm de `BillingSubscription`, e a capacidade vem das memberships persistidas;
   `workspace_preferences.subscription` não define mais esses indicadores.
+- A navegação lateral recebe o entitlement efetivo e o plano do servidor, e o
+  perfil da empresa usa o plano do billing apenas para apresentação. Assim, o
+  espelho local não oculta recursos nem exibe uma faixa comercial divergente.
 
 ## Arquitetura final esperada
 
