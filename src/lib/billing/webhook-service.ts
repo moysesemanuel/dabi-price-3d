@@ -543,15 +543,23 @@ export class BillingWebhookService {
       };
     }
 
-    const syncResult = await this.dependencies.applyWorkspaceSubscriptionUpdate({
-      workspaceId: workspaceTarget.workspaceId,
-      planId: workspacePlanId,
-      status: nextStatus,
-      source: "billing-webhook",
-      mercadoPagoSubscriptionId:
-        normalizedEvent.subscription.providerSubscriptionId,
-      description: `Assinatura sincronizada via ${normalizedEvent.sourceTopic}.`,
-    });
+    const syncWorkspaceSubscription = () =>
+      this.dependencies.applyWorkspaceSubscriptionUpdate({
+        workspaceId: workspaceTarget.workspaceId,
+        planId: workspacePlanId,
+        status: nextStatus,
+        source: "billing-webhook",
+        mercadoPagoSubscriptionId:
+          normalizedEvent.subscription.providerSubscriptionId,
+        description: `Assinatura sincronizada via ${normalizedEvent.sourceTopic}.`,
+      });
+    const syncResult =
+      localSubscription && this.dependencies.withSubscriptionOperation
+        ? await this.dependencies.withSubscriptionOperation(
+            localSubscription.id,
+            syncWorkspaceSubscription,
+          )
+        : await syncWorkspaceSubscription();
 
     return {
       status: 200,

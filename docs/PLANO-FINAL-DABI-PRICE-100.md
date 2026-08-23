@@ -449,12 +449,12 @@ Eliminar condições de corrida capazes de produzir estado comercial inválido.
 
 - [x] webhook vs webhook
 - [ ] webhook vs reconciliation
-- [ ] reconciliation vs reconciliation
+- [x] reconciliation vs reconciliation
 - [x] checkout simultâneo
 - [x] upgrade simultâneo
 - [x] downgrade simultâneo
 - [ ] cancelamento vs pagamento
-- [ ] pagamento vs expiração
+- [x] pagamento vs expiração
 - [ ] mudança de ciclo vs webhook
 
 ## Hardening
@@ -530,6 +530,10 @@ Onde necessário:
   assinatura e preços, localizar mudança pendente, criar a invoice e chamar o
   provider. Requisições simultâneas recebem `409` antes de gerar uma nova
   cobrança.
+- A sincronização de eventos de assinatura também obtém o claim da assinatura
+  local antes de atualizar a projeção do workspace. A suíte verifica esse
+  encaminhamento; uma colisão com operação do usuário falha para retry do
+  webhook, sem escrita concorrente.
 - Downgrade e mudança anual para mensal obtêm o mesmo claim antes de reler a
   assinatura e o preço vigente, preparar a recorrência no provider e persistir
   a mudança agendada. Operações concorrentes recebem `409` antes da mutação
