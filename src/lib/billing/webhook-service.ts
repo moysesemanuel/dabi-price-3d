@@ -739,7 +739,7 @@ export class BillingWebhookService {
         workspaceId: subscription.workspaceId,
         priceId: activePrice.id,
         type: invoiceType,
-        status: nextInvoiceStatus,
+        status: "pending",
         amountCents: activePrice.amountCents,
         currency: activePrice.currency,
         periodStart,
@@ -751,37 +751,44 @@ export class BillingWebhookService {
           normalizedEvent.authorizedPayment.providerPaymentId ?? null,
         providerAuthorizedPaymentId:
           normalizedEvent.authorizedPayment.providerAuthorizedPaymentId,
-        paidAt: nextInvoiceStatus === "paid" ? effectivePaidAt : null,
-        failedAt:
-          nextInvoiceStatus === "failed" || nextInvoiceStatus === "expired"
-            ? nowIso
-            : null,
+        paidAt: null,
+        failedAt: null,
       });
 
       if (!invoice) {
         throw new Error("Failed to create authorized payment invoice.");
       }
-    } else {
-      await this.dependencies.updateInvoice(invoice.id, {
-        status: nextInvoiceStatus,
-        provider: normalizedEvent.provider,
-        providerPaymentId:
-          normalizedEvent.authorizedPayment.providerPaymentId ??
-          invoice.providerPaymentId,
-        providerAuthorizedPaymentId:
-          normalizedEvent.authorizedPayment.providerAuthorizedPaymentId,
-        paymentMethod:
-          normalizedEvent.authorizedPayment.paymentMethod ?? invoice.paymentMethod,
-        paidAt:
-          nextInvoiceStatus === "paid"
-            ? effectivePaidAt ?? invoice.paidAt ?? nowIso
-            : invoice.paidAt,
-        failedAt:
-          nextInvoiceStatus === "failed" || nextInvoiceStatus === "expired"
-            ? invoice.failedAt ?? nowIso
-            : invoice.failedAt,
+    }
+
+    const transitionedInvoice = await this.transitionPendingInvoice(invoice.id, {
+      status: nextInvoiceStatus,
+      provider: normalizedEvent.provider,
+      providerPaymentId:
+        normalizedEvent.authorizedPayment.providerPaymentId ??
+        invoice.providerPaymentId,
+      providerAuthorizedPaymentId:
+        normalizedEvent.authorizedPayment.providerAuthorizedPaymentId,
+      paymentMethod:
+        normalizedEvent.authorizedPayment.paymentMethod ?? invoice.paymentMethod,
+      paidAt:
+        nextInvoiceStatus === "paid"
+          ? effectivePaidAt ?? invoice.paidAt ?? nowIso
+          : invoice.paidAt,
+      failedAt:
+        nextInvoiceStatus === "failed" || nextInvoiceStatus === "expired"
+          ? invoice.failedAt ?? nowIso
+          : invoice.failedAt,
+    });
+
+    if (!transitionedInvoice.applied) {
+      return this.createInvoiceAlreadyTransitionedOutcome({
+        normalizedEvent,
+        invoiceId: invoice.id,
+        subscriptionId: subscription.id,
       });
     }
+
+    invoice = transitionedInvoice.invoice ?? invoice;
 
     if (nextInvoiceStatus !== "paid") {
       let effectApplied = false;
@@ -930,7 +937,7 @@ export class BillingWebhookService {
       { kind: "manual_payment" }
     >,
   ): Promise<BillingWebhookProcessOutcome> {
-    const invoice = await this.resolveInvoiceTarget(normalizedEvent.manualPayment);
+    let invoice = await this.resolveInvoiceTarget(normalizedEvent.manualPayment);
 
     if (!invoice) {
       return {
@@ -1004,7 +1011,7 @@ export class BillingWebhookService {
     }
 
     const nowIso = this.now().toISOString();
-    await this.dependencies.updateInvoice(invoice.id, {
+    const transitionedInvoice = await this.transitionPendingInvoice(invoice.id, {
       status: nextInvoiceStatus,
       provider: normalizedEvent.provider,
       providerPaymentId: normalizedEvent.manualPayment.providerPaymentId,
@@ -1021,6 +1028,16 @@ export class BillingWebhookService {
           ? invoice.failedAt ?? nowIso
           : invoice.failedAt,
     });
+
+    if (!transitionedInvoice.applied) {
+      return this.createInvoiceAlreadyTransitionedOutcome({
+        normalizedEvent,
+        invoiceId: invoice.id,
+        subscriptionId: subscription.id,
+      });
+    }
+
+    invoice = transitionedInvoice.invoice ?? invoice;
 
     if (nextInvoiceStatus !== "paid") {
       if (invoice.type === "upgrade") {

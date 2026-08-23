@@ -365,6 +365,7 @@ test("pagamento manual pago ativa assinatura pendente e sincroniza workspace", a
     },
     billingService: {
       async activateSubscription(subscriptionId, input) {
+        activations += 1;
         assert.equal(subscriptionId, "sub-1");
         assert.equal(input.actorType, "webhook");
         assert.equal(input.currentPeriodStart, "2026-08-14T13:15:00.000Z");
@@ -382,7 +383,7 @@ test("pagamento manual pago ativa assinatura pendente e sincroniza workspace", a
     },
   });
 
-  const outcome = await service.processEvent({
+  const event = {
     provider: "mercado_pago",
     providerEventId: "req-2",
     eventType: "payment",
@@ -398,11 +399,18 @@ test("pagamento manual pago ativa assinatura pendente e sincroniza workspace", a
       expiresAt: "2026-08-14T14:00:00.000Z",
       approvedAt: "2026-08-14T13:15:00.000Z",
     },
+  };
+  const outcome = await service.processEvent(event);
+  const duplicateOutcome = await service.processEvent({
+    ...event,
+    providerEventId: "req-2-duplicate",
   });
 
   assert.equal(outcome.status, 200);
   assert.equal(outcome.body.activated, true);
-  assert.equal(invoiceUpdates.length, 1);
+  assert.equal(duplicateOutcome.body.duplicate, true);
+  assert.equal(activations, 1);
+  assert.equal(invoiceUpdates.length, 2);
   assert.equal(invoiceUpdates[0].invoiceId, "inv-1");
   assert.equal(invoiceUpdates[0].mutation.status, "paid");
   assert.deepEqual(completedEffects, [
@@ -625,7 +633,7 @@ test("authorized payment pago cria renewal e renova assinatura ativa", async () 
       };
     },
     async updateInvoice() {
-      throw new Error("not used");
+      return null;
     },
     async getSubscriptionById() {
       throw new Error("not used");
@@ -817,7 +825,7 @@ test("authorized payment rejeitado inicia tolerância para renewal ativa", async
       };
     },
     async updateInvoice() {
-      throw new Error("not used");
+      return null;
     },
     async getSubscriptionById() {
       throw new Error("not used");
