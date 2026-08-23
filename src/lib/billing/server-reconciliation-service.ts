@@ -2,6 +2,8 @@ import "server-only";
 
 import {
   appendBillingAuditEvent,
+  claimBillingInvoiceEffect,
+  completeBillingInvoiceEffect,
   findActiveBillingPrice,
   findBillingInvoiceByProviderAuthorizedPaymentId,
   findBillingInvoiceByProviderPaymentId,
@@ -19,6 +21,8 @@ import {
   listBillingSubscriptionsForScheduledCancellation,
   listFailedBillingWebhookEvents,
   updateBillingInvoice,
+  transitionPendingBillingInvoice,
+  releaseBillingInvoiceEffectClaim,
   updateBillingSubscriptionChange,
 } from "./repository.ts";
 import { createBillingService } from "./server-service.ts";
@@ -46,6 +50,10 @@ export function createBillingReconciliationService() {
       listBillingInvoicesForProviderReconciliation,
     listInvoicesForExpiration: listBillingInvoicesForExpiration,
     updateInvoice: updateBillingInvoice,
+    transitionPendingInvoice: transitionPendingBillingInvoice,
+    claimInvoiceEffect: claimBillingInvoiceEffect,
+    completeInvoiceEffect: completeBillingInvoiceEffect,
+    releaseInvoiceEffectClaim: releaseBillingInvoiceEffectClaim,
     getSubscriptionChangeByInvoiceId: getBillingSubscriptionChangeByInvoiceId,
     getDueSubscriptionChanges: getDueBillingSubscriptionChanges,
     updateSubscriptionChange: updateBillingSubscriptionChange,

@@ -968,38 +968,130 @@ export async function listBillingInvoicesForProviderReconciliation(limit = 100) 
   const sql = getSql();
   const rows = (await sql`
     SELECT
-      id,
-      subscription_id,
-      workspace_id,
-      price_id,
-      type,
-      status,
-      amount_cents,
-      currency,
-      period_start,
-      period_end,
-      payment_method,
-      provider,
-      provider_payment_id,
-      provider_authorized_payment_id,
-      payment_expires_at,
-      paid_at,
-      failed_at,
-      refunded_at,
-      created_at,
-      updated_at
+      billing_invoices.id,
+      billing_invoices.subscription_id,
+      billing_invoices.workspace_id,
+      billing_invoices.price_id,
+      billing_invoices.type,
+      billing_invoices.status,
+      billing_invoices.amount_cents,
+      billing_invoices.currency,
+      billing_invoices.period_start,
+      billing_invoices.period_end,
+      billing_invoices.payment_method,
+      billing_invoices.provider,
+      billing_invoices.provider_payment_id,
+      billing_invoices.provider_authorized_payment_id,
+      billing_invoices.payment_expires_at,
+      billing_invoices.paid_at,
+      billing_invoices.failed_at,
+      billing_invoices.refunded_at,
+      billing_invoices.created_at,
+      billing_invoices.updated_at
     FROM billing_invoices
-    WHERE status = 'pending'
-      AND provider IS NOT NULL
-      AND (
-        provider_payment_id IS NOT NULL
-        OR provider_authorized_payment_id IS NOT NULL
+    LEFT JOIN billing_invoice_effect_claims effect_claim
+      ON effect_claim.invoice_id = billing_invoices.id
+    WHERE (
+        billing_invoices.status = 'pending'
+        OR (
+          billing_invoices.status = 'paid'
+          AND effect_claim.completed_at IS NULL
+        )
       )
-    ORDER BY updated_at ASC
+      AND billing_invoices.provider IS NOT NULL
+      AND (
+        billing_invoices.provider_payment_id IS NOT NULL
+        OR billing_invoices.provider_authorized_payment_id IS NOT NULL
+      )
+    ORDER BY billing_invoices.updated_at ASC
     LIMIT ${limit}
   `) as BillingInvoiceRow[];
 
   return rows.map(mapBillingInvoiceRow);
+}
+
+const BILLING_INVOICE_EFFECT_CLAIM_LEASE_SECONDS = 5 * 60;
+
+export async function claimBillingInvoiceEffect(invoiceId: string) {
+  await ensurePlatformReady();
+
+  const claimToken = randomUUID();
+  const sql = getSql();
+  const rows = (await sql`
+    INSERT INTO billing_invoice_effect_claims (
+      invoice_id,
+      claim_token,
+      claim_expires_at,
+      completed_at,
+      created_at,
+      updated_at
+    )
+    VALUES (
+      ${invoiceId},
+      ${claimToken},
+      NOW() + (${BILLING_INVOICE_EFFECT_CLAIM_LEASE_SECONDS} * INTERVAL '1 second'),
+      NULL,
+      NOW(),
+      NOW()
+    )
+    ON CONFLICT (invoice_id) DO UPDATE SET
+      claim_token = EXCLUDED.claim_token,
+      claim_expires_at = EXCLUDED.claim_expires_at,
+      updated_at = NOW()
+    WHERE billing_invoice_effect_claims.completed_at IS NULL
+      AND (
+        billing_invoice_effect_claims.claim_expires_at IS NULL
+        OR billing_invoice_effect_claims.claim_expires_at <= NOW()
+      )
+    RETURNING claim_token
+  `) as Array<{ claim_token: string }>;
+
+  return rows[0]?.claim_token ?? null;
+}
+
+export async function completeBillingInvoiceEffect(input: {
+  invoiceId: string;
+  claimToken: string;
+}) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    UPDATE billing_invoice_effect_claims
+    SET
+      completed_at = NOW(),
+      claim_token = NULL,
+      claim_expires_at = NULL,
+      updated_at = NOW()
+    WHERE invoice_id = ${input.invoiceId}
+      AND claim_token = ${input.claimToken}
+      AND completed_at IS NULL
+    RETURNING invoice_id
+  `) as Array<{ invoice_id: string }>;
+
+  return rows.length > 0;
+}
+
+export async function releaseBillingInvoiceEffectClaim(input: {
+  invoiceId: string;
+  claimToken: string;
+}) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    UPDATE billing_invoice_effect_claims
+    SET
+      claim_token = NULL,
+      claim_expires_at = NULL,
+      updated_at = NOW()
+    WHERE invoice_id = ${input.invoiceId}
+      AND claim_token = ${input.claimToken}
+      AND completed_at IS NULL
+    RETURNING invoice_id
+  `) as Array<{ invoice_id: string }>;
+
+  return rows.length > 0;
 }
 
 export async function createBillingInvoice(input: {
