@@ -762,6 +762,9 @@ O mesmo input produz o mesmo resultado independentemente da UI, com regras finan
   valores zerados, uma carga alta finita e limites de histórico por plano.
 - Histórico persistido, edição e duplicação continuam pendentes de teste de
   integração/E2E, pois não são regras puras do motor financeiro.
+- A normalização que precede a persistência de cálculos 3D e de confeitaria
+  possui cobertura unitária para tipos, defaults e descarte de campos externos
+  ao contrato, inclusive IDs enviados pelo cliente.
 
 ---
 
