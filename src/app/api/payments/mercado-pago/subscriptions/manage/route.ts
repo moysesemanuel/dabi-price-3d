@@ -3,10 +3,12 @@ import { requireCurrentAuthSession } from "@/lib/auth/session";
 import { getBillingProvider } from "@/lib/billing/providers";
 import { findCurrentBillingSubscriptionForWorkspace } from "@/lib/billing/repository";
 import { createBillingService } from "@/lib/billing/server-service";
+import { runWithServerBillingSubscriptionOperationClaim } from "@/lib/billing/server-subscription-operation-claim";
 import {
   manageMercadoPagoBillingSubscription,
   ManageBillingSubscriptionError,
 } from "@/lib/billing/subscription-management";
+import { BillingSubscriptionOperationInProgressError } from "@/lib/billing/subscription-operation-claim";
 import {
   getMercadoPagoAccessToken,
 } from "@/lib/payments/mercado-pago";
@@ -122,16 +124,33 @@ export async function POST(request: Request) {
   try {
     const provider = getBillingProvider("mercado_pago");
     const billingService = createBillingService();
-    const result = await manageMercadoPagoBillingSubscription({
-      action,
-      actorId: session.user.id,
-      subscription,
-      dependencies: {
-        provider,
-        billingService,
-        applyWorkspaceSubscriptionUpdate,
+    const result = await runWithServerBillingSubscriptionOperationClaim(
+      subscription.id,
+      async () => {
+        // Do not mutate the provider from a snapshot made before the claim.
+        const currentSubscription =
+          await findCurrentBillingSubscriptionForWorkspace(session.workspace.id);
+
+        if (!currentSubscription || currentSubscription.id !== subscription.id) {
+          throw new ManageBillingSubscriptionError(
+            "A assinatura foi alterada enquanto a operação estava sendo iniciada. Atualize a página e tente novamente.",
+            "SUBSCRIPTION_CHANGED_CONCURRENTLY",
+            409,
+          );
+        }
+
+        return manageMercadoPagoBillingSubscription({
+          action,
+          actorId: session.user.id,
+          subscription: currentSubscription,
+          dependencies: {
+            provider,
+            billingService,
+            applyWorkspaceSubscriptionUpdate,
+          },
+        });
       },
-    });
+    );
 
     logRouteEvent(
       requestContext,
@@ -178,6 +197,18 @@ export async function POST(request: Request) {
           code: error.code,
         },
         { status: error.status },
+      );
+    }
+
+    if (error instanceof BillingSubscriptionOperationInProgressError) {
+      return jsonWithRequestId(
+        requestContext,
+        {
+          error:
+            "Uma atualização desta assinatura já está em andamento. Aguarde alguns segundos e tente novamente.",
+          code: "SUBSCRIPTION_OPERATION_IN_PROGRESS",
+        },
+        { status: 409 },
       );
     }
 
