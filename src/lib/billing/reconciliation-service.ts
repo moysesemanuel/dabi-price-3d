@@ -141,6 +141,10 @@ export type BillingReconciliationServiceDependencies = {
     invoiceId: string;
     claimToken: string;
   }): Promise<boolean>;
+  withSubscriptionOperation?<T>(
+    subscriptionId: string,
+    operation: () => Promise<T>,
+  ): Promise<T>;
   getSubscriptionChangeByInvoiceId(
     invoiceId: string,
   ): Promise<BillingSubscriptionChange | null>;
@@ -209,6 +213,15 @@ export class BillingReconciliationService {
 
     await this.dependencies.updateInvoice(invoiceId, mutation);
     return { applied: true, invoice: null };
+  }
+
+  private runWithSubscriptionOperation<T>(
+    subscriptionId: string,
+    operation: () => Promise<T>,
+  ) {
+    return this.dependencies.withSubscriptionOperation
+      ? this.dependencies.withSubscriptionOperation(subscriptionId, operation)
+      : operation();
   }
 
   async reconcileSubscription(
@@ -1056,18 +1069,24 @@ export class BillingReconciliationService {
     let changed = 0;
 
     for (const subscription of subscriptions) {
-      await this.dependencies.billingService.expireSubscription(subscription.id, {
-        actorType: "system",
-        endedAt: subscription.currentPeriodEnd ?? asOf,
-      });
-      await this.dependencies.applyWorkspaceSubscriptionUpdate({
-        workspaceId: subscription.workspaceId,
-        planId: subscription.planId,
-        billingCycle: subscription.billingCycle,
-        status: "canceled",
-        mercadoPagoSubscriptionId: subscription.providerSubscriptionId,
-        source: "billing-reconciliation-expiration",
-        description: "Assinatura expirada por término do período sem renovação.",
+      await this.runWithSubscriptionOperation(subscription.id, async () => {
+        const expiredSubscription = await this.dependencies.billingService.expireSubscription(
+          subscription.id,
+          {
+            actorType: "system",
+            endedAt: subscription.currentPeriodEnd ?? asOf,
+          },
+        );
+        const projectionSubscription = expiredSubscription ?? subscription;
+        await this.dependencies.applyWorkspaceSubscriptionUpdate({
+          workspaceId: projectionSubscription.workspaceId,
+          planId: projectionSubscription.planId,
+          billingCycle: projectionSubscription.billingCycle,
+          status: "canceled",
+          mercadoPagoSubscriptionId: projectionSubscription.providerSubscriptionId,
+          source: "billing-reconciliation-expiration",
+          description: "Assinatura expirada por término do período sem renovação.",
+        });
       });
       changed += 1;
     }
@@ -1086,16 +1105,21 @@ export class BillingReconciliationService {
     let changed = 0;
 
     for (const subscription of subscriptions) {
-      await this.dependencies.billingService.pauseSubscription(subscription.id, {
-        actorType: "system",
-      });
-      await this.dependencies.applyWorkspaceSubscriptionUpdate({
-        workspaceId: subscription.workspaceId,
-        planId: subscription.planId,
-        status: "paused",
-        mercadoPagoSubscriptionId: subscription.providerSubscriptionId,
-        source: "billing-reconciliation-grace-period",
-        description: "Assinatura pausada após o fim da tolerância.",
+      await this.runWithSubscriptionOperation(subscription.id, async () => {
+        const pausedSubscription = await this.dependencies.billingService.pauseSubscription(
+          subscription.id,
+          { actorType: "system" },
+        );
+        const projectionSubscription = pausedSubscription ?? subscription;
+        await this.dependencies.applyWorkspaceSubscriptionUpdate({
+          workspaceId: projectionSubscription.workspaceId,
+          planId: projectionSubscription.planId,
+          billingCycle: projectionSubscription.billingCycle,
+          status: "paused",
+          mercadoPagoSubscriptionId: projectionSubscription.providerSubscriptionId,
+          source: "billing-reconciliation-grace-period",
+          description: "Assinatura pausada após o fim da tolerância.",
+        });
       });
       changed += 1;
     }
@@ -1114,17 +1138,24 @@ export class BillingReconciliationService {
     let changed = 0;
 
     for (const subscription of subscriptions) {
-      await this.dependencies.billingService.finalizeCancellation(subscription.id, {
-        actorType: "system",
-        endedAt: subscription.currentPeriodEnd ?? asOf,
-      });
-      await this.dependencies.applyWorkspaceSubscriptionUpdate({
-        workspaceId: subscription.workspaceId,
-        planId: subscription.planId,
-        status: "canceled",
-        mercadoPagoSubscriptionId: subscription.providerSubscriptionId,
-        source: "billing-reconciliation-scheduled-cancel",
-        description: "Assinatura encerrada ao fim do período agendado.",
+      await this.runWithSubscriptionOperation(subscription.id, async () => {
+        const canceledSubscription = await this.dependencies.billingService.finalizeCancellation(
+          subscription.id,
+          {
+            actorType: "system",
+            endedAt: subscription.currentPeriodEnd ?? asOf,
+          },
+        );
+        const projectionSubscription = canceledSubscription ?? subscription;
+        await this.dependencies.applyWorkspaceSubscriptionUpdate({
+          workspaceId: projectionSubscription.workspaceId,
+          planId: projectionSubscription.planId,
+          billingCycle: projectionSubscription.billingCycle,
+          status: "canceled",
+          mercadoPagoSubscriptionId: projectionSubscription.providerSubscriptionId,
+          source: "billing-reconciliation-scheduled-cancel",
+          description: "Assinatura encerrada ao fim do período agendado.",
+        });
       });
       changed += 1;
     }
@@ -1191,34 +1222,38 @@ export class BillingReconciliationService {
         continue;
       }
 
-      await this.dependencies.billingService.applyScheduledChange(
-        subscription.id,
-        {
-          actorType: "system",
-          planId: nextPlanId,
-          billingCycle: nextBillingCycle,
-          priceId: nextPrice.id,
-          metadata: {
-            changeId: change.id,
-            changeType: change.type,
-          },
-        },
-      );
+      await this.runWithSubscriptionOperation(subscription.id, async () => {
+        const updatedSubscription =
+          await this.dependencies.billingService.applyScheduledChange(
+            subscription.id,
+            {
+              actorType: "system",
+              planId: nextPlanId,
+              billingCycle: nextBillingCycle,
+              priceId: nextPrice.id,
+              metadata: {
+                changeId: change.id,
+                changeType: change.type,
+              },
+            },
+          );
+        const projectionSubscription = updatedSubscription ?? subscription;
 
-      await this.dependencies.updateSubscriptionChange(change.id, {
-        status: "applied",
-        appliedAt: asOf,
-      });
-      await this.dependencies.applyWorkspaceSubscriptionUpdate({
-        workspaceId: subscription.workspaceId,
-        planId: nextPlanId,
-        billingCycle: nextBillingCycle,
-        status: resolveWorkspaceProjectionStatusFromBillingStatus(
-          subscription.status,
-        ),
-        mercadoPagoSubscriptionId: subscription.providerSubscriptionId,
-        source: "billing-reconciliation-scheduled-change",
-        description: `Mudança agendada ${change.type} aplicada pela reconciliação.`,
+        await this.dependencies.updateSubscriptionChange(change.id, {
+          status: "applied",
+          appliedAt: asOf,
+        });
+        await this.dependencies.applyWorkspaceSubscriptionUpdate({
+          workspaceId: projectionSubscription.workspaceId,
+          planId: projectionSubscription.planId,
+          billingCycle: projectionSubscription.billingCycle,
+          status: resolveWorkspaceProjectionStatusFromBillingStatus(
+            projectionSubscription.status,
+          ),
+          mercadoPagoSubscriptionId: projectionSubscription.providerSubscriptionId,
+          source: "billing-reconciliation-scheduled-change",
+          description: `Mudança agendada ${change.type} aplicada pela reconciliação.`,
+        });
       });
       changed += 1;
     }

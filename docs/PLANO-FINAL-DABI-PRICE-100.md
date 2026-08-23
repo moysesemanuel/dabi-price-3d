@@ -517,6 +517,15 @@ Onde necessário:
   reconciliações concorrentes, com uma única ativação efetiva. Cancelamento,
   expiração e mudanças agendadas ainda precisam da mesma análise de claim de
   domínio antes de serem marcados como livres de corrida.
+- Os jobs de expiração, fim da tolerância, cancelamento agendado e mudança
+  agendada agora obtêm um claim temporário por assinatura antes de alterar
+  `BillingSubscription` e a projeção do workspace. O claim tem token de posse,
+  lease de cinco minutos e liberação em `finally`; o teste cobre tanto a
+  exclusão mútua quanto a liberação após erro e o encaminhamento pelo job.
+- Esta camada não cobre ainda comandos concorrentes iniciados pelo usuário
+  (upgrade, downgrade ou cancelamento) nem chamadas externas ao provider. Eles
+  exigem uma estratégia explícita de compensação e retry antes que os cenários
+  restantes da fase possam ser marcados como concluídos.
 
 ## Critério de aceite
 

@@ -183,6 +183,10 @@ export type BillingWebhookServiceDependencies = {
     invoiceId: string;
     claimToken: string;
   }): Promise<boolean>;
+  withSubscriptionOperation?<T>(
+    subscriptionId: string,
+    operation: () => Promise<T>,
+  ): Promise<T>;
   getSubscriptionById(subscriptionId: string): Promise<BillingSubscription | null>;
   findSubscriptionByProviderSubscriptionId(input: {
     provider: BillingProviderName;
@@ -263,13 +267,19 @@ export class BillingWebhookService {
 
   private async runPaidInvoiceEffect<T>(
     invoiceId: string,
+    subscriptionId: string,
     effect: () => Promise<T>,
   ): Promise<{ claimed: boolean; value?: T }> {
+    const runEffect = () =>
+      this.dependencies.withSubscriptionOperation
+        ? this.dependencies.withSubscriptionOperation(subscriptionId, effect)
+        : effect();
+
     if (
       !this.dependencies.claimInvoiceEffect ||
       !this.dependencies.completeInvoiceEffect
     ) {
-      return { claimed: true, value: await effect() };
+      return { claimed: true, value: await runEffect() };
     }
 
     const claimToken = await this.dependencies.claimInvoiceEffect(invoiceId);
@@ -279,7 +289,7 @@ export class BillingWebhookService {
     }
 
     try {
-      const value = await effect();
+      const value = await runEffect();
       const completed = await this.dependencies.completeInvoiceEffect({
         invoiceId,
         claimToken,
@@ -835,7 +845,10 @@ export class BillingWebhookService {
       };
     }
 
-    const paidEffect = await this.runPaidInvoiceEffect(invoice.id, async () => {
+    const paidEffect = await this.runPaidInvoiceEffect(
+      invoice.id,
+      subscription.id,
+      async () => {
       const currentPeriodStart =
         invoice.periodStart ??
         resolveAuthorizedPaymentPeriodStart({
@@ -918,7 +931,8 @@ export class BillingWebhookService {
           activated: invoice.type === "subscription",
         },
       };
-    });
+      },
+    );
 
     if (!paidEffect.claimed || !paidEffect.value) {
       return this.createInvoiceEffectClaimedOutcome({
@@ -1078,6 +1092,7 @@ export class BillingWebhookService {
 
     const paidEffect = await this.runPaidInvoiceEffect(
       invoice.id,
+      subscription.id,
       async (): Promise<BillingWebhookProcessOutcome> => {
     if (invoice.type === "upgrade") {
       const change = await this.dependencies.getSubscriptionChangeByInvoiceId(
