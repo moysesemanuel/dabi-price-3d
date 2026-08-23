@@ -671,6 +671,8 @@ aprovado.
 - O cache local deixa de aplicar limite comercial por preferências após um
   salvamento persistente; em modo local sem billing ele usa apenas um teto
   técnico para evitar crescimento ilimitado.
+- O helper legado de limite de histórico foi removido por não ter mais
+  consumidores; novos limites comerciais devem passar pelo entitlement.
 
 ## Arquitetura final esperada
 
