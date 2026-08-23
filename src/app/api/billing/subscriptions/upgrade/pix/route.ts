@@ -15,6 +15,8 @@ import {
   updateBillingSubscriptionChange,
 } from "@/lib/billing/repository";
 import { createBillingService } from "@/lib/billing/server-service";
+import { runWithServerBillingSubscriptionOperationClaim } from "@/lib/billing/server-subscription-operation-claim";
+import { BillingSubscriptionOperationInProgressError } from "@/lib/billing/subscription-operation-claim";
 import { normalizeBillingManualPaymentState } from "@/lib/billing/manual-payment-status";
 import type {
   BillingSubscription,
@@ -127,142 +129,152 @@ export async function POST(request: Request) {
     );
   }
 
-  const nowIso = new Date().toISOString();
-  const currentPrice = await resolveCurrentSubscriptionPrice(subscription, nowIso);
-
-  if (!currentPrice) {
-    return jsonWithRequestId(
-      requestContext,
-      {
-        error:
-          "Não foi possível localizar o preço atual da assinatura para calcular o upgrade.",
-        code: "UPGRADE_CURRENT_PRICE_NOT_FOUND",
-      },
-      { status: 503 },
-    );
-  }
-
-  const targetPrice = await findActiveBillingPrice({
-    planId: targetPlanId,
-    billingCycle: subscription.billingCycle,
-    asOf: nowIso,
-  });
-
-  if (!targetPrice) {
-    return jsonWithRequestId(
-      requestContext,
-      {
-        error:
-          "O plano de destino ainda não possui um preço ativo configurado para upgrade automático.",
-        code: "UPGRADE_TARGET_PRICE_NOT_FOUND",
-      },
-      { status: 503 },
-    );
-  }
-
   const provider = getBillingProvider("mercado_pago");
-  const billingService = createBillingService();
   let createdInvoiceId: string | null = null;
   let createdChangeId: string | null = null;
   let providerPaymentCreated = false;
 
   try {
-    const openUpgrade = await findLatestOpenBillingSubscriptionChange({
-      subscriptionId: subscription.id,
-      type: "upgrade",
-    });
+    return await runWithServerBillingSubscriptionOperationClaim(
+      subscription.id,
+      async () => {
+        const currentSubscription =
+          await findCurrentBillingSubscriptionForWorkspace(session.workspace.id);
 
-    const resumableUpgrade = await resolveExistingPendingUpgradePix({
-      subscription,
-      openUpgrade,
-      targetPlanId,
-      provider,
-      payerEmail: session.user.email,
-      workspaceName: session.workspace.name,
-      requestUrl: request.url,
-    });
+        if (!currentSubscription || currentSubscription.id !== subscription.id) {
+          throw new RequestBillingUpgradeError(
+            "A assinatura foi alterada enquanto o upgrade estava sendo iniciado. Atualize a página e tente novamente.",
+            "UPGRADE_SUBSCRIPTION_CHANGED_CONCURRENTLY",
+            409,
+          );
+        }
 
-    if (resumableUpgrade) {
-      return jsonWithRequestId(requestContext, {
-        ok: true,
-        resumed: true,
-        subscriptionId: subscription.id,
-        changeId: resumableUpgrade.changeId,
-        invoiceId: resumableUpgrade.invoiceId,
-        paymentId: resumableUpgrade.paymentId,
-        redirectTo: "/app/assinatura/upgrade",
-      });
-    }
+        const nowIso = new Date().toISOString();
+        const currentPrice = await resolveCurrentSubscriptionPrice(
+          currentSubscription,
+          nowIso,
+        );
 
-    if (openUpgrade?.invoiceId) {
-      await updateBillingInvoice(openUpgrade.invoiceId, {
-        status: "canceled",
-      });
-    }
+        if (!currentPrice) {
+          throw new RequestBillingUpgradeError(
+            "Não foi possível localizar o preço atual da assinatura para calcular o upgrade.",
+            "UPGRADE_CURRENT_PRICE_NOT_FOUND",
+            503,
+          );
+        }
 
-    const upgradeRequest = await requestBillingSubscriptionUpgrade({
-      subscription,
-      currentPrice,
-      targetPrice,
-      actorId: session.user.id,
-      asOf: nowIso,
-      billingService,
-    });
+        const targetPrice = await findActiveBillingPrice({
+          planId: targetPlanId,
+          billingCycle: currentSubscription.billingCycle,
+          asOf: nowIso,
+        });
 
-    createdChangeId = upgradeRequest.change.id;
-    createdInvoiceId = upgradeRequest.invoice.id;
+        if (!targetPrice) {
+          throw new RequestBillingUpgradeError(
+            "O plano de destino ainda não possui um preço ativo configurado para upgrade automático.",
+            "UPGRADE_TARGET_PRICE_NOT_FOUND",
+            503,
+          );
+        }
 
-    const payment = await provider.createManualPayment({
-      externalReference: `billing_invoice:${upgradeRequest.invoice.id}`,
-      idempotencyKey: upgradeRequest.invoice.id,
-      payerEmail: session.user.email,
-      reason: `Upgrade ${subscription.planId} -> ${targetPlanId} - ${session.workspace.name}`,
-      amountCents: upgradeRequest.invoice.amountCents,
-      currency: upgradeRequest.invoice.currency,
-      returnUrl: new URL("/app/assinatura/upgrade", request.url).toString(),
-      notificationUrl: new URL(
-        "/api/payments/mercado-pago/webhook?source_news=webhooks",
-        request.url,
-      ).toString(),
-    });
+        const openUpgrade = await findLatestOpenBillingSubscriptionChange({
+          subscriptionId: currentSubscription.id,
+          type: "upgrade",
+        });
 
-    if (!payment.providerPaymentId || !payment.qrCode) {
-      throw new Error("Manual Pix payment was created without QR code data.");
-    }
-    providerPaymentCreated = true;
+        const resumableUpgrade = await resolveExistingPendingUpgradePix({
+          subscription: currentSubscription,
+          openUpgrade,
+          targetPlanId,
+          provider,
+          payerEmail: session.user.email,
+          workspaceName: session.workspace.name,
+          requestUrl: request.url,
+        });
 
-    const updatedInvoice = await updateBillingInvoice(upgradeRequest.invoice.id, {
-      providerPaymentId: payment.providerPaymentId,
-      providerAuthorizedPaymentId: payment.providerAuthorizedPaymentId,
-      paymentExpiresAt: payment.expiresAt ?? null,
-      paymentMethod: payment.paymentMethod ?? "pix_manual",
-      provider: payment.provider,
-    });
+        if (resumableUpgrade) {
+          return jsonWithRequestId(requestContext, {
+            ok: true,
+            resumed: true,
+            subscriptionId: currentSubscription.id,
+            changeId: resumableUpgrade.changeId,
+            invoiceId: resumableUpgrade.invoiceId,
+            paymentId: resumableUpgrade.paymentId,
+            redirectTo: "/app/assinatura/upgrade",
+          });
+        }
 
-    if (!updatedInvoice) {
-      throw new Error("Failed to update upgrade invoice with Pix payment data.");
-    }
+        if (openUpgrade?.invoiceId) {
+          await updateBillingInvoice(openUpgrade.invoiceId, {
+            status: "canceled",
+          });
+        }
 
-    logRouteEvent(requestContext, "info", "billing_upgrade_pix.created", {
-      workspaceId: session.workspace.id,
-      userId: session.user.id,
-      subscriptionId: subscription.id,
-      currentPlanId: subscription.planId,
-      targetPlanId,
-      changeId: upgradeRequest.change.id,
-      invoiceId: updatedInvoice.id,
-      paymentId: updatedInvoice.providerPaymentId,
-      amountCents: updatedInvoice.amountCents,
-    });
+        const upgradeRequest = await requestBillingSubscriptionUpgrade({
+          subscription: currentSubscription,
+          currentPrice,
+          targetPrice,
+          actorId: session.user.id,
+          asOf: nowIso,
+          billingService: createBillingService(),
+        });
 
-    return jsonWithRequestId(requestContext, {
-      ok: true,
-      subscriptionId: subscription.id,
-      changeId: upgradeRequest.change.id,
-      invoiceId: updatedInvoice.id,
-      paymentId: updatedInvoice.providerPaymentId,
-      redirectTo: "/app/assinatura/upgrade",
-    });
+        createdChangeId = upgradeRequest.change.id;
+        createdInvoiceId = upgradeRequest.invoice.id;
+
+        const payment = await provider.createManualPayment({
+          externalReference: `billing_invoice:${upgradeRequest.invoice.id}`,
+          idempotencyKey: upgradeRequest.invoice.id,
+          payerEmail: session.user.email,
+          reason: `Upgrade ${currentSubscription.planId} -> ${targetPlanId} - ${session.workspace.name}`,
+          amountCents: upgradeRequest.invoice.amountCents,
+          currency: upgradeRequest.invoice.currency,
+          returnUrl: new URL("/app/assinatura/upgrade", request.url).toString(),
+          notificationUrl: new URL(
+            "/api/payments/mercado-pago/webhook?source_news=webhooks",
+            request.url,
+          ).toString(),
+        });
+
+        if (!payment.providerPaymentId || !payment.qrCode) {
+          throw new Error("Manual Pix payment was created without QR code data.");
+        }
+        providerPaymentCreated = true;
+
+        const updatedInvoice = await updateBillingInvoice(upgradeRequest.invoice.id, {
+          providerPaymentId: payment.providerPaymentId,
+          providerAuthorizedPaymentId: payment.providerAuthorizedPaymentId,
+          paymentExpiresAt: payment.expiresAt ?? null,
+          paymentMethod: payment.paymentMethod ?? "pix_manual",
+          provider: payment.provider,
+        });
+
+        if (!updatedInvoice) {
+          throw new Error("Failed to update upgrade invoice with Pix payment data.");
+        }
+
+        logRouteEvent(requestContext, "info", "billing_upgrade_pix.created", {
+          workspaceId: session.workspace.id,
+          userId: session.user.id,
+          subscriptionId: currentSubscription.id,
+          currentPlanId: currentSubscription.planId,
+          targetPlanId,
+          changeId: upgradeRequest.change.id,
+          invoiceId: updatedInvoice.id,
+          paymentId: updatedInvoice.providerPaymentId,
+          amountCents: updatedInvoice.amountCents,
+        });
+
+        return jsonWithRequestId(requestContext, {
+          ok: true,
+          subscriptionId: currentSubscription.id,
+          changeId: upgradeRequest.change.id,
+          invoiceId: updatedInvoice.id,
+          paymentId: updatedInvoice.providerPaymentId,
+          redirectTo: "/app/assinatura/upgrade",
+        });
+      },
+    );
   } catch (error) {
     if (createdInvoiceId && !providerPaymentCreated) {
       await updateBillingInvoice(createdInvoiceId, {
@@ -292,6 +304,18 @@ export async function POST(request: Request) {
           code: error.code,
         },
         { status: error.status },
+      );
+    }
+
+    if (error instanceof BillingSubscriptionOperationInProgressError) {
+      return jsonWithRequestId(
+        requestContext,
+        {
+          error:
+            "Uma atualização desta assinatura já está em andamento. Aguarde alguns segundos e tente novamente.",
+          code: "SUBSCRIPTION_OPERATION_IN_PROGRESS",
+        },
+        { status: 409 },
       );
     }
 
