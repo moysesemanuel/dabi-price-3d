@@ -665,6 +665,9 @@ aprovado.
 - A navegação lateral recebe o entitlement efetivo e o plano do servidor, e o
   perfil da empresa usa o plano do billing apenas para apresentação. Assim, o
   espelho local não oculta recursos nem exibe uma faixa comercial divergente.
+- A retenção de snapshots de cálculo no servidor determina o limite de
+  histórico a partir da assinatura persistida no billing, sem consultar o
+  espelho de preferências.
 
 ## Arquitetura final esperada
 
