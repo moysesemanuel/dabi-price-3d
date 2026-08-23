@@ -993,7 +993,7 @@ git diff --check
 - [x] Mensagens de erro.
 - [x] Logs.
 - [x] PII.
-- [ ] Dependências vulneráveis.
+- [x] Dependências vulneráveis.
 - [x] Rotas de debug/teste esquecidas.
 - [x] Todas as rotas `/api`.
 
@@ -1002,12 +1002,11 @@ git diff --check
 - A busca no repositório rastreado não encontrou valores literais para os
   secrets operacionais conhecidos. Arquivos de ambiente e dependências foram
   excluídos da verificação por não serem código versionado.
-- `npm audit --omit=dev --audit-level=high`, executado em 22/08/2026, reportou
-  cinco vulnerabilidades altas transitivas: `next@16.2.6`/`postcss`/`sharp`,
-  `nanoid` e `undici`. A correção automática completa propõe
-  `next@16.3.2`, fora da versão compatível atualmente exigida. Atualizar a
-  dependência deve ser tratado como mudança controlada com nova validação de
-  Next.js, não via `npm audit fix --force`.
+- `npm audit --omit=dev --audit-level=high`, reexecutado em 22/08/2026 após
+  atualização controlada para `next@16.3.2` e override transitivo de
+  `undici@6.28.0`, não reporta vulnerabilidades de produção. A atualização
+  também resolve a cadeia transitiva de `postcss`, `sharp` e `nanoid`, sem
+  usar `npm audit fix --force`.
 - A sessão usa cookie `HttpOnly`, `Secure` em produção e `SameSite=Lax`. Os
   cookies temporários de OAuth têm a mesma proteção e o callback valida
   `state` e PKCE. Não há configuração de CORS permissiva no código; as rotas
