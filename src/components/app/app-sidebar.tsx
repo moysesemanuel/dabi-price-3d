@@ -518,6 +518,8 @@ export function AppSidebar({
         method: "POST",
       });
     } finally {
+      // A hard reload clears workspace state held only in memory after logout.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.href = "/login";
     }
   }
