@@ -281,6 +281,48 @@ test("processExpiredInvoices expira Pix manual pendente", async () => {
   assert.equal(dependencies.auditEvents[0]?.action, "invoice.expired");
 });
 
+test("processExpiredInvoices nao sobrescreve pagamento vencido por transicao concorrente", async () => {
+  const dependencies = createDependencies({
+    async listInvoicesForExpiration() {
+      return [
+        {
+          id: "inv-concurrent-1",
+          subscriptionId: "sub-concurrent-1",
+          workspaceId: "workspace-concurrent-1",
+          priceId: "price-1",
+          type: "subscription",
+          status: "pending",
+          amountCents: 14900,
+          currency: "BRL",
+          periodStart: null,
+          periodEnd: null,
+          paymentMethod: "pix_manual",
+          provider: "mercado_pago",
+          providerPaymentId: "pay-concurrent-1",
+          providerAuthorizedPaymentId: null,
+          paymentExpiresAt: "2026-08-14T11:00:00.000Z",
+          paidAt: null,
+          failedAt: null,
+          refundedAt: null,
+          createdAt: "2026-08-14T09:00:00.000Z",
+          updatedAt: "2026-08-14T09:00:00.000Z",
+        },
+      ];
+    },
+    async transitionPendingInvoice() {
+      // A competing payment webhook transitioned the invoice before expiry won.
+      return null;
+    },
+  });
+
+  const service = new BillingReconciliationService(dependencies);
+  const result = await service.processExpiredInvoices();
+
+  assert.equal(result.changed, 0);
+  assert.equal(dependencies.invoiceUpdates.length, 0);
+  assert.equal(dependencies.auditEvents.length, 0);
+});
+
 test("processAbandonedCheckouts encerra pendências antigas e volta workspace para unpaid", async () => {
   const dependencies = createDependencies({
     async listAbandonedPendingSubscriptions(input) {

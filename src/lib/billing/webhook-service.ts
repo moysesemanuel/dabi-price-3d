@@ -158,6 +158,22 @@ export type BillingWebhookServiceDependencies = {
       >
     >,
   ): Promise<BillingInvoice | null>;
+  transitionPendingInvoice?(
+    invoiceId: string,
+    mutation: Partial<
+      Pick<
+        BillingInvoice,
+        | "status"
+        | "provider"
+        | "providerPaymentId"
+        | "providerAuthorizedPaymentId"
+        | "paymentMethod"
+        | "paymentExpiresAt"
+        | "paidAt"
+        | "failedAt"
+      >
+    >,
+  ): Promise<BillingInvoice | null>;
   getSubscriptionById(subscriptionId: string): Promise<BillingSubscription | null>;
   findSubscriptionByProviderSubscriptionId(input: {
     provider: BillingProviderName;
@@ -217,6 +233,23 @@ export class BillingWebhookService {
 
   constructor(dependencies: BillingWebhookServiceDependencies) {
     this.dependencies = dependencies;
+  }
+
+  private async transitionPendingInvoice(
+    invoiceId: string,
+    mutation: Parameters<BillingWebhookServiceDependencies["updateInvoice"]>[1],
+  ) {
+    if (this.dependencies.transitionPendingInvoice) {
+      const invoice = await this.dependencies.transitionPendingInvoice(
+        invoiceId,
+        mutation,
+      );
+
+      return { applied: invoice !== null, invoice };
+    }
+
+    await this.dependencies.updateInvoice(invoiceId, mutation);
+    return { applied: true, invoice: null };
   }
 
   async processEvent(
@@ -661,7 +694,7 @@ export class BillingWebhookService {
         workspaceId: subscription.workspaceId,
         priceId: activePrice.id,
         type: invoiceType,
-        status: nextInvoiceStatus,
+        status: "pending",
         amountCents: activePrice.amountCents,
         currency: activePrice.currency,
         periodStart,
@@ -673,37 +706,44 @@ export class BillingWebhookService {
           normalizedEvent.authorizedPayment.providerPaymentId ?? null,
         providerAuthorizedPaymentId:
           normalizedEvent.authorizedPayment.providerAuthorizedPaymentId,
-        paidAt: nextInvoiceStatus === "paid" ? effectivePaidAt : null,
-        failedAt:
-          nextInvoiceStatus === "failed" || nextInvoiceStatus === "expired"
-            ? nowIso
-            : null,
+        paidAt: null,
+        failedAt: null,
       });
 
       if (!invoice) {
         throw new Error("Failed to create authorized payment invoice.");
       }
-    } else {
-      await this.dependencies.updateInvoice(invoice.id, {
-        status: nextInvoiceStatus,
-        provider: normalizedEvent.provider,
-        providerPaymentId:
-          normalizedEvent.authorizedPayment.providerPaymentId ??
-          invoice.providerPaymentId,
-        providerAuthorizedPaymentId:
-          normalizedEvent.authorizedPayment.providerAuthorizedPaymentId,
-        paymentMethod:
-          normalizedEvent.authorizedPayment.paymentMethod ?? invoice.paymentMethod,
-        paidAt:
-          nextInvoiceStatus === "paid"
-            ? effectivePaidAt ?? invoice.paidAt ?? nowIso
-            : invoice.paidAt,
-        failedAt:
-          nextInvoiceStatus === "failed" || nextInvoiceStatus === "expired"
-            ? invoice.failedAt ?? nowIso
-            : invoice.failedAt,
+    }
+
+    const transitionedInvoice = await this.transitionPendingInvoice(invoice.id, {
+      status: nextInvoiceStatus,
+      provider: normalizedEvent.provider,
+      providerPaymentId:
+        normalizedEvent.authorizedPayment.providerPaymentId ??
+        invoice.providerPaymentId,
+      providerAuthorizedPaymentId:
+        normalizedEvent.authorizedPayment.providerAuthorizedPaymentId,
+      paymentMethod:
+        normalizedEvent.authorizedPayment.paymentMethod ?? invoice.paymentMethod,
+      paidAt:
+        nextInvoiceStatus === "paid"
+          ? effectivePaidAt ?? invoice.paidAt ?? nowIso
+          : invoice.paidAt,
+      failedAt:
+        nextInvoiceStatus === "failed" || nextInvoiceStatus === "expired"
+          ? invoice.failedAt ?? nowIso
+          : invoice.failedAt,
+    });
+
+    if (!transitionedInvoice.applied) {
+      return this.createInvoiceAlreadyTransitionedOutcome({
+        normalizedEvent,
+        invoiceId: invoice.id,
+        subscriptionId: subscription.id,
       });
     }
+
+    invoice = transitionedInvoice.invoice ?? invoice;
 
     if (nextInvoiceStatus !== "paid") {
       let effectApplied = false;
@@ -840,7 +880,7 @@ export class BillingWebhookService {
       { kind: "manual_payment" }
     >,
   ): Promise<BillingWebhookProcessOutcome> {
-    const invoice = await this.resolveInvoiceTarget(normalizedEvent.manualPayment);
+    let invoice = await this.resolveInvoiceTarget(normalizedEvent.manualPayment);
 
     if (!invoice) {
       return {
@@ -914,7 +954,7 @@ export class BillingWebhookService {
     }
 
     const nowIso = this.now().toISOString();
-    await this.dependencies.updateInvoice(invoice.id, {
+    const transitionedInvoice = await this.transitionPendingInvoice(invoice.id, {
       status: nextInvoiceStatus,
       provider: normalizedEvent.provider,
       providerPaymentId: normalizedEvent.manualPayment.providerPaymentId,
@@ -931,6 +971,16 @@ export class BillingWebhookService {
           ? invoice.failedAt ?? nowIso
           : invoice.failedAt,
     });
+
+    if (!transitionedInvoice.applied) {
+      return this.createInvoiceAlreadyTransitionedOutcome({
+        normalizedEvent,
+        invoiceId: invoice.id,
+        subscriptionId: subscription.id,
+      });
+    }
+
+    invoice = transitionedInvoice.invoice ?? invoice;
 
     if (nextInvoiceStatus !== "paid") {
       if (invoice.type === "upgrade") {
@@ -1199,6 +1249,36 @@ export class BillingWebhookService {
         subscriptionId: subscription.id,
         invoiceId: invoice.id,
         activated: true,
+      },
+    };
+  }
+
+  private createInvoiceAlreadyTransitionedOutcome(input: {
+    normalizedEvent: Extract<
+      BillingWebhookNormalizedEvent,
+      { kind: "authorized_payment" | "manual_payment" }
+    >;
+    invoiceId: string;
+    subscriptionId: string;
+  }): BillingWebhookProcessOutcome {
+    return {
+      status: 200,
+      logLevel: "info",
+      event: "billing_webhook.invoice_already_transitioned",
+      details: {
+        provider: input.normalizedEvent.provider,
+        providerEventId: input.normalizedEvent.providerEventId,
+        eventType: input.normalizedEvent.eventType,
+        resourceId: input.normalizedEvent.resourceId,
+        invoiceId: input.invoiceId,
+        subscriptionId: input.subscriptionId,
+      },
+      body: {
+        handled: true,
+        duplicate: true,
+        invoiceId: input.invoiceId,
+        subscriptionId: input.subscriptionId,
+        effectApplied: false,
       },
     };
   }

@@ -90,6 +90,20 @@ export type BillingReconciliationServiceDependencies = {
       >
     >,
   ): Promise<BillingInvoice | null>;
+  transitionPendingInvoice?(
+    invoiceId: string,
+    mutation: Partial<
+      Pick<
+        BillingInvoice,
+        | "status"
+        | "paymentExpiresAt"
+        | "paidAt"
+        | "failedAt"
+        | "providerPaymentId"
+        | "providerAuthorizedPaymentId"
+      >
+    >,
+  ): Promise<BillingInvoice | null>;
   getSubscriptionChangeByInvoiceId(
     invoiceId: string,
   ): Promise<BillingSubscriptionChange | null>;
@@ -141,6 +155,23 @@ export class BillingReconciliationService {
 
   constructor(dependencies: BillingReconciliationServiceDependencies) {
     this.dependencies = dependencies;
+  }
+
+  private async transitionPendingInvoice(
+    invoiceId: string,
+    mutation: Parameters<BillingReconciliationServiceDependencies["updateInvoice"]>[1],
+  ) {
+    if (this.dependencies.transitionPendingInvoice) {
+      const invoice = await this.dependencies.transitionPendingInvoice(
+        invoiceId,
+        mutation,
+      );
+
+      return { applied: invoice !== null, invoice };
+    }
+
+    await this.dependencies.updateInvoice(invoiceId, mutation);
+    return { applied: true, invoice: null };
   }
 
   async reconcileSubscription(
@@ -233,7 +264,7 @@ export class BillingReconciliationService {
   }
 
   async reconcileInvoice(invoiceId: string): Promise<BillingReconciliationRunResult> {
-    const invoice = await this.dependencies.getInvoiceById(invoiceId);
+    let invoice = await this.dependencies.getInvoiceById(invoiceId);
 
     if (!invoice) {
       throw new Error(`Billing invoice not found: ${invoiceId}`);
@@ -264,7 +295,7 @@ export class BillingReconciliationService {
     }
 
     const nowIso = this.now().toISOString();
-    await this.dependencies.updateInvoice(invoice.id, {
+    const transitionedInvoice = await this.transitionPendingInvoice(invoice.id, {
       status: nextInvoiceStatus,
       paymentExpiresAt:
         payment.kind === "manual"
@@ -283,6 +314,12 @@ export class BillingReconciliationService {
           ? invoice.failedAt ?? nowIso
           : invoice.failedAt,
     });
+
+    if (!transitionedInvoice.applied) {
+      return emptyRun(1);
+    }
+
+    invoice = transitionedInvoice.invoice ?? invoice;
 
     const findings: BillingReconciliationFinding[] = [];
     let changed = 1;
@@ -771,10 +808,13 @@ export class BillingReconciliationService {
     let changed = 0;
 
     for (const invoice of invoices) {
-      await this.dependencies.updateInvoice(invoice.id, {
+      const transitionedInvoice = await this.transitionPendingInvoice(invoice.id, {
         status: "expired",
         failedAt: invoice.failedAt ?? asOf,
       });
+      if (!transitionedInvoice.applied) {
+        continue;
+      }
       await this.dependencies.appendAuditEvent({
         workspaceId: invoice.workspaceId,
         subscriptionId: invoice.subscriptionId,
