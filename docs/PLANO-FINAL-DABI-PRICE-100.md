@@ -649,6 +649,8 @@ aprovado.
 - A página interna de planos usa `BillingSubscription` para plano, status,
   ciclo, elegibilidade e retomada de checkout. A leitura de tolerância e
   `accessUntil` passa pelo serviço de entitlement do billing.
+- A notificação global de billing também deixa de usar o espelho legado quando
+  não encontra assinatura corrente, evitando alertas comerciais divergentes.
 
 ## Arquitetura final esperada
 

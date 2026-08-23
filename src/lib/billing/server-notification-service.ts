@@ -5,7 +5,6 @@ import {
   resolveBillingNotification,
 } from "./notification-service.ts";
 import {
-  getWorkspacePreferences,
   isPlatformPersistenceAvailable,
 } from "../server/platform";
 
@@ -38,11 +37,8 @@ export async function getWorkspaceBillingNotification(input: {
     });
   }
 
-  const projectedSubscription = (await getWorkspacePreferences(input.workspaceId))
-    .subscription;
-
   return resolveBillingNotification({
-    subscription: projectedSubscription,
+    subscription: null,
     now: input.now,
   });
 }
