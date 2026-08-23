@@ -659,6 +659,9 @@ aprovado.
 - O checkout recorrente do Mercado Pago decide a situação atual exclusivamente
   com `BillingSubscription`; o espelho legado deixou de ser consultado até para
   enriquecer logs desse fluxo.
+- O dashboard recebe sua leitura comercial do servidor: plano, ciclo e status
+  vêm de `BillingSubscription`, e a capacidade vem das memberships persistidas;
+  `workspace_preferences.subscription` não define mais esses indicadores.
 
 ## Arquitetura final esperada
 
