@@ -164,6 +164,7 @@ export async function POST(request: Request) {
   const billingService = createBillingService();
   let createdInvoiceId: string | null = null;
   let createdChangeId: string | null = null;
+  let providerPaymentCreated = false;
 
   try {
     const openUpgrade = await findLatestOpenBillingSubscriptionChange({
@@ -176,6 +177,9 @@ export async function POST(request: Request) {
       openUpgrade,
       targetPlanId,
       provider,
+      payerEmail: session.user.email,
+      workspaceName: session.workspace.name,
+      requestUrl: request.url,
     });
 
     if (resumableUpgrade) {
@@ -225,6 +229,7 @@ export async function POST(request: Request) {
     if (!payment.providerPaymentId || !payment.qrCode) {
       throw new Error("Manual Pix payment was created without QR code data.");
     }
+    providerPaymentCreated = true;
 
     const updatedInvoice = await updateBillingInvoice(upgradeRequest.invoice.id, {
       providerPaymentId: payment.providerPaymentId,
@@ -259,13 +264,13 @@ export async function POST(request: Request) {
       redirectTo: "/app/assinatura/upgrade",
     });
   } catch (error) {
-    if (createdInvoiceId) {
+    if (createdInvoiceId && !providerPaymentCreated) {
       await updateBillingInvoice(createdInvoiceId, {
         status: "canceled",
       }).catch(() => null);
     }
 
-    if (createdChangeId) {
+    if (createdChangeId && !providerPaymentCreated) {
       await updateBillingSubscriptionChange(createdChangeId, {
         status: "failed",
       }).catch(() => null);
@@ -339,6 +344,9 @@ async function resolveExistingPendingUpgradePix(input: {
   openUpgrade: BillingSubscriptionChange | null;
   targetPlanId: WorkspacePlanId;
   provider: ReturnType<typeof getBillingProvider>;
+  payerEmail: string;
+  workspaceName: string;
+  requestUrl: string;
 }) {
   if (
     !input.openUpgrade ||
@@ -354,11 +362,46 @@ async function resolveExistingPendingUpgradePix(input: {
     type: "upgrade",
   });
 
-  if (
-    !pendingInvoice?.providerPaymentId ||
-    pendingInvoice.id !== input.openUpgrade.invoiceId
-  ) {
+  if (!pendingInvoice || pendingInvoice.id !== input.openUpgrade.invoiceId) {
     return null;
+  }
+
+  if (!pendingInvoice.providerPaymentId) {
+    const payment = await input.provider.createManualPayment({
+      externalReference: `billing_invoice:${pendingInvoice.id}`,
+      idempotencyKey: pendingInvoice.id,
+      payerEmail: input.payerEmail,
+      reason: `Upgrade ${input.subscription.planId} -> ${input.targetPlanId} - ${input.workspaceName}`,
+      amountCents: pendingInvoice.amountCents,
+      currency: pendingInvoice.currency,
+      returnUrl: new URL("/app/assinatura/upgrade", input.requestUrl).toString(),
+      notificationUrl: new URL(
+        "/api/payments/mercado-pago/webhook?source_news=webhooks",
+        input.requestUrl,
+      ).toString(),
+    });
+
+    if (!payment.providerPaymentId || !payment.qrCode) {
+      throw new Error("Manual Pix payment was created without QR code data.");
+    }
+
+    const updatedInvoice = await updateBillingInvoice(pendingInvoice.id, {
+      providerPaymentId: payment.providerPaymentId,
+      providerAuthorizedPaymentId: payment.providerAuthorizedPaymentId,
+      paymentExpiresAt: payment.expiresAt ?? null,
+      paymentMethod: payment.paymentMethod ?? "pix_manual",
+      provider: payment.provider,
+    });
+
+    if (!updatedInvoice) {
+      throw new Error("Failed to update upgrade invoice with Pix payment data.");
+    }
+
+    return {
+      changeId: input.openUpgrade.id,
+      invoiceId: updatedInvoice.id,
+      paymentId: updatedInvoice.providerPaymentId,
+    };
   }
 
   const payment = await input.provider.getManualPayment(
