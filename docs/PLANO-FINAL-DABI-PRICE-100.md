@@ -651,6 +651,9 @@ aprovado.
   `accessUntil` passa pelo serviço de entitlement do billing.
 - A notificação global de billing também deixa de usar o espelho legado quando
   não encontra assinatura corrente, evitando alertas comerciais divergentes.
+- A tela de checkout lê pendência, plano, ciclo e início diretamente da
+  assinatura do billing; sem pendência, usa apenas os parâmetros explícitos da
+  nova contratação, sem recuperar dados de `workspace_preferences.subscription`.
 
 ## Arquitetura final esperada
 
