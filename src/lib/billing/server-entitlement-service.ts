@@ -5,7 +5,6 @@ import {
   resolveWorkspaceEntitlements,
 } from "./entitlement-service.ts";
 import {
-  getWorkspacePreferences,
   isPlatformPersistenceAvailable,
 } from "../server/platform";
 
@@ -37,11 +36,8 @@ export async function getWorkspaceEntitlements(input: {
     });
   }
 
-  const projectedSubscription = (await getWorkspacePreferences(input.workspaceId))
-    .subscription;
-
   return resolveWorkspaceEntitlements({
-    subscription: projectedSubscription,
+    subscription: null,
     now: input.now,
   });
 }

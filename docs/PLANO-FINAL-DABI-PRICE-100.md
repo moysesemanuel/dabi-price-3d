@@ -634,7 +634,15 @@ preferências legadas sem assinatura corrente no billing. A consulta de
 assinatura corrente foi corrigida para também retornar uma assinatura com
 `accessUntil` futuro, inclusive se o status comercial for `canceled`. O motor
 de entitlement concede a exceção sem alterar esse status ou simular pagamento
-aprovado. A remoção do fallback legado continua pendente nesta fase.
+aprovado.
+
+## Execução automatizada
+
+- Em ambiente com `DATABASE_URL`, o serviço de entitlement não consulta mais
+  `workspace_preferences.subscription` quando não existe `BillingSubscription`:
+  esse caso passa a ser `no_subscription`. O modo local sem persistência já
+  resolve esse estado sem usar a projeção legada. As preferências ainda guardam
+  metadados operacionais e o claim de checkout, mas não decidem acesso pago.
 
 ## Arquitetura final esperada
 
