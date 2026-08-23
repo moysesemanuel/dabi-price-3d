@@ -94,7 +94,7 @@ Garantir que produção não dependa de configuração implícita, local ou não
 - [ ] Separar claramente Development / Preview / Production.
 - [x] Confirmar que nenhum secret está exposto como `NEXT_PUBLIC_*`.
 - [x] Remover variáveis mortas.
-- [ ] Confirmar HTTPS em URLs externas.
+- [x] Confirmar HTTPS em URLs externas.
 - [x] Verificar que Deployment Protection da Vercel não bloqueia providers externos necessários.
 
 ## QStash
@@ -153,8 +153,9 @@ Verificação em 21/08/2026:
   os valores configuráveis usados pelo código estão documentados, incluindo
   bootstrap, contexto opcional do ERP e o fallback legado do Mercado Livre.
   `NODE_ENV` e `VERCEL_ENV` são fornecidas pela plataforma. As URLs fixas de
-  Mercado Pago, Mercado Livre, Resend e Frankfurter usam HTTPS; os valores de
-  `ERP_APP_URL` e `MELI_REDIRECT_URI` seguem pendentes de confirmação externa.
+  Mercado Pago, Mercado Livre, Resend e Frankfurter usam HTTPS. Em 22/08/2026,
+  `ERP_APP_URL` e `MELI_REDIRECT_URI` também foram confirmadas manualmente com
+  esquema `https` na Vercel.
 
 ---
 
