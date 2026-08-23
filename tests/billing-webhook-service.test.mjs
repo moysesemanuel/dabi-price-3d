@@ -227,6 +227,7 @@ test("sincroniza evento de assinatura e persiste webhook como processed", async 
 
 test("pagamento manual pago ativa assinatura pendente e sincroniza workspace", async () => {
   const invoiceUpdates = [];
+  const completedEffects = [];
   let transitionAvailable = true;
   let activations = 0;
   const service = new BillingWebhookService({
@@ -295,6 +296,14 @@ test("pagamento manual pago ativa assinatura pendente e sincroniza workspace", a
         id: invoiceId,
         type: "subscription",
       };
+    },
+    async claimInvoiceEffect(invoiceId) {
+      assert.equal(invoiceId, "inv-1");
+      return "claim-webhook-1";
+    },
+    async completeInvoiceEffect(input) {
+      completedEffects.push(input);
+      return true;
     },
     async getSubscriptionById(subscriptionId) {
       assert.equal(subscriptionId, "sub-1");
@@ -404,6 +413,12 @@ test("pagamento manual pago ativa assinatura pendente e sincroniza workspace", a
   assert.equal(invoiceUpdates.length, 2);
   assert.equal(invoiceUpdates[0].invoiceId, "inv-1");
   assert.equal(invoiceUpdates[0].mutation.status, "paid");
+  assert.deepEqual(completedEffects, [
+    {
+      invoiceId: "inv-1",
+      claimToken: "claim-webhook-1",
+    },
+  ]);
 });
 
 test("pagamento manual anual ativa 12 meses de acesso", async () => {

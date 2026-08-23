@@ -1949,6 +1949,22 @@ async function initializeBillingPlatform(sql: ReturnType<typeof getSql>) {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS billing_invoice_effect_claims (
+      invoice_id TEXT PRIMARY KEY REFERENCES billing_invoices(id) ON DELETE CASCADE,
+      claim_token TEXT NULL,
+      claim_expires_at TIMESTAMPTZ NULL,
+      completed_at TIMESTAMPTZ NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS billing_invoice_effect_claims_recovery_idx
+    ON billing_invoice_effect_claims (completed_at, claim_expires_at)
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS billing_subscription_changes (
       id TEXT PRIMARY KEY,
       subscription_id TEXT NOT NULL REFERENCES billing_subscriptions(id) ON DELETE CASCADE,

@@ -2,6 +2,8 @@ import "server-only";
 
 import {
   appendBillingAuditEvent,
+  claimBillingInvoiceEffect,
+  completeBillingInvoiceEffect,
   claimBillingWebhookEventProcessing,
   createBillingInvoice,
   createBillingSubscriptionChange,
@@ -17,6 +19,7 @@ import {
   updateBillingSubscriptionChange,
   updateBillingInvoice,
   transitionPendingBillingInvoice,
+  releaseBillingInvoiceEffectClaim,
   updateBillingWebhookEventStatus,
 } from "./repository.ts";
 import { createBillingServiceRepository } from "./service-repository.ts";
@@ -58,6 +61,9 @@ export function createBillingWebhookService() {
     createInvoice: createBillingInvoice,
     updateInvoice: updateBillingInvoice,
     transitionPendingInvoice: transitionPendingBillingInvoice,
+    claimInvoiceEffect: claimBillingInvoiceEffect,
+    completeInvoiceEffect: completeBillingInvoiceEffect,
+    releaseInvoiceEffectClaim: releaseBillingInvoiceEffectClaim,
     getSubscriptionById: getBillingSubscriptionById,
     findSubscriptionByProviderSubscriptionId:
       findBillingSubscriptionByProviderSubscriptionId,
