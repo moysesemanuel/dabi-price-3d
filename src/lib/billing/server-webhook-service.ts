@@ -25,6 +25,7 @@ import {
 import { createBillingServiceRepository } from "./service-repository.ts";
 import { BillingService } from "./service.ts";
 import { BillingWebhookService } from "./webhook-service.ts";
+import { runWithServerBillingSubscriptionOperationClaim } from "./server-subscription-operation-claim.ts";
 import {
   applyWorkspaceSubscriptionUpdate,
   findPrimaryWorkspaceForUser,
@@ -64,6 +65,7 @@ export function createBillingWebhookService() {
     claimInvoiceEffect: claimBillingInvoiceEffect,
     completeInvoiceEffect: completeBillingInvoiceEffect,
     releaseInvoiceEffectClaim: releaseBillingInvoiceEffectClaim,
+    withSubscriptionOperation: runWithServerBillingSubscriptionOperationClaim,
     getSubscriptionById: getBillingSubscriptionById,
     findSubscriptionByProviderSubscriptionId:
       findBillingSubscriptionByProviderSubscriptionId,

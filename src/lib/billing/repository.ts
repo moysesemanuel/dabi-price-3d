@@ -1011,6 +1011,7 @@ export async function listBillingInvoicesForProviderReconciliation(limit = 100) 
 }
 
 const BILLING_INVOICE_EFFECT_CLAIM_LEASE_SECONDS = 5 * 60;
+const BILLING_SUBSCRIPTION_OPERATION_CLAIM_LEASE_SECONDS = 5 * 60;
 
 export async function claimBillingInvoiceEffect(invoiceId: string) {
   await ensurePlatformReady();
@@ -1090,6 +1091,59 @@ export async function releaseBillingInvoiceEffectClaim(input: {
       AND completed_at IS NULL
     RETURNING invoice_id
   `) as Array<{ invoice_id: string }>;
+
+  return rows.length > 0;
+}
+
+export async function claimBillingSubscriptionOperation(subscriptionId: string) {
+  await ensurePlatformReady();
+
+  const claimToken = randomUUID();
+  const sql = getSql();
+  const rows = (await sql`
+    INSERT INTO billing_subscription_operation_claims (
+      subscription_id,
+      claim_token,
+      claim_expires_at,
+      created_at,
+      updated_at
+    )
+    VALUES (
+      ${subscriptionId},
+      ${claimToken},
+      NOW() + (${BILLING_SUBSCRIPTION_OPERATION_CLAIM_LEASE_SECONDS} * INTERVAL '1 second'),
+      NOW(),
+      NOW()
+    )
+    ON CONFLICT (subscription_id) DO UPDATE SET
+      claim_token = EXCLUDED.claim_token,
+      claim_expires_at = EXCLUDED.claim_expires_at,
+      updated_at = NOW()
+    WHERE billing_subscription_operation_claims.claim_expires_at IS NULL
+      OR billing_subscription_operation_claims.claim_expires_at <= NOW()
+    RETURNING claim_token
+  `) as Array<{ claim_token: string }>;
+
+  return rows[0]?.claim_token ?? null;
+}
+
+export async function releaseBillingSubscriptionOperationClaim(input: {
+  subscriptionId: string;
+  claimToken: string;
+}) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    UPDATE billing_subscription_operation_claims
+    SET
+      claim_token = NULL,
+      claim_expires_at = NULL,
+      updated_at = NOW()
+    WHERE subscription_id = ${input.subscriptionId}
+      AND claim_token = ${input.claimToken}
+    RETURNING subscription_id
+  `) as Array<{ subscription_id: string }>;
 
   return rows.length > 0;
 }

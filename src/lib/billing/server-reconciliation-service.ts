@@ -26,6 +26,7 @@ import { createBillingService } from "./server-service.ts";
 import { BillingReconciliationService } from "./reconciliation-service.ts";
 import { applyWorkspaceSubscriptionUpdate } from "../server/platform";
 import { getBillingProvider } from "./providers/index.ts";
+import { runWithServerBillingSubscriptionOperationClaim } from "./server-subscription-operation-claim.ts";
 
 export function createBillingReconciliationService() {
   return new BillingReconciliationService({
@@ -47,6 +48,7 @@ export function createBillingReconciliationService() {
     claimInvoiceEffect: claimBillingInvoiceEffect,
     completeInvoiceEffect: completeBillingInvoiceEffect,
     releaseInvoiceEffectClaim: releaseBillingInvoiceEffectClaim,
+    withSubscriptionOperation: runWithServerBillingSubscriptionOperationClaim,
     getSubscriptionChangeByInvoiceId: getBillingSubscriptionChangeByInvoiceId,
     getDueSubscriptionChanges: getDueBillingSubscriptionChanges,
     updateSubscriptionChange: updateBillingSubscriptionChange,
