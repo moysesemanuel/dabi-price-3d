@@ -727,8 +727,6 @@ landing
   limite. A validação contra Neon real permanece pendente, pois a suíte local
   não possui banco de integração para executar o lock SQL.
 
-## Registro de execução
-
 - Em 21/08/2026, a recuperação foi validada no ambiente remoto: solicitação
   aceita pelo Resend, e-mail entregue no Gmail, link aberto, senha atualizada
   e login realizado com a nova credencial. A suíte local também cobre expiração
