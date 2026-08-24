@@ -3,6 +3,7 @@
 import { type ChangeEvent, useMemo, useState } from "react";
 import type { PutBlobResult } from "@vercel/blob";
 import { upload } from "@vercel/blob/client";
+import { buildWorkspaceUploadPath } from "@/lib/client/workspace-upload-path";
 import {
   ERP_PRODUCT_PAYLOAD_VERSION,
 } from "@/lib/erp-products/types";
@@ -957,7 +958,10 @@ function buildBlobPath(
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-  return `erp-products/${safeSlug}/${kind}-${safeFileName || "image"}`;
+  return buildWorkspaceUploadPath(
+    "erp-products",
+    `${safeSlug}/${kind}-${safeFileName || "image"}`,
+  );
 }
 
 function ChoiceCard({

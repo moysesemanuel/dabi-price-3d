@@ -52,6 +52,7 @@ export default async function ProductLayout({
       className="app-shell min-h-screen text-[var(--foreground)]"
       data-persistence-mode={persistenceMode}
       data-business-type={serverBusinessType ?? "default"}
+      data-workspace-id={session.workspace.id}
     >
       <div className="min-h-screen pt-[76px] lg:pl-[var(--app-sidebar-width)] lg:pt-0">
         <AppSidebar

@@ -842,6 +842,17 @@ precificação
 
 # Fase 14 — Arquivos e imagens
 
+## Execução automatizada
+
+- Uploads de logo e imagens de produto exigem sessão autenticada e agora emitem
+  token apenas para o namespace `prefixo/<workspaceId>/...` da sessão. MIME
+  permitido: JPEG, PNG e WEBP; tamanho máximo: 12 MB; sem
+  `BLOB_READ_WRITE_TOKEN`, a rota falha sem liberar token.
+- A validação unitária cobre o namespace do workspace e rejeita outro workspace
+  ou segmentos de travessia de diretório. Ainda é necessária a validação manual
+  em produção para upload, URL final, falha, arquivo inválido e remoção, se
+  suportada pelo produto.
+
 ## Validar Blob em produção
 
 - [ ] Upload.
