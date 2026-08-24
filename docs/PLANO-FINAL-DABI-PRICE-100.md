@@ -521,10 +521,11 @@ Onde necessário:
   alterado a assinatura, a rota devolve `409` sem executar a mutação externa.
   Upgrade, downgrade e mudança de ciclo continuam pendentes porque criam ou
   reconfiguram cobranças e exigem recuperação persistida após o provider.
-- O checkout Pix de upgrade preserva a invoice e a mudança pendentes se o
-  provider já devolveu um pagamento, mas a persistência local posterior falha.
-  A nova tentativa usa a mesma invoice como idempotency key e completa seus
-  dados de pagamento, sem emitir uma segunda cobrança.
+- Os checkouts Pix de upgrade e de mudança mensal para anual preservam a
+  invoice e a mudança pendentes se o provider já devolveu um pagamento, mas a
+  persistência local posterior falha. A nova tentativa usa a mesma invoice como
+  idempotency key e completa seus dados de pagamento, sem emitir uma segunda
+  cobrança.
 
 ## Critério de aceite
 

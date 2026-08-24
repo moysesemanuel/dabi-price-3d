@@ -87,6 +87,7 @@ export async function POST(request: Request) {
   const provider = getBillingProvider("mercado_pago");
   let createdChangeId: string | null = null;
   let createdInvoiceId: string | null = null;
+  let providerPaymentCreated = false;
 
   try {
     const openChange = await findLatestOpenBillingSubscriptionChange({
@@ -97,6 +98,9 @@ export async function POST(request: Request) {
       subscription,
       openChange,
       provider,
+      payerEmail: session.user.email,
+      workspaceName: session.workspace.name,
+      requestUrl: request.url,
     });
 
     if (resumableChange) {
@@ -144,6 +148,7 @@ export async function POST(request: Request) {
     if (!payment.providerPaymentId || !payment.qrCode) {
       throw new Error("Manual Pix payment was created without QR code data.");
     }
+    providerPaymentCreated = true;
 
     const invoice = await updateBillingInvoice(cycleChange.invoice.id, {
       providerPaymentId: payment.providerPaymentId,
@@ -175,13 +180,13 @@ export async function POST(request: Request) {
       redirectTo: "/app/planos",
     });
   } catch (error) {
-    if (createdInvoiceId) {
+    if (createdInvoiceId && !providerPaymentCreated) {
       await updateBillingInvoice(createdInvoiceId, { status: "canceled" }).catch(
         () => null,
       );
     }
 
-    if (createdChangeId) {
+    if (createdChangeId && !providerPaymentCreated) {
       await updateBillingSubscriptionChange(createdChangeId, {
         status: "failed",
       }).catch(() => null);
@@ -258,6 +263,9 @@ async function resolveExistingPendingCycleChangePix(input: {
   subscription: BillingSubscription;
   openChange: BillingSubscriptionChange | null;
   provider: ReturnType<typeof getBillingProvider>;
+  payerEmail: string;
+  workspaceName: string;
+  requestUrl: string;
 }) {
   if (
     input.openChange?.status !== "pending_payment" ||
@@ -266,17 +274,59 @@ async function resolveExistingPendingCycleChangePix(input: {
     return null;
   }
 
-  const invoice = await findLatestPendingBillingInvoiceForSubscription({
+  const pendingInvoice = await findLatestPendingBillingInvoiceForSubscription({
     subscriptionId: input.subscription.id,
     paymentMethod: "pix_manual",
     type: "upgrade",
   });
 
-  if (!invoice?.providerPaymentId || invoice.id !== input.openChange.invoiceId) {
+  if (!pendingInvoice || pendingInvoice.id !== input.openChange.invoiceId) {
     return null;
   }
 
-  const payment = await input.provider.getManualPayment(invoice.providerPaymentId);
+  if (!pendingInvoice.providerPaymentId) {
+    const payment = await input.provider.createManualPayment({
+      externalReference: `billing_invoice:${pendingInvoice.id}`,
+      idempotencyKey: pendingInvoice.id,
+      payerEmail: input.payerEmail,
+      reason: `Mudança de ciclo mensal para anual - ${input.workspaceName}`,
+      amountCents: pendingInvoice.amountCents,
+      currency: pendingInvoice.currency,
+      returnUrl: new URL("/app/planos", input.requestUrl).toString(),
+      notificationUrl: new URL(
+        "/api/payments/mercado-pago/webhook?source_news=webhooks",
+        input.requestUrl,
+      ).toString(),
+    });
+
+    if (!payment.providerPaymentId || !payment.qrCode) {
+      throw new Error("Manual Pix payment was created without QR code data.");
+    }
+
+    const updatedInvoice = await updateBillingInvoice(pendingInvoice.id, {
+      providerPaymentId: payment.providerPaymentId,
+      providerAuthorizedPaymentId: payment.providerAuthorizedPaymentId,
+      paymentExpiresAt: payment.expiresAt ?? null,
+      paymentMethod: payment.paymentMethod ?? "pix_manual",
+      provider: payment.provider,
+    });
+
+    if (!updatedInvoice) {
+      throw new Error(
+        "Failed to update cycle change invoice with Pix payment data.",
+      );
+    }
+
+    return {
+      changeId: input.openChange.id,
+      invoiceId: updatedInvoice.id,
+      paymentId: updatedInvoice.providerPaymentId,
+    };
+  }
+
+  const payment = await input.provider.getManualPayment(
+    pendingInvoice.providerPaymentId,
+  );
 
   if (normalizeBillingManualPaymentState(payment.status) !== "pending") {
     return null;
@@ -284,7 +334,7 @@ async function resolveExistingPendingCycleChangePix(input: {
 
   return {
     changeId: input.openChange.id,
-    invoiceId: invoice.id,
-    paymentId: invoice.providerPaymentId,
+    invoiceId: pendingInvoice.id,
+    paymentId: pendingInvoice.providerPaymentId,
   };
 }
