@@ -16,7 +16,7 @@ import {
 } from "@/lib/settings/app-preferences";
 
 type MercadoLivreStatusSnapshot = {
-  mode: "persistent" | "legacy-env" | "missing";
+  mode: "persistent" | "missing";
   connected: boolean;
   userId: string | null;
   expiresAt: string | null;
@@ -208,19 +208,10 @@ export function PreferencesPanel({
             </p>
           ) : null}
 
-          {mercadoLivreStatus.mode === "legacy-env" ? (
-            <p className="mt-4 text-xs leading-6 text-[#7c6858]">
-              Esta conexão vem de variáveis de ambiente do servidor e não fica
-              vinculada ao workspace atual.
-            </p>
-          ) : null}
-
           {mercadoLivreStatus.mode === "missing" ? (
             <p className="mt-4 text-xs leading-6 text-[#7c6858]">
               Para habilitar OAuth por workspace, configure `DATABASE_URL`,
-              `MELI_CLIENT_ID`, `MELI_CLIENT_SECRET` e `MELI_REDIRECT_URI`. Como
-              alternativa, o modo legado aceita `MELI_ACCESS_TOKEN` e
-              `MELI_USER_ID`.
+              `MELI_CLIENT_ID`, `MELI_CLIENT_SECRET` e `MELI_REDIRECT_URI`.
             </p>
           ) : null}
         </div>
@@ -597,10 +588,6 @@ function getMercadoLivreStatusDescription(status: MercadoLivreStatusSnapshot) {
     return "A conta conectada pertence ao workspace atual e será usada nas consultas automáticas de taxas, categoria e frete.";
   }
 
-  if (status.connected && status.mode === "legacy-env") {
-    return "A plataforma está usando credenciais legadas por ambiente. As consultas funcionam, mas a conexão não é separada por workspace.";
-  }
-
   if (status.mode === "persistent") {
     return "Este ambiente já suporta OAuth persistente por workspace. Falta apenas autorizar a conta do Mercado Livre.";
   }
@@ -613,10 +600,6 @@ function getMercadoLivreModeLabel(
 ) {
   if (mode === "persistent") {
     return "OAuth por workspace";
-  }
-
-  if (mode === "legacy-env") {
-    return "Token legado";
   }
 
   return "Indisponível";

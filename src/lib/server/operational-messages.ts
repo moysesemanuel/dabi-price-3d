@@ -87,7 +87,6 @@ export function mapMercadoLivreOperationalError(
   }
 
   if (
-    rawMessage.includes("Configure MELI_ACCESS_TOKEN") ||
     rawMessage.includes("MELI_CLIENT_ID") ||
     rawMessage.includes("MELI_CLIENT_SECRET") ||
     rawMessage.includes("MELI_REDIRECT_URI") ||
