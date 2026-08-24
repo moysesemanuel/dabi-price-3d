@@ -498,17 +498,15 @@ Onde necessário:
 - A suíte cobre uma segunda entrega de pagamento que perde a transição sem
   reativar a assinatura, e uma expiração que perde a corrida contra o
   pagamento sem sobrescrever o status ou gravar auditoria indevida.
-- Embora a transição da invoice esteja protegida, webhook versus
-  reconciliação, reconciliações concorrentes e mutações de assinatura versus
-  pagamento continuam abertos no nível de domínio. Eles atravessam invoice,
-  subscription, subscription change, auditoria e a projeção de preferências;
-  uma correção segura requer uma fronteira transacional/claim de domínio
-  desenhada para todos esses efeitos, não um update condicional isolado.
-- O cliente HTTP do Neon suporta transações não interativas. Como as rotinas
-  de billing precisam consultar o Mercado Pago entre alterações de estado, um
-  lock de banco isolado não cobre o fluxo inteiro. A próxima implementação
-  deve introduzir claim durável de invoice com recuperação de processamento
-  interrompido antes de marcar esses cenários como seguros.
+- Efeitos de invoices pagas agora possuem claim durável por invoice, token de
+  posse e lease de cinco minutos. O webhook conclui o claim somente após o
+  efeito comercial; em erro ele o libera. A reconciliação também seleciona
+  invoices `paid` sem claim concluído e recupera ativação, renovação, upgrade
+  ou mudança de ciclo interrompidos.
+- A suíte cobre recuperação de ativação após invoice já paga e duas
+  reconciliações concorrentes, com uma única ativação efetiva. Cancelamento,
+  expiração e mudanças agendadas ainda precisam da mesma análise de claim de
+  domínio antes de serem marcados como livres de corrida.
 
 ## Critério de aceite
 
