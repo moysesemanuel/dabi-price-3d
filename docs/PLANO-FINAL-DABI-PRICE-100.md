@@ -490,8 +490,17 @@ Onde necessário:
   `checkoutStartedAt`; as concorrentes recebem `409` até a liberação ou o
   vencimento controlado de dez minutos. Isso impede a criação simultânea de
   novas assinaturas e invoices locais antes da chamada ao provider.
-- Webhook versus reconciliação, reconciliações concorrentes e mutações de
-  assinatura versus pagamento continuam abertos. Eles atravessam invoice,
+- A transição de uma invoice `pending` para um estado de pagamento agora é
+  condicional no banco. Webhook, reconciliação e expiração usam o mesmo
+  `UPDATE ... WHERE status = 'pending'`; somente a operação vencedora aplica
+  ativação, renovação, tolerância ou auditoria de expiração. As demais saem
+  sem repetir o efeito comercial.
+- A suíte cobre uma segunda entrega de pagamento que perde a transição sem
+  reativar a assinatura, e uma expiração que perde a corrida contra o
+  pagamento sem sobrescrever o status ou gravar auditoria indevida.
+- Embora a transição da invoice esteja protegida, webhook versus
+  reconciliação, reconciliações concorrentes e mutações de assinatura versus
+  pagamento continuam abertos no nível de domínio. Eles atravessam invoice,
   subscription, subscription change, auditoria e a projeção de preferências;
   uma correção segura requer uma fronteira transacional/claim de domínio
   desenhada para todos esses efeitos, não um update condicional isolado.

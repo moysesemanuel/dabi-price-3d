@@ -16,6 +16,7 @@ import {
   listBillingSubscriptionsForScheduledCancellation,
   listFailedBillingWebhookEvents,
   updateBillingInvoice,
+  transitionPendingBillingInvoice,
   updateBillingSubscriptionChange,
 } from "./repository.ts";
 import { createBillingService } from "./server-service.ts";
@@ -39,6 +40,7 @@ export function createBillingReconciliationService() {
       listBillingInvoicesForProviderReconciliation,
     listInvoicesForExpiration: listBillingInvoicesForExpiration,
     updateInvoice: updateBillingInvoice,
+    transitionPendingInvoice: transitionPendingBillingInvoice,
     getSubscriptionChangeByInvoiceId: getBillingSubscriptionChangeByInvoiceId,
     getDueSubscriptionChanges: getDueBillingSubscriptionChanges,
     updateSubscriptionChange: updateBillingSubscriptionChange,

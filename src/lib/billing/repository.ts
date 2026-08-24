@@ -1099,6 +1099,26 @@ export async function updateBillingInvoice(
   invoiceId: string,
   mutation: BillingInvoiceMutation,
 ) {
+  return updateBillingInvoiceWithExpectedStatus(invoiceId, mutation, null);
+}
+
+/**
+ * Applies a payment-state transition only while the invoice remains pending.
+ * The conditional update prevents concurrent webhook, reconciliation, and expiry
+ * workers from each applying the same commercial effect.
+ */
+export async function transitionPendingBillingInvoice(
+  invoiceId: string,
+  mutation: BillingInvoiceMutation,
+) {
+  return updateBillingInvoiceWithExpectedStatus(invoiceId, mutation, "pending");
+}
+
+async function updateBillingInvoiceWithExpectedStatus(
+  invoiceId: string,
+  mutation: BillingInvoiceMutation,
+  expectedStatus: BillingInvoiceStatus | null,
+) {
   await ensurePlatformReady();
 
   const currentInvoice = await getBillingInvoiceById(invoiceId);
@@ -1156,6 +1176,10 @@ export async function updateBillingInvoice(
       )},
       updated_at = NOW()
     WHERE id = ${invoiceId}
+      AND (
+        ${expectedStatus}::text IS NULL
+        OR status = ${expectedStatus}
+      )
     RETURNING
       id,
       subscription_id,

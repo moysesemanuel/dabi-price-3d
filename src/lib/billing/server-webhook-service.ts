@@ -16,6 +16,7 @@ import {
   findBillingSubscriptionByProviderSubscriptionId,
   updateBillingSubscriptionChange,
   updateBillingInvoice,
+  transitionPendingBillingInvoice,
   updateBillingWebhookEventStatus,
 } from "./repository.ts";
 import { createBillingServiceRepository } from "./service-repository.ts";
@@ -56,6 +57,7 @@ export function createBillingWebhookService() {
       findBillingInvoiceByProviderAuthorizedPaymentId,
     createInvoice: createBillingInvoice,
     updateInvoice: updateBillingInvoice,
+    transitionPendingInvoice: transitionPendingBillingInvoice,
     getSubscriptionById: getBillingSubscriptionById,
     findSubscriptionByProviderSubscriptionId:
       findBillingSubscriptionByProviderSubscriptionId,
