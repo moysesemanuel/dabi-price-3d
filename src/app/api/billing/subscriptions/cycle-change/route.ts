@@ -10,6 +10,8 @@ import {
   findCurrentBillingSubscriptionForWorkspace,
 } from "@/lib/billing/repository";
 import { createBillingService } from "@/lib/billing/server-service";
+import { runWithServerBillingSubscriptionOperationClaim } from "@/lib/billing/server-subscription-operation-claim";
+import { BillingSubscriptionOperationInProgressError } from "@/lib/billing/subscription-operation-claim";
 import {
   createRouteRequestContext,
   jsonWithRequestId,
@@ -68,12 +70,12 @@ export async function POST(request: Request) {
     );
   }
 
-  const targetMonthlyPrice = await findActiveBillingPrice({
+  const targetMonthlyPriceExists = await findActiveBillingPrice({
     planId: subscription.planId,
     billingCycle: "monthly",
   });
 
-  if (!targetMonthlyPrice) {
+  if (!targetMonthlyPriceExists) {
     return jsonWithRequestId(
       requestContext,
       {
@@ -85,17 +87,46 @@ export async function POST(request: Request) {
   }
 
   try {
-    const change = await scheduleAnnualToMonthlyCycleChange({
-      subscription,
-      targetMonthlyPrice,
-      actorId: session.user.id,
-      dependencies: {
-        billingService: createBillingService(),
-        provider: subscription.provider
-          ? getBillingProvider(subscription.provider)
-          : null,
+    const change = await runWithServerBillingSubscriptionOperationClaim(
+      subscription.id,
+      async () => {
+        const currentSubscription =
+          await findCurrentBillingSubscriptionForWorkspace(session.workspace.id);
+
+        if (!currentSubscription || currentSubscription.id !== subscription.id) {
+          throw new RequestBillingCycleChangeError(
+            "A assinatura foi alterada enquanto a mudança de ciclo estava sendo iniciada. Atualize a página e tente novamente.",
+            "CYCLE_CHANGE_SUBSCRIPTION_CHANGED_CONCURRENTLY",
+            409,
+          );
+        }
+
+        const currentTargetMonthlyPrice = await findActiveBillingPrice({
+          planId: currentSubscription.planId,
+          billingCycle: "monthly",
+        });
+
+        if (!currentTargetMonthlyPrice) {
+          throw new RequestBillingCycleChangeError(
+            "Não existe preço mensal ativo para o plano atual.",
+            "CYCLE_CHANGE_PRICE_NOT_FOUND",
+            503,
+          );
+        }
+
+        return scheduleAnnualToMonthlyCycleChange({
+          subscription: currentSubscription,
+          targetMonthlyPrice: currentTargetMonthlyPrice,
+          actorId: session.user.id,
+          dependencies: {
+            billingService: createBillingService(),
+            provider: currentSubscription.provider
+              ? getBillingProvider(currentSubscription.provider)
+              : null,
+          },
+        });
       },
-    });
+    );
 
     logRouteEvent(requestContext, "info", "billing_cycle_change_scheduled", {
       workspaceId: session.workspace.id,
@@ -125,6 +156,18 @@ export async function POST(request: Request) {
         requestContext,
         { error: error.message, code: error.code },
         { status: error.status },
+      );
+    }
+
+    if (error instanceof BillingSubscriptionOperationInProgressError) {
+      return jsonWithRequestId(
+        requestContext,
+        {
+          error:
+            "Uma atualização desta assinatura já está em andamento. Aguarde alguns segundos e tente novamente.",
+          code: "SUBSCRIPTION_OPERATION_IN_PROGRESS",
+        },
+        { status: 409 },
       );
     }
 

@@ -513,9 +513,9 @@ Onde necessário:
   lease de cinco minutos e liberação em `finally`; o teste cobre tanto a
   exclusão mútua quanto a liberação após erro e o encaminhamento pelo job.
 - Esta camada ainda não cobre integralmente comandos concorrentes iniciados
-  pelo usuário nem chamadas externas ao provider. Upgrade, downgrade e mudança
-  de ciclo exigem uma estratégia explícita de compensação e retry antes que os
-  cenários restantes da fase possam ser marcados como concluídos.
+  pelo usuário nem chamadas externas ao provider. Upgrade e a mudança mensal
+  para anual exigem uma estratégia explícita de compensação e retry antes que
+  os cenários restantes da fase possam ser marcados como concluídos.
 - Cancelamento e retomada agora usam o mesmo claim antes de chamar o provider
   e relêem a assinatura dentro da posse do claim. Se outra operação tiver
   alterado a assinatura, a rota devolve `409` sem executar a mutação externa.
@@ -526,6 +526,10 @@ Onde necessário:
   persistência local posterior falha. A nova tentativa usa a mesma invoice como
   idempotency key e completa seus dados de pagamento, sem emitir uma segunda
   cobrança.
+- Downgrade e mudança anual para mensal obtêm o mesmo claim antes de reler a
+  assinatura e o preço vigente, preparar a recorrência no provider e persistir
+  a mudança agendada. Operações concorrentes recebem `409` antes da mutação
+  externa.
 
 ## Critério de aceite
 
