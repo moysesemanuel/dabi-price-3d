@@ -323,6 +323,155 @@ test("processExpiredInvoices nao sobrescreve pagamento vencido por transicao con
   assert.equal(dependencies.auditEvents.length, 0);
 });
 
+test("reconcileInvoice retoma ativacao interrompida depois de invoice paga", async () => {
+  const claimed = [];
+  const completed = [];
+  const dependencies = createDependencies({
+    async getInvoiceById() {
+      return {
+        id: "inv-paid-recovery-1",
+        subscriptionId: "sub-paid-recovery-1",
+        workspaceId: "workspace-paid-recovery-1",
+        priceId: "price-1",
+        type: "subscription",
+        status: "paid",
+        amountCents: 14900,
+        currency: "BRL",
+        periodStart: "2026-08-14T12:00:00.000Z",
+        periodEnd: "2026-09-14T12:00:00.000Z",
+        paymentMethod: "pix_manual",
+        provider: "mercado_pago",
+        providerPaymentId: "pay-paid-recovery-1",
+        providerAuthorizedPaymentId: null,
+        paymentExpiresAt: null,
+        paidAt: "2026-08-14T12:00:00.000Z",
+        failedAt: null,
+        refundedAt: null,
+        createdAt: "2026-08-14T11:59:00.000Z",
+        updatedAt: "2026-08-14T12:00:00.000Z",
+      };
+    },
+    async getSubscriptionById() {
+      return {
+        id: "sub-paid-recovery-1",
+        workspaceId: "workspace-paid-recovery-1",
+        planId: "growth",
+        billingCycle: "monthly",
+        priceId: "price-1",
+        status: "pending",
+        autoRenew: false,
+        currentPeriodStart: null,
+        currentPeriodEnd: null,
+        gracePeriodEndsAt: null,
+        cancelAtPeriodEnd: false,
+        cancelRequestedAt: null,
+        endedAt: null,
+        accessUntil: null,
+        provider: "mercado_pago",
+        providerSubscriptionId: null,
+        createdAt: "2026-08-14T11:59:00.000Z",
+        updatedAt: "2026-08-14T12:00:00.000Z",
+      };
+    },
+    async claimInvoiceEffect(invoiceId) {
+      claimed.push(invoiceId);
+      return "claim-paid-recovery-1";
+    },
+    async completeInvoiceEffect(input) {
+      completed.push(input);
+      return true;
+    },
+  });
+
+  const service = new BillingReconciliationService(dependencies);
+  const result = await service.reconcileInvoice("inv-paid-recovery-1");
+
+  assert.equal(result.changed, 1);
+  assert.equal(dependencies.activations.length, 1);
+  assert.deepEqual(claimed, ["inv-paid-recovery-1"]);
+  assert.deepEqual(completed, [
+    {
+      invoiceId: "inv-paid-recovery-1",
+      claimToken: "claim-paid-recovery-1",
+    },
+  ]);
+});
+
+test("reconcileInvoice concorrente aplica somente um efeito de invoice paga", async () => {
+  let claimAvailable = true;
+  const completed = [];
+  const dependencies = createDependencies({
+    async getInvoiceById() {
+      return {
+        id: "inv-paid-concurrent-1",
+        subscriptionId: "sub-paid-concurrent-1",
+        workspaceId: "workspace-paid-concurrent-1",
+        priceId: "price-1",
+        type: "subscription",
+        status: "paid",
+        amountCents: 14900,
+        currency: "BRL",
+        periodStart: null,
+        periodEnd: null,
+        paymentMethod: "pix_manual",
+        provider: "mercado_pago",
+        providerPaymentId: "pay-paid-concurrent-1",
+        providerAuthorizedPaymentId: null,
+        paymentExpiresAt: null,
+        paidAt: "2026-08-14T12:00:00.000Z",
+        failedAt: null,
+        refundedAt: null,
+        createdAt: "2026-08-14T11:59:00.000Z",
+        updatedAt: "2026-08-14T12:00:00.000Z",
+      };
+    },
+    async getSubscriptionById() {
+      return {
+        id: "sub-paid-concurrent-1",
+        workspaceId: "workspace-paid-concurrent-1",
+        planId: "growth",
+        billingCycle: "monthly",
+        priceId: "price-1",
+        status: "pending",
+        autoRenew: false,
+        currentPeriodStart: null,
+        currentPeriodEnd: null,
+        gracePeriodEndsAt: null,
+        cancelAtPeriodEnd: false,
+        cancelRequestedAt: null,
+        endedAt: null,
+        accessUntil: null,
+        provider: "mercado_pago",
+        providerSubscriptionId: null,
+        createdAt: "2026-08-14T11:59:00.000Z",
+        updatedAt: "2026-08-14T12:00:00.000Z",
+      };
+    },
+    async claimInvoiceEffect() {
+      if (!claimAvailable) {
+        return null;
+      }
+
+      claimAvailable = false;
+      return "claim-paid-concurrent-1";
+    },
+    async completeInvoiceEffect(input) {
+      completed.push(input);
+      return true;
+    },
+  });
+
+  const service = new BillingReconciliationService(dependencies);
+  const results = await Promise.all([
+    service.reconcileInvoice("inv-paid-concurrent-1"),
+    service.reconcileInvoice("inv-paid-concurrent-1"),
+  ]);
+
+  assert.deepEqual(results.map((result) => result.changed).sort(), [0, 1]);
+  assert.equal(dependencies.activations.length, 1);
+  assert.equal(completed.length, 1);
+});
+
 test("processAbandonedCheckouts encerra pendências antigas e volta workspace para unpaid", async () => {
   const dependencies = createDependencies({
     async listAbandonedPendingSubscriptions(input) {
