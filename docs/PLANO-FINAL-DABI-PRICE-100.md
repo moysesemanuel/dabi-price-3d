@@ -782,6 +782,13 @@ O mesmo input produz o mesmo resultado independentemente da UI, com regras finan
 
 # Fase 12 — Integração ERP
 
+## Execução automatizada
+
+- O proxy de publicação cancela chamadas ao ERP após 12 segundos e retorna
+  `504` com `ERP_UPSTREAM_TIMEOUT`; o evento estruturado
+  `erp.upstream_timeout` preserva o `requestId` para diagnóstico. Os demais
+  erros de rede continuam respondendo `502`.
+
 ## Happy path
 
 ```text
