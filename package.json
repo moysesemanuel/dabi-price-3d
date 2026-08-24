@@ -14,7 +14,7 @@
     "start": "next start",
     "start:3005": "next start -p 3005",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "test:pricing": "node --no-warnings --experimental-specifier-resolution=node --test tests/*.test.mjs",
     "check": "npm run lint && npm run typecheck && npm run test:pricing && npm run build:webpack"
   },
