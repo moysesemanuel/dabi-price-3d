@@ -3,10 +3,12 @@ import { requireCurrentAuthSession } from "@/lib/auth/session";
 import { getBillingProvider } from "@/lib/billing/providers";
 import { findCurrentBillingSubscriptionForWorkspace } from "@/lib/billing/repository";
 import { createBillingService } from "@/lib/billing/server-service";
+import { runWithServerBillingSubscriptionOperationClaim } from "@/lib/billing/server-subscription-operation-claim";
 import {
-  manageMercadoPagoBillingSubscription,
+  manageCurrentMercadoPagoBillingSubscription,
   ManageBillingSubscriptionError,
 } from "@/lib/billing/subscription-management";
+import { BillingSubscriptionOperationInProgressError } from "@/lib/billing/subscription-operation-claim";
 import {
   getMercadoPagoAccessToken,
 } from "@/lib/payments/mercado-pago";
@@ -122,10 +124,14 @@ export async function POST(request: Request) {
   try {
     const provider = getBillingProvider("mercado_pago");
     const billingService = createBillingService();
-    const result = await manageMercadoPagoBillingSubscription({
+    const result = await manageCurrentMercadoPagoBillingSubscription({
       action,
       actorId: session.user.id,
       subscription,
+      getCurrentSubscription: () =>
+        findCurrentBillingSubscriptionForWorkspace(session.workspace.id),
+      runWithSubscriptionOperation:
+        runWithServerBillingSubscriptionOperationClaim,
       dependencies: {
         provider,
         billingService,
@@ -178,6 +184,18 @@ export async function POST(request: Request) {
           code: error.code,
         },
         { status: error.status },
+      );
+    }
+
+    if (error instanceof BillingSubscriptionOperationInProgressError) {
+      return jsonWithRequestId(
+        requestContext,
+        {
+          error:
+            "Uma atualização desta assinatura já está em andamento. Aguarde alguns segundos e tente novamente.",
+          code: "SUBSCRIPTION_OPERATION_IN_PROGRESS",
+        },
+        { status: 409 },
       );
     }
 

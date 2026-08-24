@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   canManageBillingSubscriptionAction,
+  manageCurrentMercadoPagoBillingSubscription,
   manageMercadoPagoBillingSubscription,
   ManageBillingSubscriptionError,
 } from "../src/lib/billing/subscription-management.ts";
@@ -115,6 +116,71 @@ test("cancelamento permite registrar ator super admin", async () => {
   });
 
   assert.equal(receivedActorType, "super_admin");
+});
+
+test("gerenciamento relê a assinatura dentro do claim antes de chamar o provider", async () => {
+  let providerCalls = 0;
+  const claimedSubscriptionIds = [];
+
+  await assert.rejects(
+    () =>
+      manageCurrentMercadoPagoBillingSubscription({
+        action: "cancel",
+        actorId: "user-1",
+        subscription: {
+          id: "sub-claim-1",
+          workspaceId: "workspace-1",
+          planId: "growth",
+          billingCycle: "monthly",
+          status: "active",
+          provider: "mercado_pago",
+          providerSubscriptionId: "mp-sub-claim-1",
+        },
+        async getCurrentSubscription() {
+          return {
+            id: "sub-replaced-1",
+            workspaceId: "workspace-1",
+            planId: "growth",
+            billingCycle: "monthly",
+            status: "active",
+            provider: "mercado_pago",
+            providerSubscriptionId: "mp-sub-replaced-1",
+          };
+        },
+        async runWithSubscriptionOperation(subscriptionId, operation) {
+          claimedSubscriptionIds.push(subscriptionId);
+          return operation();
+        },
+        dependencies: {
+          provider: {
+            async cancelSubscription() {
+              providerCalls += 1;
+              return {};
+            },
+            async resumeSubscription() {
+              throw new Error("not used");
+            },
+          },
+          billingService: {
+            async scheduleCancellation() {
+              throw new Error("not used");
+            },
+            async revertCancellation() {
+              throw new Error("not used");
+            },
+          },
+          async applyWorkspaceSubscriptionUpdate() {
+            throw new Error("not used");
+          },
+        },
+      }),
+    (error) =>
+      error instanceof ManageBillingSubscriptionError &&
+      error.code === "SUBSCRIPTION_CHANGED_CONCURRENTLY",
+  );
+
+  assert.deepEqual(claimedSubscriptionIds, ["sub-claim-1"]);
+  assert.equal(providerCalls, 0);
 });
 
 test("reversão de cancelamento reativa a renovação antes do fim do período", async () => {

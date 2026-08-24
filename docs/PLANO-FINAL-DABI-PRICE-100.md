@@ -512,10 +512,15 @@ Onde necessário:
   `BillingSubscription` e a projeção do workspace. O claim tem token de posse,
   lease de cinco minutos e liberação em `finally`; o teste cobre tanto a
   exclusão mútua quanto a liberação após erro e o encaminhamento pelo job.
-- Esta camada não cobre ainda comandos concorrentes iniciados pelo usuário
-  (upgrade, downgrade ou cancelamento) nem chamadas externas ao provider. Eles
-  exigem uma estratégia explícita de compensação e retry antes que os cenários
-  restantes da fase possam ser marcados como concluídos.
+- Esta camada ainda não cobre integralmente comandos concorrentes iniciados
+  pelo usuário nem chamadas externas ao provider. Upgrade, downgrade e mudança
+  de ciclo exigem uma estratégia explícita de compensação e retry antes que os
+  cenários restantes da fase possam ser marcados como concluídos.
+- Cancelamento e retomada agora usam o mesmo claim antes de chamar o provider
+  e relêem a assinatura dentro da posse do claim. Se outra operação tiver
+  alterado a assinatura, a rota devolve `409` sem executar a mutação externa.
+  Upgrade, downgrade e mudança de ciclo continuam pendentes porque criam ou
+  reconfiguram cobranças e exigem recuperação persistida após o provider.
 
 ## Critério de aceite
 
