@@ -32,6 +32,7 @@ import {
   updateWorkspaceMemberProfile,
   updateWorkspaceMemberRole,
 } from "@/lib/server/platform";
+import { getWorkspaceEntitlements } from "@/lib/billing/server-entitlement-service";
 import { sendTransactionalEmail } from "@/lib/server/email";
 import { workspaceRoleMeta } from "@/lib/workspace/catalog";
 
@@ -81,6 +82,11 @@ export async function inviteWorkspaceMemberForSession(input: {
         email: input.email,
         workspaceRole: normalizedRole,
         invitedByUserId: input.session.user.id,
+        seatLimit: (
+          await getWorkspaceEntitlements({
+            workspaceId: input.session.workspace.id,
+          })
+        ).seatsLimit,
       })
     : inviteLocalDevelopmentWorkspaceMember({
         fullName: input.fullName,
