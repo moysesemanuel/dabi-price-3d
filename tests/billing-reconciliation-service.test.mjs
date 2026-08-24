@@ -134,7 +134,12 @@ function createDependencies(overrides = {}) {
 }
 
 test("processExpiredSubscriptions expira assinaturas ativas sem renovação", async () => {
+  const subscriptionOperationClaims = [];
   const dependencies = createDependencies({
+    async withSubscriptionOperation(subscriptionId, operation) {
+      subscriptionOperationClaims.push(subscriptionId);
+      return operation();
+    },
     async listSubscriptionsForExpiration(asOf) {
       assert.equal(asOf, "2026-08-14T12:00:00.000Z");
       return [
@@ -169,6 +174,7 @@ test("processExpiredSubscriptions expira assinaturas ativas sem renovação", as
   assert.equal(result.changed, 1);
   assert.equal(dependencies.expirations.length, 1);
   assert.equal(dependencies.workspaceUpdates[0]?.status, "canceled");
+  assert.deepEqual(subscriptionOperationClaims, ["sub-1"]);
 });
 
 test("processGracePeriods pausa assinaturas com tolerância vencida", async () => {
