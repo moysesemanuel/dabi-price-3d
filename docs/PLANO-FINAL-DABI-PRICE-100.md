@@ -897,6 +897,13 @@ precificação
 - [ ] Back/forward seguro.
 - [ ] Sessão expirada durante operação.
 
+## Execução automatizada
+
+- As ações administrativas de reconciliação, cancelamento, atualização de
+  `accessUntil` e consulta ao provider têm guarda síncrona além do botão
+  desabilitado. A validação visual e os fluxos de browser continuam pendentes
+  de homologação manual.
+
 ## Acessibilidade básica
 
 - [ ] Labels.

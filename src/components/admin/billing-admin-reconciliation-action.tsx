@@ -10,6 +10,10 @@ export function BillingAdminReconciliationAction() {
   const [findings, setFindings] = useState<BillingReconciliationFinding[]>([]);
 
   async function runReconciliation() {
+    if (isRunning) {
+      return;
+    }
+
     if (
       !window.confirm(
         "Executar a reconciliação de até 20 registros do provider agora?",

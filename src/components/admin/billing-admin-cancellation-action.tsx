@@ -7,6 +7,8 @@ export function BillingAdminCancellationAction({ subscriptionId }: { subscriptio
   const [feedback, setFeedback] = useState<string | null>(null);
 
   async function cancelSubscription() {
+    if (isCancelling) return;
+
     if (!window.confirm("Agendar o cancelamento ao fim do período atual?")) return;
     setIsCancelling(true);
     setFeedback(null);
