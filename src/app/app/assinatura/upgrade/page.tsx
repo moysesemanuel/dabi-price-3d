@@ -10,20 +10,11 @@ import {
   findLatestOpenBillingSubscriptionChange,
   getBillingInvoiceById,
 } from "@/lib/billing/repository";
-import {
-  getWorkspacePreferences,
-  isPlatformPersistenceAvailable,
-} from "@/lib/server/platform";
-import { defaultAppPreferences, getWorkspacePlan } from "@/lib/settings/app-preferences";
+import { isPlatformPersistenceAvailable } from "@/lib/server/platform";
+import { getWorkspacePlan } from "@/lib/settings/app-preferences";
 
 export default async function SubscriptionUpgradePage() {
   const session = await getCurrentAuthSession();
-  const preferences =
-    session && isPlatformPersistenceAvailable()
-      ? await getWorkspacePreferences(session.workspace.id).catch(
-          () => defaultAppPreferences,
-        )
-      : defaultAppPreferences;
   const billingSubscription =
     session && isPlatformPersistenceAvailable()
       ? await findCurrentBillingSubscriptionForWorkspace(session.workspace.id).catch(
@@ -48,7 +39,7 @@ export default async function SubscriptionUpgradePage() {
           .catch(() => null)
       : null;
   const manualPaymentState = normalizeBillingManualPaymentState(manualPayment?.status);
-  const currentPlan = getWorkspacePlan(preferences.subscription.planId);
+  const currentPlan = getWorkspacePlan(billingSubscription?.planId ?? "starter");
   const targetPlan =
     pendingUpgrade?.toPlanId ? getWorkspacePlan(pendingUpgrade.toPlanId) : null;
 

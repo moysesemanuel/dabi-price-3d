@@ -1,7 +1,11 @@
 import type { SavedCalculation } from "../history/calculation-history";
 import type { AppPreferences } from "../settings/app-preferences";
 import { getSubscriptionStatusLabel } from "./subscription-access.ts";
-import { getWorkspacePlan, workspaceRoleMeta } from "./catalog.ts";
+import {
+  getWorkspacePlan,
+  workspaceRoleMeta,
+  type WorkspaceSubscription,
+} from "./catalog.ts";
 import type { WorkspaceAuditEvent } from "./audit-log";
 
 export type WorkspaceReadinessStatus = "ready" | "attention" | "pending";
@@ -41,12 +45,14 @@ export type WorkspaceCommercialSnapshot = {
 
 export function buildWorkspaceCommercialSnapshot(input: {
   preferences: AppPreferences;
+  subscription?: WorkspaceSubscription;
   history: SavedCalculation[];
   auditLog: WorkspaceAuditEvent[];
   now?: Date;
 }): WorkspaceCommercialSnapshot {
   const { preferences, history, auditLog } = input;
-  const plan = getWorkspacePlan(preferences.subscription.planId);
+  const subscription = input.subscription ?? preferences.subscription;
+  const plan = getWorkspacePlan(subscription.planId);
   const historyLimit = plan.historyLimit;
   const channelsUsedCount = new Set(
     history
@@ -70,6 +76,7 @@ export function buildWorkspaceCommercialSnapshot(input: {
     channelsUsedCount,
     erpSyncCount,
     plan,
+    subscription,
   });
   const readinessScore = Math.round(
     readinessItems.reduce((total, item) => total + statusScore[item.status], 0) /
@@ -84,7 +91,7 @@ export function buildWorkspaceCommercialSnapshot(input: {
 
   return {
     planLabel: plan.label,
-    planStatusLabel: getSubscriptionStatusLabel(preferences.subscription.status),
+    planStatusLabel: getSubscriptionStatusLabel(subscription.status),
     planSupportLabel: plan.supportLabel,
     readinessScore,
     readinessTone,
@@ -105,9 +112,9 @@ export function buildWorkspaceCommercialSnapshot(input: {
     recentAuditCount: auditLog.length,
     lastSavedAt: history[0]?.savedAt ?? null,
     lastAuditAt: auditLog[0]?.occurredAt ?? null,
-    seatsUsed: preferences.subscription.seatsUsed,
+    seatsUsed: subscription.seatsUsed,
     seatsIncluded: plan.seatsIncluded,
-    seatsBalance: plan.seatsIncluded - preferences.subscription.seatsUsed,
+    seatsBalance: plan.seatsIncluded - subscription.seatsUsed,
     roleLabel: workspaceRoleMeta[preferences.operatorRole].label,
     readinessItems,
   };
@@ -126,9 +133,17 @@ function buildWorkspaceReadinessItems(input: {
   channelsUsedCount: number;
   erpSyncCount: number;
   plan: ReturnType<typeof getWorkspacePlan>;
+  subscription: WorkspaceSubscription;
 }) {
-  const { preferences, history, auditLog, channelsUsedCount, erpSyncCount, plan } =
-    input;
+  const {
+    preferences,
+    history,
+    auditLog,
+    channelsUsedCount,
+    erpSyncCount,
+    plan,
+    subscription,
+  } = input;
   const identityComplete =
     preferences.workspaceName.length > 0 &&
     preferences.operatorName.length > 0 &&
@@ -154,9 +169,9 @@ function buildWorkspaceReadinessItems(input: {
         : "pending"
     : "attention";
   const seatStatus =
-    preferences.subscription.seatsUsed <= plan.seatsIncluded
+    subscription.seatsUsed <= plan.seatsIncluded
       ? "ready"
-      : preferences.subscription.seatsUsed === plan.seatsIncluded + 1
+      : subscription.seatsUsed === plan.seatsIncluded + 1
         ? "attention"
         : "pending";
 
@@ -224,9 +239,9 @@ function buildWorkspaceReadinessItems(input: {
       description:
         "Assentos e limites precisam acompanhar o uso para evitar gargalo comercial.",
       detail:
-        preferences.subscription.seatsUsed <= plan.seatsIncluded
-          ? `${preferences.subscription.seatsUsed}/${plan.seatsIncluded} assentos usados.`
-          : `${preferences.subscription.seatsUsed} assentos para ${plan.seatsIncluded} incluídos.`,
+        subscription.seatsUsed <= plan.seatsIncluded
+          ? `${subscription.seatsUsed}/${plan.seatsIncluded} assentos usados.`
+          : `${subscription.seatsUsed} assentos para ${plan.seatsIncluded} incluídos.`,
     },
     {
       id: "channels",

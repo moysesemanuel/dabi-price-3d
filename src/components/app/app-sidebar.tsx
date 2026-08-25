@@ -19,6 +19,7 @@ import {
 import {
   canAccessAppPathWithoutPaidWorkspace,
 } from "@/lib/workspace/subscription-access";
+import type { WorkspacePlanId } from "@/lib/workspace/catalog";
 
 const EXPANDED_WIDTH = 262;
 const COLLAPSED_WIDTH = 96;
@@ -368,10 +369,12 @@ export function AppSidebar({
   platformRole,
   initialBusinessType = null,
   canUsePaidFeatures,
+  initialPlanId,
 }: {
   platformRole: PlatformRole;
   initialBusinessType?: BusinessType | null;
   canUsePaidFeatures: boolean;
+  initialPlanId: WorkspacePlanId;
 }) {
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(true);
@@ -388,12 +391,9 @@ export function AppSidebar({
     cadastros: true,
     gestao: true,
   });
-  const [planLabel, setPlanLabel] = useState(
-    getWorkspacePlan(defaultAppPreferences.subscription.planId).label,
-  );
-  const [planPriceLabel, setPlanPriceLabel] = useState(
-    getWorkspacePlan(defaultAppPreferences.subscription.planId).monthlyPriceLabel,
-  );
+  const plan = getWorkspacePlan(initialPlanId);
+  const planLabel = plan.label;
+  const planPriceLabel = plan.monthlyPriceLabel;
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
     if (typeof window !== "undefined") {
@@ -411,7 +411,6 @@ export function AppSidebar({
     sidebarVariant === "confectionery"
       ? confectioneryNavigationSections
       : navigationSections;
-
   const visibleSections = activeNavigationSections
     .map((section) => ({
       ...section,
@@ -475,7 +474,6 @@ export function AppSidebar({
   useEffect(() => {
     const syncPreferences = () => {
       const preferences = readAppPreferences();
-      const plan = getWorkspacePlan(preferences.subscription.planId);
 
       setWorkspaceName(preferences.workspaceName || "Dabi Price");
       setBusinessType(preferences.businessType);
@@ -484,8 +482,6 @@ export function AppSidebar({
           preferences.operatorName ||
           "Configuração pendente",
       );
-      setPlanLabel(plan.label);
-      setPlanPriceLabel(plan.monthlyPriceLabel);
     };
 
     syncPreferences();

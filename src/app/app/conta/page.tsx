@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BackLink } from "@/components/app/back-link";
 import { describeWorkspaceAccessLevel } from "@/lib/auth/access-control";
 import { getCurrentAuthSession } from "@/lib/auth/session";
+import { findCurrentBillingSubscriptionForWorkspace } from "@/lib/billing/repository";
 import {
   getWorkspacePreferences,
   isPlatformPersistenceAvailable,
@@ -22,7 +23,13 @@ export default async function AccountPage() {
           () => defaultAppPreferences,
         )
       : defaultAppPreferences;
-  const plan = getWorkspacePlan(preferences.subscription.planId);
+  const billingSubscription =
+    session && isPlatformPersistenceAvailable()
+      ? await findCurrentBillingSubscriptionForWorkspace(session.workspace.id).catch(
+          () => null,
+        )
+      : null;
+  const plan = getWorkspacePlan(billingSubscription?.planId ?? "starter");
   const access = session
     ? describeWorkspaceAccessLevel({
         platformRole: session.user.platformRole,
@@ -81,7 +88,7 @@ export default async function AccountPage() {
               value={plan.label}
               note={formatAccountPlanNote(
                 plan,
-                preferences.subscription.billingCycle,
+                billingSubscription?.billingCycle ?? "monthly",
               )}
             />
           </div>

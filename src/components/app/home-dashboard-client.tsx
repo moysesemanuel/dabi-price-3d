@@ -20,6 +20,7 @@ import {
 } from "@/lib/history/workspace-calculations";
 import { formatCurrency, formatPercent } from "@/lib/pricing/formatters";
 import type { AppPreferences } from "@/lib/settings/app-preferences";
+import type { WorkspaceSubscription } from "@/lib/workspace/catalog";
 import {
   businessTypeMeta,
   getWorkspacePlan,
@@ -35,10 +36,12 @@ export function HomeDashboardClient({
   initialFullName,
   initialPreferences,
   initialHistory,
+  initialCommercialSubscription,
 }: {
   initialFullName: string | null;
   initialPreferences: AppPreferences;
   initialHistory: SavedCalculation[];
+  initialCommercialSubscription: WorkspaceSubscription;
 }) {
   const preferences = useSyncExternalStore(
     subscribeAppPreferences,
@@ -59,7 +62,7 @@ export function HomeDashboardClient({
     void loadCalculationHistory().catch(() => undefined);
   }, [initialHistory, initialPreferences]);
 
-  const workspacePlan = getWorkspacePlan(preferences.subscription.planId);
+  const workspacePlan = getWorkspacePlan(initialCommercialSubscription.planId);
   const firstName =
     initialFullName?.trim().split(/\s+/).filter(Boolean)[0] || "operador";
   const activeBusinessMeta = preferences.businessType
@@ -75,6 +78,7 @@ export function HomeDashboardClient({
   });
   const commercialSnapshot = buildWorkspaceCommercialSnapshot({
     preferences,
+    subscription: initialCommercialSubscription,
     history: scopedHistory,
     auditLog: [],
   });

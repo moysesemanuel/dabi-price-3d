@@ -5,7 +5,9 @@ import { getCurrentAuthSession } from "@/lib/auth/session";
 import { AppSidebar } from "@/components/app/app-sidebar";
 import { BillingNotificationBanner } from "@/components/app/billing-notification-banner";
 import { getWorkspaceEntitlements } from "@/lib/billing/server-entitlement-service";
+import { resolveWorkspaceEntitlements } from "@/lib/billing/entitlement-service";
 import { getWorkspaceBillingNotification } from "@/lib/billing/server-notification-service";
+import { findCurrentBillingSubscriptionForWorkspace } from "@/lib/billing/repository";
 import { getPersistenceMode } from "@/lib/server/persistence-mode";
 import {
   getWorkspacePreferences,
@@ -44,12 +46,17 @@ export default async function ProductLayout({
     redirect("/login");
   }
 
-  const billingNotification = await getWorkspaceBillingNotification({
-    workspaceId: session.workspace.id,
-  }).catch(() => null);
-  const entitlements = await getWorkspaceEntitlements({
-    workspaceId: session.workspace.id,
-  });
+  const [billingNotification, entitlements, billingSubscription] = await Promise.all([
+    getWorkspaceBillingNotification({ workspaceId: session.workspace.id }).catch(
+      () => null,
+    ),
+    getWorkspaceEntitlements({ workspaceId: session.workspace.id }).catch(() =>
+      resolveWorkspaceEntitlements({ subscription: null }),
+    ),
+    findCurrentBillingSubscriptionForWorkspace(session.workspace.id).catch(
+      () => null,
+    ),
+  ]);
 
   return (
     <main
@@ -63,6 +70,7 @@ export default async function ProductLayout({
           platformRole={session.user.platformRole}
           initialBusinessType={serverBusinessType}
           canUsePaidFeatures={entitlements.canUseApp}
+          initialPlanId={billingSubscription?.planId ?? "starter"}
         />
         <div>
           <BillingNotificationBanner notification={billingNotification} />

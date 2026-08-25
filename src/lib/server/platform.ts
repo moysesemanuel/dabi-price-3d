@@ -11,9 +11,10 @@ import {
 import {
   defaultAppPreferences,
   normalizeAppPreferences,
-  resolveCalculationHistoryLimit,
   type AppPreferences,
 } from "@/lib/settings/app-preferences";
+import { resolveHistoryLimitPlanId } from "@/lib/billing/entitlement-service";
+import { getWorkspacePlan } from "@/lib/workspace/catalog";
 import {
   normalizeSavedCalculation,
   type SavedCalculation,
@@ -1565,8 +1566,18 @@ export async function saveCalculationSnapshot(input: {
     throw new Error("CALCULATION_ID_CONFLICT");
   }
 
-  const preferences = await getWorkspacePreferences(input.workspaceId);
-  const historyLimit = resolveCalculationHistoryLimit(preferences);
+  const billingSubscription =
+    await findLatestBillingSubscriptionSnapshotForWorkspace(input.workspaceId);
+  const historyLimit = getWorkspacePlan(
+    resolveHistoryLimitPlanId(
+      billingSubscription
+        ? {
+            planId: billingSubscription.plan_id,
+            status: billingSubscription.status,
+          }
+        : {},
+    ),
+  ).historyLimit;
 
   await sql`
     DELETE FROM calculation_snapshots

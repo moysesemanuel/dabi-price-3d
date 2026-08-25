@@ -623,9 +623,9 @@ campos sem consumidor
 
 Classificar:
 
-- [ ] necessária
-- [ ] migrar
-- [ ] remover
+- [x] necessária
+- [x] migrar
+- [x] remover
 
 ## Achado de produção
 
@@ -638,11 +638,45 @@ aprovado.
 
 ## Execução automatizada
 
+- A auditoria classificou as projeções de assentos e claim de checkout como
+  necessárias apenas para operação; todas as decisões comerciais foram
+  migradas para o billing e os helpers sem consumidores foram removidos.
+
 - Em ambiente com `DATABASE_URL`, o serviço de entitlement não consulta mais
   `workspace_preferences.subscription` quando não existe `BillingSubscription`:
   esse caso passa a ser `no_subscription`. O modo local sem persistência já
   resolve esse estado sem usar a projeção legada. As preferências ainda guardam
   metadados operacionais e o claim de checkout, mas não decidem acesso pago.
+- As telas de assinatura e de acompanhamento de upgrade usam a assinatura do
+  billing para apresentar plano e ciclo. Sem uma assinatura corrente, exibem o
+  estado neutro de ausência de assinatura em vez do espelho legado.
+- A página interna de planos usa `BillingSubscription` para plano, status,
+  ciclo, elegibilidade e retomada de checkout. A leitura de tolerância e
+  `accessUntil` passa pelo serviço de entitlement do billing.
+- A notificação global de billing também deixa de usar o espelho legado quando
+  não encontra assinatura corrente, evitando alertas comerciais divergentes.
+- A tela de checkout lê pendência, plano, ciclo e início diretamente da
+  assinatura do billing; sem pendência, usa apenas os parâmetros explícitos da
+  nova contratação, sem recuperar dados de `workspace_preferences.subscription`.
+- O resumo de conta usa a assinatura corrente para plano e ciclo, mantendo
+  preferências apenas para os dados operacionais do workspace.
+- O checkout recorrente do Mercado Pago decide a situação atual exclusivamente
+  com `BillingSubscription`; o espelho legado deixou de ser consultado até para
+  enriquecer logs desse fluxo.
+- O dashboard recebe sua leitura comercial do servidor: plano, ciclo e status
+  vêm de `BillingSubscription`, e a capacidade vem das memberships persistidas;
+  `workspace_preferences.subscription` não define mais esses indicadores.
+- A navegação lateral recebe o entitlement efetivo e o plano do servidor, e o
+  perfil da empresa usa o plano do billing apenas para apresentação. Assim, o
+  espelho local não oculta recursos nem exibe uma faixa comercial divergente.
+- A retenção de snapshots de cálculo no servidor determina o limite de
+  histórico a partir da assinatura persistida no billing, sem consultar o
+  espelho de preferências.
+- O cache local deixa de aplicar limite comercial por preferências após um
+  salvamento persistente; em modo local sem billing ele usa apenas um teto
+  técnico para evitar crescimento ilimitado.
+- O helper legado de limite de histórico foi removido por não ter mais
+  consumidores; novos limites comerciais devem passar pelo entitlement.
 
 ## Arquitetura final esperada
 
