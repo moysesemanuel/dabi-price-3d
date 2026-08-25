@@ -85,6 +85,14 @@ test("workspace pouco estruturado aparece como em estruturação", () => {
 
   const snapshot = buildWorkspaceCommercialSnapshot({
     preferences,
+    subscription: {
+      planId: "growth",
+      status: "unpaid",
+      billingCycle: "monthly",
+      seatsUsed: 1,
+      mercadoPagoSubscriptionId: null,
+      checkoutStartedAt: null,
+    },
     history: [],
     auditLog: [],
   });
@@ -153,6 +161,14 @@ test("workspace validado com histórico e ERP sobe para pronto para venda", () =
 
   const snapshot = buildWorkspaceCommercialSnapshot({
     preferences,
+    subscription: {
+      planId: "scale",
+      status: "active",
+      billingCycle: "monthly",
+      seatsUsed: 3,
+      mercadoPagoSubscriptionId: null,
+      checkoutStartedAt: null,
+    },
     history,
     auditLog,
   });
@@ -182,6 +198,14 @@ test("excesso de assentos derruba o status de capacidade", () => {
 
   const snapshot = buildWorkspaceCommercialSnapshot({
     preferences,
+    subscription: {
+      planId: "starter",
+      status: "active",
+      billingCycle: "monthly",
+      seatsUsed: 3,
+      mercadoPagoSubscriptionId: null,
+      checkoutStartedAt: null,
+    },
     history: [createSavedCalculation(1)],
     auditLog: [createAuditEvent(1)],
   });

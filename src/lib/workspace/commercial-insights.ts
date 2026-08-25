@@ -45,13 +45,13 @@ export type WorkspaceCommercialSnapshot = {
 
 export function buildWorkspaceCommercialSnapshot(input: {
   preferences: AppPreferences;
-  subscription?: WorkspaceSubscription;
+  subscription: WorkspaceSubscription;
   history: SavedCalculation[];
   auditLog: WorkspaceAuditEvent[];
   now?: Date;
 }): WorkspaceCommercialSnapshot {
   const { preferences, history, auditLog } = input;
-  const subscription = input.subscription ?? preferences.subscription;
+  const { subscription } = input;
   const plan = getWorkspacePlan(subscription.planId);
   const historyLimit = plan.historyLimit;
   const channelsUsedCount = new Set(
