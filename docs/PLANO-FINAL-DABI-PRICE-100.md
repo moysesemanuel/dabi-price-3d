@@ -703,50 +703,25 @@ Nenhuma decisão de plano, cobrança ou acesso depende de estado comercial legad
 
 # Fase 9 — Pix Automático
 
-## Objetivo
+> **Status atual: FORA DO ESCOPO ATUAL / FUTURE FEATURE.**
+>
+> Pix Automático não é requisito de conclusão, critério de aceite ou bloqueador
+> de release do DaBi Price. A recorrência mensal do escopo atual é atendida por
+> cartão recorrente; Pix manual continua disponível para pagamentos não
+> recorrentes. O plano anual é pago antecipadamente e concede 12 meses de
+> acesso, sem depender de Pix Automático.
 
-Concluir a funcionalidade real, não apenas tipos internos.
+## Registro histórico da avaliação
 
-## Contrato externo
+Esta funcionalidade foi avaliada como uma possível extensão do domínio de
+billing. O contrato técnico do Mercado Pago para mandato, autorização,
+cobrança, eventos, cancelamento, revogação, idempotência e sandbox não foi
+confirmado nem homologado. Os tipos e mapeamentos técnicos já existentes não
+significam que o fluxo esteja implementado ou habilitado para produção.
 
-Antes de implementar:
-
-- [ ] Confirmar API atual do Mercado Pago.
-- [ ] Confirmar autorização/mandato.
-- [ ] Confirmar criação.
-- [ ] Confirmar cobrança.
-- [ ] Confirmar recorrência.
-- [ ] Confirmar cancelamento.
-- [ ] Confirmar falha.
-- [ ] Confirmar revogação.
-- [ ] Confirmar webhooks.
-- [ ] Confirmar status.
-- [ ] Confirmar idempotência.
-- [ ] Confirmar sandbox/testes.
-
-## Implementação
-
-- [ ] Implementar via `BillingProvider`.
-- [ ] Não espalhar lógica específica do Mercado Pago pelo domínio.
-- [ ] Persistir estado necessário.
-- [ ] Implementar reconciliação.
-- [ ] Implementar observabilidade.
-
-## E2E
-
-- [ ] Autorização.
-- [ ] Primeira cobrança.
-- [ ] Renovação.
-- [ ] Falha.
-- [ ] Recuperação.
-- [ ] Revogação.
-- [ ] Cancelamento.
-- [ ] Webhook.
-- [ ] Reconciliation.
-
-## Critério de aceite
-
-Pix Automático homologado E2E.
+Caso seja priorizada em outro ciclo, a feature deverá ter plano próprio,
+contrato do provider confirmado, implementação via `BillingProvider`, testes e
+homologação E2E antes de ser anunciada ao usuário.
 
 ---
 
@@ -1354,21 +1329,20 @@ A release só será considerada pronta quando a DaBi Price estiver:
 6. Concorrência e transações
 7. Super Admin
 8. Remoção do legado
-9. Pix Automático
-10. Usuário / auth / onboarding
-11. Precificação
-12. ERP
-13. Mercado Livre
-14. Uploads
-15. UX/UI
-16. Alertas
-17. Suíte automatizada
-18. Auditoria de segurança
-19. Backup / LGPD
-20. Smoke test produção
-21. Limpeza
-22. Auditoria 100%
-23. Release
+9. Usuário / auth / onboarding
+10. Precificação
+11. ERP
+12. Mercado Livre
+13. Uploads
+14. UX/UI
+15. Alertas
+16. Suíte automatizada
+17. Auditoria de segurança
+18. Backup / LGPD
+19. Smoke test produção
+20. Limpeza
+21. Auditoria 100%
+22. Release
 ```
 
 ---
@@ -1379,13 +1353,16 @@ A release só será considerada pronta quando a DaBi Price estiver:
 
 Exceções só podem ocorrer quando uma fase depender tecnicamente de uma fase posterior. Nesse caso, a dependência deve ser registrada explicitamente neste documento.
 
+A Fase 9 é um registro histórico de uma future feature fora do escopo atual e
+não participa desta regra de bloqueio.
+
 ---
 
 # Critério absoluto de encerramento
 
 Este plano só pode ser marcado como concluído quando:
 
-- [ ] Todas as fases estiverem concluídas.
+- [ ] Todas as fases obrigatórias do escopo atual estiverem concluídas.
 - [ ] Todos os checkboxes obrigatórios estiverem marcados.
 - [ ] Não houver item `parcial`, `faltando` ou `bloqueado` no escopo oficial.
 - [ ] Todos os testes automatizados estiverem verdes.
@@ -1394,7 +1371,6 @@ Este plano só pode ser marcado como concluído quando:
 - [ ] Alertas externos estiverem ativos.
 - [ ] Super Admin cobrir as operações necessárias.
 - [ ] Billing legado não influenciar decisões comerciais.
-- [ ] Pix Automático estiver homologado.
 - [ ] Backup e recuperação estiverem testados.
 - [ ] Smoke test completo de produção estiver aprovado.
 - [ ] Auditoria final estiver verde.

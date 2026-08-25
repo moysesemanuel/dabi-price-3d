@@ -22,7 +22,10 @@
 ## Billing e cobranca
 
 - Catalogo de planos Start, Pro e Max, com ciclos mensal e anual.
-- Pix manual, cartao recorrente e Pix Automatico pelo dominio de billing.
+- Pix manual para pagamentos nao recorrentes e cartao recorrente para a
+  recorrencia mensal.
+- Pix Automatico esta fora do escopo atual (`FUTURE FEATURE`) e nao bloqueia a
+  conclusao ou a release deste ciclo.
 - Checkout, invoices, assinaturas, entitlements, paywall e banners comerciais.
 - Upgrade, downgrade, mudanca de ciclo, cancelamento, tolerancia e expiracao.
 - Webhooks assinados, idempotencia, auditoria, jobs e reconciliacao.
