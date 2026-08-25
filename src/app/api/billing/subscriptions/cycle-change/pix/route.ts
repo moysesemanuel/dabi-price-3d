@@ -16,6 +16,8 @@ import {
   updateBillingSubscriptionChange,
 } from "@/lib/billing/repository";
 import { createBillingService } from "@/lib/billing/server-service";
+import { runWithServerBillingSubscriptionOperationClaim } from "@/lib/billing/server-subscription-operation-claim";
+import { BillingSubscriptionOperationInProgressError } from "@/lib/billing/subscription-operation-claim";
 import type {
   BillingSubscription,
   BillingSubscriptionChange,
@@ -65,120 +67,136 @@ export async function POST(request: Request) {
     );
   }
 
-  const nowIso = new Date().toISOString();
-  const currentPrice = await resolveCurrentSubscriptionPrice(subscription, nowIso);
-  const targetAnnualPrice = await findActiveBillingPrice({
-    planId: subscription.planId,
-    billingCycle: "annual",
-    asOf: nowIso,
-  });
-
-  if (!currentPrice || !targetAnnualPrice) {
-    return jsonWithRequestId(
-      requestContext,
-      {
-        error: "Não foi possível localizar os preços necessários para a mudança anual.",
-        code: "CYCLE_CHANGE_PRICE_NOT_FOUND",
-      },
-      { status: 503 },
-    );
-  }
-
   const provider = getBillingProvider("mercado_pago");
   let createdChangeId: string | null = null;
   let createdInvoiceId: string | null = null;
   let providerPaymentCreated = false;
 
   try {
-    const openChange = await findLatestOpenBillingSubscriptionChange({
-      subscriptionId: subscription.id,
-      type: "cycle_change",
-    });
-    const resumableChange = await resolveExistingPendingCycleChangePix({
-      subscription,
-      openChange,
-      provider,
-      payerEmail: session.user.email,
-      workspaceName: session.workspace.name,
-      requestUrl: request.url,
-    });
+    return await runWithServerBillingSubscriptionOperationClaim(
+      subscription.id,
+      async () => {
+        const currentSubscription =
+          await findCurrentBillingSubscriptionForWorkspace(session.workspace.id);
 
-    if (resumableChange) {
-      return jsonWithRequestId(requestContext, {
-        ok: true,
-        resumed: true,
-        subscriptionId: subscription.id,
-        changeId: resumableChange.changeId,
-        invoiceId: resumableChange.invoiceId,
-        paymentId: resumableChange.paymentId,
-        redirectTo: "/app/planos",
-      });
-    }
+        if (!currentSubscription || currentSubscription.id !== subscription.id) {
+          throw new RequestBillingCycleChangeError(
+            "A assinatura foi alterada enquanto a mudança de ciclo estava sendo iniciada. Atualize a página e tente novamente.",
+            "CYCLE_CHANGE_SUBSCRIPTION_CHANGED_CONCURRENTLY",
+            409,
+          );
+        }
 
-    if (openChange?.invoiceId) {
-      await updateBillingInvoice(openChange.invoiceId, { status: "canceled" });
-    }
+        const nowIso = new Date().toISOString();
+        const currentPrice = await resolveCurrentSubscriptionPrice(
+          currentSubscription,
+          nowIso,
+        );
+        const targetAnnualPrice = await findActiveBillingPrice({
+          planId: currentSubscription.planId,
+          billingCycle: "annual",
+          asOf: nowIso,
+        });
 
-    const cycleChange = await requestMonthlyToAnnualCycleChange({
-      subscription,
-      currentPrice,
-      targetAnnualPrice,
-      actorId: session.user.id,
-      asOf: nowIso,
-      billingService: createBillingService(),
-    });
+        if (!currentPrice || !targetAnnualPrice) {
+          throw new RequestBillingCycleChangeError(
+            "Não foi possível localizar os preços necessários para a mudança anual.",
+            "CYCLE_CHANGE_PRICE_NOT_FOUND",
+            503,
+          );
+        }
 
-    createdChangeId = cycleChange.change.id;
-    createdInvoiceId = cycleChange.invoice.id;
+        const openChange = await findLatestOpenBillingSubscriptionChange({
+          subscriptionId: currentSubscription.id,
+          type: "cycle_change",
+        });
+        const resumableChange = await resolveExistingPendingCycleChangePix({
+          subscription: currentSubscription,
+          openChange,
+          provider,
+          payerEmail: session.user.email,
+          workspaceName: session.workspace.name,
+          requestUrl: request.url,
+        });
 
-    const payment = await provider.createManualPayment({
-      externalReference: `billing_invoice:${cycleChange.invoice.id}`,
-      idempotencyKey: cycleChange.invoice.id,
-      payerEmail: session.user.email,
-      reason: `Mudança de ciclo mensal para anual - ${session.workspace.name}`,
-      amountCents: cycleChange.invoice.amountCents,
-      currency: cycleChange.invoice.currency,
-      returnUrl: new URL("/app/planos", request.url).toString(),
-      notificationUrl: new URL(
-        "/api/payments/mercado-pago/webhook?source_news=webhooks",
-        request.url,
-      ).toString(),
-    });
+        if (resumableChange) {
+          return jsonWithRequestId(requestContext, {
+            ok: true,
+            resumed: true,
+            subscriptionId: currentSubscription.id,
+            changeId: resumableChange.changeId,
+            invoiceId: resumableChange.invoiceId,
+            paymentId: resumableChange.paymentId,
+            redirectTo: "/app/planos",
+          });
+        }
 
-    if (!payment.providerPaymentId || !payment.qrCode) {
-      throw new Error("Manual Pix payment was created without QR code data.");
-    }
-    providerPaymentCreated = true;
+        if (openChange?.invoiceId) {
+          await updateBillingInvoice(openChange.invoiceId, { status: "canceled" });
+        }
 
-    const invoice = await updateBillingInvoice(cycleChange.invoice.id, {
-      providerPaymentId: payment.providerPaymentId,
-      providerAuthorizedPaymentId: payment.providerAuthorizedPaymentId,
-      paymentExpiresAt: payment.expiresAt ?? null,
-      paymentMethod: payment.paymentMethod ?? "pix_manual",
-      provider: payment.provider,
-    });
+        const cycleChange = await requestMonthlyToAnnualCycleChange({
+          subscription: currentSubscription,
+          currentPrice,
+          targetAnnualPrice,
+          actorId: session.user.id,
+          asOf: nowIso,
+          billingService: createBillingService(),
+        });
 
-    if (!invoice) {
-      throw new Error("Failed to update cycle change invoice with Pix payment data.");
-    }
+        createdChangeId = cycleChange.change.id;
+        createdInvoiceId = cycleChange.invoice.id;
 
-    logRouteEvent(requestContext, "info", "billing_cycle_change_pix.created", {
-      workspaceId: session.workspace.id,
-      userId: session.user.id,
-      subscriptionId: subscription.id,
-      changeId: cycleChange.change.id,
-      invoiceId: invoice.id,
-      amountCents: invoice.amountCents,
-    });
+        const payment = await provider.createManualPayment({
+          externalReference: `billing_invoice:${cycleChange.invoice.id}`,
+          idempotencyKey: cycleChange.invoice.id,
+          payerEmail: session.user.email,
+          reason: `Mudança de ciclo mensal para anual - ${session.workspace.name}`,
+          amountCents: cycleChange.invoice.amountCents,
+          currency: cycleChange.invoice.currency,
+          returnUrl: new URL("/app/planos", request.url).toString(),
+          notificationUrl: new URL(
+            "/api/payments/mercado-pago/webhook?source_news=webhooks",
+            request.url,
+          ).toString(),
+        });
 
-    return jsonWithRequestId(requestContext, {
-      ok: true,
-      subscriptionId: subscription.id,
-      changeId: cycleChange.change.id,
-      invoiceId: invoice.id,
-      paymentId: invoice.providerPaymentId,
-      redirectTo: "/app/planos",
-    });
+        if (!payment.providerPaymentId || !payment.qrCode) {
+          throw new Error("Manual Pix payment was created without QR code data.");
+        }
+        providerPaymentCreated = true;
+
+        const invoice = await updateBillingInvoice(cycleChange.invoice.id, {
+          providerPaymentId: payment.providerPaymentId,
+          providerAuthorizedPaymentId: payment.providerAuthorizedPaymentId,
+          paymentExpiresAt: payment.expiresAt ?? null,
+          paymentMethod: payment.paymentMethod ?? "pix_manual",
+          provider: payment.provider,
+        });
+
+        if (!invoice) {
+          throw new Error("Failed to update cycle change invoice with Pix payment data.");
+        }
+
+        logRouteEvent(requestContext, "info", "billing_cycle_change_pix.created", {
+          workspaceId: session.workspace.id,
+          userId: session.user.id,
+          subscriptionId: currentSubscription.id,
+          changeId: cycleChange.change.id,
+          invoiceId: invoice.id,
+          amountCents: invoice.amountCents,
+        });
+
+        return jsonWithRequestId(requestContext, {
+          ok: true,
+          subscriptionId: currentSubscription.id,
+          changeId: cycleChange.change.id,
+          invoiceId: invoice.id,
+          paymentId: invoice.providerPaymentId,
+          redirectTo: "/app/planos",
+        });
+      },
+    );
   } catch (error) {
     if (createdInvoiceId && !providerPaymentCreated) {
       await updateBillingInvoice(createdInvoiceId, { status: "canceled" }).catch(
@@ -204,6 +222,18 @@ export async function POST(request: Request) {
         requestContext,
         { error: error.message, code: error.code },
         { status: error.status },
+      );
+    }
+
+    if (error instanceof BillingSubscriptionOperationInProgressError) {
+      return jsonWithRequestId(
+        requestContext,
+        {
+          error:
+            "Uma atualização desta assinatura já está em andamento. Aguarde alguns segundos e tente novamente.",
+          code: "SUBSCRIPTION_OPERATION_IN_PROGRESS",
+        },
+        { status: 409 },
       );
     }
 

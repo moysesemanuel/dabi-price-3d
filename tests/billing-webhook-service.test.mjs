@@ -85,6 +85,7 @@ test("entrega concorrente nao executa os efeitos do webhook duas vezes", async (
 
 test("sincroniza evento de assinatura e persiste webhook como processed", async () => {
   const statusUpdates = [];
+  const subscriptionOperationClaims = [];
   const service = new BillingWebhookService({
     async createWebhookEvent() {
       return {
@@ -155,6 +156,10 @@ test("sincroniza evento de assinatura e persiste webhook como processed", async 
     async getWorkspacePreferences(workspaceId) {
       throw new Error(`not used: ${workspaceId}`);
     },
+    async withSubscriptionOperation(subscriptionId, operation) {
+      subscriptionOperationClaims.push(subscriptionId);
+      return operation();
+    },
     async applyWorkspaceSubscriptionUpdate(input) {
       assert.deepEqual(input, {
         workspaceId: "workspace-1",
@@ -223,6 +228,7 @@ test("sincroniza evento de assinatura e persiste webhook como processed", async 
     "processing",
     "processed",
   ]);
+  assert.deepEqual(subscriptionOperationClaims, ["sub-local-1"]);
 });
 
 test("pagamento manual pago ativa assinatura pendente e sincroniza workspace", async () => {
