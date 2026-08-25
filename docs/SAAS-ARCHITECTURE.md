@@ -109,7 +109,7 @@ Responsabilidades:
 - acompanhar workspaces
 - tratar suporte
 - ver logs e auditoria
-- executar impersonação segura
+- operar workspaces em modo administrativo explicito
 - bloquear ou liberar contas
 
 ## Papéis e permissões
@@ -145,7 +145,7 @@ Ou:
 `super_admin`
 
 - acesso irrestrito à camada interna
-- impersonação segura
+- modo administrativo de workspace explicito
 - leitura de todos os workspaces
 - gestão de usuários e memberships
 
@@ -158,7 +158,7 @@ Ou:
 
 - acesso a tickets
 - leitura limitada de workspaces
-- impersonação assistida, com trilha de auditoria
+- sem impersonacao silenciosa de usuarios
 
 `developer`
 
@@ -382,16 +382,17 @@ Campos mínimos:
 - rotas `/app`: exigem sessão válida
 - rotas `/internal`: exigem `platform_role`
 
-### Impersonação segura
+### Modo administrativo de workspace
 
-Disponível apenas para `super_admin` e, opcionalmente, `support_agent`.
+Disponivel para `super_admin` por entrada explicita no workspace.
 
 Regras:
 
-- sempre registrar auditoria
-- mostrar banner visível de impersonação
-- exigir motivo
-- permitir encerrar sessão assistida
+- nao altera silenciosamente a identidade efetiva do usuario;
+- toda acao continua atribuida ao `super_admin`;
+- mostrar banner persistente: `Visualizando como Super Admin - Workspace <nome>`;
+- exigir motivo e registrar auditoria para operacoes sensiveis;
+- permitir encerrar o modo administrativo.
 
 ## Suporte, ajuda e orientação de uso
 
@@ -574,7 +575,7 @@ Migrar:
 
 - super admin
 - auditoria forte
-- impersonação segura
+- modo administrativo de workspace explicito
 - status operacional de integrações
 - relatórios por workspace
 

@@ -1416,7 +1416,11 @@ Liberação após pagamento deve ocorrer via webhook; job é rede de segurança.
 
 ## 34. Super Admin
 
-Área administrativa independente dos entitlements do workspace.
+Area administrativa independente dos entitlements do workspace. `super_admin`
+e uma conta de plataforma, fora de plano comercial: nao exibe plano ou upgrade
+e nao sofre paywall, limites de seats ou limites funcionais comerciais. Mantem
+acesso integral a `/admin` e pode operar o app no contexto administrativo de
+qualquer workspace.
 
 Rotas previstas:
 
@@ -1467,7 +1471,21 @@ cancelar assinatura
 acompanhar divergências
 ```
 
-Toda ação deve gerar auditoria.
+Nao existe editor generico de banco. Operacoes administrativas devem ser acoes
+especificas e controladas. Toda acao sensivel deve gerar auditoria com ator,
+entidade, valor anterior, valor novo, motivo quando aplicavel e data/hora.
+
+### Modo administrativo de workspace
+
+O Super Admin localiza um workspace e entra no seu contexto por uma acao
+explicita, como `Entrar no workspace`. Esse modo nao altera silenciosamente a
+identidade efetiva: toda acao continua atribuida ao `super_admin` e a interface
+deve exibir persistentemente `Visualizando como Super Admin - Workspace <nome>`.
+
+Cadastro e UI comuns nao podem criar ou promover `super_admin`; usuarios comuns
+nao podem alterar ou remover essa conta; e a ultima conta `super_admin` nao
+pode ser removida. 2FA de Super Admin e hardening obrigatorio antes da release
+final.
 
 ---
 

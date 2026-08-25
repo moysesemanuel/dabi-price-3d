@@ -167,7 +167,11 @@ Observações:
 
 - sem `DATABASE_URL`, a UI de membros persistidos fica indisponível
 - no fallback local ainda existe um fluxo local de convite/ativação para desenvolvimento
-- o `super_admin` ignora limites de papel do workspace
+- `super_admin` é uma conta de plataforma, sem plano comercial, paywall ou
+  limites de seats/funcionalidades; o modelo normativo completo está em
+  [`docs/ESCOPO-OFICIAL-DABI-PRICE.md`](docs/ESCOPO-OFICIAL-DABI-PRICE.md)
+- a operação de um workspace por `super_admin` deve usar modo administrativo
+  explícito, sem impersonação silenciosa e com auditoria das ações sensíveis
 
 ## Preferências e integração do Mercado Livre
 
@@ -294,7 +298,9 @@ Observação importante:
 
 Para validar com comprador e cartão de teste do Mercado Pago sem depender do link manual:
 
-- entre com um `super_admin`
+- entre com um `super_admin` somente para iniciar a ferramenta administrativa
+  de teste; o checkout e o resultado devem permanecer vinculados a um workspace
+  QA, nunca ao `super_admin` como conta comercial
 - abra `/app/planos`
 - use o card `Assinatura de teste com integração`
 - se o painel do Mercado Pago não mostrar o e-mail do comprador de teste, use o botão `Criar comprador de teste`
