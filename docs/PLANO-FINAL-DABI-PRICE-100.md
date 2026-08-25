@@ -551,6 +551,25 @@ Nenhuma condição de corrida conhecida cria duplicidade ou estado comercial inv
 
 Permitir operação segura sem acesso direto ao banco.
 
+## Modelo normativo de produto
+
+`super_admin` e uma conta de plataforma, nao uma conta comercial: nao possui
+nem exibe plano atual ou upgrade e nao sofre paywall, limites de seats ou
+limites funcionais comerciais. Ela mantem acesso integral aos modulos,
+incluindo `/admin`, e pode usar o app em modo administrativo de workspace.
+
+O modo administrativo exige entrada explicita no workspace, banner persistente
+(`Visualizando como Super Admin - Workspace <nome>`) e atribuicao de toda acao
+ao `super_admin`; nao e permitida impersonacao silenciosa. A administracao deve
+ocorrer exclusivamente por acoes especificas e controladas, nunca por editor
+generico de banco.
+
+Toda operacao critica deve auditar ator, entidade, valor anterior, valor novo,
+motivo quando aplicavel e data/hora. Cadastro comum e UI comum nao podem criar
+ou promover `super_admin`; usuarios comuns nao podem alterar/remover essa
+conta; e a ultima conta `super_admin` nao pode ser removida. 2FA para essa
+conta e hardening obrigatorio antes da release final.
+
 ## Funcionalidades obrigatórias
 
 - [x] Localizar workspace.
@@ -592,6 +611,10 @@ Permitir operação segura sem acesso direto ao banco.
 ## Regra
 
 Não resolver incidentes comerciais com alteração manual direta no banco.
+
+O dashboard administrativo deve evoluir para cobrir visao executiva/comercial,
+gestao de usuarios, workspaces, billing, pagamentos, eventos/webhooks,
+auditoria e modo administrativo de workspace.
 
 ## Critério de aceite
 
