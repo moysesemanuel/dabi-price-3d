@@ -30,6 +30,7 @@ export async function GET() {
 
   const entitlements = await getWorkspaceEntitlements({
     workspaceId: session.workspace.id,
+    platformRole: session.user.platformRole,
   });
 
   if (!entitlements.canUseApp) {
@@ -60,6 +61,7 @@ export async function POST(request: Request) {
   const session = await requireCurrentAuthSession();
   const entitlements = await getWorkspaceEntitlements({
     workspaceId: session.workspace.id,
+    platformRole: session.user.platformRole,
   });
 
   if (!entitlements.canUseApp) {
@@ -96,6 +98,7 @@ export async function POST(request: Request) {
       workspaceId: session.workspace.id,
       userId: session.user.id,
       item: calculation,
+      historyLimit: entitlements.historyLimit,
     });
   } catch (error) {
     if (error instanceof Error && error.message === "CALCULATION_ID_CONFLICT") {
@@ -133,6 +136,7 @@ export async function DELETE() {
   const session = await requireCurrentAuthSession();
   const entitlements = await getWorkspaceEntitlements({
     workspaceId: session.workspace.id,
+    platformRole: session.user.platformRole,
   });
 
   if (!entitlements.canUseApp) {

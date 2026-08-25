@@ -59,6 +59,7 @@ export default async function AppIndexPage() {
   return (
     <HomeDashboardClient
       initialFullName={session?.user.fullName ?? null}
+      isSuperAdmin={session?.user.platformRole === "super_admin"}
       initialPreferences={initialPreferences}
       initialHistory={initialHistory}
       initialCommercialSubscription={initialCommercialSubscription}

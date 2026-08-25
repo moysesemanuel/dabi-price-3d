@@ -95,6 +95,7 @@ export async function POST(request: Request) {
   const preferences = await getWorkspacePreferences(authResult.session.workspace.id);
   const entitlements = await getWorkspaceEntitlements({
     workspaceId: authResult.session.workspace.id,
+    platformRole: authResult.session.user.platformRole,
   });
 
   return Response.json({

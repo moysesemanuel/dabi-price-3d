@@ -21,7 +21,8 @@ export function resolveAppRouteProtection(input: {
     input.accessReason ?? input.entitlements?.accessReason ?? "no_subscription";
   const canUseApp =
     input.entitlements?.canUseApp ??
-    (accessReason === "active" ||
+    (accessReason === "super_admin" ||
+      accessReason === "active" ||
       accessReason === "grace_period" ||
       accessReason === "scheduled_cancel");
 

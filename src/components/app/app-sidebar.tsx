@@ -370,11 +370,13 @@ export function AppSidebar({
   initialBusinessType = null,
   canUsePaidFeatures,
   initialPlanId,
+  isSuperAdmin,
 }: {
   platformRole: PlatformRole;
   initialBusinessType?: BusinessType | null;
   canUsePaidFeatures: boolean;
   initialPlanId: WorkspacePlanId;
+  isSuperAdmin: boolean;
 }) {
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(true);
@@ -392,8 +394,8 @@ export function AppSidebar({
     gestao: true,
   });
   const plan = getWorkspacePlan(initialPlanId);
-  const planLabel = plan.label;
-  const planPriceLabel = plan.monthlyPriceLabel;
+  const planLabel = isSuperAdmin ? "Conta administrativa" : plan.label;
+  const planPriceLabel = isSuperAdmin ? "Acesso completo à plataforma" : plan.monthlyPriceLabel;
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
     if (typeof window !== "undefined") {
@@ -677,6 +679,7 @@ export function AppSidebar({
               operatorLabel={operatorLabel}
               planLabel={planLabel}
               planPriceLabel={planPriceLabel}
+              isSuperAdmin={isSuperAdmin}
               sidebarVariant={sidebarVariant}
               themeMode={themeMode}
               onToggleTheme={toggleTheme}
@@ -813,6 +816,7 @@ export function AppSidebar({
           operatorLabel={operatorLabel}
           planLabel={planLabel}
           planPriceLabel={planPriceLabel}
+          isSuperAdmin={isSuperAdmin}
           sidebarVariant={sidebarVariant}
           themeMode={themeMode}
           onToggleTheme={toggleTheme}
@@ -951,6 +955,7 @@ function SidebarFooter({
   operatorLabel,
   planLabel,
   planPriceLabel,
+  isSuperAdmin,
   sidebarVariant,
   themeMode,
   onToggleTheme,
@@ -962,6 +967,7 @@ function SidebarFooter({
   operatorLabel: string;
   planLabel: string;
   planPriceLabel: string;
+  isSuperAdmin: boolean;
   sidebarVariant: SidebarVariant;
   themeMode: ThemeMode;
   onToggleTheme: () => void;
@@ -1003,13 +1009,13 @@ function SidebarFooter({
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
-                  Plano atual
+                  {isSuperAdmin ? "Acesso da conta" : "Plano atual"}
                 </p>
                 <p className="mt-2 text-base font-semibold text-[var(--foreground)]">
                   {planLabel}
                 </p>
                 <p className="mt-1 text-xs text-[var(--muted)]">
-                  {planPriceLabel}/mês
+                  {isSuperAdmin ? planPriceLabel : `${planPriceLabel}/mês`}
                 </p>
               </div>
 

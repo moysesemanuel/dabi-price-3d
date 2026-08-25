@@ -30,6 +30,7 @@ export default async function AccountPage() {
         )
       : null;
   const plan = getWorkspacePlan(billingSubscription?.planId ?? "starter");
+  const isSuperAdmin = session?.user.platformRole === "super_admin";
   const access = session
     ? describeWorkspaceAccessLevel({
         platformRole: session.user.platformRole,
@@ -44,7 +45,7 @@ export default async function AccountPage() {
         <p className="app-eyebrow">Conta</p>
         <h1 className="app-title">Acesso e contexto da sua conta</h1>
         <p className="app-copy">
-          Resumo do acesso atual, plano em uso e atalhos para as telas que afetam
+          Resumo do acesso atual, contexto da conta e atalhos para as telas que afetam
           a operação do workspace.
         </p>
       </header>
@@ -85,11 +86,15 @@ export default async function AccountPage() {
             />
             <AccountStat
               label="Plano"
-              value={plan.label}
-              note={formatAccountPlanNote(
-                plan,
-                billingSubscription?.billingCycle ?? "monthly",
-              )}
+              value={isSuperAdmin ? "Conta administrativa" : plan.label}
+              note={
+                isSuperAdmin
+                  ? "Acesso completo à plataforma sem plano comercial."
+                  : formatAccountPlanNote(
+                      plan,
+                      billingSubscription?.billingCycle ?? "monthly",
+                    )
+              }
             />
           </div>
         </div>

@@ -30,6 +30,18 @@ test("libera /app quando a sessao existe", () => {
   assert.equal(result.redirectUrl, null);
 });
 
+test("libera recursos protegidos para super admin sem assinatura", () => {
+  const result = resolveAppRouteProtection({
+    hasSession: true,
+    accessReason: "super_admin",
+    requestUrl: "http://127.0.0.1:3005/app/precificacao",
+    pathname: "/app/precificacao",
+    search: "",
+  });
+
+  assert.equal(result.type, "allow");
+});
+
 test("redireciona workspace unpaid para onboarding quando ainda nao concluiu a configuracao", () => {
   const result = resolveAppRouteProtection({
     hasSession: true,
