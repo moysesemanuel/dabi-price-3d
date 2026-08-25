@@ -120,6 +120,12 @@ export default async function PlansPage({
     params.billingCycle === "annual" ? "annual" : "monthly";
 
   const session = await getCurrentAuthSession();
+  const isSuperAdmin = session?.user.platformRole === "super_admin";
+
+  if (isSuperAdmin) {
+    return <SuperAdminPlansPage />;
+  }
+
   const billingSubscription =
     session && isPlatformPersistenceAvailable()
       ? await findCurrentBillingSubscriptionForWorkspace(session.workspace.id).catch(
@@ -615,6 +621,28 @@ export default async function PlansPage({
             </p>
           </article>
         ))}
+      </section>
+    </div>
+  );
+}
+
+function SuperAdminPlansPage() {
+  return (
+    <div className="app-page space-y-6">
+      <header className="app-header">
+        <BackLink href="/app" label="Voltar para o início" />
+        <p className="app-eyebrow">Conta administrativa</p>
+        <h1 className="app-title">Acesso completo à plataforma</h1>
+        <p className="app-copy">
+          Esta conta não participa de planos comerciais e não precisa contratar ou
+          alterar uma assinatura para usar os módulos da plataforma.
+        </p>
+      </header>
+      <section className="app-card p-6 sm:p-7">
+        <p className="text-base leading-8 text-[var(--muted)]">
+          O catálogo de planos continua disponível para referência comercial e para
+          administrar assinaturas de workspaces clientes pelo console administrativo.
+        </p>
       </section>
     </div>
   );

@@ -19,6 +19,12 @@ import {
 
 export default async function SubscriptionPage() {
   const session = await getCurrentAuthSession();
+  const isSuperAdmin = session?.user.platformRole === "super_admin";
+
+  if (isSuperAdmin) {
+    return <SuperAdminSubscriptionPage />;
+  }
+
   const billingSubscription =
     session
       ? await findCurrentBillingSubscriptionForWorkspace(session.workspace.id).catch(
@@ -52,6 +58,7 @@ export default async function SubscriptionPage() {
     : null;
   const entitlements = resolveWorkspaceEntitlements({
     subscription: entitlementSubscription,
+    platformRole: session?.user.platformRole,
   });
   const currentPlan = getWorkspacePlan(billingSubscription?.planId ?? "starter");
   const statusLabel = billingSubscription
@@ -325,6 +332,30 @@ export default async function SubscriptionPage() {
   );
 }
 
+function SuperAdminSubscriptionPage() {
+  return (
+    <div className="app-page space-y-6">
+      <header className="app-header">
+        <BackLink href="/app" label="Voltar para o início" />
+        <p className="app-eyebrow">Conta administrativa</p>
+        <h1 className="app-title">Acesso completo à plataforma</h1>
+        <p className="app-copy">
+          Esta conta é administrativa e não possui plano, cobrança ou assinatura comercial.
+        </p>
+      </header>
+      <section className="app-card p-6 sm:p-7">
+        <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--accent)]">
+          Acesso liberado
+        </p>
+        <p className="mt-3 max-w-2xl text-base leading-8 text-[var(--muted)]">
+          Precificação, histórico, exportação, integrações e administração de billing
+          estão disponíveis sem paywall ou limites comerciais.
+        </p>
+      </section>
+    </div>
+  );
+}
+
 function SubscriptionStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-[22px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.78)] px-4 py-4">
@@ -388,6 +419,13 @@ function getBillingStatusLabel(status: string) {
 
 function getAccessPresentation(accessReason: WorkspaceEntitlementAccessReason) {
   switch (accessReason) {
+    case "super_admin":
+      return {
+        description: "Esta conta administrativa possui acesso completo à plataforma sem assinatura comercial.",
+        nextStep: "Use o console administrativo para acompanhar a operação da plataforma.",
+        badgeClassName:
+          "rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-4 py-2 text-xs font-semibold text-[var(--accent)]",
+      };
     case "active":
       return {
         description:
@@ -465,6 +503,8 @@ function getAccessPresentation(accessReason: WorkspaceEntitlementAccessReason) {
 
 function getAccessReasonLabel(accessReason: WorkspaceEntitlementAccessReason) {
   switch (accessReason) {
+    case "super_admin":
+      return "Acesso administrativo";
     case "active":
       return "Acesso ativo";
     case "grace_period":
@@ -486,6 +526,8 @@ function getAccessReasonLabel(accessReason: WorkspaceEntitlementAccessReason) {
 
 function getDateNote(accessReason: WorkspaceEntitlementAccessReason) {
   switch (accessReason) {
+    case "super_admin":
+      return "Não há data comercial aplicável a esta conta.";
     case "grace_period":
       return "Limite para manter o acesso antes da suspensão.";
     case "scheduled_cancel":

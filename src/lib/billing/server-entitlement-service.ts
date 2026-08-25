@@ -6,15 +6,18 @@ import {
 } from "./entitlement-service.ts";
 import {
   isPlatformPersistenceAvailable,
+  type PlatformRole,
 } from "../server/platform";
 
 export async function getWorkspaceEntitlements(input: {
   workspaceId: string;
+  platformRole?: PlatformRole | null;
   now?: Date;
 }) {
   if (!isPlatformPersistenceAvailable()) {
     return resolveWorkspaceEntitlements({
       subscription: null,
+      platformRole: input.platformRole,
       now: input.now,
     });
   }
@@ -32,12 +35,14 @@ export async function getWorkspaceEntitlements(input: {
         currentPeriodEnd: billingSubscription.currentPeriodEnd,
         gracePeriodEndsAt: billingSubscription.gracePeriodEndsAt,
       },
+      platformRole: input.platformRole,
       now: input.now,
     });
   }
 
   return resolveWorkspaceEntitlements({
     subscription: null,
+    platformRole: input.platformRole,
     now: input.now,
   });
 }

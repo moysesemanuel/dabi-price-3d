@@ -28,6 +28,7 @@ export default async function OnboardingPage({
   const preferences = await getWorkspacePreferences(session.workspace.id);
   const entitlements = await getWorkspaceEntitlements({
     workspaceId: session.workspace.id,
+    platformRole: session.user.platformRole,
   });
 
   if (preferences.onboardingCompleted) {

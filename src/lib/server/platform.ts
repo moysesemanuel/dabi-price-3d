@@ -903,7 +903,7 @@ export async function inviteWorkspaceMember(input: {
   email: string;
   workspaceRole: string;
   invitedByUserId: string;
-  seatLimit: number;
+  seatLimit: number | null;
 }) {
   await ensurePlatformReady();
 
@@ -979,14 +979,27 @@ export async function inviteWorkspaceMember(input: {
 
   // Lock first, then count in a new statement snapshot within the same transaction.
   // A single CTE would retain the stale snapshot captured before a competing lock wait.
-  const transactionResults = await sql.transaction([
-    sql`
-      SELECT id
-      FROM workspaces
-      WHERE id = ${input.workspaceId}
-      FOR UPDATE
-    `,
-    sql`
+  const insertMembership = input.seatLimit === null
+    ? sql`
+      INSERT INTO workspace_memberships (
+        id,
+        workspace_id,
+        user_id,
+        workspace_role,
+        invited_by_user_id,
+        created_at
+      )
+      VALUES (
+        ${membershipId},
+        ${input.workspaceId},
+        ${userId},
+        ${normalizedRole},
+        ${input.invitedByUserId},
+        NOW()
+      )
+      RETURNING id
+    `
+    : sql`
       INSERT INTO workspace_memberships (
         id,
         workspace_id,
@@ -1008,7 +1021,15 @@ export async function inviteWorkspaceMember(input: {
         WHERE workspace_id = ${input.workspaceId}
       ) < ${Math.max(1, Math.floor(input.seatLimit))}
       RETURNING id
+    `;
+  const transactionResults = await sql.transaction([
+    sql`
+      SELECT id
+      FROM workspaces
+      WHERE id = ${input.workspaceId}
+      FOR UPDATE
     `,
+    insertMembership,
   ]);
   const membershipRows = transactionResults[1] as Array<{ id: string }>;
 
@@ -1532,6 +1553,7 @@ export async function saveCalculationSnapshot(input: {
   workspaceId: string;
   userId: string;
   item: SavedCalculation;
+  historyLimit?: number | null;
 }) {
   await ensurePlatformReady();
 
@@ -1569,18 +1591,13 @@ export async function saveCalculationSnapshot(input: {
     throw new Error("CALCULATION_ID_CONFLICT");
   }
 
-  const billingSubscription =
-    await findLatestBillingSubscriptionSnapshotForWorkspace(input.workspaceId);
-  const historyLimit = getWorkspacePlan(
-    resolveHistoryLimitPlanId(
-      billingSubscription
-        ? {
-            planId: billingSubscription.plan_id,
-            status: billingSubscription.status,
-          }
-        : {},
-    ),
-  ).historyLimit;
+  const historyLimit = input.historyLimit === undefined
+    ? await resolveWorkspaceHistoryLimit(input.workspaceId)
+    : input.historyLimit;
+
+  if (historyLimit === null) {
+    return normalizedItem;
+  }
 
   await sql`
     DELETE FROM calculation_snapshots
@@ -1595,6 +1612,22 @@ export async function saveCalculationSnapshot(input: {
   `;
 
   return normalizedItem;
+}
+
+async function resolveWorkspaceHistoryLimit(workspaceId: string) {
+  const billingSubscription =
+    await findLatestBillingSubscriptionSnapshotForWorkspace(workspaceId);
+
+  return getWorkspacePlan(
+    resolveHistoryLimitPlanId(
+      billingSubscription
+        ? {
+            planId: billingSubscription.plan_id,
+            status: billingSubscription.status,
+          }
+        : {},
+    ),
+  ).historyLimit;
 }
 
 export async function deleteCalculationSnapshot(

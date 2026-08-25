@@ -4,8 +4,10 @@ import {
   type SubscriptionStatus,
   type WorkspacePlanId,
 } from "../workspace/catalog.ts";
+import type { PlatformRole } from "../server/platform.ts";
 
 export type WorkspaceEntitlementAccessReason =
+  | "super_admin"
   | "active"
   | "grace_period"
   | "scheduled_cancel"
@@ -35,16 +37,31 @@ export type WorkspaceEntitlements = {
   canExportPdf: boolean;
   canViewHistory: boolean;
   canManageIntegrations: boolean;
-  historyLimit: number;
-  seatsLimit: number;
+  historyLimit: number | null;
+  seatsLimit: number | null;
   canManageBilling: boolean;
   accessReason: WorkspaceEntitlementAccessReason;
 };
 
 export function resolveWorkspaceEntitlements(input: {
   subscription?: WorkspaceEntitlementSubscription | null;
+  platformRole?: PlatformRole | null;
   now?: Date;
 }): WorkspaceEntitlements {
+  if (input.platformRole === "super_admin") {
+    return {
+      canUseApp: true,
+      canUsePricing: true,
+      canExportPdf: true,
+      canViewHistory: true,
+      canManageIntegrations: true,
+      historyLimit: null,
+      seatsLimit: null,
+      canManageBilling: true,
+      accessReason: "super_admin",
+    };
+  }
+
   const subscription = input.subscription ?? null;
   const accessReason = resolveWorkspaceEntitlementAccessReason({
     subscription,
@@ -138,6 +155,7 @@ export function getEntitlementAccessBlockedMessage(
     case "active":
     case "grace_period":
     case "scheduled_cancel":
+    case "super_admin":
       return null;
   }
 }

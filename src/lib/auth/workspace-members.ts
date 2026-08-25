@@ -85,6 +85,7 @@ export async function inviteWorkspaceMemberForSession(input: {
         seatLimit: (
           await getWorkspaceEntitlements({
             workspaceId: input.session.workspace.id,
+            platformRole: input.session.user.platformRole,
           })
         ).seatsLimit,
       })

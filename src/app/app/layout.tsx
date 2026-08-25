@@ -50,8 +50,14 @@ export default async function ProductLayout({
     getWorkspaceBillingNotification({ workspaceId: session.workspace.id }).catch(
       () => null,
     ),
-    getWorkspaceEntitlements({ workspaceId: session.workspace.id }).catch(() =>
-      resolveWorkspaceEntitlements({ subscription: null }),
+    getWorkspaceEntitlements({
+      workspaceId: session.workspace.id,
+      platformRole: session.user.platformRole,
+    }).catch(() =>
+      resolveWorkspaceEntitlements({
+        subscription: null,
+        platformRole: session.user.platformRole,
+      }),
     ),
     findCurrentBillingSubscriptionForWorkspace(session.workspace.id).catch(
       () => null,
@@ -71,6 +77,7 @@ export default async function ProductLayout({
           initialBusinessType={serverBusinessType}
           canUsePaidFeatures={entitlements.canUseApp}
           initialPlanId={billingSubscription?.planId ?? "starter"}
+          isSuperAdmin={session.user.platformRole === "super_admin"}
         />
         <div>
           <BillingNotificationBanner notification={billingNotification} />
