@@ -16,6 +16,7 @@
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
     "test:pricing": "node --no-warnings --experimental-specifier-resolution=node --test tests/*.test.mjs",
+    "test:auth-postgres-integration": "node --no-warnings --experimental-loader ./tests/support/server-only-loader.mjs --experimental-specifier-resolution=node --test tests/auth-postgres-concurrency.integration.mjs",
     "check": "npm run lint && npm run typecheck && npm run test:pricing && npm run build:webpack"
   },
   "dependencies": {
@@ -35,6 +36,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.2",
+    "postgres": "^3.4.9",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
