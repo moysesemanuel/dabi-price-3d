@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getCurrentAuthSession } from "@/lib/auth/session";
 import { AppSidebar } from "@/components/app/app-sidebar";
 import { BillingNotificationBanner } from "@/components/app/billing-notification-banner";
+import { getWorkspaceEntitlements } from "@/lib/billing/server-entitlement-service";
 import { getWorkspaceBillingNotification } from "@/lib/billing/server-notification-service";
 import { getPersistenceMode } from "@/lib/server/persistence-mode";
 import {
@@ -46,6 +47,9 @@ export default async function ProductLayout({
   const billingNotification = await getWorkspaceBillingNotification({
     workspaceId: session.workspace.id,
   }).catch(() => null);
+  const entitlements = await getWorkspaceEntitlements({
+    workspaceId: session.workspace.id,
+  });
 
   return (
     <main
@@ -58,6 +62,7 @@ export default async function ProductLayout({
         <AppSidebar
           platformRole={session.user.platformRole}
           initialBusinessType={serverBusinessType}
+          canUsePaidFeatures={entitlements.canUseApp}
         />
         <div>
           <BillingNotificationBanner notification={billingNotification} />

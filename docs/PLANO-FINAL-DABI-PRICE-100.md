@@ -660,6 +660,11 @@ UI
 
 Nenhuma decisão de plano, cobrança ou acesso depende de estado comercial legado.
 
+## Execução automatizada adicional
+
+- A navegação do produto recebe o entitlement calculado no servidor; a
+  projeção de preferências não decide mais quais módulos pagos são exibidos.
+
 ---
 
 # Fase 9 — Pix Automático

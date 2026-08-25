@@ -18,7 +18,6 @@ import {
 } from "@/lib/settings/app-preferences";
 import {
   canAccessAppPathWithoutPaidWorkspace,
-  canAccessPaidWorkspaceFeatures,
 } from "@/lib/workspace/subscription-access";
 
 const EXPANDED_WIDTH = 262;
@@ -368,9 +367,11 @@ const confectioneryNavigationSections: NavigationSection[] = [
 export function AppSidebar({
   platformRole,
   initialBusinessType = null,
+  canUsePaidFeatures,
 }: {
   platformRole: PlatformRole;
   initialBusinessType?: BusinessType | null;
+  canUsePaidFeatures: boolean;
 }) {
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(true);
@@ -410,10 +411,6 @@ export function AppSidebar({
     sidebarVariant === "confectionery"
       ? confectioneryNavigationSections
       : navigationSections;
-  const workspacePreferences = readAppPreferences();
-  const hasPaidWorkspaceAccess = canAccessPaidWorkspaceFeatures(
-    workspacePreferences.subscription,
-  );
 
   const visibleSections = activeNavigationSections
     .map((section) => ({
@@ -433,7 +430,7 @@ export function AppSidebar({
 
         if (!entry.superAdminOnly || platformRole === "super_admin") {
           if (
-            !hasPaidWorkspaceAccess &&
+            !canUsePaidFeatures &&
             !entry.href.startsWith("/admin/") &&
             !canAccessAppPathWithoutPaidWorkspace(entry.href)
           ) {
