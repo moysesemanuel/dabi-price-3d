@@ -977,37 +977,40 @@ export async function inviteWorkspaceMember(input: {
 
   const membershipId = randomUUID();
 
-  // Serializes concurrent invites for this workspace before counting occupied seats.
-  const membershipRows = (await sql`
-    WITH locked_workspace AS (
+  // Lock first, then count in a new statement snapshot within the same transaction.
+  // A single CTE would retain the stale snapshot captured before a competing lock wait.
+  const transactionResults = await sql.transaction([
+    sql`
       SELECT id
       FROM workspaces
       WHERE id = ${input.workspaceId}
       FOR UPDATE
-    )
-    INSERT INTO workspace_memberships (
-      id,
-      workspace_id,
-      user_id,
-      workspace_role,
-      invited_by_user_id,
-      created_at
-    )
-    SELECT
-      ${membershipId},
-      locked_workspace.id,
-      ${userId},
-      ${normalizedRole},
-      ${input.invitedByUserId},
-      NOW()
-    FROM locked_workspace
-    WHERE (
-      SELECT COUNT(*)
-      FROM workspace_memberships
-      WHERE workspace_id = ${input.workspaceId}
-    ) < ${Math.max(1, Math.floor(input.seatLimit))}
-    RETURNING id
-  `) as Array<{ id: string }>;
+    `,
+    sql`
+      INSERT INTO workspace_memberships (
+        id,
+        workspace_id,
+        user_id,
+        workspace_role,
+        invited_by_user_id,
+        created_at
+      )
+      SELECT
+        ${membershipId},
+        ${input.workspaceId},
+        ${userId},
+        ${normalizedRole},
+        ${input.invitedByUserId},
+        NOW()
+      WHERE (
+        SELECT COUNT(*)
+        FROM workspace_memberships
+        WHERE workspace_id = ${input.workspaceId}
+      ) < ${Math.max(1, Math.floor(input.seatLimit))}
+      RETURNING id
+    `,
+  ]);
+  const membershipRows = transactionResults[1] as Array<{ id: string }>;
 
   if (!membershipRows[0]) {
     if (!existingUser) {
