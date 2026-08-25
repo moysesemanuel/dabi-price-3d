@@ -347,6 +347,18 @@ export class BillingReconciliationService {
 
     invoice = transitionedInvoice.invoice ?? invoice;
 
+    // A paid invoice must use the durable effect claim before changing the
+    // subscription. This also serializes reconciliation with cancellation and
+    // webhook effects for the same subscription.
+    if (nextInvoiceStatus === "paid") {
+      const recovered = await this.recoverPaidInvoiceEffect(invoice);
+
+      return {
+        ...recovered,
+        changed: recovered.changed + 1,
+      };
+    }
+
     const findings: BillingReconciliationFinding[] = [];
     let changed = 1;
 
@@ -381,82 +393,6 @@ export class BillingReconciliationService {
         changed += 1;
       }
 
-      if (nextInvoiceStatus !== "paid") {
-        return {
-          processed: 1,
-          changed,
-          findings,
-        };
-      }
-
-      if (!change || change.status !== "pending_payment") {
-        return {
-          processed: 1,
-          changed,
-          findings,
-        };
-      }
-
-      if (subscription.status !== "active") {
-        findings.push({
-          code: "invoice_paid_subscription_not_active",
-          workspaceId: subscription.workspaceId,
-          subscriptionId: subscription.id,
-          invoiceId: invoice.id,
-          details: {
-            previousSubscriptionStatus: subscription.status,
-            autoCorrected: false,
-            invoiceType: invoice.type,
-            changeId: change.id,
-          },
-        });
-
-        return {
-          processed: 1,
-          changed,
-          findings,
-        };
-      }
-
-      if (change.type === "cycle_change") {
-        await applyBillingSubscriptionCycleChange({
-          subscription,
-          change,
-          invoice,
-          actorType: "system",
-          nowIso,
-          source: "billing-reconciliation-cycle-change",
-          description: `Reconciliação aplicou mudança de ciclo após invoice ${invoice.id} paga.`,
-          dependencies: {
-            findActivePrice: this.dependencies.findActivePrice,
-            getProvider: this.dependencies.getProvider,
-            billingService: this.dependencies.billingService,
-            updateSubscriptionChange: this.dependencies.updateSubscriptionChange,
-            applyWorkspaceSubscriptionUpdate:
-              this.dependencies.applyWorkspaceSubscriptionUpdate,
-          },
-        });
-      } else {
-        await applyBillingSubscriptionUpgrade({
-          subscription,
-          change,
-          invoice,
-          actorType: "system",
-          nowIso,
-          source: "billing-reconciliation-upgrade",
-          description: `Reconciliação aplicou upgrade após invoice ${invoice.id} paga.`,
-          dependencies: {
-            findActivePrice: this.dependencies.findActivePrice,
-            getProvider: this.dependencies.getProvider,
-            billingService: this.dependencies.billingService,
-            updateSubscriptionChange: this.dependencies.updateSubscriptionChange,
-            applyWorkspaceSubscriptionUpdate:
-              this.dependencies.applyWorkspaceSubscriptionUpdate,
-          },
-        });
-      }
-      changed += 1;
-
       return {
         processed: 1,
         changed,
@@ -465,60 +401,6 @@ export class BillingReconciliationService {
     }
 
     if (invoice.type === "renewal") {
-      if (nextInvoiceStatus === "paid") {
-        if (
-          subscription.status !== "active" &&
-          subscription.status !== "past_due"
-        ) {
-          findings.push({
-            code: "invoice_paid_subscription_not_active",
-            workspaceId: subscription.workspaceId,
-            subscriptionId: subscription.id,
-            invoiceId: invoice.id,
-            details: {
-              previousSubscriptionStatus: subscription.status,
-              autoCorrected: false,
-              invoiceType: invoice.type,
-            },
-          });
-
-          return {
-            processed: 1,
-            changed,
-            findings,
-          };
-        }
-
-        const currentPeriodStart =
-          invoice.periodStart ?? subscription.currentPeriodEnd ?? nowIso;
-        const currentPeriodEnd =
-          invoice.periodEnd ??
-          addBillingCycle(currentPeriodStart, subscription.billingCycle);
-
-        await this.dependencies.billingService.renewSubscription(subscription.id, {
-          actorType: "system",
-          currentPeriodStart,
-          currentPeriodEnd,
-          accessUntil: currentPeriodEnd,
-        });
-        await this.dependencies.applyWorkspaceSubscriptionUpdate({
-          workspaceId: subscription.workspaceId,
-          planId: subscription.planId,
-          billingCycle: subscription.billingCycle,
-          status: "active",
-          mercadoPagoSubscriptionId: subscription.providerSubscriptionId,
-          source: "billing-reconciliation-renewal-paid",
-          description: `Reconciliação renovou a assinatura após invoice ${invoice.id} paga.`,
-        });
-        changed += 1;
-
-        return {
-          processed: 1,
-          changed,
-          findings,
-        };
-      }
-
       if (
         (nextInvoiceStatus === "failed" ||
           nextInvoiceStatus === "expired" ||
@@ -560,44 +442,6 @@ export class BillingReconciliationService {
       };
     }
 
-    if (nextInvoiceStatus === "paid" && subscription.status !== "active") {
-      findings.push({
-        code: "invoice_paid_subscription_not_active",
-        workspaceId: subscription.workspaceId,
-        subscriptionId: subscription.id,
-        invoiceId: invoice.id,
-        details: {
-          previousSubscriptionStatus: subscription.status,
-          autoCorrected: subscription.status === "pending",
-        },
-      });
-
-      if (subscription.status === "pending") {
-        const currentPeriodStart = invoice.paidAt ?? nowIso;
-        const currentPeriodEnd = addBillingCycle(
-          currentPeriodStart,
-          subscription.billingCycle,
-        );
-
-        await this.dependencies.billingService.activateSubscription(subscription.id, {
-          actorType: "system",
-          currentPeriodStart,
-          currentPeriodEnd,
-          accessUntil: currentPeriodEnd,
-        });
-        await this.dependencies.applyWorkspaceSubscriptionUpdate({
-          workspaceId: subscription.workspaceId,
-          planId: subscription.planId,
-          billingCycle: subscription.billingCycle,
-          status: "active",
-          mercadoPagoSubscriptionId: subscription.providerSubscriptionId,
-          source: "billing-reconciliation-invoice-paid",
-          description: `Reconciliação ativou a assinatura após invoice ${invoice.id} paga.`,
-        });
-        changed += 1;
-      }
-    }
-
     if (
       (nextInvoiceStatus === "failed" || nextInvoiceStatus === "expired") &&
       subscription.status === "active"
@@ -634,23 +478,26 @@ export class BillingReconciliationService {
     let shouldComplete = false;
 
     try {
-      const subscription = await this.dependencies.getSubscriptionById(
+      return await this.runWithSubscriptionOperation(
         invoice.subscriptionId,
-      );
+        async () => {
+          const subscription = await this.dependencies.getSubscriptionById(
+            invoice.subscriptionId,
+          );
 
-      if (!subscription) {
-        if (claimToken) {
-          await this.dependencies.releaseInvoiceEffectClaim?.({
-            invoiceId: invoice.id,
-            claimToken,
-          });
-        }
+          if (!subscription) {
+            if (claimToken) {
+              await this.dependencies.releaseInvoiceEffectClaim?.({
+                invoiceId: invoice.id,
+                claimToken,
+              });
+            }
 
-        return singleFinding("invoice_paid_subscription_not_active", {
-          invoiceId: invoice.id,
-          details: { reason: "subscription_missing", autoCorrected: false },
-        });
-      }
+            return singleFinding("invoice_paid_subscription_not_active", {
+              invoiceId: invoice.id,
+              details: { reason: "subscription_missing", autoCorrected: false },
+            });
+          }
 
       const nowIso = this.now().toISOString();
       const findings: BillingReconciliationFinding[] = [];
@@ -770,6 +617,16 @@ export class BillingReconciliationService {
         );
 
         if (subscription.status === "pending") {
+          findings.push({
+            code: "invoice_paid_subscription_not_active",
+            workspaceId: subscription.workspaceId,
+            subscriptionId: subscription.id,
+            invoiceId: invoice.id,
+            details: {
+              previousSubscriptionStatus: subscription.status,
+              autoCorrected: true,
+            },
+          });
           await this.dependencies.billingService.activateSubscription(subscription.id, {
             actorType: "system",
             currentPeriodStart,
@@ -827,7 +684,9 @@ export class BillingReconciliationService {
         }
       }
 
-      return { processed: 1, changed, findings };
+          return { processed: 1, changed, findings };
+        },
+      );
     } catch (error) {
       if (claimToken) {
         await this.dependencies

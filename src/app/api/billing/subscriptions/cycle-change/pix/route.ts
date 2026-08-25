@@ -4,6 +4,7 @@ import {
   RequestBillingCycleChangeError,
   requestMonthlyToAnnualCycleChange,
 } from "@/lib/billing/cycle-change-management";
+import { runBillingCycleChangePixOperation } from "@/lib/billing/cycle-change-pix-operation";
 import { normalizeBillingManualPaymentState } from "@/lib/billing/manual-payment-status";
 import { getBillingProvider } from "@/lib/billing/providers";
 import {
@@ -73,19 +74,13 @@ export async function POST(request: Request) {
   let providerPaymentCreated = false;
 
   try {
-    return await runWithServerBillingSubscriptionOperationClaim(
-      subscription.id,
-      async () => {
-        const currentSubscription =
-          await findCurrentBillingSubscriptionForWorkspace(session.workspace.id);
-
-        if (!currentSubscription || currentSubscription.id !== subscription.id) {
-          throw new RequestBillingCycleChangeError(
-            "A assinatura foi alterada enquanto a mudança de ciclo estava sendo iniciada. Atualize a página e tente novamente.",
-            "CYCLE_CHANGE_SUBSCRIPTION_CHANGED_CONCURRENTLY",
-            409,
-          );
-        }
+    return await runBillingCycleChangePixOperation({
+      subscription,
+      getCurrentSubscription: () =>
+        findCurrentBillingSubscriptionForWorkspace(session.workspace.id),
+      runWithSubscriptionOperation:
+        runWithServerBillingSubscriptionOperationClaim,
+      operation: async (currentSubscription) => {
 
         const nowIso = new Date().toISOString();
         const currentPrice = await resolveCurrentSubscriptionPrice(
@@ -196,7 +191,7 @@ export async function POST(request: Request) {
           redirectTo: "/app/planos",
         });
       },
-    );
+    });
   } catch (error) {
     if (createdInvoiceId && !providerPaymentCreated) {
       await updateBillingInvoice(createdInvoiceId, { status: "canceled" }).catch(
