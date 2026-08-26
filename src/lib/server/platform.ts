@@ -724,6 +724,56 @@ export async function listWorkspaceMembers(workspaceId: string) {
   return rows.map(mapWorkspaceMemberRow);
 }
 
+export async function listPlatformUserMemberships(userId: string) {
+  await ensurePlatformReady();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      m.id AS membership_id,
+      m.workspace_id,
+      m.user_id,
+      u.email,
+      u.full_name,
+      u.platform_role,
+      u.status AS user_status,
+      m.workspace_role,
+      m.invited_by_user_id,
+      inviter.full_name AS invited_by_name,
+      m.created_at AS membership_created_at,
+      u.last_login_at,
+      w.owner_user_id AS workspace_owner_user_id
+    FROM workspace_memberships m
+    JOIN users u ON u.id = m.user_id
+    JOIN workspaces w ON w.id = m.workspace_id
+    LEFT JOIN users inviter ON inviter.id = m.invited_by_user_id
+    WHERE m.user_id = ${userId}
+    ORDER BY m.created_at ASC
+  `) as WorkspaceMemberLookupRow[];
+
+  return rows.map(mapWorkspaceMemberRow);
+}
+
+export async function updateWorkspaceName(input: {
+  workspaceId: string;
+  name: string;
+}) {
+  await ensurePlatformReady();
+  const name = input.name.trim();
+  if (!name) {
+    throw new Error("WORKSPACE_NAME_REQUIRED");
+  }
+
+  const sql = getSql();
+  const rows = (await sql`
+    UPDATE workspaces
+    SET name = ${name}, updated_at = NOW()
+    WHERE id = ${input.workspaceId}
+    RETURNING id, name, slug
+  `) as Array<{ id: string; name: string; slug: string }>;
+
+  return rows[0] ?? null;
+}
+
 export async function listPlatformUsers() {
   await ensurePlatformReady();
 
@@ -1078,20 +1128,38 @@ export async function updateWorkspaceMemberRole(input: {
   }
 
   if (normalizedRole === "owner") {
-    await sql`
-      UPDATE workspace_memberships
-      SET workspace_role = 'manager'
-      WHERE workspace_id = ${input.workspaceId}
-        AND workspace_role = 'owner'
-    `;
+    // Ownership changes affect the workspace row and two memberships; keep them atomic.
+    await sql.transaction([
+      sql`
+        SELECT id
+        FROM workspaces
+        WHERE id = ${input.workspaceId}
+        FOR UPDATE
+      `,
+      sql`
+        UPDATE workspace_memberships
+        SET workspace_role = 'manager'
+        WHERE workspace_id = ${input.workspaceId}
+          AND workspace_role = 'owner'
+      `,
+      sql`
+        UPDATE workspaces
+        SET owner_user_id = ${targetMember.userId}, updated_at = NOW()
+        WHERE id = ${input.workspaceId}
+      `,
+      sql`
+        UPDATE workspace_memberships
+        SET workspace_role = 'owner'
+        WHERE id = ${input.membershipId}
+          AND workspace_id = ${input.workspaceId}
+      `,
+    ]);
 
-    await sql`
-      UPDATE workspaces
-      SET
-        owner_user_id = ${targetMember.userId},
-        updated_at = NOW()
-      WHERE id = ${input.workspaceId}
-    `;
+    await syncWorkspaceSeatUsage(input.workspaceId, input.updatedByUserId);
+    return findWorkspaceMemberById({
+      workspaceId: input.workspaceId,
+      membershipId: input.membershipId,
+    });
   }
 
   await sql`
@@ -1255,12 +1323,107 @@ export async function deletePlatformUser(input: { userId: string }) {
     throw new Error("OWNER_USER_DELETE_FORBIDDEN");
   }
 
+  if (user.platformRole === "super_admin") {
+    const result = await sql.transaction([
+      sql`
+        SELECT id
+        FROM users
+        WHERE platform_role = 'super_admin'
+        FOR UPDATE
+      `,
+      sql`
+        DELETE FROM users
+        WHERE id = ${input.userId}
+          AND (
+            SELECT COUNT(*)
+            FROM users
+            WHERE platform_role = 'super_admin'
+          ) > 1
+        RETURNING id
+      `,
+    ]);
+
+    if (!(result[1] as Array<{ id: string }>)[0]) {
+      throw new Error("LAST_SUPER_ADMIN_PROTECTED");
+    }
+
+    return user;
+  }
+
   await sql`
     DELETE FROM users
     WHERE id = ${input.userId}
   `;
 
   return user;
+}
+
+export async function updatePlatformUserStatus(input: {
+  userId: string;
+  status: "active" | "disabled";
+}) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const user = await findPlatformUserById(input.userId);
+
+  if (!user) {
+    return null;
+  }
+
+  if (user.platformRole === "super_admin" && input.status === "disabled") {
+    const result = await sql.transaction([
+      sql`
+        SELECT id
+        FROM users
+        WHERE platform_role = 'super_admin'
+        FOR UPDATE
+      `,
+      sql`
+        UPDATE users
+        SET status = 'disabled', updated_at = NOW()
+        WHERE id = ${input.userId}
+          AND (
+            SELECT COUNT(*)
+            FROM users
+            WHERE platform_role = 'super_admin'
+              AND status <> 'disabled'
+          ) > 1
+        RETURNING id
+      `,
+      sql`DELETE FROM user_sessions WHERE user_id = ${input.userId}`,
+    ]);
+
+    if (!(result[1] as Array<{ id: string }>)[0]) {
+      throw new Error("LAST_SUPER_ADMIN_PROTECTED");
+    }
+  } else {
+    await sql.transaction([
+      sql`
+        UPDATE users
+        SET status = ${input.status}, updated_at = NOW()
+        WHERE id = ${input.userId}
+      `,
+      ...(input.status === "disabled"
+        ? [sql`DELETE FROM user_sessions WHERE user_id = ${input.userId}`]
+        : []),
+    ]);
+  }
+
+  return findPlatformUserById(input.userId);
+}
+
+export async function revokePlatformUserSessions(userId: string) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    DELETE FROM user_sessions
+    WHERE user_id = ${userId}
+    RETURNING id
+  `) as Array<{ id: string }>;
+
+  return rows.length;
 }
 
 export async function getStoredWorkspacePreferences(workspaceId: string) {
