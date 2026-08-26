@@ -11,6 +11,10 @@
   --muted: #6f6693;
   --sidebar-bg: rgba(255, 255, 255, 0.86);
   --sidebar-hover: rgba(108, 86, 255, 0.08);
+  --admin-shell-nav-bg: #22144f;
+  --admin-shell-nav-fg: #ffffff;
+  --admin-shell-nav-muted: rgba(255, 255, 255, 0.72);
+  --admin-shell-nav-active: rgba(255, 255, 255, 0.14);
   --accent: #6c56ff;
   --accent-strong: #5741e4;
   --accent-soft: #f2eeff;
@@ -44,6 +48,10 @@
   --muted: #b9afd9;
   --sidebar-bg: rgba(12, 8, 32, 0.88);
   --sidebar-hover: rgba(255, 255, 255, 0.08);
+  --admin-shell-nav-bg: #110b29;
+  --admin-shell-nav-fg: #ffffff;
+  --admin-shell-nav-muted: rgba(255, 255, 255, 0.74);
+  --admin-shell-nav-active: rgba(143, 123, 255, 0.24);
   --accent: #8f7bff;
   --accent-strong: #a898ff;
   --accent-soft: #1c1540;
@@ -642,6 +650,20 @@ input[type="number"] {
 
 :root[data-theme="dark"] .app-card-soft {
   background: var(--panel-soft);
+}
+
+/* Admin data views use white utility surfaces for controls and table rows. */
+:root[data-theme="dark"] .admin-shell [class~="bg-white"],
+:root[data-theme="dark"] .admin-shell [class*="bg-white/"] {
+  background-color: var(--panel-strong) !important;
+}
+
+:root[data-theme="dark"] .admin-shell [class*="bg-[rgba(255,255,255"] {
+  background-color: var(--panel-strong) !important;
+}
+
+:root[data-theme="dark"] .admin-shell [class*="bg-[rgba(255,248,235"] {
+  background-color: rgba(103, 72, 19, 0.24) !important;
 }
 
 :root[data-theme="dark"] .app-button-secondary,
