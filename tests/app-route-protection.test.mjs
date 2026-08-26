@@ -126,6 +126,23 @@ test("permite APIs administrativas mesmo sem acesso pago ao workspace", () => {
   assert.equal(result.type, "allow");
 });
 
+for (const accessReason of ["no_subscription", "canceled", "expired", "super_admin"]) {
+  test(`permite login com sessao anterior ${accessReason}`, () => {
+    const result = resolveAppRouteProtection({
+      hasSession: true, accessReason, isApiRequest: true,
+      requestUrl: "http://127.0.0.1:3005/api/auth/login", pathname: "/api/auth/login", search: "",
+    });
+    assert.equal(result.type, "allow");
+  });
+}
+
+test("permite lifecycle publico de autenticacao sem entitlement", () => {
+  for (const pathname of ["/api/auth/logout", "/api/auth/recovery/request", "/api/auth/recovery/reset", "/api/auth/recovery/verify"]) {
+    const result = resolveAppRouteProtection({ hasSession: true, accessReason: "no_subscription", isApiRequest: true, requestUrl: `http://127.0.0.1:3005${pathname}`, pathname, search: "" });
+    assert.equal(result.type, "allow");
+  }
+});
+
 test("mantem acesso quando o entitlement está em scheduled_cancel", () => {
   const result = resolveAppRouteProtection({
     hasSession: true,
