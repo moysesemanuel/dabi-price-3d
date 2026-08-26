@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 const groups = [
   { label: "Administracao", links: [["/admin/dashboard", "Dashboard"]] },
@@ -15,11 +15,15 @@ export function AdminShellNav({ userName }: { userName: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-  useEffect(() => {
-    const savedTheme = window.localStorage.getItem("dabi-price-theme");
-    setTheme(savedTheme === "dark" ? "dark" : "light");
-  }, []);
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    if (typeof window !== "undefined") {
+      return window.localStorage.getItem("dabi-price-theme") === "dark"
+        ? "dark"
+        : "light";
+    }
+
+    return "light";
+  });
   async function logout() { await fetch("/api/auth/logout", { method: "POST" }); router.replace("/login"); router.refresh(); }
   function toggleTheme() {
     const nextTheme = theme === "dark" ? "light" : "dark";
