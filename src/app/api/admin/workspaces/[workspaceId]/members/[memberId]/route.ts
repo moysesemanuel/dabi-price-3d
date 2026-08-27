@@ -1,8 +1,7 @@
-import { isSuperAdminSession, normalizeWorkspaceRole } from "@/lib/auth/access-control";
+import { isManagedWorkspaceRole, isSuperAdminSession } from "@/lib/auth/access-control";
 import { getCurrentAuthSession } from "@/lib/auth/session";
 import {
   appendAuditEvent,
-  findWorkspaceMemberById,
   removeWorkspaceMember,
   updateWorkspaceMemberRole,
 } from "@/lib/server/platform";
@@ -12,28 +11,36 @@ export async function PATCH(request: Request, context: { params: Promise<{ works
   if (!session) return Response.json({ error: "Nao autenticado." }, { status: 401 });
   if (!isSuperAdminSession(session)) return Response.json({ error: "Acao exclusiva para super admin." }, { status: 403 });
   const body = (await request.json().catch(() => null)) as { workspaceRole?: string } | null;
-  if (!body?.workspaceRole) return Response.json({ error: "Role invalida." }, { status: 400 });
+  if (!body?.workspaceRole || !isManagedWorkspaceRole(body.workspaceRole)) {
+    return Response.json({ error: "Role invalida." }, { status: 400 });
+  }
 
   try {
     const { workspaceId, memberId } = await context.params;
-    const previous = await findWorkspaceMemberById({ workspaceId, membershipId: memberId });
-    if (!previous) return Response.json({ error: "Membership nao encontrada." }, { status: 404 });
     const member = await updateWorkspaceMemberRole({
       workspaceId,
       membershipId: memberId,
-      workspaceRole: normalizeWorkspaceRole(body.workspaceRole),
+      workspaceRole: body.workspaceRole,
       updatedByUserId: session.user.id,
     });
+    if (!member) return Response.json({ error: "Membership nao encontrada." }, { status: 404 });
     await appendAuditEvent({
       workspaceId,
       userId: session.user.id,
-      type: "workspace-membership-role-updated-by-super-admin",
-      title: "Role de membership atualizada",
-      description: `Super admin alterou a role de ${previous.email} de ${previous.workspaceRole} para ${member?.workspaceRole ?? body.workspaceRole}.`,
+      type: body.workspaceRole === "owner"
+        ? "workspace-ownership-transferred-by-super-admin"
+        : "workspace-membership-role-updated-by-super-admin",
+      title: body.workspaceRole === "owner"
+        ? "Ownership do workspace transferido"
+        : "Role de membership atualizada",
+      description: `Super admin definiu a role de ${member.email} como ${member.workspaceRole}.`,
       tone: "neutral",
     });
     return Response.json({ member });
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message === "WORKSPACE_OWNERSHIP_TRANSFER_REQUIRED") {
+      return Response.json({ error: "Transfira ownership antes de alterar ou remover o owner." }, { status: 409 });
+    }
     return Response.json({ error: "Role invalida." }, { status: 400 });
   }
 }
@@ -43,17 +50,22 @@ export async function DELETE(_request: Request, context: { params: Promise<{ wor
   if (!session) return Response.json({ error: "Nao autenticado." }, { status: 401 });
   if (!isSuperAdminSession(session)) return Response.json({ error: "Acao exclusiva para super admin." }, { status: 403 });
   const { workspaceId, memberId } = await context.params;
-  const target = await findWorkspaceMemberById({ workspaceId, membershipId: memberId });
-  if (!target) return Response.json({ error: "Membership nao encontrada." }, { status: 404 });
-  if (target.isWorkspaceOwner) return Response.json({ error: "Transfira ownership antes de remover o owner." }, { status: 409 });
-  const member = await removeWorkspaceMember({ workspaceId, membershipId: memberId, removedByUserId: session.user.id });
-  await appendAuditEvent({
-    workspaceId,
-    userId: session.user.id,
-    type: "workspace-membership-removed-by-super-admin",
-    title: "Membership removida",
-    description: `Super admin removeu ${target.email} do workspace.`,
-    tone: "warning",
-  });
-  return Response.json({ member });
+  try {
+    const member = await removeWorkspaceMember({ workspaceId, membershipId: memberId, removedByUserId: session.user.id });
+    if (!member) return Response.json({ error: "Membership nao encontrada." }, { status: 404 });
+    await appendAuditEvent({
+      workspaceId,
+      userId: session.user.id,
+      type: "workspace-membership-removed-by-super-admin",
+      title: "Membership removida",
+      description: `Super admin removeu ${member.email} do workspace.`,
+      tone: "warning",
+    });
+    return Response.json({ member });
+  } catch (error) {
+    if (error instanceof Error && error.message === "WORKSPACE_OWNERSHIP_TRANSFER_REQUIRED") {
+      return Response.json({ error: "Transfira ownership antes de alterar ou remover o owner." }, { status: 409 });
+    }
+    return Response.json({ error: "Nao foi possivel remover a membership." }, { status: 400 });
+  }
 }

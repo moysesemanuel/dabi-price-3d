@@ -1117,19 +1117,19 @@ export async function updateWorkspaceMemberRole(input: {
   await ensurePlatformReady();
 
   const sql = getSql();
-  const normalizedRole = normalizeWorkspaceRole(input.workspaceRole);
-  const targetMember = await findWorkspaceMemberById({
-    workspaceId: input.workspaceId,
-    membershipId: input.membershipId,
-  });
-
-  if (!targetMember) {
-    return null;
+  if (
+    input.workspaceRole !== "owner" &&
+    input.workspaceRole !== "manager" &&
+    input.workspaceRole !== "operator"
+  ) {
+    throw new Error("INVALID_WORKSPACE_ROLE");
   }
 
+  const normalizedRole = input.workspaceRole;
+
   if (normalizedRole === "owner") {
-    // Ownership changes affect the workspace row and two memberships; keep them atomic.
-    await sql.transaction([
+    // All ownership writes are serialized by the workspace row lock.
+    const results = await sql.transaction([
       sql`
         SELECT id
         FROM workspaces
@@ -1137,23 +1137,81 @@ export async function updateWorkspaceMemberRole(input: {
         FOR UPDATE
       `,
       sql`
-        UPDATE workspace_memberships
-        SET workspace_role = 'manager'
-        WHERE workspace_id = ${input.workspaceId}
-          AND workspace_role = 'owner'
+        SELECT id, user_id
+        FROM workspace_memberships
+        WHERE id = ${input.membershipId}
+          AND workspace_id = ${input.workspaceId}
+        FOR UPDATE
       `,
       sql`
-        UPDATE workspaces
-        SET owner_user_id = ${targetMember.userId}, updated_at = NOW()
-        WHERE id = ${input.workspaceId}
+        SELECT id, user_id
+        FROM workspace_memberships
+        WHERE workspace_id = ${input.workspaceId}
+          AND workspace_role = 'owner'
+        FOR UPDATE
       `,
       sql`
         UPDATE workspace_memberships
         SET workspace_role = 'owner'
         WHERE id = ${input.membershipId}
           AND workspace_id = ${input.workspaceId}
+        RETURNING id
+      `,
+      sql`
+        UPDATE workspace_memberships
+        SET workspace_role = 'manager'
+        WHERE workspace_id = ${input.workspaceId}
+          AND workspace_role = 'owner'
+          AND id <> ${input.membershipId}
+          AND EXISTS (
+            SELECT 1
+            FROM workspace_memberships
+            WHERE id = ${input.membershipId}
+              AND workspace_id = ${input.workspaceId}
+              AND workspace_role = 'owner'
+          )
+      `,
+      sql`
+        UPDATE workspaces
+        SET
+          owner_user_id = (
+            SELECT user_id
+            FROM workspace_memberships
+            WHERE id = ${input.membershipId}
+              AND workspace_id = ${input.workspaceId}
+              AND workspace_role = 'owner'
+          ),
+          updated_at = NOW()
+        WHERE id = ${input.workspaceId}
+          AND EXISTS (
+            SELECT 1
+            FROM workspace_memberships
+            WHERE id = ${input.membershipId}
+              AND workspace_id = ${input.workspaceId}
+              AND workspace_role = 'owner'
+          )
+      `,
+      sql`
+        SELECT 1 / CASE WHEN
+          (SELECT COUNT(*) FROM workspace_memberships
+            WHERE workspace_id = ${input.workspaceId}
+              AND workspace_role = 'owner') = 1
+          AND (SELECT owner_user_id FROM workspaces WHERE id = ${input.workspaceId}) = (
+            SELECT user_id
+            FROM workspace_memberships
+            WHERE workspace_id = ${input.workspaceId}
+              AND workspace_role = 'owner'
+          )
+        THEN 1 ELSE 0 END AS ownership_invariant
       `,
     ]);
+
+    const workspaceRows = results[0] as Array<{ id: string }>;
+    const targetRows = results[1] as Array<{ id: string; user_id: string }>;
+    const promotedRows = results[3] as Array<{ id: string }>;
+    if (!workspaceRows[0] || !targetRows[0] || !promotedRows[0]) {
+      return null;
+    }
 
     await syncWorkspaceSeatUsage(input.workspaceId, input.updatedByUserId);
     return findWorkspaceMemberById({
@@ -1162,12 +1220,42 @@ export async function updateWorkspaceMemberRole(input: {
     });
   }
 
-  await sql`
-    UPDATE workspace_memberships
-    SET workspace_role = ${normalizedRole}
-    WHERE id = ${input.membershipId}
-      AND workspace_id = ${input.workspaceId}
-  `;
+  const results = await sql.transaction([
+    sql`
+      SELECT id
+      FROM workspaces
+      WHERE id = ${input.workspaceId}
+      FOR UPDATE
+    `,
+    sql`
+      SELECT id, workspace_role
+      FROM workspace_memberships
+      WHERE id = ${input.membershipId}
+        AND workspace_id = ${input.workspaceId}
+      FOR UPDATE
+    `,
+    sql`
+      UPDATE workspace_memberships
+      SET workspace_role = ${normalizedRole}
+      WHERE id = ${input.membershipId}
+        AND workspace_id = ${input.workspaceId}
+        AND workspace_role <> 'owner'
+      RETURNING id
+    `,
+  ]);
+
+  const workspaceRows = results[0] as Array<{ id: string }>;
+  const targetRows = results[1] as Array<{ id: string; workspace_role: string }>;
+  const updatedRows = results[2] as Array<{ id: string }>;
+  if (!workspaceRows[0] || !targetRows[0]) {
+    return null;
+  }
+  if (targetRows[0].workspace_role === "owner") {
+    throw new Error("WORKSPACE_OWNERSHIP_TRANSFER_REQUIRED");
+  }
+  if (!updatedRows[0]) {
+    return null;
+  }
 
   await syncWorkspaceSeatUsage(input.workspaceId, input.updatedByUserId);
 
@@ -1185,32 +1273,69 @@ export async function removeWorkspaceMember(input: {
   await ensurePlatformReady();
 
   const sql = getSql();
-  const member = await findWorkspaceMemberById({
-    workspaceId: input.workspaceId,
-    membershipId: input.membershipId,
-  });
+  const results = await sql.transaction([
+    sql`
+      SELECT id
+      FROM workspaces
+      WHERE id = ${input.workspaceId}
+      FOR UPDATE
+    `,
+    sql`
+      SELECT
+        m.id AS membership_id,
+        m.workspace_id,
+        m.user_id,
+        u.email,
+        u.full_name,
+        u.platform_role,
+        u.status AS user_status,
+        m.workspace_role,
+        m.invited_by_user_id,
+        inviter.full_name AS invited_by_name,
+        m.created_at AS membership_created_at,
+        u.last_login_at,
+        w.owner_user_id AS workspace_owner_user_id
+      FROM workspace_memberships m
+      JOIN users u ON u.id = m.user_id
+      JOIN workspaces w ON w.id = m.workspace_id
+      LEFT JOIN users inviter ON inviter.id = m.invited_by_user_id
+      WHERE m.id = ${input.membershipId}
+        AND m.workspace_id = ${input.workspaceId}
+      FOR UPDATE OF m
+    `,
+    sql`
+      DELETE FROM workspace_memberships
+      WHERE id = ${input.membershipId}
+        AND workspace_id = ${input.workspaceId}
+        AND workspace_role <> 'owner'
+      RETURNING id, user_id
+    `,
+  ]);
 
-  if (!member) {
+  const workspaceRows = results[0] as Array<{ id: string }>;
+  const targetRows = results[1] as WorkspaceMemberLookupRow[];
+  const removedRows = results[2] as Array<{ id: string; user_id: string }>;
+  if (!workspaceRows[0] || !targetRows[0]) {
     return null;
   }
+  if (targetRows[0].workspace_role === "owner") {
+    throw new Error("WORKSPACE_OWNERSHIP_TRANSFER_REQUIRED");
+  }
+  if (!removedRows[0]) return null;
 
-  await sql`
-    DELETE FROM workspace_memberships
-    WHERE id = ${input.membershipId}
-      AND workspace_id = ${input.workspaceId}
-  `;
+  const member = mapWorkspaceMemberRow(targetRows[0]);
 
   const remainingMemberships = (await sql`
     SELECT 1
     FROM workspace_memberships
-    WHERE user_id = ${member.userId}
+    WHERE user_id = ${removedRows[0].user_id}
     LIMIT 1
   `) as Array<{ "?column?": number }>;
 
   if (!remainingMemberships[0]) {
     await sql`
       DELETE FROM user_sessions
-      WHERE user_id = ${member.userId}
+      WHERE user_id = ${removedRows[0].user_id}
     `;
 
     await sql`
@@ -1218,7 +1343,7 @@ export async function removeWorkspaceMember(input: {
       SET
         status = 'disabled',
         updated_at = NOW()
-      WHERE id = ${member.userId}
+      WHERE id = ${removedRows[0].user_id}
     `;
   }
 
