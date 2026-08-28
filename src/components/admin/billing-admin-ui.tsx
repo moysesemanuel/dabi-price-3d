@@ -144,6 +144,12 @@ export function WorkspacesTable({
                     {workspace.workspaceName}
                   </p>
                   <p className="text-xs text-[var(--muted)]">{workspace.workspaceSlug}</p>
+                  <Link
+                    href={`/admin/workspaces/${workspace.workspaceId}`}
+                    className="text-xs font-medium text-[var(--accent)] hover:text-[var(--foreground)]"
+                  >
+                    Abrir detalhe
+                  </Link>
                 </div>
               </td>
               <td className="px-3 py-4 align-top text-[var(--muted)]">
