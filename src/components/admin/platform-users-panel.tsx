@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import type {
@@ -449,6 +450,9 @@ export function PlatformUsersPanel({
 
                         {activeMenuUserId === user.userId ? (
                           <div className="absolute right-0 top-12 z-20 min-w-[160px] rounded-[20px] border border-[var(--panel-border)] bg-white p-2 shadow-[0_18px_48px_rgba(57,37,118,0.12)]">
+                            <Link href={`/admin/usuarios/${user.userId}`} className="flex w-full rounded-xl px-3 py-2 text-left text-sm text-[var(--foreground)] transition hover:bg-[var(--panel-soft)]">
+                              Abrir detalhe
+                            </Link>
                             <ActionButton
                               onClick={() => {
                                 setActiveMenuUserId(null);

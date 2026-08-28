@@ -33,6 +33,7 @@ export type AdminUsersSnapshot = {
     activeUsers: number;
     invitedUsers: number;
     superAdmins: number;
+    activeSuperAdmins: number;
   };
   users: AdminPlatformUser[];
 };
@@ -45,8 +46,16 @@ export async function getAdminUserMembershipsForSession(input: {
     throw new Error("FORBIDDEN_ADMIN_USERS");
   }
   if (!isPlatformPersistenceAvailable()) {
-    return [];
+    return listLocalDevelopmentPlatformUsers().some(
+      (user) => user.userId === input.userId,
+    )
+      ? []
+      : null;
   }
+
+  const user = await findPlatformUserById(input.userId);
+  if (!user) return null;
+
   return listPlatformUserMemberships(input.userId);
 }
 
@@ -224,5 +233,9 @@ function buildAdminUsersSummary(users: AdminPlatformUser[]) {
     activeUsers: users.filter((user) => user.userStatus === "active").length,
     invitedUsers: users.filter((user) => user.userStatus === "invited").length,
     superAdmins: users.filter((user) => user.platformRole === "super_admin").length,
+    activeSuperAdmins: users.filter(
+      (user) =>
+        user.platformRole === "super_admin" && user.userStatus === "active",
+    ).length,
   };
 }

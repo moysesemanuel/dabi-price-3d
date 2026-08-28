@@ -81,6 +81,7 @@ type WorkspaceMemberLookupRow = {
   membership_created_at: string;
   last_login_at: string | null;
   workspace_owner_user_id: string;
+  workspace_name: string;
 };
 
 type PlatformUserLookupRow = {
@@ -150,6 +151,7 @@ export type AuthenticatedWorkspaceSession = {
 export type WorkspaceMemberRecord = {
   membershipId: string;
   workspaceId: string;
+  workspaceName: string;
   userId: string;
   email: string;
   fullName: string;
@@ -707,6 +709,7 @@ export async function listWorkspaceMembers(workspaceId: string) {
       m.created_at AS membership_created_at,
       u.last_login_at,
       w.owner_user_id AS workspace_owner_user_id
+      , w.name AS workspace_name
     FROM workspace_memberships m
     JOIN users u ON u.id = m.user_id
     JOIN workspaces w ON w.id = m.workspace_id
@@ -742,6 +745,7 @@ export async function listPlatformUserMemberships(userId: string) {
       m.created_at AS membership_created_at,
       u.last_login_at,
       w.owner_user_id AS workspace_owner_user_id
+      , w.name AS workspace_name
     FROM workspace_memberships m
     JOIN users u ON u.id = m.user_id
     JOIN workspaces w ON w.id = m.workspace_id
@@ -2652,6 +2656,7 @@ function mapWorkspaceMemberRow(row: WorkspaceMemberLookupRow): WorkspaceMemberRe
   return {
     membershipId: row.membership_id,
     workspaceId: row.workspace_id,
+    workspaceName: row.workspace_name,
     userId: row.user_id,
     email: row.email,
     fullName: row.full_name,
