@@ -25,6 +25,21 @@ export type MercadoPagoWebhookPayload = {
   };
 };
 
+export type MercadoPagoEnvironment = "test" | "production";
+
+export type MercadoPagoCredentials = {
+  environment: MercadoPagoEnvironment;
+  accessToken: string;
+  liveMode: boolean;
+};
+
+export class MercadoPagoConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "MercadoPagoConfigurationError";
+  }
+}
+
 export type MercadoPagoSubscription = {
   id: string;
   preapproval_plan_id?: string | null;
@@ -171,12 +186,67 @@ export class MercadoPagoApiError extends Error {
   }
 }
 
+export function resolveMercadoPagoEnvironment(
+  environmentValue = process.env.MERCADO_PAGO_ENVIRONMENT,
+): MercadoPagoEnvironment {
+  const normalized = environmentValue?.trim().toLowerCase();
+
+  // Preserve existing production deployments until they explicitly configure it.
+  if (!normalized) {
+    return "production";
+  }
+
+  if (normalized === "test" || normalized === "production") {
+    return normalized;
+  }
+
+  throw new MercadoPagoConfigurationError(
+    "MERCADO_PAGO_ENVIRONMENT must be either test or production.",
+  );
+}
+
+export function resolveMercadoPagoCredentials(input: {
+  environment?: MercadoPagoEnvironment;
+  environmentValue?: string;
+  accessToken?: string;
+  testAccessToken?: string;
+} = {}): MercadoPagoCredentials {
+  const environment =
+    input.environment ?? resolveMercadoPagoEnvironment(input.environmentValue);
+  const accessToken =
+    (environment === "test" ? input.testAccessToken : input.accessToken) ??
+    (environment === "test"
+      ? process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN
+      : process.env.MERCADO_PAGO_ACCESS_TOKEN);
+  const normalizedAccessToken = accessToken?.trim() ?? "";
+
+  if (!normalizedAccessToken) {
+    throw new MercadoPagoConfigurationError(
+      environment === "test"
+        ? "Mercado Pago test environment requires MERCADO_PAGO_TEST_ACCESS_TOKEN."
+        : "Mercado Pago production environment requires MERCADO_PAGO_ACCESS_TOKEN.",
+    );
+  }
+
+  return {
+    environment,
+    accessToken: normalizedAccessToken,
+    liveMode: environment === "production",
+  };
+}
+
+export function resolveMercadoPagoAccessToken(input?: {
+  environment?: MercadoPagoEnvironment;
+}) {
+  return resolveMercadoPagoCredentials(input).accessToken;
+}
+
 export function getMercadoPagoAccessToken() {
-  return process.env.MERCADO_PAGO_ACCESS_TOKEN?.trim() ?? "";
+  return resolveMercadoPagoAccessToken();
 }
 
 export function getMercadoPagoTestAccessToken() {
-  return process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN?.trim() ?? "";
+  return resolveMercadoPagoCredentials({ environment: "test" }).accessToken;
 }
 
 export function getMercadoPagoTestSiteId() {
@@ -729,13 +799,7 @@ export function resolveMercadoPagoWorkspaceHint(input: {
 }
 
 async function mercadoPagoApiRequest<T>(path: string, accessTokenOverride?: string) {
-  const accessToken = accessTokenOverride ?? getMercadoPagoAccessToken();
-
-  if (!accessToken) {
-    throw new Error(
-      "MERCADO_PAGO_ACCESS_TOKEN is required to consultar assinaturas do Mercado Pago.",
-    );
-  }
+  const accessToken = accessTokenOverride ?? resolveMercadoPagoAccessToken();
 
   const response = await fetch(`https://api.mercadopago.com${path}`, {
     method: "GET",
@@ -771,13 +835,7 @@ async function mercadoPagoApiMutation<T>(
   idempotencyKey?: string,
 ) {
 
-  const accessToken = accessTokenOverride ?? getMercadoPagoAccessToken();
-
-  if (!accessToken) {
-    throw new Error(
-      "MERCADO_PAGO_ACCESS_TOKEN is required to criar assinaturas do Mercado Pago.",
-    );
-  }
+  const accessToken = accessTokenOverride ?? resolveMercadoPagoAccessToken();
 
   const response = await fetch(`https://api.mercadopago.com${path}`, {
     method,

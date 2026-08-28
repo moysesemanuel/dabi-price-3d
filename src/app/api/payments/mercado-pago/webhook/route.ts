@@ -8,9 +8,8 @@ import {
   serializeError,
 } from "@/lib/server/route-observability";
 import {
-  getMercadoPagoAccessToken,
-  getMercadoPagoTestAccessToken,
   getMercadoPagoWebhookSecret,
+  resolveMercadoPagoCredentials,
   verifyMercadoPagoWebhookSignature,
   type MercadoPagoWebhookPayload,
 } from "@/lib/payments/mercado-pago";
@@ -117,9 +116,12 @@ export async function POST(request: Request) {
     );
   }
 
-  const accessToken = resolveWebhookAccessToken(payload?.live_mode);
+  let accessToken: string;
 
-  if (!accessToken) {
+  try {
+    // The signed provider payload determines the resource environment.
+    accessToken = resolveWebhookAccessToken(payload?.live_mode);
+  } catch {
     logRouteEvent(requestContext, "error", "mercado_pago_webhook.access_token_missing", {
       liveMode: payload?.live_mode ?? null,
     });
@@ -186,9 +188,7 @@ export async function POST(request: Request) {
 }
 
 function resolveWebhookAccessToken(liveMode?: boolean) {
-  if (liveMode === false) {
-    return getMercadoPagoTestAccessToken();
-  }
-
-  return getMercadoPagoAccessToken();
+  return resolveMercadoPagoCredentials({
+    environment: liveMode === false ? "test" : "production",
+  }).accessToken;
 }
