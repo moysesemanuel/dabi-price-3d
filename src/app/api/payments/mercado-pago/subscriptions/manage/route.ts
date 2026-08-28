@@ -8,7 +8,7 @@ import {
   ManageBillingSubscriptionError,
 } from "@/lib/billing/subscription-management";
 import {
-  getMercadoPagoAccessToken,
+  resolveMercadoPagoAccessToken,
 } from "@/lib/payments/mercado-pago";
 import {
   applyWorkspaceSubscriptionUpdate,
@@ -107,7 +107,9 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!getMercadoPagoAccessToken()) {
+  try {
+    resolveMercadoPagoAccessToken();
+  } catch {
     return jsonWithRequestId(
       requestContext,
       {

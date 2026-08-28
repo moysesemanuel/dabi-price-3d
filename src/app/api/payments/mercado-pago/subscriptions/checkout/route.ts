@@ -10,7 +10,7 @@ import {
 import { createBillingService } from "@/lib/billing/server-service";
 import type { BillingSubscription } from "@/lib/billing/types";
 import {
-  getMercadoPagoAccessToken,
+  resolveMercadoPagoAccessToken,
   isMercadoPagoApiError,
   normalizeMercadoPagoSubscriptionStatus,
   resolvePendingSubscriptionRecovery,
@@ -142,9 +142,9 @@ export async function POST(request: Request) {
     return buildPausedSubscriptionConflict(requestContext);
   }
 
-  const accessToken = getMercadoPagoAccessToken();
-
-  if (!accessToken) {
+  try {
+    resolveMercadoPagoAccessToken();
+  } catch {
     return jsonWithRequestId(
       requestContext,
       {

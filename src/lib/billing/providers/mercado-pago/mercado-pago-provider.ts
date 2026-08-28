@@ -1,8 +1,6 @@
 import {
   createMercadoPagoPixPayment,
   createMercadoPagoRecurringSubscription,
-  getMercadoPagoPaymentWithToken,
-  getMercadoPagoTestAccessToken,
   getMercadoPagoPayment,
   getMercadoPagoAuthorizedPayment,
   getMercadoPagoSubscription,
@@ -52,24 +50,8 @@ type MercadoPagoProviderDependencies = {
 
 const defaultDependencies: MercadoPagoProviderDependencies = {
   createRecurringSubscription: createMercadoPagoRecurringSubscription,
-  createManualPayment: (input) =>
-  createMercadoPagoPixPayment({
-    ...input,
-    accessTokenOverride:
-      process.env.VERCEL_ENV === "preview"
-        ? getMercadoPagoTestAccessToken()
-        : undefined,
-  }),
-  getManualPayment: (providerPaymentId) => {
-    const testAccessToken =
-      process.env.VERCEL_ENV === "preview"
-        ? getMercadoPagoTestAccessToken()
-        : null;
-
-    return testAccessToken
-      ? getMercadoPagoPaymentWithToken(providerPaymentId, testAccessToken)
-      : getMercadoPagoPayment(providerPaymentId);
-  },
+  createManualPayment: createMercadoPagoPixPayment,
+  getManualPayment: getMercadoPagoPayment,
   getSubscription: getMercadoPagoSubscription,
   getPayment: getMercadoPagoAuthorizedPayment,
   updateSubscriptionStatus: updateMercadoPagoSubscriptionStatus,

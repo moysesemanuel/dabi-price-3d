@@ -11,9 +11,139 @@ import {
   resolvePendingSubscriptionRecovery,
   canIgnorePendingSubscriptionCancellationError,
   MercadoPagoApiError,
+  MercadoPagoConfigurationError,
+  getMercadoPagoPayment,
+  resolveMercadoPagoCredentials,
   verifyMercadoPagoWebhookSignature,
 } from "../src/lib/payments/mercado-pago.ts";
 import { getWorkspacePlan } from "../src/lib/workspace/catalog.ts";
+
+function withMercadoPagoEnvironment(values, run) {
+  const keys = [
+    "MERCADO_PAGO_ENVIRONMENT",
+    "MERCADO_PAGO_ACCESS_TOKEN",
+    "MERCADO_PAGO_TEST_ACCESS_TOKEN",
+    "VERCEL_ENV",
+  ];
+  const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+
+  try {
+    for (const key of keys) {
+      if (Object.hasOwn(values, key)) {
+        process.env[key] = values[key];
+      } else {
+        delete process.env[key];
+      }
+    }
+
+    return run();
+  } finally {
+    for (const key of keys) {
+      if (previous[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = previous[key];
+      }
+    }
+  }
+}
+
+async function withMercadoPagoEnvironmentAsync(values, run) {
+  const keys = [
+    "MERCADO_PAGO_ENVIRONMENT",
+    "MERCADO_PAGO_ACCESS_TOKEN",
+    "MERCADO_PAGO_TEST_ACCESS_TOKEN",
+    "VERCEL_ENV",
+  ];
+  const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+
+  try {
+    for (const key of keys) {
+      if (Object.hasOwn(values, key)) {
+        process.env[key] = values[key];
+      } else {
+        delete process.env[key];
+      }
+    }
+
+    return await run();
+  } finally {
+    for (const key of keys) {
+      if (previous[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = previous[key];
+      }
+    }
+  }
+}
+
+test("resolve credenciais do Mercado Pago por ambiente explícito sem depender da Vercel", () => {
+  withMercadoPagoEnvironment(
+    {
+      MERCADO_PAGO_ENVIRONMENT: "test",
+      MERCADO_PAGO_ACCESS_TOKEN: "production-token",
+      MERCADO_PAGO_TEST_ACCESS_TOKEN: "test-token",
+      VERCEL_ENV: "production",
+    },
+    () => {
+      assert.deepEqual(resolveMercadoPagoCredentials(), {
+        environment: "test",
+        accessToken: "test-token",
+        liveMode: false,
+      });
+    },
+  );
+
+  withMercadoPagoEnvironment(
+    {
+      MERCADO_PAGO_ENVIRONMENT: "production",
+      MERCADO_PAGO_ACCESS_TOKEN: "production-token",
+      MERCADO_PAGO_TEST_ACCESS_TOKEN: "test-token",
+      VERCEL_ENV: "preview",
+    },
+    () => {
+      assert.deepEqual(resolveMercadoPagoCredentials(), {
+        environment: "production",
+        accessToken: "production-token",
+        liveMode: true,
+      });
+    },
+  );
+});
+
+test("falha de forma segura para ambiente ou token Mercado Pago inválido", () => {
+  for (const input of [
+    { MERCADO_PAGO_ENVIRONMENT: "test", MERCADO_PAGO_ACCESS_TOKEN: "production-token" },
+    { MERCADO_PAGO_ENVIRONMENT: "production", MERCADO_PAGO_TEST_ACCESS_TOKEN: "test-token" },
+    {
+      MERCADO_PAGO_ENVIRONMENT: "staging",
+      MERCADO_PAGO_ACCESS_TOKEN: "production-token",
+      MERCADO_PAGO_TEST_ACCESS_TOKEN: "test-token",
+    },
+  ]) {
+    withMercadoPagoEnvironment(input, () => {
+      assert.throws(
+        () => resolveMercadoPagoCredentials(),
+        (error) => {
+          assert.ok(error instanceof MercadoPagoConfigurationError);
+          assert.equal(error.message.includes("production-token"), false);
+          assert.equal(error.message.includes("test-token"), false);
+          return true;
+        },
+      );
+    });
+  }
+});
+
+test("ambiente Mercado Pago ausente preserva o token de produção", () => {
+  withMercadoPagoEnvironment(
+    { MERCADO_PAGO_ACCESS_TOKEN: "production-token" },
+    () => {
+      assert.equal(resolveMercadoPagoCredentials().environment, "production");
+    },
+  );
+});
 
 test("aceita assinatura de webhook com HMAC válido independentemente da idade do ts", () => {
   const dataId = "payment-123";
@@ -206,6 +336,62 @@ test("cria preapproval anual usando frequência de 12 meses", async (t) => {
   assert.equal(body.auto_recurring.frequency, 12);
   assert.equal(body.auto_recurring.frequency_type, "months");
   assert.equal(body.auto_recurring.transaction_amount, growthPlan.annualPrice);
+});
+
+test("recorrência, Pix e consultas usam o token resolvido para HML mesmo com VERCEL_ENV production", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const authorizationHeaders = [];
+
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  globalThis.fetch = async (_url, init) => {
+    authorizationHeaders.push(init?.headers?.Authorization);
+
+    return new Response(
+      JSON.stringify({
+        id: authorizationHeaders.length === 1 ? "sub-hml-1" : "pay-hml-1",
+        status: "pending",
+        init_point: "https://mercadopago.test/checkout/sub-hml-1",
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  };
+
+  await withMercadoPagoEnvironmentAsync(
+    {
+      MERCADO_PAGO_ENVIRONMENT: "test",
+      MERCADO_PAGO_ACCESS_TOKEN: "production-token",
+      MERCADO_PAGO_TEST_ACCESS_TOKEN: "test-token",
+      VERCEL_ENV: "production",
+    },
+    async () => {
+      await createMercadoPagoSubscriptionCheckout({
+        planId: "starter",
+        billingCycle: "monthly",
+        payerEmail: "owner@dabi.app",
+        workspaceId: "workspace-hml",
+        reason: "DaBi Essencial HML",
+        backUrl: "https://hml.dabi.app/app/checkout",
+      });
+      await createMercadoPagoPixPayment({
+        externalReference: "billing_invoice:inv-hml-1",
+        idempotencyKey: "inv-hml-1",
+        payerEmail: "owner@dabi.app",
+        reason: "DaBi Essencial HML via Pix",
+        amountCents: 4900,
+        currency: "BRL",
+      });
+      await getMercadoPagoPayment("pay-hml-1");
+    },
+  );
+
+  assert.deepEqual(authorizationHeaders, [
+    "Bearer test-token",
+    "Bearer test-token",
+    "Bearer test-token",
+  ]);
 });
 
 test("Pix manual envia idempotency key estável ao Mercado Pago", async (t) => {
