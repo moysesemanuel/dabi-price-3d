@@ -13,6 +13,7 @@ import {
   MercadoPagoApiError,
   MercadoPagoConfigurationError,
   getMercadoPagoPayment,
+  listMercadoPagoAuthorizedPayments,
   resolveMercadoPagoCredentials,
   resolveMercadoPagoSubscriptionPayerEmail,
   resolveMercadoPagoWebhookCredentials,
@@ -563,10 +564,12 @@ test("recorrência, Pix e consultas usam o token resolvido para HML mesmo com VE
         currency: "BRL",
       });
       await getMercadoPagoPayment("pay-hml-1");
+      await listMercadoPagoAuthorizedPayments("preapproval-hml-1");
     },
   );
 
   assert.deepEqual(authorizationHeaders, [
+    "Bearer test-token",
     "Bearer test-token",
     "Bearer test-token",
     "Bearer test-token",

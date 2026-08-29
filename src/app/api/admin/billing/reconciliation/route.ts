@@ -1,7 +1,7 @@
 import { getCurrentAuthSession } from "@/lib/auth/session";
 import { createBillingAdminService } from "@/lib/billing/server-admin-service";
 
-export async function POST() {
+export async function POST(request: Request) {
   const session = await getCurrentAuthSession();
 
   if (!session) {
@@ -9,8 +9,10 @@ export async function POST() {
   }
 
   try {
+    const body = await readReconciliationScope(request);
     const result = await createBillingAdminService().runProviderReconciliation({
       session,
+      subscriptionId: body.subscriptionId,
     });
 
     return Response.json(result);
@@ -22,6 +24,30 @@ export async function POST() {
   }
 }
 
+async function readReconciliationScope(request: Request) {
+  const rawBody = await request.text();
+
+  if (!rawBody.trim()) {
+    return { subscriptionId: undefined };
+  }
+
+  try {
+    const body = JSON.parse(rawBody) as { subscriptionId?: unknown } | null;
+
+    if (!body || typeof body.subscriptionId === "undefined") {
+      return { subscriptionId: undefined };
+    }
+
+    if (typeof body.subscriptionId !== "string" || !body.subscriptionId.trim()) {
+      throw new Error("invalid_subscription_id");
+    }
+
+    return { subscriptionId: body.subscriptionId.trim() };
+  } catch {
+    throw Object.assign(new Error("subscription_id_invalido"), { status: 400 });
+  }
+}
+
 function mapBillingAdminError(error: unknown) {
   if (error instanceof Error) {
     if (error.message === "A area administrativa de billing e exclusiva para super admin.") {
@@ -30,6 +56,10 @@ function mapBillingAdminError(error: unknown) {
 
     if (error.message === "Esse ambiente nao possui persistencia de billing habilitada.") {
       return "Esse ambiente nao possui persistencia de billing habilitada.";
+    }
+
+    if (error.message === "subscription_id_invalido") {
+      return "subscriptionId invalido.";
     }
   }
 

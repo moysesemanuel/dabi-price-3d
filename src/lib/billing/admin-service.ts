@@ -144,7 +144,10 @@ export type BillingAdminServiceDependencies = {
   listWebhookEvents(limit: number): Promise<BillingWebhookEvent[]>;
   listAuditEvents(limit: number): Promise<BillingAdminAuditEventRecord[]>;
   collectOperationalFindings(limit: number): Promise<BillingReconciliationFinding[]>;
-  runProviderReconciliation(limit: number): Promise<BillingReconciliationJobResult>;
+  runProviderReconciliation(
+    limit: number,
+    subscriptionId?: string,
+  ): Promise<BillingReconciliationJobResult>;
   getSubscriptionRecord(
     subscriptionId: string,
   ): Promise<BillingAdminSubscriptionRecord | null>;
@@ -417,11 +420,16 @@ export class BillingAdminService {
 
   async runProviderReconciliation(input: {
     session: AuthenticatedWorkspaceSession;
+    subscriptionId?: string;
   }) {
     this.assertSuperAdmin(input.session);
     this.assertPersistence();
 
-    const result = await this.dependencies.runProviderReconciliation(20);
+    const subscriptionId = input.subscriptionId?.trim() || undefined;
+    const result = await this.dependencies.runProviderReconciliation(
+      20,
+      subscriptionId,
+    );
 
     await this.dependencies.appendAuditEvent({
       actorType: "super_admin",
@@ -429,6 +437,7 @@ export class BillingAdminService {
       action: "billing.provider_reconciliation_requested",
       metadata: {
         limit: 20,
+        subscriptionId: subscriptionId ?? null,
         processed: result.processed,
         changed: result.changed,
         findings: result.findings,

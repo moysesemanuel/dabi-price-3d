@@ -74,6 +74,15 @@ function createDependencies(overrides = {}) {
     async getInvoiceById() {
       return null;
     },
+    async findInvoiceByProviderPaymentId() {
+      return null;
+    },
+    async findInvoiceByProviderAuthorizedPaymentId() {
+      return null;
+    },
+    async createInvoice() {
+      return null;
+    },
     async listInvoicesForExpiration() {
       return [];
     },
@@ -612,6 +621,341 @@ test("reconcileSubscription aponta active local sem provider", async () => {
   const result = await service.reconcileSubscription("sub-6");
 
   assert.equal(result.findings[0]?.code, "local_active_without_provider");
+});
+
+function createAuthorizedPaymentRecoveryHarness({
+  payments = [
+    {
+      provider: "mercado_pago",
+      providerPaymentId: "pay-recovery-1",
+      providerAuthorizedPaymentId: "auth-recovery-1",
+      status: "approved",
+      providerSubscriptionId: "mp-sub-recovery-1",
+      externalReference: "billing_subscription:sub-recovery-1",
+      paymentMethod: "card",
+      approvedAt: "2026-08-14T12:00:00.000Z",
+    },
+  ],
+  invoices = [],
+} = {}) {
+  const subscription = {
+    id: "sub-recovery-1",
+    workspaceId: "workspace-recovery-1",
+    planId: "starter",
+    billingCycle: "monthly",
+    priceId: "price-starter-monthly",
+    status: "pending",
+    autoRenew: true,
+    currentPeriodStart: null,
+    currentPeriodEnd: null,
+    gracePeriodEndsAt: null,
+    cancelAtPeriodEnd: false,
+    cancelRequestedAt: null,
+    endedAt: null,
+    accessUntil: null,
+    provider: "mercado_pago",
+    providerSubscriptionId: "mp-sub-recovery-1",
+    createdAt: "2026-08-14T11:00:00.000Z",
+    updatedAt: "2026-08-14T11:00:00.000Z",
+  };
+  let invoiceSequence = invoices.length;
+
+  const dependencies = createDependencies({
+    async getSubscriptionById(subscriptionId) {
+      assert.equal(subscriptionId, subscription.id);
+      return subscription;
+    },
+    async getInvoiceById(invoiceId) {
+      return invoices.find((invoice) => invoice.id === invoiceId) ?? null;
+    },
+    async findInvoiceByProviderPaymentId({ providerPaymentId }) {
+      return (
+        invoices.find(
+          (invoice) => invoice.providerPaymentId === providerPaymentId,
+        ) ?? null
+      );
+    },
+    async findInvoiceByProviderAuthorizedPaymentId({
+      providerAuthorizedPaymentId,
+    }) {
+      return (
+        invoices.find(
+          (invoice) =>
+            invoice.providerAuthorizedPaymentId === providerAuthorizedPaymentId,
+        ) ?? null
+      );
+    },
+    async createInvoice(input) {
+      const invoice = {
+        id: `inv-recovery-${++invoiceSequence}`,
+        ...input,
+        paymentExpiresAt: null,
+        paidAt: null,
+        failedAt: null,
+        refundedAt: null,
+        createdAt: "2026-08-14T12:00:00.000Z",
+        updatedAt: "2026-08-14T12:00:00.000Z",
+      };
+      invoices.push(invoice);
+      return invoice;
+    },
+    async updateInvoice(invoiceId, mutation) {
+      const invoice = invoices.find((current) => current.id === invoiceId);
+      if (!invoice) {
+        return null;
+      }
+
+      Object.assign(invoice, mutation);
+      return invoice;
+    },
+    async transitionPendingInvoice(invoiceId, mutation) {
+      const invoice = invoices.find((current) => current.id === invoiceId);
+      if (!invoice || invoice.status !== "pending") {
+        return null;
+      }
+
+      Object.assign(invoice, mutation);
+      return invoice;
+    },
+    async claimInvoiceEffect() {
+      return "claim-recovery-1";
+    },
+    async completeInvoiceEffect() {
+      return true;
+    },
+    getProvider() {
+      return {
+        async getSubscription() {
+          return { status: "active" };
+        },
+        async listAuthorizedPayments() {
+          return payments;
+        },
+        async getPayment(providerAuthorizedPaymentId) {
+          const payment = payments.find(
+            (current) =>
+              current.providerAuthorizedPaymentId === providerAuthorizedPaymentId,
+          );
+          assert.ok(payment);
+          return payment;
+        },
+      };
+    },
+  });
+
+  const activateSubscription = dependencies.billingService.activateSubscription;
+  dependencies.billingService.activateSubscription = async (...args) => {
+    await activateSubscription(...args);
+    subscription.status = "active";
+    subscription.accessUntil = args[1].accessUntil;
+  };
+
+  return { dependencies, invoices, subscription };
+}
+
+test("reconcileSubscription recupera pagamento autorizado aprovado em assinatura pending", async () => {
+  const { dependencies, invoices, subscription } =
+    createAuthorizedPaymentRecoveryHarness();
+  const service = new BillingReconciliationService(dependencies);
+
+  const result = await service.reconcileSubscription(subscription.id);
+
+  assert.equal(result.changed, 2);
+  assert.equal(invoices.length, 1);
+  assert.equal(invoices[0].status, "paid");
+  assert.equal(invoices[0].providerAuthorizedPaymentId, "auth-recovery-1");
+  assert.equal(invoices[0].providerPaymentId, "pay-recovery-1");
+  assert.equal(subscription.status, "active");
+  assert.equal(dependencies.activations.length, 1);
+  assert.equal(dependencies.workspaceUpdates.length, 1);
+});
+
+test("reconcileSubscription reexecutada não duplica invoice nem ativação", async () => {
+  const { dependencies, invoices, subscription } =
+    createAuthorizedPaymentRecoveryHarness();
+  const service = new BillingReconciliationService(dependencies);
+
+  await service.reconcileSubscription(subscription.id);
+  const second = await service.reconcileSubscription(subscription.id);
+
+  assert.equal(second.changed, 0);
+  assert.equal(invoices.length, 1);
+  assert.equal(dependencies.activations.length, 1);
+});
+
+test("reconcileSubscription não ativa cobrança autorizada ainda não aprovada", async () => {
+  const { dependencies, invoices, subscription } = createAuthorizedPaymentRecoveryHarness({
+    payments: [
+      {
+        provider: "mercado_pago",
+        providerPaymentId: "pay-pending-1",
+        providerAuthorizedPaymentId: "auth-pending-1",
+        status: "pending",
+        providerSubscriptionId: "mp-sub-recovery-1",
+        externalReference: "billing_subscription:sub-recovery-1",
+        paymentMethod: "card",
+      },
+    ],
+  });
+  const service = new BillingReconciliationService(dependencies);
+
+  const result = await service.reconcileSubscription(subscription.id);
+
+  assert.equal(result.changed, 0);
+  assert.equal(result.findings[0]?.code, "provider_authorized_payment_not_approved");
+  assert.equal(invoices.length, 0);
+  assert.equal(dependencies.activations.length, 0);
+});
+
+test("reconcileSubscription rejeita external reference incompatível", async () => {
+  const { dependencies, invoices, subscription } = createAuthorizedPaymentRecoveryHarness({
+    payments: [
+      {
+        provider: "mercado_pago",
+        providerPaymentId: "pay-mismatch-ref-1",
+        providerAuthorizedPaymentId: "auth-mismatch-ref-1",
+        status: "approved",
+        providerSubscriptionId: "mp-sub-recovery-1",
+        externalReference: "billing_subscription:other-subscription",
+        paymentMethod: "card",
+      },
+    ],
+  });
+  const service = new BillingReconciliationService(dependencies);
+
+  const result = await service.reconcileSubscription(subscription.id);
+
+  assert.equal(result.changed, 0);
+  assert.equal(
+    result.findings[0]?.code,
+    "provider_authorized_payment_correlation_mismatch",
+  );
+  assert.equal(invoices.length, 0);
+});
+
+test("reconcileSubscription rejeita authorized payment de outra assinatura do provider", async () => {
+  const { dependencies, invoices, subscription } = createAuthorizedPaymentRecoveryHarness({
+    payments: [
+      {
+        provider: "mercado_pago",
+        providerPaymentId: "pay-mismatch-sub-1",
+        providerAuthorizedPaymentId: "auth-mismatch-sub-1",
+        status: "approved",
+        providerSubscriptionId: "mp-sub-other",
+        externalReference: "billing_subscription:sub-recovery-1",
+        paymentMethod: "card",
+      },
+    ],
+  });
+  const service = new BillingReconciliationService(dependencies);
+
+  const result = await service.reconcileSubscription(subscription.id);
+
+  assert.equal(result.changed, 0);
+  assert.equal(
+    result.findings[0]?.code,
+    "provider_authorized_payment_correlation_mismatch",
+  );
+  assert.equal(invoices.length, 0);
+});
+
+test("reconcileSubscription escolhe deterministicamente a primeira cobrança aprovada", async () => {
+  const { dependencies, invoices, subscription } = createAuthorizedPaymentRecoveryHarness({
+    payments: [
+      {
+        provider: "mercado_pago",
+        providerPaymentId: "pay-first-1",
+        providerAuthorizedPaymentId: "auth-first-1",
+        status: "approved",
+        providerSubscriptionId: "mp-sub-recovery-1",
+        externalReference: "billing_subscription:sub-recovery-1",
+        paymentMethod: "card",
+      },
+      {
+        provider: "mercado_pago",
+        providerPaymentId: "pay-second-1",
+        providerAuthorizedPaymentId: "auth-second-1",
+        status: "approved",
+        providerSubscriptionId: "mp-sub-recovery-1",
+        externalReference: "billing_subscription:sub-recovery-1",
+        paymentMethod: "card",
+      },
+    ],
+  });
+  const service = new BillingReconciliationService(dependencies);
+
+  await service.reconcileSubscription(subscription.id);
+
+  assert.equal(invoices.length, 1);
+  assert.equal(invoices[0].providerAuthorizedPaymentId, "auth-first-1");
+});
+
+test("reconcileSubscription reutiliza invoice encontrada por authorized payment", async () => {
+  const invoice = {
+    id: "inv-existing-authorized-1",
+    subscriptionId: "sub-recovery-1",
+    workspaceId: "workspace-recovery-1",
+    priceId: "price-starter-monthly",
+    type: "subscription",
+    status: "pending",
+    amountCents: 4900,
+    currency: "BRL",
+    periodStart: "2026-08-14T12:00:00.000Z",
+    periodEnd: "2026-09-14T12:00:00.000Z",
+    paymentMethod: "card",
+    provider: "mercado_pago",
+    providerPaymentId: "pay-recovery-1",
+    providerAuthorizedPaymentId: "auth-recovery-1",
+    paymentExpiresAt: null,
+    paidAt: null,
+    failedAt: null,
+    refundedAt: null,
+    createdAt: "2026-08-14T12:00:00.000Z",
+    updatedAt: "2026-08-14T12:00:00.000Z",
+  };
+  const { dependencies, invoices, subscription } = createAuthorizedPaymentRecoveryHarness({
+    invoices: [invoice],
+  });
+  const service = new BillingReconciliationService(dependencies);
+
+  await service.reconcileSubscription(subscription.id);
+
+  assert.equal(invoices.length, 1);
+  assert.equal(invoices[0].status, "paid");
+});
+
+test("reconcileSubscription reutiliza invoice encontrada por payment do provider", async () => {
+  const invoice = {
+    id: "inv-existing-payment-1",
+    subscriptionId: "sub-recovery-1",
+    workspaceId: "workspace-recovery-1",
+    priceId: "price-starter-monthly",
+    type: "subscription",
+    status: "pending",
+    amountCents: 4900,
+    currency: "BRL",
+    periodStart: "2026-08-14T12:00:00.000Z",
+    periodEnd: "2026-09-14T12:00:00.000Z",
+    paymentMethod: "card",
+    provider: "mercado_pago",
+    providerPaymentId: "pay-recovery-1",
+    providerAuthorizedPaymentId: "different-authorized-id",
+    paymentExpiresAt: null,
+    paidAt: null,
+    failedAt: null,
+    refundedAt: null,
+    createdAt: "2026-08-14T12:00:00.000Z",
+    updatedAt: "2026-08-14T12:00:00.000Z",
+  };
+  const { dependencies, invoices, subscription } = createAuthorizedPaymentRecoveryHarness({
+    invoices: [invoice],
+  });
+  const service = new BillingReconciliationService(dependencies);
+
+  await service.reconcileSubscription(subscription.id);
+
+  assert.equal(invoices.length, 1);
+  assert.equal(invoices[0].status, "paid");
 });
 
 test("reconcileInvoice ativa assinatura pending quando Pix já foi pago", async () => {
