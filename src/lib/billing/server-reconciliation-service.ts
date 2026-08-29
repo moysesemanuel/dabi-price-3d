@@ -3,6 +3,9 @@ import "server-only";
 import {
   appendBillingAuditEvent,
   findActiveBillingPrice,
+  findBillingInvoiceByProviderAuthorizedPaymentId,
+  findBillingInvoiceByProviderPaymentId,
+  createBillingInvoice,
   getBillingInvoiceById,
   getBillingSubscriptionChangeByInvoiceId,
   getBillingSubscriptionById,
@@ -35,6 +38,10 @@ export function createBillingReconciliationService() {
       listBillingSubscriptionsForScheduledCancellation,
     listAbandonedPendingSubscriptions: listAbandonedPendingBillingSubscriptions,
     getInvoiceById: getBillingInvoiceById,
+    findInvoiceByProviderPaymentId: findBillingInvoiceByProviderPaymentId,
+    findInvoiceByProviderAuthorizedPaymentId:
+      findBillingInvoiceByProviderAuthorizedPaymentId,
+    createInvoice: createBillingInvoice,
     listInvoicesForProviderReconciliation:
       listBillingInvoicesForProviderReconciliation,
     listInvoicesForExpiration: listBillingInvoicesForExpiration,

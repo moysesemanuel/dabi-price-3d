@@ -72,6 +72,10 @@ export type MercadoPagoAuthorizedPayment = {
   } | null;
 };
 
+export type MercadoPagoAuthorizedPaymentSearchResult = {
+  results?: MercadoPagoAuthorizedPayment[];
+};
+
 export type MercadoPagoPayment = {
   id: number | string;
   status?: string | null;
@@ -347,6 +351,14 @@ export async function getMercadoPagoAuthorizedPaymentWithToken(
   return mercadoPagoApiRequest<MercadoPagoAuthorizedPayment>(
     `/authorized_payments/${authorizedPaymentId}`,
     accessTokenOverride,
+  );
+}
+
+export async function listMercadoPagoAuthorizedPayments(
+  preapprovalId: string,
+) {
+  return mercadoPagoApiRequest<MercadoPagoAuthorizedPaymentSearchResult>(
+    `/authorized_payments/search?preapproval_id=${encodeURIComponent(preapprovalId)}&sort=date_created&criteria=asc`,
   );
 }
 

@@ -30,6 +30,9 @@ export function mapMercadoPagoAuthorizedPaymentToBillingPayment(
     normalizeOptionalString(authorizedPayment.payment?.payment_method_id) ??
       normalizeOptionalString(authorizedPayment.payment_method_id),
   );
+  const approvedAt =
+    normalizeOptionalString(authorizedPayment.date_approved) ??
+    normalizeOptionalString(authorizedPayment.payment?.date_approved);
 
   return {
     provider: "mercado_pago",
@@ -44,6 +47,7 @@ export function mapMercadoPagoAuthorizedPaymentToBillingPayment(
       normalizeOptionalString(authorizedPayment.preapproval_id) ?? null,
     externalReference: normalizeOptionalString(authorizedPayment.external_reference),
     paymentMethod,
+    ...(approvedAt ? { approvedAt } : {}),
   };
 }
 

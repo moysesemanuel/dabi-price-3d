@@ -19,6 +19,9 @@ const DEFAULT_PAST_DUE_GRACE_PERIOD_DAYS = 5;
 export type BillingReconciliationFindingCode =
   | "provider_subscription_missing"
   | "provider_active_local_pending"
+  | "provider_authorized_payment_not_approved"
+  | "provider_authorized_payment_correlation_mismatch"
+  | "provider_authorized_payment_price_not_resolved"
   | "provider_canceled_local_active"
   | "local_active_without_provider"
   | "invoice_paid_subscription_not_active"
@@ -74,6 +77,31 @@ export type BillingReconciliationServiceDependencies = {
     startedBefore: string;
   }): Promise<BillingSubscription[]>;
   getInvoiceById(invoiceId: string): Promise<BillingInvoice | null>;
+  findInvoiceByProviderPaymentId(input: {
+    provider: BillingInvoice["provider"];
+    providerPaymentId: string;
+  }): Promise<BillingInvoice | null>;
+  findInvoiceByProviderAuthorizedPaymentId(input: {
+    provider: BillingInvoice["provider"];
+    providerAuthorizedPaymentId: string;
+  }): Promise<BillingInvoice | null>;
+  createInvoice(input: {
+    subscriptionId: string;
+    workspaceId: string;
+    priceId?: string | null;
+    type: BillingInvoice["type"];
+    status: BillingInvoice["status"];
+    amountCents: number;
+    currency?: string;
+    periodStart?: string | null;
+    periodEnd?: string | null;
+    paymentMethod?: BillingInvoice["paymentMethod"];
+    provider?: BillingInvoice["provider"];
+    providerPaymentId?: string | null;
+    providerAuthorizedPaymentId?: string | null;
+    paidAt?: string | null;
+    failedAt?: string | null;
+  }): Promise<BillingInvoice | null>;
   listInvoicesForProviderReconciliation(limit: number): Promise<BillingInvoice[]>;
   listInvoicesForExpiration(asOf: string): Promise<BillingInvoice[]>;
   updateInvoice(
@@ -206,13 +234,7 @@ export class BillingReconciliationService {
       remoteSubscription.status === "active" &&
       subscription.status === "pending"
     ) {
-      return singleFinding("provider_active_local_pending", {
-        workspaceId: subscription.workspaceId,
-        subscriptionId: subscription.id,
-        details: {
-          providerSubscriptionId: subscription.providerSubscriptionId,
-        },
-      });
+      return this.recoverPendingAuthorizedPayment({ subscription, provider });
     }
 
     if (
@@ -230,6 +252,181 @@ export class BillingReconciliationService {
     }
 
     return emptyRun(1);
+  }
+
+  private async recoverPendingAuthorizedPayment(input: {
+    subscription: BillingSubscription;
+    provider: BillingProvider;
+  }): Promise<BillingReconciliationRunResult> {
+    const { subscription, provider } = input;
+    const providerSubscriptionId = subscription.providerSubscriptionId;
+
+    if (!providerSubscriptionId || !provider.listAuthorizedPayments) {
+      return singleFinding("provider_active_local_pending", {
+        workspaceId: subscription.workspaceId,
+        subscriptionId: subscription.id,
+        details: {
+          providerSubscriptionId,
+          recovery: "authorized_payment_listing_not_supported",
+        },
+      });
+    }
+
+    let authorizedPayments;
+
+    try {
+      authorizedPayments = await provider.listAuthorizedPayments(
+        providerSubscriptionId,
+      );
+    } catch (error) {
+      return singleFinding("provider_subscription_missing", {
+        workspaceId: subscription.workspaceId,
+        subscriptionId: subscription.id,
+        details: {
+          providerSubscriptionId,
+          recovery: "authorized_payment_listing_failed",
+          error: serializeErrorMessage(error),
+        },
+      });
+    }
+
+    const expectedExternalReference = `billing_subscription:${subscription.id}`;
+    const approvedPayments = authorizedPayments.filter(
+      (payment) => payment.status === "approved",
+    );
+
+    if (approvedPayments.length === 0) {
+      return singleFinding("provider_authorized_payment_not_approved", {
+        workspaceId: subscription.workspaceId,
+        subscriptionId: subscription.id,
+        details: { providerSubscriptionId },
+      });
+    }
+
+    for (const payment of approvedPayments) {
+      if (
+        payment.providerSubscriptionId !== providerSubscriptionId ||
+        payment.externalReference !== expectedExternalReference
+      ) {
+        return singleFinding("provider_authorized_payment_correlation_mismatch", {
+          workspaceId: subscription.workspaceId,
+          subscriptionId: subscription.id,
+          details: {
+            providerSubscriptionId,
+            paymentProviderSubscriptionId: payment.providerSubscriptionId,
+            expectedExternalReference,
+            paymentExternalReference: payment.externalReference,
+            providerAuthorizedPaymentId: payment.providerAuthorizedPaymentId,
+            providerPaymentId: payment.providerPaymentId,
+          },
+        });
+      }
+
+      if (!payment.providerAuthorizedPaymentId) {
+        continue;
+      }
+
+      let invoice =
+        await this.dependencies.findInvoiceByProviderAuthorizedPaymentId({
+          provider: subscription.provider,
+          providerAuthorizedPaymentId: payment.providerAuthorizedPaymentId,
+        });
+
+      if (!invoice && payment.providerPaymentId) {
+        invoice = await this.dependencies.findInvoiceByProviderPaymentId({
+          provider: subscription.provider,
+          providerPaymentId: payment.providerPaymentId,
+        });
+      }
+
+      if (invoice) {
+        if (invoice.subscriptionId !== subscription.id) {
+          return singleFinding("provider_authorized_payment_correlation_mismatch", {
+            workspaceId: subscription.workspaceId,
+            subscriptionId: subscription.id,
+            invoiceId: invoice.id,
+            details: {
+              reason: "invoice_subscription_mismatch",
+              invoiceSubscriptionId: invoice.subscriptionId,
+              providerAuthorizedPaymentId: payment.providerAuthorizedPaymentId,
+              providerPaymentId: payment.providerPaymentId,
+            },
+          });
+        }
+
+        if (
+          invoice.providerAuthorizedPaymentId !== payment.providerAuthorizedPaymentId ||
+          invoice.providerPaymentId !== payment.providerPaymentId
+        ) {
+          invoice =
+            (await this.dependencies.updateInvoice(invoice.id, {
+              providerAuthorizedPaymentId: payment.providerAuthorizedPaymentId,
+              providerPaymentId: payment.providerPaymentId,
+            })) ?? invoice;
+        }
+
+        return this.reconcileInvoice(invoice.id);
+      }
+
+      const periodStart = payment.approvedAt ?? this.now().toISOString();
+      const price = await this.dependencies.findActivePrice({
+        planId: subscription.planId,
+        billingCycle: subscription.billingCycle,
+        asOf: periodStart,
+      });
+
+      if (!price) {
+        return singleFinding("provider_authorized_payment_price_not_resolved", {
+          workspaceId: subscription.workspaceId,
+          subscriptionId: subscription.id,
+          details: {
+            providerAuthorizedPaymentId: payment.providerAuthorizedPaymentId,
+            providerPaymentId: payment.providerPaymentId,
+            planId: subscription.planId,
+            billingCycle: subscription.billingCycle,
+          },
+        });
+      }
+
+      invoice = await this.dependencies.createInvoice({
+        subscriptionId: subscription.id,
+        workspaceId: subscription.workspaceId,
+        priceId: price.id,
+        type: "subscription",
+        status: "pending",
+        amountCents: price.amountCents,
+        currency: price.currency,
+        periodStart,
+        periodEnd: addBillingCycle(periodStart, subscription.billingCycle),
+        paymentMethod: payment.paymentMethod ?? "unknown",
+        provider: subscription.provider,
+        providerPaymentId: payment.providerPaymentId,
+        providerAuthorizedPaymentId: payment.providerAuthorizedPaymentId,
+      });
+
+      if (!invoice) {
+        invoice =
+          await this.dependencies.findInvoiceByProviderAuthorizedPaymentId({
+            provider: subscription.provider,
+            providerAuthorizedPaymentId: payment.providerAuthorizedPaymentId,
+          });
+      }
+
+      if (!invoice) {
+        throw new Error("Failed to materialize recovered authorized payment invoice.");
+      }
+
+      return this.reconcileInvoice(invoice.id);
+    }
+
+    return singleFinding("provider_authorized_payment_not_approved", {
+      workspaceId: subscription.workspaceId,
+      subscriptionId: subscription.id,
+      details: {
+        providerSubscriptionId,
+        recovery: "approved_payment_without_authorized_payment_id",
+      },
+    });
   }
 
   async reconcileInvoice(invoiceId: string): Promise<BillingReconciliationRunResult> {

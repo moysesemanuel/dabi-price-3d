@@ -31,6 +31,7 @@ export type BillingProviderPayment = {
   providerSubscriptionId: string | null;
   externalReference: string | null;
   paymentMethod: BillingPaymentMethodType | null;
+  approvedAt?: string | null;
 };
 
 export type BillingProviderManualPaymentInput = {
@@ -78,6 +79,10 @@ export interface BillingProvider {
   ): Promise<BillingProviderRecurringSubscription>;
 
   getPayment(providerPaymentId: string): Promise<BillingProviderPayment>;
+
+  listAuthorizedPayments?(
+    providerSubscriptionId: string,
+  ): Promise<BillingProviderPayment[]>;
 
   cancelSubscription(
     providerSubscriptionId: string,
