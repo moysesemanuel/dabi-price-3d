@@ -241,6 +241,35 @@ export function resolveMercadoPagoAccessToken(input?: {
   return resolveMercadoPagoCredentials(input).accessToken;
 }
 
+export function resolveMercadoPagoSubscriptionPayerEmail(input: {
+  customerEmail: string;
+  environment?: MercadoPagoEnvironment;
+  environmentValue?: string;
+  testPayerEmail?: string;
+}) {
+  const environment =
+    input.environment ?? resolveMercadoPagoEnvironment(input.environmentValue);
+
+  if (environment === "production") {
+    return input.customerEmail;
+  }
+
+  const testPayerEmail =
+    input.testPayerEmail ?? process.env.MERCADO_PAGO_TEST_PAYER_EMAIL;
+  const normalizedTestPayerEmail = testPayerEmail?.trim() ?? "";
+
+  if (
+    !normalizedTestPayerEmail ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedTestPayerEmail)
+  ) {
+    throw new MercadoPagoConfigurationError(
+      "Mercado Pago test environment requires a valid MERCADO_PAGO_TEST_PAYER_EMAIL for subscription checkout.",
+    );
+  }
+
+  return normalizedTestPayerEmail;
+}
+
 export function getMercadoPagoAccessToken() {
   return resolveMercadoPagoAccessToken();
 }

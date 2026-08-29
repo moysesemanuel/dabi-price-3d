@@ -5,6 +5,7 @@ import { MercadoPagoProvider } from "../src/lib/billing/providers/mercado-pago/m
 import {
   buildMercadoPagoPixPaymentPayload,
   buildMercadoPagoRecurringSubscriptionPayload,
+  resolveMercadoPagoSubscriptionPayerEmail,
 } from "../src/lib/payments/mercado-pago.ts";
 
 test("provider cria assinatura recorrente sem expor conceitos do Mercado Pago", async () => {
@@ -66,6 +67,61 @@ test("provider cria assinatura recorrente sem expor conceitos do Mercado Pago", 
     externalReference: "billing_subscription:sub-1",
     payerEmail: "owner@dabi.app",
   });
+});
+
+test("contrato de checkout usa payer de teste somente para assinatura em ambiente test", async () => {
+  const expectedPayerEmail = "test_user_4360909209129995912@testuser.com";
+  const provider = new MercadoPagoProvider({
+    async createRecurringSubscription(input) {
+      assert.equal(input.payerEmail, expectedPayerEmail);
+      return {
+        id: "mp-sub-test-payer",
+        status: "pending",
+        init_point: "https://mercadopago.app/checkout/test-payer",
+      };
+    },
+    async createManualPayment() {
+      throw new Error("not used");
+    },
+    async getManualPayment() {
+      throw new Error("not used");
+    },
+    async getSubscription() {
+      throw new Error("not used");
+    },
+    async getPayment() {
+      throw new Error("not used");
+    },
+    async updateSubscriptionStatus() {
+      throw new Error("not used");
+    },
+    async updateSubscriptionAmount() {
+      throw new Error("not used");
+    },
+  });
+
+  await provider.createRecurringSubscription({
+    externalReference: "billing_subscription:sub-test-payer",
+    payerEmail: resolveMercadoPagoSubscriptionPayerEmail({
+      customerEmail: "customer@dabi.app",
+      environment: "test",
+      testPayerEmail: expectedPayerEmail,
+    }),
+    reason: "DaBi Essencial mensal",
+    returnUrl: "https://dabi.app/app/checkout",
+    amountCents: 4900,
+    currency: "BRL",
+    billingCycle: "monthly",
+  });
+
+  assert.equal(
+    resolveMercadoPagoSubscriptionPayerEmail({
+      customerEmail: "customer@dabi.app",
+      environment: "production",
+      testPayerEmail: expectedPayerEmail,
+    }),
+    "customer@dabi.app",
+  );
 });
 
 test("provider mapeia authorized payment para o formato de billing", async () => {
