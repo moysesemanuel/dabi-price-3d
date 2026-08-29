@@ -15,6 +15,7 @@ import {
   getMercadoPagoPayment,
   resolveMercadoPagoCredentials,
   resolveMercadoPagoSubscriptionPayerEmail,
+  resolveMercadoPagoWebhookCredentials,
   verifyMercadoPagoWebhookSignature,
 } from "../src/lib/payments/mercado-pago.ts";
 import { getWorkspacePlan } from "../src/lib/workspace/catalog.ts";
@@ -145,6 +146,95 @@ test("falha de forma segura para ambiente ou token Mercado Pago inválido", () =
       );
     });
   }
+});
+
+test("webhook usa o token do ambiente explícito mesmo quando live_mode diverge", () => {
+  const testCases = [
+    {
+      name: "test com live_mode true",
+      environment: "test",
+      liveMode: true,
+      expectedToken: "test-token",
+      expectedMismatch: true,
+    },
+    {
+      name: "test com live_mode false",
+      environment: "test",
+      liveMode: false,
+      expectedToken: "test-token",
+      expectedMismatch: false,
+    },
+    {
+      name: "production com live_mode true",
+      environment: "production",
+      liveMode: true,
+      expectedToken: "production-token",
+      expectedMismatch: false,
+    },
+    {
+      name: "production com live_mode false",
+      environment: "production",
+      liveMode: false,
+      expectedToken: "production-token",
+      expectedMismatch: true,
+    },
+  ];
+
+  for (const testCase of testCases) {
+    withMercadoPagoEnvironment(
+      {
+        MERCADO_PAGO_ENVIRONMENT: testCase.environment,
+        MERCADO_PAGO_ACCESS_TOKEN: "production-token",
+        MERCADO_PAGO_TEST_ACCESS_TOKEN: "test-token",
+      },
+      () => {
+        const credentials = resolveMercadoPagoWebhookCredentials({
+          liveMode: testCase.liveMode,
+        });
+
+        assert.equal(credentials.accessToken, testCase.expectedToken, testCase.name);
+        assert.equal(credentials.liveModeMismatch, testCase.expectedMismatch, testCase.name);
+      },
+    );
+  }
+});
+
+test("webhook falha sem fallback quando falta o token do ambiente explícito", () => {
+  withMercadoPagoEnvironment(
+    {
+      MERCADO_PAGO_ENVIRONMENT: "test",
+      MERCADO_PAGO_ACCESS_TOKEN: "production-token",
+      MERCADO_PAGO_TEST_ACCESS_TOKEN: undefined,
+    },
+    () => {
+      assert.throws(
+        () => resolveMercadoPagoWebhookCredentials({ liveMode: true }),
+        (error) => {
+          assert.ok(error instanceof MercadoPagoConfigurationError);
+          assert.doesNotMatch(error.message, /production-token/);
+          return true;
+        },
+      );
+    },
+  );
+
+  withMercadoPagoEnvironment(
+    {
+      MERCADO_PAGO_ENVIRONMENT: "production",
+      MERCADO_PAGO_ACCESS_TOKEN: undefined,
+      MERCADO_PAGO_TEST_ACCESS_TOKEN: "test-token",
+    },
+    () => {
+      assert.throws(
+        () => resolveMercadoPagoWebhookCredentials({ liveMode: false }),
+        (error) => {
+          assert.ok(error instanceof MercadoPagoConfigurationError);
+          assert.doesNotMatch(error.message, /test-token/);
+          return true;
+        },
+      );
+    },
+  );
 });
 
 test("resolve payer de assinatura por ambiente explícito sem depender da Vercel", () => {

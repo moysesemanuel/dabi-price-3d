@@ -9,7 +9,7 @@ import {
 } from "@/lib/server/route-observability";
 import {
   getMercadoPagoWebhookSecret,
-  resolveMercadoPagoCredentials,
+  resolveMercadoPagoWebhookCredentials,
   verifyMercadoPagoWebhookSignature,
   type MercadoPagoWebhookPayload,
 } from "@/lib/payments/mercado-pago";
@@ -116,11 +116,12 @@ export async function POST(request: Request) {
     );
   }
 
-  let accessToken: string;
+  let webhookCredentials: ReturnType<typeof resolveMercadoPagoWebhookCredentials>;
 
   try {
-    // The signed provider payload determines the resource environment.
-    accessToken = resolveWebhookAccessToken(payload?.live_mode);
+    webhookCredentials = resolveMercadoPagoWebhookCredentials({
+      liveMode: payload?.live_mode,
+    });
   } catch {
     logRouteEvent(requestContext, "error", "mercado_pago_webhook.access_token_missing", {
       liveMode: payload?.live_mode ?? null,
@@ -130,11 +131,11 @@ export async function POST(request: Request) {
       requestContext,
       {
         error:
-          payload?.live_mode === false
+          process.env.MERCADO_PAGO_ENVIRONMENT?.trim().toLowerCase() === "test"
             ? "MERCADO_PAGO_TEST_ACCESS_TOKEN é obrigatório para consultar webhooks de sandbox do Mercado Pago."
             : "MERCADO_PAGO_ACCESS_TOKEN é obrigatório para consultar o status da assinatura após o webhook.",
         code:
-          payload?.live_mode === false
+          process.env.MERCADO_PAGO_ENVIRONMENT?.trim().toLowerCase() === "test"
             ? "MP_WEBHOOK_TEST_ACCESS_TOKEN_MISSING"
             : "MP_WEBHOOK_ACCESS_TOKEN_MISSING",
       },
@@ -142,11 +143,18 @@ export async function POST(request: Request) {
     );
   }
 
+  if (webhookCredentials.liveModeMismatch) {
+    logRouteEvent(requestContext, "warn", "mercado_pago_webhook.environment_mismatch", {
+      configuredEnvironment: webhookCredentials.environment,
+      receivedLiveMode: webhookCredentials.receivedLiveMode,
+    });
+  }
+
   try {
     const normalizedEvent = await normalizeMercadoPagoWebhookEvent({
       topic: envelope.topic,
       dataId: envelope.dataId,
-      accessToken,
+      accessToken: webhookCredentials.accessToken,
       providerEventId: envelope.providerEventId,
       payloadHash: envelope.payloadHash,
     });
@@ -185,10 +193,4 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
-}
-
-function resolveWebhookAccessToken(liveMode?: boolean) {
-  return resolveMercadoPagoCredentials({
-    environment: liveMode === false ? "test" : "production",
-  }).accessToken;
 }
