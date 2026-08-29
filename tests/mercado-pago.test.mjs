@@ -14,6 +14,7 @@ import {
   MercadoPagoConfigurationError,
   getMercadoPagoPayment,
   resolveMercadoPagoCredentials,
+  resolveMercadoPagoSubscriptionPayerEmail,
   verifyMercadoPagoWebhookSignature,
 } from "../src/lib/payments/mercado-pago.ts";
 import { getWorkspacePlan } from "../src/lib/workspace/catalog.ts";
@@ -23,6 +24,7 @@ function withMercadoPagoEnvironment(values, run) {
     "MERCADO_PAGO_ENVIRONMENT",
     "MERCADO_PAGO_ACCESS_TOKEN",
     "MERCADO_PAGO_TEST_ACCESS_TOKEN",
+    "MERCADO_PAGO_TEST_PAYER_EMAIL",
     "VERCEL_ENV",
   ];
   const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
@@ -30,7 +32,11 @@ function withMercadoPagoEnvironment(values, run) {
   try {
     for (const key of keys) {
       if (Object.hasOwn(values, key)) {
-        process.env[key] = values[key];
+        if (values[key] === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = values[key];
+        }
       } else {
         delete process.env[key];
       }
@@ -53,6 +59,7 @@ async function withMercadoPagoEnvironmentAsync(values, run) {
     "MERCADO_PAGO_ENVIRONMENT",
     "MERCADO_PAGO_ACCESS_TOKEN",
     "MERCADO_PAGO_TEST_ACCESS_TOKEN",
+    "MERCADO_PAGO_TEST_PAYER_EMAIL",
     "VERCEL_ENV",
   ];
   const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
@@ -60,7 +67,11 @@ async function withMercadoPagoEnvironmentAsync(values, run) {
   try {
     for (const key of keys) {
       if (Object.hasOwn(values, key)) {
-        process.env[key] = values[key];
+        if (values[key] === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = values[key];
+        }
       } else {
         delete process.env[key];
       }
@@ -134,6 +145,84 @@ test("falha de forma segura para ambiente ou token Mercado Pago inválido", () =
       );
     });
   }
+});
+
+test("resolve payer de assinatura por ambiente explícito sem depender da Vercel", () => {
+  withMercadoPagoEnvironment(
+    {
+      MERCADO_PAGO_ENVIRONMENT: "production",
+      MERCADO_PAGO_TEST_PAYER_EMAIL: "buyer-test@testuser.com",
+      VERCEL_ENV: "preview",
+    },
+    () => {
+      assert.equal(
+        resolveMercadoPagoSubscriptionPayerEmail({
+          customerEmail: "cliente@email.com",
+        }),
+        "cliente@email.com",
+      );
+    },
+  );
+
+  withMercadoPagoEnvironment(
+    {
+      MERCADO_PAGO_ENVIRONMENT: "test",
+      MERCADO_PAGO_TEST_PAYER_EMAIL: "buyer-test@testuser.com",
+      VERCEL_ENV: "production",
+    },
+    () => {
+      assert.equal(
+        resolveMercadoPagoSubscriptionPayerEmail({
+          customerEmail: "cliente@email.com",
+        }),
+        "buyer-test@testuser.com",
+      );
+    },
+  );
+});
+
+test("checkout recorrente de teste falha antes do provider sem payer configurado", () => {
+  withMercadoPagoEnvironment(
+    {
+      MERCADO_PAGO_ENVIRONMENT: "test",
+      MERCADO_PAGO_TEST_PAYER_EMAIL: undefined,
+    },
+    () => {
+      const configuredValue = "buyer-secret@testuser.com";
+      assert.throws(
+        () =>
+          resolveMercadoPagoSubscriptionPayerEmail({
+            customerEmail: "cliente@email.com",
+          }),
+        (error) => {
+          assert.ok(error instanceof MercadoPagoConfigurationError);
+          assert.match(error.message, /MERCADO_PAGO_TEST_PAYER_EMAIL/);
+          assert.doesNotMatch(error.message, new RegExp(configuredValue));
+          return true;
+        },
+      );
+    },
+  );
+
+  withMercadoPagoEnvironment(
+    {
+      MERCADO_PAGO_ENVIRONMENT: "test",
+      MERCADO_PAGO_TEST_PAYER_EMAIL: "invalid-buyer-secret",
+    },
+    () => {
+      assert.throws(
+        () =>
+          resolveMercadoPagoSubscriptionPayerEmail({
+            customerEmail: "cliente@email.com",
+          }),
+        (error) => {
+          assert.ok(error instanceof MercadoPagoConfigurationError);
+          assert.doesNotMatch(error.message, /invalid-buyer-secret/);
+          return true;
+        },
+      );
+    },
+  );
 });
 
 test("ambiente Mercado Pago ausente preserva o token de produção", () => {

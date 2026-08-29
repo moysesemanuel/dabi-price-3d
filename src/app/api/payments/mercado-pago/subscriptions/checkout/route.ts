@@ -14,6 +14,7 @@ import {
   isMercadoPagoApiError,
   normalizeMercadoPagoSubscriptionStatus,
   resolvePendingSubscriptionRecovery,
+  resolveMercadoPagoSubscriptionPayerEmail,
 } from "@/lib/payments/mercado-pago";
 import {
   createRouteRequestContext,
@@ -156,6 +157,24 @@ export async function POST(request: Request) {
     );
   }
 
+  let payerEmail: string;
+
+  try {
+    payerEmail = resolveMercadoPagoSubscriptionPayerEmail({
+      customerEmail: session.user.email,
+    });
+  } catch {
+    return jsonWithRequestId(
+      requestContext,
+      {
+        error:
+          "A integração de assinaturas de teste ainda não está configurada neste ambiente.",
+        code: "MERCADO_PAGO_TEST_PAYER_EMAIL_MISSING",
+      },
+      { status: 503 },
+    );
+  }
+
   const billingService = createBillingService();
   const provider = getBillingProvider("mercado_pago");
   let shouldReleaseCheckoutClaim = false;
@@ -274,7 +293,7 @@ export async function POST(request: Request) {
 
     const providerSubscription = await provider.createRecurringSubscription({
       externalReference: `billing_subscription:${localSubscription.id}`,
-      payerEmail: session.user.email,
+      payerEmail,
       reason: `${selectedPlan.label} - ${session.workspace.name}`,
       returnUrl: backUrl.toString(),
       amountCents: price.amountCents,
