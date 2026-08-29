@@ -33,6 +33,11 @@ export type MercadoPagoCredentials = {
   liveMode: boolean;
 };
 
+export type MercadoPagoWebhookCredentials = MercadoPagoCredentials & {
+  receivedLiveMode: boolean | null;
+  liveModeMismatch: boolean;
+};
+
 export class MercadoPagoConfigurationError extends Error {
   constructor(message: string) {
     super(message);
@@ -239,6 +244,35 @@ export function resolveMercadoPagoAccessToken(input?: {
   environment?: MercadoPagoEnvironment;
 }) {
   return resolveMercadoPagoCredentials(input).accessToken;
+}
+
+/**
+ * Webhooks use the deployment's explicit Mercado Pago environment. The provider
+ * live_mode flag is retained only to surface configuration mismatches safely.
+ */
+export function resolveMercadoPagoWebhookCredentials(input: {
+  liveMode?: boolean | null;
+  environment?: MercadoPagoEnvironment;
+  environmentValue?: string;
+  accessToken?: string;
+  testAccessToken?: string;
+} = {}): MercadoPagoWebhookCredentials {
+  const credentials = resolveMercadoPagoCredentials({
+    environment: input.environment,
+    environmentValue: input.environmentValue,
+    accessToken: input.accessToken,
+    testAccessToken: input.testAccessToken,
+  });
+  const receivedLiveMode = typeof input.liveMode === "boolean"
+    ? input.liveMode
+    : null;
+
+  return {
+    ...credentials,
+    receivedLiveMode,
+    liveModeMismatch:
+      receivedLiveMode !== null && receivedLiveMode !== credentials.liveMode,
+  };
 }
 
 export function resolveMercadoPagoSubscriptionPayerEmail(input: {
