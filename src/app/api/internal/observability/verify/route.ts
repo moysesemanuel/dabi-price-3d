@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/nextjs";
 
+import { createSentryOptions } from "@/lib/observability/sentry-config";
 import {
   isAuthorizedSentryVerificationRequest,
   isSentryVerificationStatusRequest,
@@ -13,9 +14,18 @@ export async function GET(request: Request) {
   }
 
   if (isSentryVerificationStatusRequest(request)) {
+    const sentryOptions = createSentryOptions({
+      dsn: process.env.SENTRY_DSN,
+      vercelEnv: process.env.VERCEL_ENV,
+      sentryEnvironment: process.env.SENTRY_ENVIRONMENT,
+      release: process.env.VERCEL_GIT_COMMIT_SHA,
+    });
+
     return new Response(null, {
       status: 204,
       headers: {
+        "X-Next-Runtime": process.env.NEXT_RUNTIME ?? "unknown",
+        "X-Sentry-Server-Configured": String(Boolean(sentryOptions)),
         "X-Sentry-Server-Enabled": String(Boolean(Sentry.getClient())),
       },
     });

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { afterEach, test } from "node:test";
 
 import {
@@ -61,4 +62,18 @@ test("o diagnostico de status exige o modo explicito", () => {
     ),
     true,
   );
+});
+
+test("o diagnostico de status mostra configuracao e runtime sem expor valores", async () => {
+  const source = await readFile(
+    new URL(
+      "../src/app/api/internal/observability/verify/route.ts",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+
+  assert.match(source, /X-Sentry-Server-Configured/);
+  assert.match(source, /X-Next-Runtime/);
+  assert.match(source, /createSentryOptions/);
 });
