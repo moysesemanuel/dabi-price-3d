@@ -7,3 +7,7 @@ export function isAuthorizedSentryVerificationRequest(request: Request): boolean
     request.headers.get("authorization") === `Bearer ${secret}`
   );
 }
+
+export function isSentryVerificationStatusRequest(request: Request): boolean {
+  return new URL(request.url).searchParams.get("mode") === "status";
+}

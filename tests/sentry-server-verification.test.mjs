@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 
-import { isAuthorizedSentryVerificationRequest } from "../src/lib/observability/sentry-test-auth.ts";
+import {
+  isAuthorizedSentryVerificationRequest,
+  isSentryVerificationStatusRequest,
+} from "../src/lib/observability/sentry-test-auth.ts";
 
 const originalEnvironment = process.env.SENTRY_ENVIRONMENT;
 const originalSecret = process.env.SENTRY_TEST_SECRET;
@@ -42,5 +45,20 @@ test("a verificacao de servidor so autoriza HML com segredo Bearer valido", () =
       }),
     ),
     false,
+  );
+});
+
+test("o diagnostico de status exige o modo explicito", () => {
+  assert.equal(
+    isSentryVerificationStatusRequest(
+      new Request("https://dabi.app/api/internal/observability/verify"),
+    ),
+    false,
+  );
+  assert.equal(
+    isSentryVerificationStatusRequest(
+      new Request("https://dabi.app/api/internal/observability/verify?mode=status"),
+    ),
+    true,
   );
 });
