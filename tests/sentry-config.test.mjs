@@ -175,3 +175,12 @@ test("a instrumentacao do cliente encaminha transicoes de rota ao Sentry", async
     /onRouterTransitionStart\s*=\s*Sentry\.captureRouterTransitionStart/,
   );
 });
+
+test("o build envia source maps de codigo interno do Next.js", async () => {
+  const source = await readFile(
+    new URL("../next.config.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /widenClientFileUpload:\s*true/);
+});

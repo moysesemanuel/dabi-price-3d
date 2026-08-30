@@ -44,6 +44,8 @@ const shouldUploadSourceMaps = isSentrySourceMapUploadEnabled({
 
 export default withSentryConfig(nextConfig, {
   silent: !process.env.CI,
+  // Inclui chunks internos do Next.js, necessarios para desminificar frames do runtime.
+  widenClientFileUpload: true,
   sourcemaps: {
     disable: !shouldUploadSourceMaps,
   },

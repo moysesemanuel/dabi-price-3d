@@ -62,6 +62,8 @@ envio de source maps e um segredo exclusivo do build. Ele nao pode ter prefixo
 O upload de source maps so e habilitado quando o build executa na Vercel e
 encontra simultaneamente token, organizacao e projeto; isso impede que o token
 somente leitura do Codex, configurado localmente, seja usado por engano.
+O upload inclui tambem chunks internos do Next.js para que erros capturados no
+runtime do framework sejam desminificados; isso pode aumentar o tempo de build.
 
 ## Configuracao Necessaria no Deploy
 
