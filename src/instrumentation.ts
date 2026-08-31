@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/nextjs";
 import type { Instrumentation } from "next";
-import { createSentryOptions } from "./src/lib/observability/sentry-config";
+
+import { createSentryOptions } from "./lib/observability/sentry-config";
 
 const sentryOptions = createSentryOptions({
   dsn: process.env.SENTRY_DSN,
@@ -15,11 +16,11 @@ export async function register(): Promise<void> {
   }
 
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    await import("./sentry.server.config");
+    await import("../sentry.server.config");
   }
 
   if (process.env.NEXT_RUNTIME === "edge") {
-    await import("./sentry.edge.config");
+    await import("../sentry.edge.config");
   }
 }
 
