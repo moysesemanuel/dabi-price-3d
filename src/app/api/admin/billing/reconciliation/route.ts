@@ -1,25 +1,52 @@
 import { getCurrentAuthSession } from "@/lib/auth/session";
 import { createBillingAdminService } from "@/lib/billing/server-admin-service";
+import {
+  createRouteRequestContext,
+  jsonWithRequestId,
+  logRouteEvent,
+  serializeError,
+} from "@/lib/server/route-observability";
 
 export async function POST(request: Request) {
-  const session = await getCurrentAuthSession();
-
-  if (!session) {
-    return Response.json({ error: "Nao autenticado." }, { status: 401 });
-  }
+  const requestContext = createRouteRequestContext(
+    request,
+    "/api/admin/billing/reconciliation",
+  );
+  let subscriptionId: string | undefined;
 
   try {
+    const session = await getCurrentAuthSession();
+
+    if (!session) {
+      return jsonWithRequestId(
+        requestContext,
+        { error: "Nao autenticado." },
+        { status: 401 },
+      );
+    }
+
     const body = await readReconciliationScope(request);
+    subscriptionId = body.subscriptionId;
     const result = await createBillingAdminService().runProviderReconciliation({
       session,
-      subscriptionId: body.subscriptionId,
+      subscriptionId,
     });
 
-    return Response.json(result);
+    return jsonWithRequestId(requestContext, result);
   } catch (error) {
-    return Response.json(
+    const status = mapBillingAdminStatus(error);
+
+    if (status >= 500) {
+      logRouteEvent(requestContext, "error", "billing_admin.reconciliation_failed", {
+        subscriptionId,
+        error: serializeError(error),
+      });
+    }
+
+    return jsonWithRequestId(
+      requestContext,
       { error: mapBillingAdminError(error) },
-      { status: mapBillingAdminStatus(error) },
+      { status },
     );
   }
 }
@@ -60,6 +87,10 @@ function mapBillingAdminError(error: unknown) {
 
     if (error.message === "subscription_id_invalido") {
       return "subscriptionId invalido.";
+    }
+
+    if ("code" in error && error.code === "ADMIN_BILLING_SUBSCRIPTION_NOT_FOUND") {
+      return "Assinatura nao encontrada.";
     }
   }
 

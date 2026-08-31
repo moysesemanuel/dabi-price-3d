@@ -1,4 +1,7 @@
-import type { BillingProvider } from "./providers/billing-provider.ts";
+import type {
+  BillingProvider,
+  BillingProviderPayment,
+} from "./providers/billing-provider.ts";
 import type { BillingService } from "./service.ts";
 import { applyBillingSubscriptionCycleChange } from "./cycle-change-management.ts";
 import { applyBillingSubscriptionUpgrade } from "./upgrade-management.ts";
@@ -22,6 +25,9 @@ export type BillingReconciliationFindingCode =
   | "provider_authorized_payment_not_approved"
   | "provider_authorized_payment_correlation_mismatch"
   | "provider_authorized_payment_price_not_resolved"
+  | "provider_authorized_payment_timestamp_unavailable"
+  | "provider_authorized_payment_amount_mismatch"
+  | "provider_authorized_payment_currency_mismatch"
   | "provider_canceled_local_active"
   | "local_active_without_provider"
   | "invoice_paid_subscription_not_active"
@@ -49,6 +55,20 @@ type ReconciliationClock = {
 };
 
 type WorkspaceProjectionStatus = "unpaid" | "active" | "paused" | "canceled";
+
+type AuthorizedProviderPayment = Awaited<
+  ReturnType<NonNullable<BillingProvider["listAuthorizedPayments"]>>
+>[number];
+
+type RecoveredInvoiceIdentifierSyncResult =
+  | {
+      status: "unchanged" | "updated";
+      invoice: BillingInvoice;
+    }
+  | {
+      status: "conflict";
+      finding: BillingReconciliationFinding;
+    };
 
 export type BillingReconciliationServiceDependencies = {
   billingService: Pick<
@@ -285,9 +305,9 @@ export class BillingReconciliationService {
 
     if (
       remoteSubscription.status === "active" &&
-      subscription.status === "pending"
+      canDiscoverAuthorizedPayments(subscription.status)
     ) {
-      return this.recoverPendingAuthorizedPayment({ subscription, provider });
+      return this.recoverAuthorizedPayments({ subscription, provider });
     }
 
     if (
@@ -307,7 +327,7 @@ export class BillingReconciliationService {
     return emptyRun(1);
   }
 
-  private async recoverPendingAuthorizedPayment(input: {
+  private async recoverAuthorizedPayments(input: {
     subscription: BillingSubscription;
     provider: BillingProvider;
   }): Promise<BillingReconciliationRunResult> {
@@ -315,6 +335,10 @@ export class BillingReconciliationService {
     const providerSubscriptionId = subscription.providerSubscriptionId;
 
     if (!providerSubscriptionId || !provider.listAuthorizedPayments) {
+      if (subscription.status !== "pending") {
+        return emptyRun(1);
+      }
+
       return singleFinding("provider_active_local_pending", {
         workspaceId: subscription.workspaceId,
         subscriptionId: subscription.id,
@@ -356,6 +380,7 @@ export class BillingReconciliationService {
       });
     }
 
+    // Validate the complete provider batch before materializing any invoice.
     for (const payment of approvedPayments) {
       if (
         payment.providerSubscriptionId !== providerSubscriptionId ||
@@ -374,8 +399,41 @@ export class BillingReconciliationService {
           },
         });
       }
+    }
+
+    // Provider searches may omit financial fields. Resolve each approved charge
+    // before ordering so activation and renewals follow the provider timeline.
+    const recoveredPayments = await Promise.all(
+      approvedPayments.map(async (payment) => ({
+        recoveredVia: hasCompleteRecoveredPaymentDetails(payment)
+          ? "authorized_payment_search"
+          : "authorized_payment_detail",
+        payment: await resolveRecoveredAuthorizedPaymentDetails({
+          provider,
+          payment,
+        }),
+      })),
+    );
+    recoveredPayments.sort((left, right) =>
+      compareAuthorizedPayments(left.payment, right.payment),
+    );
+
+    let changed = 0;
+    const findings: BillingReconciliationFinding[] = [];
+
+    for (const { payment, recoveredVia } of recoveredPayments) {
 
       if (!payment.providerAuthorizedPaymentId) {
+        findings.push({
+          code: "provider_authorized_payment_not_approved",
+          workspaceId: subscription.workspaceId,
+          subscriptionId: subscription.id,
+          details: {
+            providerSubscriptionId,
+            recovery: "approved_payment_without_authorized_payment_id",
+            providerPaymentId: payment.providerPaymentId,
+          },
+        });
         continue;
       }
 
@@ -407,50 +465,172 @@ export class BillingReconciliationService {
           });
         }
 
-        if (
-          invoice.providerAuthorizedPaymentId !== payment.providerAuthorizedPaymentId ||
-          invoice.providerPaymentId !== payment.providerPaymentId
-        ) {
-          invoice =
-            (await this.dependencies.updateInvoice(invoice.id, {
-              providerAuthorizedPaymentId: payment.providerAuthorizedPaymentId,
-              providerPaymentId: payment.providerPaymentId,
-            })) ?? invoice;
+        const syncedInvoice = await this.syncRecoveredInvoiceProviderIdentifiers({
+          invoice,
+          provider: subscription.provider,
+          subscription,
+          payment,
+        });
+
+        if (syncedInvoice.status === "conflict") {
+          findings.push(syncedInvoice.finding);
+          continue;
         }
 
-        return this.reconcileInvoice(invoice.id);
+        invoice = syncedInvoice.invoice;
+
+        if (invoice.status === "paid") {
+          if (!payment.approvedAt) {
+            findings.push({
+              code: "provider_authorized_payment_timestamp_unavailable",
+              workspaceId: subscription.workspaceId,
+              subscriptionId: subscription.id,
+              invoiceId: invoice.id,
+              details: {
+                providerSubscriptionId,
+                providerAuthorizedPaymentId: payment.providerAuthorizedPaymentId,
+                providerPaymentId: payment.providerPaymentId,
+              },
+            });
+            continue;
+          }
+
+          const amountFinding = validateRecoveredAuthorizedPaymentAmount({
+            payment,
+            expectedAmountCents: invoice.amountCents,
+            subscription,
+          });
+
+          if (amountFinding) {
+            amountFinding.invoiceId = invoice.id;
+            findings.push(amountFinding);
+            continue;
+          }
+
+          const currencyFinding = validateRecoveredAuthorizedPaymentCurrency({
+            payment,
+            expectedCurrency: invoice.currency,
+            subscription,
+          });
+
+          if (currencyFinding) {
+            currencyFinding.invoiceId = invoice.id;
+            findings.push(currencyFinding);
+            continue;
+          }
+
+          const result = await this.recoverPaidInvoiceEffect(invoice);
+          changed += result.changed;
+          findings.push(...result.findings);
+
+          if (result.changed > 0) {
+            await this.appendRecoveredPaymentAudit({
+              subscription,
+              invoice,
+              payment,
+              recoveredVia,
+            });
+          }
+          continue;
+        }
+
+        const result = await this.reconcileInvoice(invoice.id);
+        changed += result.changed;
+        findings.push(...result.findings);
+        continue;
       }
 
-      const periodStart = payment.approvedAt ?? this.now().toISOString();
+      const currentSubscription = await this.dependencies.getSubscriptionById(
+        subscription.id,
+      );
+
+      if (!currentSubscription) {
+        return singleFinding("provider_authorized_payment_correlation_mismatch", {
+          workspaceId: subscription.workspaceId,
+          subscriptionId: subscription.id,
+          details: { reason: "subscription_missing_during_recovery" },
+        });
+      }
+
+      const invoiceType = resolveRecoveredAuthorizedPaymentInvoiceType(
+        currentSubscription.status,
+      );
+
+      if (!invoiceType) {
+        continue;
+      }
+
+      const approvedAt = payment.approvedAt;
+
+      if (!approvedAt) {
+        findings.push({
+          code: "provider_authorized_payment_timestamp_unavailable",
+          workspaceId: currentSubscription.workspaceId,
+          subscriptionId: currentSubscription.id,
+          details: {
+            providerSubscriptionId,
+            providerAuthorizedPaymentId: payment.providerAuthorizedPaymentId,
+            providerPaymentId: payment.providerPaymentId,
+          },
+        });
+        continue;
+      }
+
+      // Recovered charges must retain the provider's financial approval date.
+      // Anchoring renewals to the current local period would shorten access when
+      // reconciliation runs after the provider charge was approved.
+      const periodStart = approvedAt;
       const price = await this.dependencies.findActivePrice({
-        planId: subscription.planId,
-        billingCycle: subscription.billingCycle,
+        planId: currentSubscription.planId,
+        billingCycle: currentSubscription.billingCycle,
         asOf: periodStart,
       });
 
       if (!price) {
         return singleFinding("provider_authorized_payment_price_not_resolved", {
-          workspaceId: subscription.workspaceId,
-          subscriptionId: subscription.id,
+          workspaceId: currentSubscription.workspaceId,
+          subscriptionId: currentSubscription.id,
           details: {
             providerAuthorizedPaymentId: payment.providerAuthorizedPaymentId,
             providerPaymentId: payment.providerPaymentId,
-            planId: subscription.planId,
-            billingCycle: subscription.billingCycle,
+            planId: currentSubscription.planId,
+            billingCycle: currentSubscription.billingCycle,
           },
         });
       }
 
+      const amountFinding = validateRecoveredAuthorizedPaymentAmount({
+        payment,
+        expectedAmountCents: price.amountCents,
+        subscription: currentSubscription,
+      });
+
+      if (amountFinding) {
+        findings.push(amountFinding);
+        continue;
+      }
+
+      const currencyFinding = validateRecoveredAuthorizedPaymentCurrency({
+        payment,
+        expectedCurrency: price.currency,
+        subscription: currentSubscription,
+      });
+
+      if (currencyFinding) {
+        findings.push(currencyFinding);
+        continue;
+      }
+
       invoice = await this.dependencies.createInvoice({
-        subscriptionId: subscription.id,
-        workspaceId: subscription.workspaceId,
+        subscriptionId: currentSubscription.id,
+        workspaceId: currentSubscription.workspaceId,
         priceId: price.id,
-        type: "subscription",
+        type: invoiceType,
         status: "pending",
         amountCents: price.amountCents,
         currency: price.currency,
         periodStart,
-        periodEnd: addBillingCycle(periodStart, subscription.billingCycle),
+        periodEnd: addBillingCycle(periodStart, currentSubscription.billingCycle),
         paymentMethod: payment.paymentMethod ?? "unknown",
         provider: subscription.provider,
         providerPaymentId: payment.providerPaymentId,
@@ -465,21 +645,149 @@ export class BillingReconciliationService {
           });
       }
 
+      if (!invoice && payment.providerPaymentId) {
+        invoice = await this.dependencies.findInvoiceByProviderPaymentId({
+          provider: subscription.provider,
+          providerPaymentId: payment.providerPaymentId,
+        });
+      }
+
       if (!invoice) {
         throw new Error("Failed to materialize recovered authorized payment invoice.");
       }
 
-      return this.reconcileInvoice(invoice.id);
+      const result = await this.reconcileInvoice(invoice.id);
+      changed += result.changed;
+      findings.push(...result.findings);
+
+      if (result.changed > 0) {
+        await this.appendRecoveredPaymentAudit({
+          subscription: currentSubscription,
+          invoice,
+          payment,
+          recoveredVia,
+        });
+      }
     }
 
-    return singleFinding("provider_authorized_payment_not_approved", {
-      workspaceId: subscription.workspaceId,
-      subscriptionId: subscription.id,
-      details: {
-        providerSubscriptionId,
-        recovery: "approved_payment_without_authorized_payment_id",
+    return { processed: 1, changed, findings };
+  }
+
+  private async appendRecoveredPaymentAudit(input: {
+    subscription: BillingSubscription;
+    invoice: BillingInvoice;
+    payment: AuthorizedProviderPayment;
+    recoveredVia: string;
+  }) {
+    await this.dependencies.appendAuditEvent({
+      workspaceId: input.subscription.workspaceId,
+      subscriptionId: input.subscription.id,
+      invoiceId: input.invoice.id,
+      actorType: "system",
+      action: "reconciliation.payment_recovered",
+      metadata: {
+        subscriptionId: input.subscription.id,
+        invoiceId: input.invoice.id,
+        invoiceType: input.invoice.type,
+        provider: input.invoice.provider,
+        providerAuthorizedPaymentId: input.payment.providerAuthorizedPaymentId,
+        providerPaymentId: input.payment.providerPaymentId,
+        recoveredVia: input.recoveredVia,
       },
     });
+  }
+
+  private async syncRecoveredInvoiceProviderIdentifiers(input: {
+    invoice: BillingInvoice;
+    provider: BillingInvoice["provider"];
+    subscription: BillingSubscription;
+    payment: AuthorizedProviderPayment;
+  }): Promise<RecoveredInvoiceIdentifierSyncResult> {
+    const mutation: Partial<
+      Pick<
+        BillingInvoice,
+        "providerPaymentId" | "providerAuthorizedPaymentId"
+      >
+    > = {};
+
+    if (
+      input.invoice.providerAuthorizedPaymentId !==
+      input.payment.providerAuthorizedPaymentId
+    ) {
+      mutation.providerAuthorizedPaymentId =
+        input.payment.providerAuthorizedPaymentId;
+    }
+
+    if (input.invoice.providerPaymentId !== input.payment.providerPaymentId) {
+      const providerPaymentId = input.payment.providerPaymentId;
+      if (!providerPaymentId) {
+        mutation.providerPaymentId = providerPaymentId;
+      } else {
+        const matchingInvoice = await this.dependencies.findInvoiceByProviderPaymentId({
+          provider: input.provider,
+          providerPaymentId,
+        });
+
+        if (matchingInvoice && matchingInvoice.id !== input.invoice.id) {
+          return {
+            status: "conflict",
+            finding: buildProviderPaymentIdCorrelationMismatchFinding({
+              invoice: input.invoice,
+              subscription: input.subscription,
+              payment: input.payment,
+              providerPaymentId,
+              conflictingInvoice: matchingInvoice,
+              reason: "provider_payment_id_owned_by_other_invoice",
+            }),
+          };
+        }
+
+        mutation.providerPaymentId = providerPaymentId;
+      }
+    }
+
+    if (Object.keys(mutation).length === 0) {
+      return {
+        status: "unchanged",
+        invoice: input.invoice,
+      };
+    }
+
+    try {
+      const updatedInvoice =
+        (await this.dependencies.updateInvoice(input.invoice.id, mutation)) ??
+        input.invoice;
+
+      return {
+        status: "updated",
+        invoice: updatedInvoice,
+      };
+    } catch (error) {
+      if (
+        mutation.providerPaymentId &&
+        isProviderPaymentIdUniqueConflict(error)
+      ) {
+        const conflictingInvoice =
+          await this.dependencies.findInvoiceByProviderPaymentId({
+            provider: input.provider,
+            providerPaymentId: mutation.providerPaymentId,
+          });
+
+        return {
+          status: "conflict",
+          finding: buildProviderPaymentIdCorrelationMismatchFinding({
+            invoice: input.invoice,
+            subscription: input.subscription,
+            payment: input.payment,
+            providerPaymentId: mutation.providerPaymentId,
+            conflictingInvoice,
+            reason: "provider_payment_id_update_conflict",
+          }),
+        };
+      }
+
+      throw error;
+    }
   }
 
   async reconcileInvoice(invoiceId: string): Promise<BillingReconciliationRunResult> {
@@ -807,7 +1115,7 @@ export class BillingReconciliationService {
           });
         }
       } else if (invoice.type === "subscription") {
-        const currentPeriodStart = invoice.paidAt ?? nowIso;
+        const currentPeriodStart = invoice.periodStart ?? invoice.paidAt ?? nowIso;
         const currentPeriodEnd = invoice.periodEnd ?? addBillingCycle(
           currentPeriodStart,
           subscription.billingCycle,
@@ -1315,6 +1623,227 @@ function serializeErrorMessage(error: unknown) {
   }
 
   return String(error);
+}
+
+function canDiscoverAuthorizedPayments(status: BillingSubscription["status"]) {
+  return (
+    status === "pending" ||
+    status === "active" ||
+    status === "past_due"
+  );
+}
+
+function resolveRecoveredAuthorizedPaymentInvoiceType(
+  status: BillingSubscription["status"],
+): BillingInvoice["type"] | null {
+  if (status === "pending") {
+    return "subscription";
+  }
+
+  if (status === "active" || status === "past_due") {
+    return "renewal";
+  }
+
+  return null;
+}
+
+function compareAuthorizedPayments(
+  left: AuthorizedProviderPayment,
+  right: AuthorizedProviderPayment,
+) {
+  const leftApprovedAt = normalizeProviderTimestamp(left.approvedAt) ?? "\uffff";
+  const rightApprovedAt = normalizeProviderTimestamp(right.approvedAt) ?? "\uffff";
+
+  return (
+    leftApprovedAt.localeCompare(rightApprovedAt) ||
+    (left.providerAuthorizedPaymentId ?? "").localeCompare(
+      right.providerAuthorizedPaymentId ?? "",
+    )
+  );
+}
+
+function validateRecoveredAuthorizedPaymentAmount(input: {
+  payment: AuthorizedProviderPayment;
+  expectedAmountCents: number;
+  subscription: BillingSubscription;
+}): BillingReconciliationFinding | null {
+  if (input.payment.amountCents === input.expectedAmountCents) {
+    return null;
+  }
+
+  return {
+    code: "provider_authorized_payment_amount_mismatch",
+    workspaceId: input.subscription.workspaceId,
+    subscriptionId: input.subscription.id,
+    details: {
+      providerAuthorizedPaymentId: input.payment.providerAuthorizedPaymentId,
+      providerPaymentId: input.payment.providerPaymentId,
+      expectedAmountCents: input.expectedAmountCents,
+      receivedAmountCents: input.payment.amountCents ?? null,
+    },
+  };
+}
+
+function validateRecoveredAuthorizedPaymentCurrency(input: {
+  payment: AuthorizedProviderPayment;
+  expectedCurrency: string;
+  subscription: BillingSubscription;
+}): BillingReconciliationFinding | null {
+  const receivedCurrency = input.payment.currency?.trim().toUpperCase() ?? null;
+  const expectedCurrency = input.expectedCurrency.trim().toUpperCase();
+
+  if (receivedCurrency === expectedCurrency) {
+    return null;
+  }
+
+  return {
+    code: "provider_authorized_payment_currency_mismatch",
+    workspaceId: input.subscription.workspaceId,
+    subscriptionId: input.subscription.id,
+    details: {
+      providerAuthorizedPaymentId: input.payment.providerAuthorizedPaymentId,
+      providerPaymentId: input.payment.providerPaymentId,
+      expectedCurrency,
+      receivedCurrency,
+    },
+  };
+}
+
+async function resolveRecoveredAuthorizedPaymentDetails(input: {
+  provider: BillingProvider;
+  payment: AuthorizedProviderPayment;
+}) {
+  let details = { ...input.payment };
+  const hasRequiredDetails = () => hasCompleteRecoveredPaymentDetails(details);
+
+  if (hasRequiredDetails()) {
+    return details;
+  }
+
+  if (input.payment.providerPaymentId) {
+    try {
+      const payment = await input.provider.getManualPayment(
+        input.payment.providerPaymentId,
+      );
+      details = mergeRecoveredPaymentDetails(details, payment);
+    } catch {
+      // The authorized-payment detail below remains a valid fallback source.
+    }
+  }
+
+  if (!hasRequiredDetails() && input.payment.providerAuthorizedPaymentId) {
+    try {
+      const authorizedPayment = await input.provider.getPayment(
+        input.payment.providerAuthorizedPaymentId,
+      );
+      details = mergeRecoveredPaymentDetails(details, authorizedPayment);
+    } catch {
+      // The fields available from the payment detail remain eligible below.
+    }
+  }
+
+  return {
+    ...details,
+    approvedAt: normalizeProviderTimestamp(details.approvedAt),
+  };
+}
+
+function mergeRecoveredPaymentDetails(
+  current: AuthorizedProviderPayment,
+  detail: BillingProviderPayment,
+) {
+  const currentNeedsProviderPaymentId =
+    !current.providerPaymentId ||
+    current.providerPaymentId === current.providerAuthorizedPaymentId;
+  const detailProvidesPaymentId =
+    Boolean(detail.providerPaymentId) &&
+    detail.providerPaymentId !== detail.providerAuthorizedPaymentId;
+
+  return {
+    ...current,
+    providerPaymentId:
+      currentNeedsProviderPaymentId && detailProvidesPaymentId
+        ? detail.providerPaymentId
+        : current.providerPaymentId,
+    approvedAt: normalizeProviderTimestamp(current.approvedAt) ??
+      normalizeProviderTimestamp(detail.approvedAt),
+    amountCents: current.amountCents ?? detail.amountCents ?? null,
+    currency: current.currency ?? detail.currency ?? null,
+  };
+}
+
+function hasCompleteRecoveredPaymentDetails(payment: AuthorizedProviderPayment) {
+  return (
+    Boolean(normalizeProviderTimestamp(payment.approvedAt)) &&
+    typeof payment.amountCents === "number" &&
+    Boolean(payment.currency?.trim()) &&
+    Boolean(payment.providerPaymentId) &&
+    payment.providerPaymentId !== payment.providerAuthorizedPaymentId
+  );
+}
+
+function normalizeProviderTimestamp(value: string | null | undefined) {
+  if (!value || Number.isNaN(Date.parse(value))) {
+    return null;
+  }
+
+  return new Date(value).toISOString();
+}
+
+function buildProviderPaymentIdCorrelationMismatchFinding(input: {
+  invoice: BillingInvoice;
+  subscription: BillingSubscription;
+  payment: AuthorizedProviderPayment;
+  providerPaymentId: string;
+  conflictingInvoice: BillingInvoice | null;
+  reason:
+    | "provider_payment_id_owned_by_other_invoice"
+    | "provider_payment_id_update_conflict";
+}): BillingReconciliationFinding {
+  return {
+    code: "provider_authorized_payment_correlation_mismatch",
+    workspaceId: input.subscription.workspaceId,
+    subscriptionId: input.subscription.id,
+    invoiceId: input.invoice.id,
+    details: {
+      reason: input.reason,
+      providerAuthorizedPaymentId: input.payment.providerAuthorizedPaymentId,
+      providerPaymentId: input.providerPaymentId,
+      conflictingInvoiceId: input.conflictingInvoice?.id ?? null,
+      conflictingInvoiceSubscriptionId:
+        input.conflictingInvoice?.subscriptionId ?? null,
+      currentInvoiceProviderPaymentId: input.invoice.providerPaymentId,
+      currentInvoiceProviderAuthorizedPaymentId:
+        input.invoice.providerAuthorizedPaymentId,
+    },
+  };
+}
+
+function isProviderPaymentIdUniqueConflict(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const errorCode =
+    "code" in error && typeof error.code === "string" ? error.code : null;
+  const constraint =
+    "constraint" in error && typeof error.constraint === "string"
+      ? error.constraint
+      : null;
+  const message =
+    "message" in error && typeof error.message === "string"
+      ? error.message
+      : "";
+
+  if (errorCode !== "23505") {
+    return false;
+  }
+
+  return (
+    constraint === "billing_invoices_provider_payment_idx" ||
+    message.includes("billing_invoices_provider_payment_idx") ||
+    message.includes("provider_payment_id")
+  );
 }
 
 async function resolveReconciliationPayment(

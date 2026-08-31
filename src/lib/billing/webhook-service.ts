@@ -775,7 +775,22 @@ export class BillingWebhookService {
       });
 
       if (!invoice) {
-        throw new Error("Failed to create authorized payment invoice.");
+        invoice = await this.dependencies.findInvoiceByProviderAuthorizedPaymentId({
+          provider: normalizedEvent.provider,
+          providerAuthorizedPaymentId:
+            normalizedEvent.authorizedPayment.providerAuthorizedPaymentId,
+        });
+      }
+
+      if (!invoice && normalizedEvent.authorizedPayment.providerPaymentId) {
+        invoice = await this.dependencies.findInvoiceByProviderPaymentId({
+          provider: normalizedEvent.provider,
+          providerPaymentId: normalizedEvent.authorizedPayment.providerPaymentId,
+        });
+      }
+
+      if (!invoice) {
+        throw new Error("Failed to materialize authorized payment invoice.");
       }
     }
 

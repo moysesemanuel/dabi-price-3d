@@ -426,6 +426,19 @@ export class BillingAdminService {
     this.assertPersistence();
 
     const subscriptionId = input.subscriptionId?.trim() || undefined;
+
+    if (subscriptionId) {
+      const subscription = await this.dependencies.getSubscriptionById(subscriptionId);
+
+      if (!subscription) {
+        throw new BillingAdminServiceError(
+          "Assinatura nao encontrada.",
+          "ADMIN_BILLING_SUBSCRIPTION_NOT_FOUND",
+          404,
+        );
+      }
+    }
+
     const result = await this.dependencies.runProviderReconciliation(
       20,
       subscriptionId,

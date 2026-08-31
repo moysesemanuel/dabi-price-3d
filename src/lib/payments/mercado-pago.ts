@@ -63,23 +63,34 @@ export type MercadoPagoAuthorizedPayment = {
   status?: string | null;
   payment_method_id?: string | null;
   date_approved?: string | null;
+  transaction_amount?: number | string | null;
+  currency_id?: string | null;
   payment?: {
     id?: number | string | null;
     status?: string | null;
     status_detail?: string | null;
     payment_method_id?: string | null;
     date_approved?: string | null;
+    transaction_amount?: number | string | null;
+    currency_id?: string | null;
   } | null;
 };
 
 export type MercadoPagoAuthorizedPaymentSearchResult = {
   results?: MercadoPagoAuthorizedPayment[];
+  paging?: {
+    total?: number | null;
+    limit?: number | null;
+    offset?: number | null;
+  } | null;
 };
 
 export type MercadoPagoPayment = {
   id: number | string;
   status?: string | null;
   status_detail?: string | null;
+  transaction_amount?: number | string | null;
+  currency_id?: string | null;
   external_reference?: string | number | null;
   date_of_expiration?: string | null;
   date_approved?: string | null;
@@ -357,9 +368,41 @@ export async function getMercadoPagoAuthorizedPaymentWithToken(
 export async function listMercadoPagoAuthorizedPayments(
   preapprovalId: string,
 ) {
-  return mercadoPagoApiRequest<MercadoPagoAuthorizedPaymentSearchResult>(
-    `/authorized_payments/search?preapproval_id=${encodeURIComponent(preapprovalId)}&sort=date_created&criteria=asc`,
-  );
+  const limit = 100;
+  let offset = 0;
+  let total: number | null = null;
+  const results: MercadoPagoAuthorizedPayment[] = [];
+
+  while (true) {
+    const response = await mercadoPagoApiRequest<MercadoPagoAuthorizedPaymentSearchResult>(
+      `/authorized_payments/search?preapproval_id=${encodeURIComponent(preapprovalId)}&sort=date_created&criteria=asc&limit=${limit}&offset=${offset}`,
+    );
+    const page = response.results ?? [];
+    results.push(...page);
+
+    const responseTotal = response.paging?.total;
+    total = typeof responseTotal === "number" && responseTotal >= 0
+      ? responseTotal
+      : total;
+
+    if (
+      page.length === 0 ||
+      (total !== null
+        ? offset + page.length >= total
+        : page.length < limit)
+    ) {
+      return {
+        results,
+        paging: {
+          total: total ?? results.length,
+          limit,
+          offset: 0,
+        },
+      };
+    }
+
+    offset += page.length;
+  }
 }
 
 export async function getMercadoPagoPayment(paymentId: string) {
