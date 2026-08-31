@@ -70,3 +70,28 @@ test("claim de operação é liberado quando o efeito falha", async () => {
     { subscriptionId: "sub-claim-2", claimToken: "claim-2" },
   ]);
 });
+
+test("claim de operação perdido durante a liberação é reportado", async () => {
+  const reports = [];
+
+  await runWithBillingSubscriptionOperationClaim({
+    subscriptionId: "sub-claim-lost-1",
+    async claimSubscriptionOperation() {
+      return "claim-lost-1";
+    },
+    async releaseSubscriptionOperationClaim() {
+      return false;
+    },
+    async reportClaimLost(input) {
+      reports.push(input);
+    },
+    async operation() {},
+  });
+
+  assert.deepEqual(reports, [
+    {
+      claimType: "subscription_operation",
+      subscriptionId: "sub-claim-lost-1",
+    },
+  ]);
+});
