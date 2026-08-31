@@ -77,3 +77,16 @@ test("o diagnostico de status mostra configuracao e runtime sem expor valores", 
   assert.match(source, /X-Next-Runtime/);
   assert.match(source, /createSentryOptions/);
 });
+
+test("a falha temporaria aguarda o envio explicito ao Sentry antes de relancar", async () => {
+  const source = await readFile(
+    new URL(
+      "../src/app/api/internal/observability/verify/route.ts",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+
+  assert.match(source, /Sentry\.captureException\(error\)/);
+  assert.match(source, /await Sentry\.flush\(2_000\)/);
+});

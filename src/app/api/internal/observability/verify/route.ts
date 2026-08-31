@@ -31,5 +31,8 @@ export async function GET(request: Request) {
     });
   }
 
-  throw new Error("sentry-server-verification");
+  const error = new Error("sentry-server-verification");
+  Sentry.captureException(error);
+  await Sentry.flush(2_000);
+  throw error;
 }
