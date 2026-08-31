@@ -363,3 +363,25 @@ test("super admin pode limitar a reconciliacao a uma assinatura", async () => {
     "sub-target-1",
   );
 });
+
+test("reconciliacao escopada retorna 404 quando a assinatura não existe", async () => {
+  const dependencies = createDependencies({
+    async getSubscriptionById() {
+      return null;
+    },
+  });
+  const service = new BillingAdminService(dependencies);
+
+  await assert.rejects(
+    service.runProviderReconciliation({
+      session: createSession(),
+      subscriptionId: "sub-missing",
+    }),
+    (error) =>
+      error instanceof BillingAdminServiceError &&
+      error.code === "ADMIN_BILLING_SUBSCRIPTION_NOT_FOUND" &&
+      error.status === 404,
+  );
+  assert.deepEqual(dependencies.reconciliationCalls, []);
+  assert.deepEqual(dependencies.auditEvents, []);
+});

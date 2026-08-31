@@ -91,6 +91,42 @@ async function withMercadoPagoEnvironmentAsync(values, run) {
   }
 }
 
+test("lista todas as páginas de authorized payments sem depender do limite padrão", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  globalThis.fetch = async (url) => {
+    const requestUrl = new URL(String(url));
+    requests.push(requestUrl);
+    const offset = Number(requestUrl.searchParams.get("offset"));
+    const results = offset === 0
+      ? Array.from({ length: 20 }, (_, index) => ({ id: index + 1 }))
+      : [{ id: 21 }];
+
+    return new Response(JSON.stringify({
+      results,
+      paging: { total: 21, limit: 20, offset },
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+
+  await withMercadoPagoEnvironmentAsync(
+    { MERCADO_PAGO_ENVIRONMENT: "test", MERCADO_PAGO_TEST_ACCESS_TOKEN: "test-token" },
+    async () => {
+      const response = await listMercadoPagoAuthorizedPayments("preapproval-1");
+      assert.equal(response.results?.length, 21);
+      assert.deepEqual(
+        requests.map((request) => request.searchParams.get("offset")),
+        ["0", "20"],
+      );
+      assert.ok(requests.every((request) => request.searchParams.get("limit") === "100"));
+    },
+  );
+});
+
 test("resolve credenciais do Mercado Pago por ambiente explícito sem depender da Vercel", () => {
   withMercadoPagoEnvironment(
     {

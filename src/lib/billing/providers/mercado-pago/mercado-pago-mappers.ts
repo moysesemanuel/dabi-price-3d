@@ -32,7 +32,14 @@ export function mapMercadoPagoAuthorizedPaymentToBillingPayment(
   );
   const approvedAt =
     normalizeOptionalString(authorizedPayment.date_approved) ??
-    normalizeOptionalString(authorizedPayment.payment?.date_approved);
+      normalizeOptionalString(authorizedPayment.payment?.date_approved);
+  const amountCents = normalizeMercadoPagoAmountToCents(
+    authorizedPayment.payment?.transaction_amount ??
+      authorizedPayment.transaction_amount,
+  );
+  const currency =
+    normalizeOptionalString(authorizedPayment.payment?.currency_id) ??
+    normalizeOptionalString(authorizedPayment.currency_id);
 
   return {
     provider: "mercado_pago",
@@ -48,12 +55,20 @@ export function mapMercadoPagoAuthorizedPaymentToBillingPayment(
     externalReference: normalizeOptionalString(authorizedPayment.external_reference),
     paymentMethod,
     ...(approvedAt ? { approvedAt } : {}),
+    ...(amountCents !== null ? { amountCents } : {}),
+    ...(currency ? { currency } : {}),
   };
 }
 
 export function mapMercadoPagoPaymentToBillingManualPayment(
   payment: MercadoPagoPayment,
 ): BillingProviderManualPayment {
+  const approvedAt = normalizeOptionalString(payment.date_approved);
+  const amountCents = normalizeMercadoPagoAmountToCents(
+    payment.transaction_amount,
+  );
+  const currency = normalizeOptionalString(payment.currency_id);
+
   return {
     provider: "mercado_pago",
     providerPaymentId: normalizeOptionalString(payment.id) ?? "",
@@ -77,6 +92,9 @@ export function mapMercadoPagoPaymentToBillingManualPayment(
       payment.point_of_interaction?.transaction_data?.qr_code_base64,
     ),
     expiresAt: normalizeOptionalString(payment.date_of_expiration),
+    ...(approvedAt ? { approvedAt } : {}),
+    ...(amountCents !== null ? { amountCents } : {}),
+    ...(currency ? { currency } : {}),
   };
 }
 
@@ -91,6 +109,20 @@ function normalizeOptionalString(value: unknown) {
 
   const normalized = value.trim();
   return normalized ? normalized : null;
+}
+
+function normalizeMercadoPagoAmountToCents(value: unknown) {
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return null;
+    return Math.round(value * 100);
+  }
+
+  if (typeof value !== "string" || !/^\d+(?:\.\d{1,2})?$/.test(value.trim())) {
+    return null;
+  }
+
+  const [whole, fraction = ""] = value.trim().split(".");
+  return Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
 }
 
 function mapMercadoPagoAutomaticPaymentMethod(paymentMethodId: string | null) {

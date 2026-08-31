@@ -32,6 +32,8 @@ export type BillingProviderPayment = {
   externalReference: string | null;
   paymentMethod: BillingPaymentMethodType | null;
   approvedAt?: string | null;
+  amountCents?: number | null;
+  currency?: string | null;
 };
 
 export type BillingProviderManualPaymentInput = {
