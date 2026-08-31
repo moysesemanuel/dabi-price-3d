@@ -25,6 +25,26 @@ export type MercadoPagoWebhookPayload = {
   };
 };
 
+export type MercadoPagoEnvironment = "test" | "production";
+
+export type MercadoPagoCredentials = {
+  environment: MercadoPagoEnvironment;
+  accessToken: string;
+  liveMode: boolean;
+};
+
+export type MercadoPagoWebhookCredentials = MercadoPagoCredentials & {
+  receivedLiveMode: boolean | null;
+  liveModeMismatch: boolean;
+};
+
+export class MercadoPagoConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "MercadoPagoConfigurationError";
+  }
+}
+
 export type MercadoPagoSubscription = {
   id: string;
   preapproval_plan_id?: string | null;
@@ -43,12 +63,25 @@ export type MercadoPagoAuthorizedPayment = {
   status?: string | null;
   payment_method_id?: string | null;
   date_approved?: string | null;
+  transaction_amount?: number | string | null;
+  currency_id?: string | null;
   payment?: {
     id?: number | string | null;
     status?: string | null;
     status_detail?: string | null;
     payment_method_id?: string | null;
     date_approved?: string | null;
+    transaction_amount?: number | string | null;
+    currency_id?: string | null;
+  } | null;
+};
+
+export type MercadoPagoAuthorizedPaymentSearchResult = {
+  results?: MercadoPagoAuthorizedPayment[];
+  paging?: {
+    total?: number | null;
+    limit?: number | null;
+    offset?: number | null;
   } | null;
 };
 
@@ -56,6 +89,8 @@ export type MercadoPagoPayment = {
   id: number | string;
   status?: string | null;
   status_detail?: string | null;
+  transaction_amount?: number | string | null;
+  currency_id?: string | null;
   external_reference?: string | number | null;
   date_of_expiration?: string | null;
   date_approved?: string | null;
@@ -171,12 +206,125 @@ export class MercadoPagoApiError extends Error {
   }
 }
 
+export function resolveMercadoPagoEnvironment(
+  environmentValue = process.env.MERCADO_PAGO_ENVIRONMENT,
+): MercadoPagoEnvironment {
+  const normalized = environmentValue?.trim().toLowerCase();
+
+  // Preserve existing production deployments until they explicitly configure it.
+  if (!normalized) {
+    return "production";
+  }
+
+  if (normalized === "test" || normalized === "production") {
+    return normalized;
+  }
+
+  throw new MercadoPagoConfigurationError(
+    "MERCADO_PAGO_ENVIRONMENT must be either test or production.",
+  );
+}
+
+export function resolveMercadoPagoCredentials(input: {
+  environment?: MercadoPagoEnvironment;
+  environmentValue?: string;
+  accessToken?: string;
+  testAccessToken?: string;
+} = {}): MercadoPagoCredentials {
+  const environment =
+    input.environment ?? resolveMercadoPagoEnvironment(input.environmentValue);
+  const accessToken =
+    (environment === "test" ? input.testAccessToken : input.accessToken) ??
+    (environment === "test"
+      ? process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN
+      : process.env.MERCADO_PAGO_ACCESS_TOKEN);
+  const normalizedAccessToken = accessToken?.trim() ?? "";
+
+  if (!normalizedAccessToken) {
+    throw new MercadoPagoConfigurationError(
+      environment === "test"
+        ? "Mercado Pago test environment requires MERCADO_PAGO_TEST_ACCESS_TOKEN."
+        : "Mercado Pago production environment requires MERCADO_PAGO_ACCESS_TOKEN.",
+    );
+  }
+
+  return {
+    environment,
+    accessToken: normalizedAccessToken,
+    liveMode: environment === "production",
+  };
+}
+
+export function resolveMercadoPagoAccessToken(input?: {
+  environment?: MercadoPagoEnvironment;
+}) {
+  return resolveMercadoPagoCredentials(input).accessToken;
+}
+
+/**
+ * Webhooks use the deployment's explicit Mercado Pago environment. The provider
+ * live_mode flag is retained only to surface configuration mismatches safely.
+ */
+export function resolveMercadoPagoWebhookCredentials(input: {
+  liveMode?: boolean | null;
+  environment?: MercadoPagoEnvironment;
+  environmentValue?: string;
+  accessToken?: string;
+  testAccessToken?: string;
+} = {}): MercadoPagoWebhookCredentials {
+  const credentials = resolveMercadoPagoCredentials({
+    environment: input.environment,
+    environmentValue: input.environmentValue,
+    accessToken: input.accessToken,
+    testAccessToken: input.testAccessToken,
+  });
+  const receivedLiveMode = typeof input.liveMode === "boolean"
+    ? input.liveMode
+    : null;
+
+  return {
+    ...credentials,
+    receivedLiveMode,
+    liveModeMismatch:
+      receivedLiveMode !== null && receivedLiveMode !== credentials.liveMode,
+  };
+}
+
+export function resolveMercadoPagoSubscriptionPayerEmail(input: {
+  customerEmail: string;
+  environment?: MercadoPagoEnvironment;
+  environmentValue?: string;
+  testPayerEmail?: string;
+}) {
+  const environment =
+    input.environment ?? resolveMercadoPagoEnvironment(input.environmentValue);
+
+  if (environment === "production") {
+    return input.customerEmail;
+  }
+
+  const testPayerEmail =
+    input.testPayerEmail ?? process.env.MERCADO_PAGO_TEST_PAYER_EMAIL;
+  const normalizedTestPayerEmail = testPayerEmail?.trim() ?? "";
+
+  if (
+    !normalizedTestPayerEmail ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedTestPayerEmail)
+  ) {
+    throw new MercadoPagoConfigurationError(
+      "Mercado Pago test environment requires a valid MERCADO_PAGO_TEST_PAYER_EMAIL for subscription checkout.",
+    );
+  }
+
+  return normalizedTestPayerEmail;
+}
+
 export function getMercadoPagoAccessToken() {
-  return process.env.MERCADO_PAGO_ACCESS_TOKEN?.trim() ?? "";
+  return resolveMercadoPagoAccessToken();
 }
 
 export function getMercadoPagoTestAccessToken() {
-  return process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN?.trim() ?? "";
+  return resolveMercadoPagoCredentials({ environment: "test" }).accessToken;
 }
 
 export function getMercadoPagoTestSiteId() {
@@ -215,6 +363,46 @@ export async function getMercadoPagoAuthorizedPaymentWithToken(
     `/authorized_payments/${authorizedPaymentId}`,
     accessTokenOverride,
   );
+}
+
+export async function listMercadoPagoAuthorizedPayments(
+  preapprovalId: string,
+) {
+  const limit = 100;
+  let offset = 0;
+  let total: number | null = null;
+  const results: MercadoPagoAuthorizedPayment[] = [];
+
+  while (true) {
+    const response = await mercadoPagoApiRequest<MercadoPagoAuthorizedPaymentSearchResult>(
+      `/authorized_payments/search?preapproval_id=${encodeURIComponent(preapprovalId)}&sort=date_created&criteria=asc&limit=${limit}&offset=${offset}`,
+    );
+    const page = response.results ?? [];
+    results.push(...page);
+
+    const responseTotal = response.paging?.total;
+    total = typeof responseTotal === "number" && responseTotal >= 0
+      ? responseTotal
+      : total;
+
+    if (
+      page.length === 0 ||
+      (total !== null
+        ? offset + page.length >= total
+        : page.length < limit)
+    ) {
+      return {
+        results,
+        paging: {
+          total: total ?? results.length,
+          limit,
+          offset: 0,
+        },
+      };
+    }
+
+    offset += page.length;
+  }
 }
 
 export async function getMercadoPagoPayment(paymentId: string) {
@@ -729,13 +917,7 @@ export function resolveMercadoPagoWorkspaceHint(input: {
 }
 
 async function mercadoPagoApiRequest<T>(path: string, accessTokenOverride?: string) {
-  const accessToken = accessTokenOverride ?? getMercadoPagoAccessToken();
-
-  if (!accessToken) {
-    throw new Error(
-      "MERCADO_PAGO_ACCESS_TOKEN is required to consultar assinaturas do Mercado Pago.",
-    );
-  }
+  const accessToken = accessTokenOverride ?? resolveMercadoPagoAccessToken();
 
   const response = await fetch(`https://api.mercadopago.com${path}`, {
     method: "GET",
@@ -771,13 +953,7 @@ async function mercadoPagoApiMutation<T>(
   idempotencyKey?: string,
 ) {
 
-  const accessToken = accessTokenOverride ?? getMercadoPagoAccessToken();
-
-  if (!accessToken) {
-    throw new Error(
-      "MERCADO_PAGO_ACCESS_TOKEN is required to criar assinaturas do Mercado Pago.",
-    );
-  }
+  const accessToken = accessTokenOverride ?? resolveMercadoPagoAccessToken();
 
   const response = await fetch(`https://api.mercadopago.com${path}`, {
     method,

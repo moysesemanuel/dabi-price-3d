@@ -2,7 +2,12 @@ import "server-only";
 
 import {
   appendBillingAuditEvent,
+  claimBillingInvoiceEffect,
+  completeBillingInvoiceEffect,
   findActiveBillingPrice,
+  findBillingInvoiceByProviderAuthorizedPaymentId,
+  findBillingInvoiceByProviderPaymentId,
+  createBillingInvoice,
   getBillingInvoiceById,
   getBillingSubscriptionChangeByInvoiceId,
   getBillingSubscriptionById,
@@ -16,12 +21,15 @@ import {
   listBillingSubscriptionsForScheduledCancellation,
   listFailedBillingWebhookEvents,
   updateBillingInvoice,
+  transitionPendingBillingInvoice,
+  releaseBillingInvoiceEffectClaim,
   updateBillingSubscriptionChange,
 } from "./repository.ts";
 import { createBillingService } from "./server-service.ts";
 import { BillingReconciliationService } from "./reconciliation-service.ts";
 import { applyWorkspaceSubscriptionUpdate } from "../server/platform";
 import { getBillingProvider } from "./providers/index.ts";
+import { runWithServerBillingSubscriptionOperationClaim } from "./server-subscription-operation-claim.ts";
 
 export function createBillingReconciliationService() {
   return new BillingReconciliationService({
@@ -35,10 +43,19 @@ export function createBillingReconciliationService() {
       listBillingSubscriptionsForScheduledCancellation,
     listAbandonedPendingSubscriptions: listAbandonedPendingBillingSubscriptions,
     getInvoiceById: getBillingInvoiceById,
+    findInvoiceByProviderPaymentId: findBillingInvoiceByProviderPaymentId,
+    findInvoiceByProviderAuthorizedPaymentId:
+      findBillingInvoiceByProviderAuthorizedPaymentId,
+    createInvoice: createBillingInvoice,
     listInvoicesForProviderReconciliation:
       listBillingInvoicesForProviderReconciliation,
     listInvoicesForExpiration: listBillingInvoicesForExpiration,
     updateInvoice: updateBillingInvoice,
+    transitionPendingInvoice: transitionPendingBillingInvoice,
+    claimInvoiceEffect: claimBillingInvoiceEffect,
+    completeInvoiceEffect: completeBillingInvoiceEffect,
+    releaseInvoiceEffectClaim: releaseBillingInvoiceEffectClaim,
+    withSubscriptionOperation: runWithServerBillingSubscriptionOperationClaim,
     getSubscriptionChangeByInvoiceId: getBillingSubscriptionChangeByInvoiceId,
     getDueSubscriptionChanges: getDueBillingSubscriptionChanges,
     updateSubscriptionChange: updateBillingSubscriptionChange,

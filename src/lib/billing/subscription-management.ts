@@ -16,7 +16,7 @@ export class ManageBillingSubscriptionError extends Error {
   }
 }
 
-type ManagedBillingSubscription = Pick<
+export type ManagedBillingSubscription = Pick<
   BillingSubscription,
   | "id"
   | "workspaceId"
@@ -27,7 +27,7 @@ type ManagedBillingSubscription = Pick<
   | "providerSubscriptionId"
 >;
 
-type BillingSubscriptionManagerDependencies = {
+export type BillingSubscriptionManagerDependencies = {
   provider: Pick<BillingProvider, "cancelSubscription" | "resumeSubscription">;
   billingService: Pick<BillingService, "scheduleCancellation" | "revertCancellation">;
   applyWorkspaceSubscriptionUpdate(input: {
@@ -108,6 +108,39 @@ export async function manageMercadoPagoBillingSubscription(input: {
     localSubscription,
     providerSubscription,
   };
+}
+
+export async function manageCurrentMercadoPagoBillingSubscription(input: {
+  action: ManageBillingSubscriptionAction;
+  subscription: ManagedBillingSubscription;
+  actorId: string;
+  actorType?: BillingAuditActorType;
+  dependencies: BillingSubscriptionManagerDependencies;
+  getCurrentSubscription(): Promise<ManagedBillingSubscription | null>;
+  runWithSubscriptionOperation<T>(
+    subscriptionId: string,
+    operation: () => Promise<T>,
+  ): Promise<T>;
+}): Promise<Awaited<ReturnType<typeof manageMercadoPagoBillingSubscription>>> {
+  return input.runWithSubscriptionOperation(input.subscription.id, async () => {
+    const currentSubscription = await input.getCurrentSubscription();
+
+    if (!currentSubscription || currentSubscription.id !== input.subscription.id) {
+      throw new ManageBillingSubscriptionError(
+        "A assinatura foi alterada enquanto a operação estava sendo iniciada. Atualize a página e tente novamente.",
+        "SUBSCRIPTION_CHANGED_CONCURRENTLY",
+        409,
+      );
+    }
+
+    return manageMercadoPagoBillingSubscription({
+      action: input.action,
+      actorId: input.actorId,
+      actorType: input.actorType,
+      subscription: currentSubscription,
+      dependencies: input.dependencies,
+    });
+  });
 }
 
 export function canManageBillingSubscriptionAction(

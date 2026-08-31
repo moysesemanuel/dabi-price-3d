@@ -500,16 +500,32 @@ Onde necessário:
   `checkoutStartedAt`; as concorrentes recebem `409` até a liberação ou o
   vencimento controlado de dez minutos. Isso impede a criação simultânea de
   novas assinaturas e invoices locais antes da chamada ao provider.
-- Webhook versus reconciliação, reconciliações concorrentes e mutações de
-  assinatura versus pagamento continuam abertos. Eles atravessam invoice,
-  subscription, subscription change, auditoria e a projeção de preferências;
-  uma correção segura requer uma fronteira transacional/claim de domínio
-  desenhada para todos esses efeitos, não um update condicional isolado.
-- O cliente HTTP do Neon suporta transações não interativas. Como as rotinas
-  de billing precisam consultar o Mercado Pago entre alterações de estado, um
-  lock de banco isolado não cobre o fluxo inteiro. A próxima implementação
-  deve introduzir claim durável de invoice com recuperação de processamento
-  interrompido antes de marcar esses cenários como seguros.
+- A transição de uma invoice `pending` para um estado de pagamento agora é
+  condicional no banco. Webhook, reconciliação e expiração usam o mesmo
+  `UPDATE ... WHERE status = 'pending'`; somente a operação vencedora aplica
+  ativação, renovação, tolerância ou auditoria de expiração. As demais saem
+  sem repetir o efeito comercial.
+- A suíte cobre uma segunda entrega de pagamento que perde a transição sem
+  reativar a assinatura, e uma expiração que perde a corrida contra o
+  pagamento sem sobrescrever o status ou gravar auditoria indevida.
+- Efeitos de invoices pagas agora possuem claim durável por invoice, token de
+  posse e lease de cinco minutos. O webhook conclui o claim somente após o
+  efeito comercial; em erro ele o libera. A reconciliação também seleciona
+  invoices `paid` sem claim concluído e recupera ativação, renovação, upgrade
+  ou mudança de ciclo interrompidos.
+- A suíte cobre recuperação de ativação após invoice já paga e duas
+  reconciliações concorrentes, com uma única ativação efetiva. Cancelamento,
+  expiração e mudanças agendadas ainda precisam da mesma análise de claim de
+  domínio antes de serem marcados como livres de corrida.
+- Os jobs de expiração, fim da tolerância, cancelamento agendado e mudança
+  agendada agora obtêm um claim temporário por assinatura antes de alterar
+  `BillingSubscription` e a projeção do workspace. O claim tem token de posse,
+  lease de cinco minutos e liberação em `finally`; o teste cobre tanto a
+  exclusão mútua quanto a liberação após erro e o encaminhamento pelo job.
+- Esta camada não cobre ainda comandos concorrentes iniciados pelo usuário
+  (upgrade, downgrade ou cancelamento) nem chamadas externas ao provider. Eles
+  exigem uma estratégia explícita de compensação e retry antes que os cenários
+  restantes da fase possam ser marcados como concluídos.
 
 ## Critério de aceite
 

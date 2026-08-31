@@ -40,8 +40,8 @@ export function createBillingAdminService() {
       const result = await reconciliationService.collectOperationalFindings(limit);
       return result.findings;
     },
-    runProviderReconciliation(limit) {
-      return reconciliationRunner.runProviderReconciliation(limit);
+    runProviderReconciliation(limit, subscriptionId) {
+      return reconciliationRunner.runProviderReconciliation(limit, subscriptionId);
     },
     getSubscriptionRecord: getBillingAdminSubscriptionRecord,
     getSubscriptionById: getBillingSubscriptionById,

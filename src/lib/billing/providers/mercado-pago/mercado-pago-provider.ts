@@ -1,10 +1,9 @@
 import {
   createMercadoPagoPixPayment,
   createMercadoPagoRecurringSubscription,
-  getMercadoPagoPaymentWithToken,
-  getMercadoPagoTestAccessToken,
   getMercadoPagoPayment,
   getMercadoPagoAuthorizedPayment,
+  listMercadoPagoAuthorizedPayments,
   getMercadoPagoSubscription,
   updateMercadoPagoSubscriptionAmount,
   updateMercadoPagoSubscriptionStatus,
@@ -38,6 +37,9 @@ type MercadoPagoProviderDependencies = {
   getManualPayment(providerPaymentId: string): Promise<MercadoPagoPayment>;
   getSubscription(providerSubscriptionId: string): Promise<MercadoPagoSubscription>;
   getPayment(providerPaymentId: string): Promise<MercadoPagoAuthorizedPayment>;
+  listAuthorizedPayments(
+    providerSubscriptionId: string,
+  ): Promise<{ results?: MercadoPagoAuthorizedPayment[] }>;
   updateSubscriptionStatus(input: {
     subscriptionId: string;
     status: "authorized" | "paused" | "canceled";
@@ -52,26 +54,11 @@ type MercadoPagoProviderDependencies = {
 
 const defaultDependencies: MercadoPagoProviderDependencies = {
   createRecurringSubscription: createMercadoPagoRecurringSubscription,
-  createManualPayment: (input) =>
-  createMercadoPagoPixPayment({
-    ...input,
-    accessTokenOverride:
-      process.env.VERCEL_ENV === "preview"
-        ? getMercadoPagoTestAccessToken()
-        : undefined,
-  }),
-  getManualPayment: (providerPaymentId) => {
-    const testAccessToken =
-      process.env.VERCEL_ENV === "preview"
-        ? getMercadoPagoTestAccessToken()
-        : null;
-
-    return testAccessToken
-      ? getMercadoPagoPaymentWithToken(providerPaymentId, testAccessToken)
-      : getMercadoPagoPayment(providerPaymentId);
-  },
+  createManualPayment: createMercadoPagoPixPayment,
+  getManualPayment: getMercadoPagoPayment,
   getSubscription: getMercadoPagoSubscription,
   getPayment: getMercadoPagoAuthorizedPayment,
+  listAuthorizedPayments: listMercadoPagoAuthorizedPayments,
   updateSubscriptionStatus: updateMercadoPagoSubscriptionStatus,
   updateSubscriptionAmount: updateMercadoPagoSubscriptionAmount,
 };
@@ -117,6 +104,18 @@ export class MercadoPagoProvider implements BillingProvider {
   async getPayment(providerPaymentId: string): Promise<BillingProviderPayment> {
     const authorizedPayment = await this.dependencies.getPayment(providerPaymentId);
     return mapMercadoPagoAuthorizedPaymentToBillingPayment(authorizedPayment);
+  }
+
+  async listAuthorizedPayments(
+    providerSubscriptionId: string,
+  ): Promise<BillingProviderPayment[]> {
+    const response = await this.dependencies.listAuthorizedPayments(
+      providerSubscriptionId,
+    );
+
+    return (response.results ?? []).map(
+      mapMercadoPagoAuthorizedPaymentToBillingPayment,
+    );
   }
 
   async cancelSubscription(
