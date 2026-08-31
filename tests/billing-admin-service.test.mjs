@@ -27,9 +27,11 @@ function createSession(platformRole = "super_admin") {
 
 function createDependencies(overrides = {}) {
   const auditEvents = [];
+  const reconciliationCalls = [];
 
   return {
     auditEvents,
+    reconciliationCalls,
     isPersistenceEnabled() {
       return true;
     },
@@ -82,7 +84,8 @@ function createDependencies(overrides = {}) {
     async collectOperationalFindings() {
       return [{ code: "webhook_processing_failed" }];
     },
-    async runProviderReconciliation() {
+    async runProviderReconciliation(limit, subscriptionId) {
+      reconciliationCalls.push({ limit, subscriptionId });
       return {
         processed: 3,
         changed: 1,
@@ -325,6 +328,7 @@ test("super admin dispara reconciliacao limitada e auditada", async () => {
     action: "billing.provider_reconciliation_requested",
     metadata: {
       limit: 20,
+      subscriptionId: null,
       processed: 3,
       changed: 1,
       findings: [
@@ -337,4 +341,47 @@ test("super admin dispara reconciliacao limitada e auditada", async () => {
       ],
     },
   });
+  assert.deepEqual(dependencies.reconciliationCalls, [
+    { limit: 20, subscriptionId: undefined },
+  ]);
+});
+
+test("super admin pode limitar a reconciliacao a uma assinatura", async () => {
+  const dependencies = createDependencies();
+  const service = new BillingAdminService(dependencies);
+
+  await service.runProviderReconciliation({
+    session: createSession(),
+    subscriptionId: "sub-target-1",
+  });
+
+  assert.deepEqual(dependencies.reconciliationCalls, [
+    { limit: 20, subscriptionId: "sub-target-1" },
+  ]);
+  assert.equal(
+    dependencies.auditEvents[0]?.metadata.subscriptionId,
+    "sub-target-1",
+  );
+});
+
+test("reconciliacao escopada retorna 404 quando a assinatura não existe", async () => {
+  const dependencies = createDependencies({
+    async getSubscriptionById() {
+      return null;
+    },
+  });
+  const service = new BillingAdminService(dependencies);
+
+  await assert.rejects(
+    service.runProviderReconciliation({
+      session: createSession(),
+      subscriptionId: "sub-missing",
+    }),
+    (error) =>
+      error instanceof BillingAdminServiceError &&
+      error.code === "ADMIN_BILLING_SUBSCRIPTION_NOT_FOUND" &&
+      error.status === 404,
+  );
+  assert.deepEqual(dependencies.reconciliationCalls, []);
+  assert.deepEqual(dependencies.auditEvents, []);
 });

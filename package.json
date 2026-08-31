@@ -17,6 +17,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test:pricing": "node --no-warnings --experimental-specifier-resolution=node --test tests/*.test.mjs",
     "test:auth-postgres-integration": "node --no-warnings --experimental-loader ./tests/support/server-only-loader.mjs --experimental-specifier-resolution=node --test tests/auth-postgres-concurrency.integration.mjs",
+    "test:billing-recovery-postgres-integration": "node --no-warnings --experimental-loader ./tests/support/server-only-loader.mjs --experimental-specifier-resolution=node --test tests/billing-recovery-postgres.integration.mjs",
     "check": "npm run lint && npm run typecheck && npm run test:pricing && npm run build:webpack"
   },
   "dependencies": {

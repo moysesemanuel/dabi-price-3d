@@ -1215,6 +1215,9 @@ export async function createBillingInvoice(input: {
       NOW(),
       NOW()
     )
+    ON CONFLICT (provider, provider_payment_id)
+      WHERE provider_payment_id IS NOT NULL
+      DO NOTHING
     RETURNING
       id,
       subscription_id,
