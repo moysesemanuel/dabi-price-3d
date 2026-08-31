@@ -72,7 +72,6 @@ runtime do framework sejam desminificados; isso pode aumentar o tempo de build.
 | `NEXT_PUBLIC_SENTRY_DSN` | Publica | DSN do SDK de browser. |
 | `SENTRY_DSN` | Apenas servidor | DSN dos SDKs Node.js e Edge. |
 | `SENTRY_ENVIRONMENT` | Configuracao de runtime | Define `hml` para a HML publicada como Production na Vercel. |
-| `SENTRY_TEST_SECRET` | Segredo temporario de HML | Protege a rota temporaria de verificacao de excecao no servidor. |
 | `SENTRY_AUTH_TOKEN` | Segredo de build | Envio de source maps durante o deploy. |
 | `SENTRY_ORG` | Configuracao de build | Slug da organizacao: `dabi-tech`. |
 | `SENTRY_PROJECT` | Configuracao de build | Slug do projeto: `dabi-price`. |
