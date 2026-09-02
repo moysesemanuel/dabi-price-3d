@@ -260,6 +260,8 @@ test("o reporter do Sentry so e registrado quando a instrumentacao inicializa", 
   assert.match(source, /setRouteErrorReporter/);
   assert.match(source, /captureMessage/);
   assert.match(source, /fingerprint/);
+  assert.match(source, /createRouteErrorThrottle/);
+  assert.match(source, /suppressedSinceLastEvent/);
 
   for (const configFile of ["sentry.server.config.ts", "sentry.edge.config.ts"]) {
     const configSource = await readFile(
@@ -273,4 +275,14 @@ test("o reporter do Sentry so e registrado quando a instrumentacao inicializa", 
       /if \(sentryOptions\) \{[\s\S]*registerSentryRouteErrorReporter\(\)/,
     );
   }
+});
+
+test("configuracao ausente do ERP e warn, nao error", async () => {
+  const source = await readFile(
+    new URL("../src/app/api/erp-products/route.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /"warn",\s*"erp\.integration_not_configured"/);
+  assert.doesNotMatch(source, /"error",\s*"erp\.integration_not_configured"/);
 });
