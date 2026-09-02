@@ -185,7 +185,7 @@ Provar em infraestrutura real que o hardening já implementado funciona corretam
 - [x] Múltiplas instâncias compartilham o contador.
 - [x] Bloqueio retorna `429`.
 - [x] Resposta inclui `Retry-After`.
-- [ ] Cadastro protegido.
+- [x] Cadastro protegido.
 - [x] Recuperação de senha protegida.
 - [x] Reset protegido.
 - [x] Token inválido tratado.
@@ -193,6 +193,10 @@ Provar em infraestrutura real que o hardening já implementado funciona corretam
 - [x] Sessão expirada tratada.
 - [x] Logout invalidando sessão corretamente.
 - [x] Cookie com configuração segura em produção.
+
+O cadastro aplica limite compartilhado de 5 tentativas por IP e 3 por e-mail
+em 15 minutos, com resposta `429` e `Retry-After` quando um dos limites é
+atingido.
 
 ## Administração e autorização
 
