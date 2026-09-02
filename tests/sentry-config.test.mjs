@@ -175,3 +175,22 @@ test("a instrumentacao do cliente encaminha transicoes de rota ao Sentry", async
     /onRouterTransitionStart\s*=\s*Sentry\.captureRouterTransitionStart/,
   );
 });
+
+test("a instrumentacao do servidor fica dentro de src junto ao App Router", async () => {
+  const source = await readFile(
+    new URL("../src/instrumentation.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /export async function register/);
+  assert.match(source, /Sentry\.captureRequestError/);
+});
+
+test("o build envia source maps de codigo interno do Next.js", async () => {
+  const source = await readFile(
+    new URL("../next.config.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /widenClientFileUpload:\s*true/);
+});
