@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   const integrationToken = process.env.PRICING_INTEGRATION_TOKEN?.trim();
 
   if (!erpAppUrl || !integrationToken) {
-    logRouteEvent(requestContext, "error", "erp.integration_not_configured", {
+    logRouteEvent(requestContext, "warn", "erp.integration_not_configured", {
       workspaceId: session.workspace.id,
       userId: session.user.id,
       missingEnv: [
