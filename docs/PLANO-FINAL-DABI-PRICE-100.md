@@ -1345,6 +1345,24 @@ A release só será considerada pronta quando a DaBi Price estiver:
 
 ---
 
+# Bloqueios externos ativos
+
+Esta seção consolida apenas atividades que não podem ser concluídas por mudança
+de código local. Os itens continuam detalhados nas fases de origem.
+
+| Bloqueio | Fase | Evidência atual | Encerramento necessário |
+| --- | --- | --- | --- |
+| Domínio de envio de e-mail | 1, 10 | A recuperação de senha foi validada com Resend e Gmail usando `onboarding@resend.dev`, limitado à conta Resend. | Registrar e verificar um domínio próprio no Resend; atualizar `AUTH_EMAIL_FROM`; enviar e receber uma recuperação fora da conta proprietária. |
+| Homologação real de Pix manual | 3, 20 | O fluxo, webhook, idempotência e reconciliação estão cobertos localmente; a conta sandbox não disponibiliza um caminho de Pix comprador equivalente ao real. | Efetuar pagamento Pix em ambiente autorizado e conferir invoice, assinatura, entitlement, webhook, auditoria e reconciliação. |
+| Cartão recorrente do Mercado Pago | 4, 20 | A primeira assinatura de teste foi aprovada e refletida no DaBi; renovação, falha, recuperação, cancelamento remoto e webhook atrasado continuam sem ciclo temporal completo. | Executar e registrar os cenários pendentes em ambiente de homologação/produção controlada. |
+| Pix Automático | 9 | A abstração `BillingProvider` existe, mas o contrato e o ciclo completo do provider ainda não foram homologados. | Confirmar contrato, autorização, cobrança, webhook, cancelamento, idempotência e sandbox com o Mercado Pago; só então habilitar o fluxo comercial. |
+| Consumo único de redefinição no Neon | 10 | O SQL consome o token com `consumed_at IS NULL` de forma atômica; a suíte local cobre consumo único e expiração. | Usar o mesmo token de recuperação duas vezes contra o ambiente remoto e comprovar que a segunda tentativa é rejeitada. |
+| Alertas operacionais externos | 16 | Logs estruturados, dashboard e backlog existem; não há provedor externo de alerta configurado. | Escolher e configurar provedor, destinatários, limiares e testes de entrega para webhooks, cron, provider, ERP, OAuth e 5xx. |
+| Backup, restauração e LGPD | 19 | Banco e aplicação operam, mas não há evidência versionada de backup/restore, retenção ou políticas jurídicas. | Definir retenção, executar restore controlado, documentar remoção/exportação e validar requisitos legais com responsável competente. |
+| Smoke test de produção | 20 | HML validou recuperação de senha, webhooks e assinatura recorrente; não há evidência completa de um usuário novo em produção. | Executar o roteiro da fase com conta não administrativa e registrar os resultados, sem reutilizar dados de teste. |
+
+---
+
 # Ordem obrigatória de execução
 
 ```text
