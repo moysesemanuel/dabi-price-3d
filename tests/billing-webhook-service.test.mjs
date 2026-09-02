@@ -1323,3 +1323,1038 @@ test("pagamento manual pago aplica cycle_change sem trocar o plano", async () =>
     },
   ]);
 });
+
+test("authorized payment ignora quando a assinatura não é encontrada", async () => {
+  const service = new BillingWebhookService({
+    async createWebhookEvent() {
+      return {
+        id: "evt-auth-3",
+        provider: "mercado_pago",
+        providerEventId: "req-auth-3",
+        eventType: "subscription_authorized_payment",
+        resourceId: "auth-pay-3",
+        payloadHash: "hash-auth-3",
+        status: "received",
+        attempts: 0,
+        receivedAt: "2026-08-14T13:00:00.000Z",
+        processedAt: null,
+        errorCode: null,
+        errorMessage: null,
+        createdAt: "2026-08-14T13:00:00.000Z",
+        updatedAt: "2026-08-14T13:00:00.000Z",
+      };
+    },
+    async updateWebhookEventStatus() {
+      return null;
+    },
+    async getInvoiceById() {
+      throw new Error("not used");
+    },
+    async findInvoiceByProviderPaymentId() {
+      throw new Error("not used");
+    },
+    async findInvoiceByProviderAuthorizedPaymentId() {
+      throw new Error("not used");
+    },
+    async createInvoice() {
+      throw new Error("not used");
+    },
+    async updateInvoice() {
+      throw new Error("not used");
+    },
+    async getSubscriptionById() {
+      throw new Error("not used");
+    },
+    async findSubscriptionByProviderSubscriptionId() {
+      return null;
+    },
+    async findUserByEmail() {
+      throw new Error("not used");
+    },
+    async findPrimaryWorkspaceForUser() {
+      throw new Error("not used");
+    },
+    async applyWorkspaceSubscriptionUpdate() {
+      throw new Error("not used");
+    },
+    async getSubscriptionChangeByInvoiceId() {
+      throw new Error("not used");
+    },
+    async updateSubscriptionChange() {
+      throw new Error("not used");
+    },
+    async findActivePrice() {
+      throw new Error("not used");
+    },
+    getProvider() {
+      throw new Error("not used");
+    },
+    billingService: {
+      async activateSubscription() {
+        throw new Error("not used");
+      },
+      async renewSubscription() {
+        throw new Error("not used");
+      },
+      async markPastDue() {
+        throw new Error("not used");
+      },
+      async applyUpgrade() {
+        throw new Error("not used");
+      },
+    },
+    clock: {
+      now() {
+        return new Date("2026-08-14T13:16:00.000Z");
+      },
+    },
+  });
+
+  const outcome = await service.processEvent({
+    provider: "mercado_pago",
+    providerEventId: "req-auth-3",
+    eventType: "subscription_authorized_payment",
+    resourceId: "auth-pay-3",
+    payloadHash: "hash-auth-3",
+    kind: "authorized_payment",
+    sourceTopic: "subscription_authorized_payment",
+    authorizedPayment: {
+      providerAuthorizedPaymentId: "auth-pay-3",
+      providerPaymentId: "pay-12",
+      providerSubscriptionId: "mp-sub-missing",
+      status: "approved",
+      externalReference: "billing_subscription:sub-missing",
+      payerEmail: "owner@dabi.app",
+      workspaceHints: {
+        workspaceId: "workspace-12",
+        email: "owner@dabi.app",
+      },
+      paymentMethod: "pix_automatic",
+      approvedAt: "2026-08-14T13:15:00.000Z",
+    },
+  });
+
+  assert.equal(outcome.status, 202);
+  assert.equal(outcome.body.handled, false);
+  assert.equal(outcome.body.reason, "subscription_not_resolved");
+});
+
+test("authorized payment ignora quando o status da assinatura não é cobrável", async () => {
+  const service = new BillingWebhookService({
+    async createWebhookEvent() {
+      return {
+        id: "evt-auth-4",
+        provider: "mercado_pago",
+        providerEventId: "req-auth-4",
+        eventType: "subscription_authorized_payment",
+        resourceId: "auth-pay-4",
+        payloadHash: "hash-auth-4",
+        status: "received",
+        attempts: 0,
+        receivedAt: "2026-08-14T13:00:00.000Z",
+        processedAt: null,
+        errorCode: null,
+        errorMessage: null,
+        createdAt: "2026-08-14T13:00:00.000Z",
+        updatedAt: "2026-08-14T13:00:00.000Z",
+      };
+    },
+    async updateWebhookEventStatus() {
+      return null;
+    },
+    async getInvoiceById() {
+      throw new Error("not used");
+    },
+    async findInvoiceByProviderPaymentId() {
+      throw new Error("not used");
+    },
+    async findInvoiceByProviderAuthorizedPaymentId() {
+      throw new Error("not used");
+    },
+    async createInvoice() {
+      throw new Error("not used");
+    },
+    async updateInvoice() {
+      throw new Error("not used");
+    },
+    async getSubscriptionById() {
+      throw new Error("not used");
+    },
+    async findSubscriptionByProviderSubscriptionId() {
+      return {
+        id: "sub-13",
+        workspaceId: "workspace-13",
+        planId: "growth",
+        billingCycle: "monthly",
+        priceId: "price-growth-monthly",
+        status: "canceled",
+        autoRenew: false,
+        currentPeriodStart: "2026-07-14T13:15:00.000Z",
+        currentPeriodEnd: "2026-08-14T13:15:00.000Z",
+        gracePeriodEndsAt: null,
+        cancelAtPeriodEnd: false,
+        cancelRequestedAt: null,
+        endedAt: "2026-08-10T00:00:00.000Z",
+        accessUntil: "2026-08-14T13:15:00.000Z",
+        provider: "mercado_pago",
+        providerSubscriptionId: "mp-sub-13",
+        createdAt: "2026-07-14T13:15:00.000Z",
+        updatedAt: "2026-08-14T13:15:00.000Z",
+      };
+    },
+    async findUserByEmail() {
+      throw new Error("not used");
+    },
+    async findPrimaryWorkspaceForUser() {
+      throw new Error("not used");
+    },
+    async applyWorkspaceSubscriptionUpdate() {
+      throw new Error("not used");
+    },
+    async getSubscriptionChangeByInvoiceId() {
+      throw new Error("not used");
+    },
+    async updateSubscriptionChange() {
+      throw new Error("not used");
+    },
+    async findActivePrice() {
+      throw new Error("not used");
+    },
+    getProvider() {
+      throw new Error("not used");
+    },
+    billingService: {
+      async activateSubscription() {
+        throw new Error("not used");
+      },
+      async renewSubscription() {
+        throw new Error("not used");
+      },
+      async markPastDue() {
+        throw new Error("not used");
+      },
+      async applyUpgrade() {
+        throw new Error("not used");
+      },
+    },
+    clock: {
+      now() {
+        return new Date("2026-08-14T13:16:00.000Z");
+      },
+    },
+  });
+
+  const outcome = await service.processEvent({
+    provider: "mercado_pago",
+    providerEventId: "req-auth-4",
+    eventType: "subscription_authorized_payment",
+    resourceId: "auth-pay-4",
+    payloadHash: "hash-auth-4",
+    kind: "authorized_payment",
+    sourceTopic: "subscription_authorized_payment",
+    authorizedPayment: {
+      providerAuthorizedPaymentId: "auth-pay-4",
+      providerPaymentId: "pay-13",
+      providerSubscriptionId: "mp-sub-13",
+      status: "approved",
+      externalReference: "billing_subscription:sub-13",
+      payerEmail: "owner@dabi.app",
+      workspaceHints: {
+        workspaceId: "workspace-13",
+        email: "owner@dabi.app",
+      },
+      paymentMethod: "pix_automatic",
+      approvedAt: "2026-08-14T13:15:00.000Z",
+    },
+  });
+
+  assert.equal(outcome.status, 202);
+  assert.equal(outcome.body.handled, false);
+  assert.equal(outcome.body.reason, "subscription_status_not_chargeable");
+});
+
+test("authorized payment ignora status de pagamento sem mapeamento conhecido", async () => {
+  const service = new BillingWebhookService({
+    async createWebhookEvent() {
+      return {
+        id: "evt-auth-5",
+        provider: "mercado_pago",
+        providerEventId: "req-auth-5",
+        eventType: "subscription_authorized_payment",
+        resourceId: "auth-pay-5",
+        payloadHash: "hash-auth-5",
+        status: "received",
+        attempts: 0,
+        receivedAt: "2026-08-14T13:00:00.000Z",
+        processedAt: null,
+        errorCode: null,
+        errorMessage: null,
+        createdAt: "2026-08-14T13:00:00.000Z",
+        updatedAt: "2026-08-14T13:00:00.000Z",
+      };
+    },
+    async updateWebhookEventStatus() {
+      return null;
+    },
+    async getInvoiceById() {
+      throw new Error("not used");
+    },
+    async findInvoiceByProviderPaymentId() {
+      throw new Error("not used");
+    },
+    async findInvoiceByProviderAuthorizedPaymentId() {
+      throw new Error("not used");
+    },
+    async createInvoice() {
+      throw new Error("not used");
+    },
+    async updateInvoice() {
+      throw new Error("not used");
+    },
+    async getSubscriptionById() {
+      throw new Error("not used");
+    },
+    async findSubscriptionByProviderSubscriptionId() {
+      return {
+        id: "sub-14",
+        workspaceId: "workspace-14",
+        planId: "growth",
+        billingCycle: "monthly",
+        priceId: "price-growth-monthly",
+        status: "active",
+        autoRenew: true,
+        currentPeriodStart: "2026-07-14T13:15:00.000Z",
+        currentPeriodEnd: "2026-08-14T13:15:00.000Z",
+        gracePeriodEndsAt: null,
+        cancelAtPeriodEnd: false,
+        cancelRequestedAt: null,
+        endedAt: null,
+        accessUntil: "2026-08-14T13:15:00.000Z",
+        provider: "mercado_pago",
+        providerSubscriptionId: "mp-sub-14",
+        createdAt: "2026-07-14T13:15:00.000Z",
+        updatedAt: "2026-08-14T13:15:00.000Z",
+      };
+    },
+    async findUserByEmail() {
+      throw new Error("not used");
+    },
+    async findPrimaryWorkspaceForUser() {
+      throw new Error("not used");
+    },
+    async applyWorkspaceSubscriptionUpdate() {
+      throw new Error("not used");
+    },
+    async getSubscriptionChangeByInvoiceId() {
+      throw new Error("not used");
+    },
+    async updateSubscriptionChange() {
+      throw new Error("not used");
+    },
+    async findActivePrice() {
+      throw new Error("not used");
+    },
+    getProvider() {
+      throw new Error("not used");
+    },
+    billingService: {
+      async activateSubscription() {
+        throw new Error("not used");
+      },
+      async renewSubscription() {
+        throw new Error("not used");
+      },
+      async markPastDue() {
+        throw new Error("not used");
+      },
+      async applyUpgrade() {
+        throw new Error("not used");
+      },
+    },
+    clock: {
+      now() {
+        return new Date("2026-08-14T13:16:00.000Z");
+      },
+    },
+  });
+
+  const outcome = await service.processEvent({
+    provider: "mercado_pago",
+    providerEventId: "req-auth-5",
+    eventType: "subscription_authorized_payment",
+    resourceId: "auth-pay-5",
+    payloadHash: "hash-auth-5",
+    kind: "authorized_payment",
+    sourceTopic: "subscription_authorized_payment",
+    authorizedPayment: {
+      providerAuthorizedPaymentId: "auth-pay-5",
+      providerPaymentId: "pay-14",
+      providerSubscriptionId: "mp-sub-14",
+      status: "in_mediation",
+      externalReference: "billing_subscription:sub-14",
+      payerEmail: "owner@dabi.app",
+      workspaceHints: {
+        workspaceId: "workspace-14",
+        email: "owner@dabi.app",
+      },
+      paymentMethod: "pix_automatic",
+      approvedAt: null,
+    },
+  });
+
+  assert.equal(outcome.status, 202);
+  assert.equal(outcome.body.handled, false);
+  assert.equal(outcome.body.reason, "payment_status_ignored");
+});
+
+test("authorized payment pago sem preço ativo retorna price_not_resolved", async () => {
+  const service = new BillingWebhookService({
+    async createWebhookEvent() {
+      return {
+        id: "evt-auth-6",
+        provider: "mercado_pago",
+        providerEventId: "req-auth-6",
+        eventType: "subscription_authorized_payment",
+        resourceId: "auth-pay-6",
+        payloadHash: "hash-auth-6",
+        status: "received",
+        attempts: 0,
+        receivedAt: "2026-08-14T13:00:00.000Z",
+        processedAt: null,
+        errorCode: null,
+        errorMessage: null,
+        createdAt: "2026-08-14T13:00:00.000Z",
+        updatedAt: "2026-08-14T13:00:00.000Z",
+      };
+    },
+    async updateWebhookEventStatus() {
+      return null;
+    },
+    async getInvoiceById() {
+      throw new Error("not used");
+    },
+    async findInvoiceByProviderPaymentId() {
+      return null;
+    },
+    async findInvoiceByProviderAuthorizedPaymentId() {
+      return null;
+    },
+    async createInvoice() {
+      throw new Error("not used");
+    },
+    async updateInvoice() {
+      throw new Error("not used");
+    },
+    async getSubscriptionById() {
+      throw new Error("not used");
+    },
+    async findSubscriptionByProviderSubscriptionId() {
+      return {
+        id: "sub-15",
+        workspaceId: "workspace-15",
+        planId: "growth",
+        billingCycle: "monthly",
+        priceId: "price-growth-monthly",
+        status: "active",
+        autoRenew: true,
+        currentPeriodStart: "2026-07-14T13:15:00.000Z",
+        currentPeriodEnd: "2026-08-14T13:15:00.000Z",
+        gracePeriodEndsAt: null,
+        cancelAtPeriodEnd: false,
+        cancelRequestedAt: null,
+        endedAt: null,
+        accessUntil: "2026-08-14T13:15:00.000Z",
+        provider: "mercado_pago",
+        providerSubscriptionId: "mp-sub-15",
+        createdAt: "2026-07-14T13:15:00.000Z",
+        updatedAt: "2026-08-14T13:15:00.000Z",
+      };
+    },
+    async findUserByEmail() {
+      throw new Error("not used");
+    },
+    async findPrimaryWorkspaceForUser() {
+      throw new Error("not used");
+    },
+    async applyWorkspaceSubscriptionUpdate() {
+      throw new Error("not used");
+    },
+    async getSubscriptionChangeByInvoiceId() {
+      throw new Error("not used");
+    },
+    async updateSubscriptionChange() {
+      throw new Error("not used");
+    },
+    async findActivePrice() {
+      return null;
+    },
+    getProvider() {
+      throw new Error("not used");
+    },
+    billingService: {
+      async activateSubscription() {
+        throw new Error("not used");
+      },
+      async renewSubscription() {
+        throw new Error("not used");
+      },
+      async markPastDue() {
+        throw new Error("not used");
+      },
+      async applyUpgrade() {
+        throw new Error("not used");
+      },
+    },
+    clock: {
+      now() {
+        return new Date("2026-08-14T13:16:00.000Z");
+      },
+    },
+  });
+
+  const outcome = await service.processEvent({
+    provider: "mercado_pago",
+    providerEventId: "req-auth-6",
+    eventType: "subscription_authorized_payment",
+    resourceId: "auth-pay-6",
+    payloadHash: "hash-auth-6",
+    kind: "authorized_payment",
+    sourceTopic: "subscription_authorized_payment",
+    authorizedPayment: {
+      providerAuthorizedPaymentId: "auth-pay-6",
+      providerPaymentId: "pay-15",
+      providerSubscriptionId: "mp-sub-15",
+      status: "approved",
+      externalReference: "billing_subscription:sub-15",
+      payerEmail: "owner@dabi.app",
+      workspaceHints: {
+        workspaceId: "workspace-15",
+        email: "owner@dabi.app",
+      },
+      paymentMethod: "pix_automatic",
+      approvedAt: "2026-08-14T13:15:00.000Z",
+    },
+  });
+
+  assert.equal(outcome.status, 202);
+  assert.equal(outcome.body.handled, false);
+  assert.equal(outcome.body.reason, "price_not_resolved");
+});
+
+test("authorized payment com invoice já transicionada retorna curto-circuito idempotente", async () => {
+  const service = new BillingWebhookService({
+    async createWebhookEvent() {
+      return {
+        id: "evt-auth-7",
+        provider: "mercado_pago",
+        providerEventId: "req-auth-7",
+        eventType: "subscription_authorized_payment",
+        resourceId: "auth-pay-7",
+        payloadHash: "hash-auth-7",
+        status: "received",
+        attempts: 0,
+        receivedAt: "2026-08-14T13:00:00.000Z",
+        processedAt: null,
+        errorCode: null,
+        errorMessage: null,
+        createdAt: "2026-08-14T13:00:00.000Z",
+        updatedAt: "2026-08-14T13:00:00.000Z",
+      };
+    },
+    async updateWebhookEventStatus() {
+      return null;
+    },
+    async getInvoiceById() {
+      throw new Error("not used");
+    },
+    async findInvoiceByProviderPaymentId() {
+      throw new Error("not used");
+    },
+    async findInvoiceByProviderAuthorizedPaymentId() {
+      return {
+        id: "inv-existing-16",
+        subscriptionId: "sub-16",
+        workspaceId: "workspace-16",
+        priceId: "price-growth-monthly",
+        type: "renewal",
+        status: "pending",
+        amountCents: 14900,
+        currency: "BRL",
+        periodStart: "2026-08-14T13:15:00.000Z",
+        periodEnd: "2026-09-14T13:15:00.000Z",
+        paymentMethod: "pix_automatic",
+        provider: "mercado_pago",
+        providerPaymentId: "pay-16",
+        providerAuthorizedPaymentId: "auth-pay-7",
+        paymentExpiresAt: null,
+        paidAt: null,
+        failedAt: null,
+        refundedAt: null,
+        createdAt: "2026-08-14T13:15:00.000Z",
+        updatedAt: "2026-08-14T13:15:00.000Z",
+      };
+    },
+    async createInvoice() {
+      throw new Error("not used");
+    },
+    async updateInvoice() {
+      throw new Error("not used");
+    },
+    async transitionPendingInvoice() {
+      return null;
+    },
+    async getSubscriptionById() {
+      throw new Error("not used");
+    },
+    async findSubscriptionByProviderSubscriptionId() {
+      return {
+        id: "sub-16",
+        workspaceId: "workspace-16",
+        planId: "growth",
+        billingCycle: "monthly",
+        priceId: "price-growth-monthly",
+        status: "active",
+        autoRenew: true,
+        currentPeriodStart: "2026-07-14T13:15:00.000Z",
+        currentPeriodEnd: "2026-08-14T13:15:00.000Z",
+        gracePeriodEndsAt: null,
+        cancelAtPeriodEnd: false,
+        cancelRequestedAt: null,
+        endedAt: null,
+        accessUntil: "2026-08-14T13:15:00.000Z",
+        provider: "mercado_pago",
+        providerSubscriptionId: "mp-sub-16",
+        createdAt: "2026-07-14T13:15:00.000Z",
+        updatedAt: "2026-08-14T13:15:00.000Z",
+      };
+    },
+    async findUserByEmail() {
+      throw new Error("not used");
+    },
+    async findPrimaryWorkspaceForUser() {
+      throw new Error("not used");
+    },
+    async applyWorkspaceSubscriptionUpdate() {
+      throw new Error("not used");
+    },
+    async getSubscriptionChangeByInvoiceId() {
+      throw new Error("not used");
+    },
+    async updateSubscriptionChange() {
+      throw new Error("not used");
+    },
+    async findActivePrice() {
+      throw new Error("not used");
+    },
+    getProvider() {
+      throw new Error("not used");
+    },
+    billingService: {
+      async activateSubscription() {
+        throw new Error("not used");
+      },
+      async renewSubscription() {
+        throw new Error("not used");
+      },
+      async markPastDue() {
+        throw new Error("not used");
+      },
+      async applyUpgrade() {
+        throw new Error("not used");
+      },
+    },
+    clock: {
+      now() {
+        return new Date("2026-08-14T13:16:00.000Z");
+      },
+    },
+  });
+
+  const outcome = await service.processEvent({
+    provider: "mercado_pago",
+    providerEventId: "req-auth-7",
+    eventType: "subscription_authorized_payment",
+    resourceId: "auth-pay-7",
+    payloadHash: "hash-auth-7",
+    kind: "authorized_payment",
+    sourceTopic: "subscription_authorized_payment",
+    authorizedPayment: {
+      providerAuthorizedPaymentId: "auth-pay-7",
+      providerPaymentId: "pay-16",
+      providerSubscriptionId: "mp-sub-16",
+      status: "approved",
+      externalReference: "billing_subscription:sub-16",
+      payerEmail: "owner@dabi.app",
+      workspaceHints: {
+        workspaceId: "workspace-16",
+        email: "owner@dabi.app",
+      },
+      paymentMethod: "pix_automatic",
+      approvedAt: "2026-08-14T13:15:00.000Z",
+    },
+  });
+
+  assert.equal(outcome.status, 200);
+  assert.equal(outcome.body.handled, true);
+  assert.equal(outcome.body.duplicate, true);
+  assert.equal(outcome.body.effectApplied, false);
+  assert.equal(outcome.body.invoiceId, "inv-existing-16");
+  assert.equal(outcome.body.subscriptionId, "sub-16");
+});
+
+test("authorized payment pago com assinatura pendente ativa a assinatura", async () => {
+  let createdInvoice = null;
+  let activationInput = null;
+  const service = new BillingWebhookService({
+    async createWebhookEvent() {
+      return {
+        id: "evt-auth-8",
+        provider: "mercado_pago",
+        providerEventId: "req-auth-8",
+        eventType: "subscription_authorized_payment",
+        resourceId: "auth-pay-8",
+        payloadHash: "hash-auth-8",
+        status: "received",
+        attempts: 0,
+        receivedAt: "2026-08-14T13:00:00.000Z",
+        processedAt: null,
+        errorCode: null,
+        errorMessage: null,
+        createdAt: "2026-08-14T13:00:00.000Z",
+        updatedAt: "2026-08-14T13:00:00.000Z",
+      };
+    },
+    async updateWebhookEventStatus() {
+      return null;
+    },
+    async getInvoiceById() {
+      throw new Error("not used");
+    },
+    async findInvoiceByProviderPaymentId() {
+      return null;
+    },
+    async findInvoiceByProviderAuthorizedPaymentId() {
+      return null;
+    },
+    async createInvoice(input) {
+      createdInvoice = input;
+      return {
+        id: "inv-activation-17",
+        subscriptionId: input.subscriptionId,
+        workspaceId: input.workspaceId,
+        priceId: input.priceId,
+        type: input.type,
+        status: input.status,
+        amountCents: input.amountCents,
+        currency: input.currency,
+        periodStart: input.periodStart,
+        periodEnd: input.periodEnd,
+        paymentMethod: input.paymentMethod,
+        provider: input.provider,
+        providerPaymentId: input.providerPaymentId,
+        providerAuthorizedPaymentId: input.providerAuthorizedPaymentId,
+        paymentExpiresAt: null,
+        paidAt: input.paidAt,
+        failedAt: input.failedAt,
+        refundedAt: null,
+        createdAt: "2026-08-14T13:16:00.000Z",
+        updatedAt: "2026-08-14T13:16:00.000Z",
+      };
+    },
+    async updateInvoice() {
+      return null;
+    },
+    async getSubscriptionById() {
+      throw new Error("not used");
+    },
+    async findSubscriptionByProviderSubscriptionId() {
+      return {
+        id: "sub-17",
+        workspaceId: "workspace-17",
+        planId: "growth",
+        billingCycle: "monthly",
+        priceId: "price-growth-monthly",
+        status: "pending",
+        autoRenew: true,
+        currentPeriodStart: null,
+        currentPeriodEnd: null,
+        gracePeriodEndsAt: null,
+        cancelAtPeriodEnd: false,
+        cancelRequestedAt: null,
+        endedAt: null,
+        accessUntil: null,
+        provider: "mercado_pago",
+        providerSubscriptionId: "mp-sub-17",
+        createdAt: "2026-08-14T12:00:00.000Z",
+        updatedAt: "2026-08-14T12:00:00.000Z",
+      };
+    },
+    async findUserByEmail() {
+      throw new Error("not used");
+    },
+    async findPrimaryWorkspaceForUser() {
+      throw new Error("not used");
+    },
+    async applyWorkspaceSubscriptionUpdate(input) {
+      assert.equal(input.workspaceId, "workspace-17");
+      assert.equal(input.status, "active");
+      return { changed: true };
+    },
+    async getSubscriptionChangeByInvoiceId() {
+      throw new Error("not used");
+    },
+    async updateSubscriptionChange() {
+      throw new Error("not used");
+    },
+    async findActivePrice(input) {
+      assert.equal(input.planId, "growth");
+      assert.equal(input.billingCycle, "monthly");
+      return {
+        id: "price-growth-monthly",
+        planId: "growth",
+        billingCycle: "monthly",
+        amountCents: 14900,
+        currency: "BRL",
+        activeFrom: "2026-01-01T00:00:00.000Z",
+        activeUntil: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      };
+    },
+    getProvider() {
+      throw new Error("not used");
+    },
+    billingService: {
+      async activateSubscription(subscriptionId, input) {
+        activationInput = { subscriptionId, input };
+      },
+      async renewSubscription() {
+        throw new Error("not used");
+      },
+      async markPastDue() {
+        throw new Error("not used");
+      },
+      async applyUpgrade() {
+        throw new Error("not used");
+      },
+    },
+    clock: {
+      now() {
+        return new Date("2026-08-14T13:16:00.000Z");
+      },
+    },
+  });
+
+  const outcome = await service.processEvent({
+    provider: "mercado_pago",
+    providerEventId: "req-auth-8",
+    eventType: "subscription_authorized_payment",
+    resourceId: "auth-pay-8",
+    payloadHash: "hash-auth-8",
+    kind: "authorized_payment",
+    sourceTopic: "subscription_authorized_payment",
+    authorizedPayment: {
+      providerAuthorizedPaymentId: "auth-pay-8",
+      providerPaymentId: "pay-17",
+      providerSubscriptionId: "mp-sub-17",
+      status: "approved",
+      externalReference: "billing_subscription:sub-17",
+      payerEmail: "owner@dabi.app",
+      workspaceHints: {
+        workspaceId: "workspace-17",
+        email: "owner@dabi.app",
+      },
+      paymentMethod: "pix_automatic",
+      approvedAt: "2026-08-14T13:15:00.000Z",
+    },
+  });
+
+  assert.equal(outcome.status, 200);
+  assert.equal(outcome.body.activated, true);
+  assert.equal(outcome.body.renewed, false);
+  assert.equal(createdInvoice?.type, "subscription");
+  assert.equal(createdInvoice?.periodStart, "2026-08-14T13:15:00.000Z");
+  assert.equal(createdInvoice?.periodEnd, "2026-09-14T13:15:00.000Z");
+  assert.equal(activationInput?.subscriptionId, "sub-17");
+  assert.equal(activationInput?.input.actorType, "webhook");
+  assert.equal(activationInput?.input.currentPeriodStart, "2026-08-14T13:15:00.000Z");
+  assert.equal(activationInput?.input.currentPeriodEnd, "2026-09-14T13:15:00.000Z");
+  assert.equal(activationInput?.input.accessUntil, "2026-09-14T13:15:00.000Z");
+});
+
+test("authorized payment pago com efeito já reivindicado por outra chamada não reaplica o efeito", async () => {
+  let activationCalls = 0;
+  const service = new BillingWebhookService({
+    async createWebhookEvent() {
+      return {
+        id: "evt-auth-9",
+        provider: "mercado_pago",
+        providerEventId: "req-auth-9",
+        eventType: "subscription_authorized_payment",
+        resourceId: "auth-pay-9",
+        payloadHash: "hash-auth-9",
+        status: "received",
+        attempts: 0,
+        receivedAt: "2026-08-14T13:00:00.000Z",
+        processedAt: null,
+        errorCode: null,
+        errorMessage: null,
+        createdAt: "2026-08-14T13:00:00.000Z",
+        updatedAt: "2026-08-14T13:00:00.000Z",
+      };
+    },
+    async updateWebhookEventStatus() {
+      return null;
+    },
+    async getInvoiceById() {
+      throw new Error("not used");
+    },
+    async findInvoiceByProviderPaymentId() {
+      return null;
+    },
+    async findInvoiceByProviderAuthorizedPaymentId() {
+      return null;
+    },
+    async createInvoice(input) {
+      return {
+        id: "inv-race-18",
+        subscriptionId: input.subscriptionId,
+        workspaceId: input.workspaceId,
+        priceId: input.priceId,
+        type: input.type,
+        status: input.status,
+        amountCents: input.amountCents,
+        currency: input.currency,
+        periodStart: input.periodStart,
+        periodEnd: input.periodEnd,
+        paymentMethod: input.paymentMethod,
+        provider: input.provider,
+        providerPaymentId: input.providerPaymentId,
+        providerAuthorizedPaymentId: input.providerAuthorizedPaymentId,
+        paymentExpiresAt: null,
+        paidAt: input.paidAt,
+        failedAt: input.failedAt,
+        refundedAt: null,
+        createdAt: "2026-08-14T13:16:00.000Z",
+        updatedAt: "2026-08-14T13:16:00.000Z",
+      };
+    },
+    async updateInvoice() {
+      return null;
+    },
+    async getSubscriptionById() {
+      throw new Error("not used");
+    },
+    async findSubscriptionByProviderSubscriptionId() {
+      return {
+        id: "sub-18",
+        workspaceId: "workspace-18",
+        planId: "growth",
+        billingCycle: "monthly",
+        priceId: "price-growth-monthly",
+        status: "active",
+        autoRenew: true,
+        currentPeriodStart: "2026-07-14T13:15:00.000Z",
+        currentPeriodEnd: "2026-08-14T13:15:00.000Z",
+        gracePeriodEndsAt: null,
+        cancelAtPeriodEnd: false,
+        cancelRequestedAt: null,
+        endedAt: null,
+        accessUntil: "2026-08-14T13:15:00.000Z",
+        provider: "mercado_pago",
+        providerSubscriptionId: "mp-sub-18",
+        createdAt: "2026-07-14T13:15:00.000Z",
+        updatedAt: "2026-08-14T13:15:00.000Z",
+      };
+    },
+    async findUserByEmail() {
+      throw new Error("not used");
+    },
+    async findPrimaryWorkspaceForUser() {
+      throw new Error("not used");
+    },
+    async applyWorkspaceSubscriptionUpdate() {
+      throw new Error("not used");
+    },
+    async getSubscriptionChangeByInvoiceId() {
+      throw new Error("not used");
+    },
+    async updateSubscriptionChange() {
+      throw new Error("not used");
+    },
+    async findActivePrice() {
+      return {
+        id: "price-growth-monthly",
+        planId: "growth",
+        billingCycle: "monthly",
+        amountCents: 14900,
+        currency: "BRL",
+        activeFrom: "2026-01-01T00:00:00.000Z",
+        activeUntil: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      };
+    },
+    getProvider() {
+      throw new Error("not used");
+    },
+    async claimInvoiceEffect() {
+      return null;
+    },
+    async completeInvoiceEffect() {
+      throw new Error("not used");
+    },
+    billingService: {
+      async activateSubscription() {
+        activationCalls += 1;
+      },
+      async renewSubscription() {
+        activationCalls += 1;
+      },
+      async markPastDue() {
+        throw new Error("not used");
+      },
+      async applyUpgrade() {
+        throw new Error("not used");
+      },
+    },
+    clock: {
+      now() {
+        return new Date("2026-08-14T13:16:00.000Z");
+      },
+    },
+  });
+
+  const outcome = await service.processEvent({
+    provider: "mercado_pago",
+    providerEventId: "req-auth-9",
+    eventType: "subscription_authorized_payment",
+    resourceId: "auth-pay-9",
+    payloadHash: "hash-auth-9",
+    kind: "authorized_payment",
+    sourceTopic: "subscription_authorized_payment",
+    authorizedPayment: {
+      providerAuthorizedPaymentId: "auth-pay-9",
+      providerPaymentId: "pay-18",
+      providerSubscriptionId: "mp-sub-18",
+      status: "approved",
+      externalReference: "billing_subscription:sub-18",
+      payerEmail: "owner@dabi.app",
+      workspaceHints: {
+        workspaceId: "workspace-18",
+        email: "owner@dabi.app",
+      },
+      paymentMethod: "pix_automatic",
+      approvedAt: "2026-08-14T13:15:00.000Z",
+    },
+  });
+
+  assert.equal(outcome.status, 200);
+  assert.equal(outcome.body.handled, true);
+  assert.equal(outcome.body.duplicate, true);
+  assert.equal(outcome.body.effectApplied, false);
+  assert.equal(outcome.body.reason, "invoice_effect_in_progress");
+  assert.equal(outcome.body.invoiceId, "inv-race-18");
+  assert.equal(outcome.body.subscriptionId, "sub-18");
+  assert.equal(activationCalls, 0);
+});

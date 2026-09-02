@@ -480,3 +480,247 @@ test("applyUpgrade reaproveita a infraestrutura de mudança imediata", async () 
   assert.equal(repository.auditEvents.at(-1)?.action, "subscription.upgraded");
   assert.equal(repository.auditEvents.at(-1)?.metadata?.changeId, "chg-up-1");
 });
+
+test("pauseSubscription move a assinatura para paused e limpa a carencia", async () => {
+  const repository = createInMemoryBillingRepository();
+  const service = new BillingService(repository);
+  const subscription = await service.createSubscription({
+    workspaceId: "workspace-1",
+    planId: "growth",
+    billingCycle: "monthly",
+    autoRenew: true,
+  });
+
+  await service.activateSubscription(subscription.id, {
+    currentPeriodStart: "2026-08-14T00:00:00.000Z",
+    currentPeriodEnd: "2026-09-14T00:00:00.000Z",
+  });
+  await service.markPastDue(subscription.id, {
+    gracePeriodEndsAt: "2026-08-21T00:00:00.000Z",
+  });
+
+  const paused = await service.pauseSubscription(subscription.id, {
+    actorType: "system",
+  });
+
+  assert.equal(paused.status, "paused");
+  assert.equal(paused.gracePeriodEndsAt, null);
+  assert.equal(repository.auditEvents.at(-1)?.action, "subscription.paused");
+});
+
+test("expireSubscription encerra a assinatura e define accessUntil no encerramento", async () => {
+  const repository = createInMemoryBillingRepository();
+  const service = new BillingService(repository, {
+    now: () => new Date("2026-09-14T00:00:00.000Z"),
+  });
+  const subscription = await service.createSubscription({
+    workspaceId: "workspace-1",
+    planId: "growth",
+    billingCycle: "monthly",
+    autoRenew: false,
+  });
+
+  await service.activateSubscription(subscription.id, {
+    currentPeriodStart: "2026-08-14T00:00:00.000Z",
+    currentPeriodEnd: "2026-09-14T00:00:00.000Z",
+  });
+
+  const expired = await service.expireSubscription(subscription.id, {
+    actorType: "system",
+  });
+
+  assert.equal(expired.status, "expired");
+  assert.equal(expired.endedAt, "2026-09-14T00:00:00.000Z");
+  assert.equal(expired.accessUntil, "2026-09-14T00:00:00.000Z");
+  assert.equal(repository.auditEvents.at(-1)?.action, "subscription.expired");
+});
+
+test("requestCycleChange cria mudanca pending_payment de mensal para anual e uma invoice de upgrade", async () => {
+  const repository = createInMemoryBillingRepository();
+  const service = new BillingService(repository, {
+    now: () => new Date("2026-08-20T12:00:00.000Z"),
+  });
+  const subscription = await service.createSubscription({
+    workspaceId: "workspace-1",
+    planId: "growth",
+    billingCycle: "monthly",
+    autoRenew: true,
+  });
+
+  await service.activateSubscription(subscription.id, {
+    currentPeriodStart: "2026-08-14T00:00:00.000Z",
+    currentPeriodEnd: "2026-09-14T00:00:00.000Z",
+  });
+
+  const result = await service.requestCycleChange(subscription.id, {
+    actorType: "user",
+    actorId: "user-1",
+    priceId: "price-growth-annual",
+    amountCents: 89900,
+    currency: "BRL",
+    creditAmountCents: 2000,
+    chargeAmountCents: 87900,
+    periodStart: "2026-08-20T12:00:00.000Z",
+    periodEnd: "2027-08-20T12:00:00.000Z",
+    paymentMethod: "pix_manual",
+    provider: "mercado_pago",
+  });
+
+  assert.equal(result.change.type, "cycle_change");
+  assert.equal(result.change.status, "pending_payment");
+  assert.equal(result.change.fromBillingCycle, "monthly");
+  assert.equal(result.change.toBillingCycle, "annual");
+  assert.equal(result.change.invoiceId, result.invoice.id);
+  assert.equal(result.invoice.type, "upgrade");
+  assert.equal(result.invoice.amountCents, 89900);
+  assert.equal(
+    repository.auditEvents.at(-1)?.action,
+    "subscription.cycle_change_requested",
+  );
+
+  const second = await service.requestCycleChange(subscription.id, {
+    actorType: "user",
+    priceId: "price-growth-annual",
+    amountCents: 89900,
+    currency: "BRL",
+    creditAmountCents: 0,
+    chargeAmountCents: 89900,
+    periodStart: "2026-08-21T12:00:00.000Z",
+    periodEnd: "2027-08-21T12:00:00.000Z",
+  });
+
+  assert.notEqual(second.change.id, result.change.id);
+
+  const stillOpen = await repository.findLatestOpenSubscriptionChange({
+    subscriptionId: subscription.id,
+    type: "cycle_change",
+  });
+  assert.equal(
+    stillOpen?.id,
+    second.change.id,
+    "a primeira mudanca pending_payment deveria ter sido cancelada pela segunda chamada",
+  );
+});
+
+test("scheduleCycleChange agenda a volta para mensal no fim do periodo anual e e idempotente", async () => {
+  const repository = createInMemoryBillingRepository();
+  const service = new BillingService(repository, {
+    now: () => new Date("2026-08-14T12:00:00.000Z"),
+  });
+  const subscription = await service.createSubscription({
+    workspaceId: "workspace-1",
+    planId: "growth",
+    billingCycle: "annual",
+    autoRenew: true,
+  });
+
+  await service.activateSubscription(subscription.id, {
+    currentPeriodStart: "2026-08-14T00:00:00.000Z",
+    currentPeriodEnd: "2027-08-14T00:00:00.000Z",
+  });
+
+  const change = await service.scheduleCycleChange(subscription.id, {
+    actorType: "user",
+    actorId: "user-1",
+  });
+
+  assert.equal(change.type, "cycle_change");
+  assert.equal(change.status, "scheduled");
+  assert.equal(change.fromBillingCycle, "annual");
+  assert.equal(change.toBillingCycle, "monthly");
+  assert.equal(change.effectiveAt, "2027-08-14T00:00:00.000Z");
+  assert.equal(
+    repository.auditEvents.at(-1)?.action,
+    "subscription.cycle_change_scheduled",
+  );
+
+  const auditEventsBefore = repository.auditEvents.length;
+  const repeated = await service.scheduleCycleChange(subscription.id, {
+    actorType: "user",
+  });
+
+  assert.equal(repeated.id, change.id);
+  assert.equal(
+    repository.auditEvents.length,
+    auditEventsBefore,
+    "uma segunda chamada idempotente nao deve criar nova mudanca nem auditoria",
+  );
+});
+
+test("scheduleCycleChange cancela um cycle_change pending_payment ainda aberto, nao so um scheduled", async () => {
+  const repository = createInMemoryBillingRepository();
+  const service = new BillingService(repository, {
+    now: () => new Date("2026-08-14T12:00:00.000Z"),
+  });
+  const subscription = await service.createSubscription({
+    workspaceId: "workspace-1",
+    planId: "growth",
+    billingCycle: "annual",
+    autoRenew: true,
+  });
+
+  await service.activateSubscription(subscription.id, {
+    currentPeriodStart: "2026-08-14T00:00:00.000Z",
+    currentPeriodEnd: "2027-08-14T00:00:00.000Z",
+  });
+
+  // Simula um cycle_change pending_payment deixado por uma chamada anterior
+  // de requestCycleChange (ex.: enquanto a assinatura ainda era monthly).
+  const staleChange = await repository.createSubscriptionChange({
+    subscriptionId: subscription.id,
+    workspaceId: subscription.workspaceId,
+    type: "cycle_change",
+    status: "pending_payment",
+    fromBillingCycle: "monthly",
+    toBillingCycle: "annual",
+    effectiveAt: "2026-08-14T12:00:00.000Z",
+  });
+
+  const change = await service.scheduleCycleChange(subscription.id, {
+    actorType: "system",
+  });
+
+  assert.notEqual(change.id, staleChange.id);
+
+  const stillOpen = await repository.findLatestOpenSubscriptionChange({
+    subscriptionId: subscription.id,
+    type: "cycle_change",
+  });
+  assert.equal(
+    stillOpen?.id,
+    change.id,
+    "o cycle_change pending_payment deveria ter sido cancelado, nao deixado em aberto",
+  );
+});
+
+test("applyCycleChange reaproveita applyScheduledChange e troca o ciclo de cobranca", async () => {
+  const repository = createInMemoryBillingRepository();
+  const service = new BillingService(repository);
+  const subscription = await service.createSubscription({
+    workspaceId: "workspace-1",
+    planId: "growth",
+    billingCycle: "annual",
+    autoRenew: true,
+  });
+
+  await service.activateSubscription(subscription.id, {
+    currentPeriodStart: "2026-08-14T00:00:00.000Z",
+    currentPeriodEnd: "2027-08-14T00:00:00.000Z",
+  });
+
+  const changed = await service.applyCycleChange(subscription.id, {
+    actorType: "system",
+    priceId: "price-growth-monthly",
+    billingCycle: "monthly",
+    currentPeriodStart: "2027-08-14T00:00:00.000Z",
+    currentPeriodEnd: "2027-09-14T00:00:00.000Z",
+    changeId: "chg-cycle-1",
+  });
+
+  assert.equal(changed.billingCycle, "monthly");
+  assert.equal(changed.priceId, "price-growth-monthly");
+  assert.equal(changed.currentPeriodEnd, "2027-09-14T00:00:00.000Z");
+  assert.equal(changed.accessUntil, "2027-09-14T00:00:00.000Z");
+  assert.equal(repository.auditEvents.at(-1)?.action, "subscription.cycle_changed");
+  assert.equal(repository.auditEvents.at(-1)?.metadata?.changeId, "chg-cycle-1");
+});
