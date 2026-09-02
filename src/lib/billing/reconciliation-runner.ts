@@ -18,6 +18,7 @@ type ReconciliationRunnerDependencies = Pick<
   | "processScheduledChanges"
   | "processExpiredInvoices"
   | "processAbandonedCheckouts"
+  | "reconcileSubscription"
   | "reconcileProviderState"
 >;
 
@@ -45,9 +46,12 @@ export class BillingReconciliationRunner {
     });
   }
 
-  async runProviderReconciliation(limit = 100) {
+  async runProviderReconciliation(limit = 100, subscriptionId?: string) {
     return this.run({
-      providerReconciliation: () => this.service.reconcileProviderState(limit),
+      providerReconciliation: () =>
+        subscriptionId
+          ? this.service.reconcileSubscription(subscriptionId)
+          : this.service.reconcileProviderState(limit),
     });
   }
 

@@ -68,6 +68,9 @@ test("separa limpeza diária e reconciliação remota", async () => {
       calls.push(["provider", limit]);
       return result(3, 1, [{ code: "provider_subscription_missing" }]);
     },
+    async reconcileSubscription() {
+      throw new Error("not used");
+    },
   });
 
   const cleanup = await runner.runAbandonedCheckoutCleanup();
@@ -76,4 +79,29 @@ test("separa limpeza diária e reconciliação remota", async () => {
   assert.equal(cleanup.changed, 2);
   assert.equal(provider.processed, 3);
   assert.deepEqual(calls, ["abandoned", ["provider", 25]]);
+});
+
+test("limita reconciliation ao subscriptionId sem varrer o lote global", async () => {
+  const calls = [];
+  const runner = new BillingReconciliationRunner({
+    async processExpiredSubscriptions() { throw new Error("not used"); },
+    async processGracePeriods() { throw new Error("not used"); },
+    async processScheduledCancellations() { throw new Error("not used"); },
+    async processScheduledChanges() { throw new Error("not used"); },
+    async processExpiredInvoices() { throw new Error("not used"); },
+    async processAbandonedCheckouts() { throw new Error("not used"); },
+    async reconcileProviderState() {
+      calls.push("global");
+      return result(99, 99);
+    },
+    async reconcileSubscription(subscriptionId) {
+      calls.push(["subscription", subscriptionId]);
+      return result(1, 1);
+    },
+  });
+
+  const run = await runner.runProviderReconciliation(25, "sub-target-1");
+
+  assert.equal(run.processed, 1);
+  assert.deepEqual(calls, [["subscription", "sub-target-1"]]);
 });

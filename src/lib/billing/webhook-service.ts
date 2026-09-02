@@ -798,7 +798,7 @@ export class BillingWebhookService {
     });
     const periodEnd = addBillingCycle(periodStart, subscription.billingCycle);
 
-    const createdInvoice = await this.dependencies.createInvoice({
+    let createdInvoice = await this.dependencies.createInvoice({
       subscriptionId: subscription.id,
       workspaceId: subscription.workspaceId,
       priceId: activePrice.id,
@@ -819,8 +819,27 @@ export class BillingWebhookService {
       failedAt: null,
     });
 
+    // A concurrent webhook delivery may have created the same invoice
+    // between our lookup above and this insert (idempotency race). Rather
+    // than fail outright, fall back to looking it up again before giving up.
     if (!createdInvoice) {
-      throw new Error("Failed to create authorized payment invoice.");
+      createdInvoice =
+        await this.dependencies.findInvoiceByProviderAuthorizedPaymentId({
+          provider: normalizedEvent.provider,
+          providerAuthorizedPaymentId:
+            normalizedEvent.authorizedPayment.providerAuthorizedPaymentId,
+        });
+    }
+
+    if (!createdInvoice && normalizedEvent.authorizedPayment.providerPaymentId) {
+      createdInvoice = await this.dependencies.findInvoiceByProviderPaymentId({
+        provider: normalizedEvent.provider,
+        providerPaymentId: normalizedEvent.authorizedPayment.providerPaymentId,
+      });
+    }
+
+    if (!createdInvoice) {
+      throw new Error("Failed to materialize authorized payment invoice.");
     }
 
     return { ok: true, invoice: createdInvoice };

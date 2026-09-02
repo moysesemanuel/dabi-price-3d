@@ -3,8 +3,13 @@ import test from "node:test";
 
 import { MercadoPagoProvider } from "../src/lib/billing/providers/mercado-pago/mercado-pago-provider.ts";
 import {
+  mapMercadoPagoAuthorizedPaymentToBillingPayment,
+  mapMercadoPagoPaymentToBillingManualPayment,
+} from "../src/lib/billing/providers/mercado-pago/mercado-pago-mappers.ts";
+import {
   buildMercadoPagoPixPaymentPayload,
   buildMercadoPagoRecurringSubscriptionPayload,
+  resolveMercadoPagoSubscriptionPayerEmail,
 } from "../src/lib/payments/mercado-pago.ts";
 
 test("provider cria assinatura recorrente sem expor conceitos do Mercado Pago", async () => {
@@ -68,6 +73,61 @@ test("provider cria assinatura recorrente sem expor conceitos do Mercado Pago", 
   });
 });
 
+test("contrato de checkout usa payer de teste somente para assinatura em ambiente test", async () => {
+  const expectedPayerEmail = "buyer@testuser.example";
+  const provider = new MercadoPagoProvider({
+    async createRecurringSubscription(input) {
+      assert.equal(input.payerEmail, expectedPayerEmail);
+      return {
+        id: "mp-sub-test-payer",
+        status: "pending",
+        init_point: "https://mercadopago.app/checkout/test-payer",
+      };
+    },
+    async createManualPayment() {
+      throw new Error("not used");
+    },
+    async getManualPayment() {
+      throw new Error("not used");
+    },
+    async getSubscription() {
+      throw new Error("not used");
+    },
+    async getPayment() {
+      throw new Error("not used");
+    },
+    async updateSubscriptionStatus() {
+      throw new Error("not used");
+    },
+    async updateSubscriptionAmount() {
+      throw new Error("not used");
+    },
+  });
+
+  await provider.createRecurringSubscription({
+    externalReference: "billing_subscription:sub-test-payer",
+    payerEmail: resolveMercadoPagoSubscriptionPayerEmail({
+      customerEmail: "customer@dabi.app",
+      environment: "test",
+      testPayerEmail: expectedPayerEmail,
+    }),
+    reason: "DaBi Essencial mensal",
+    returnUrl: "https://dabi.app/app/checkout",
+    amountCents: 4900,
+    currency: "BRL",
+    billingCycle: "monthly",
+  });
+
+  assert.equal(
+    resolveMercadoPagoSubscriptionPayerEmail({
+      customerEmail: "customer@dabi.app",
+      environment: "production",
+      testPayerEmail: expectedPayerEmail,
+    }),
+    "customer@dabi.app",
+  );
+});
+
 test("provider mapeia authorized payment para o formato de billing", async () => {
   const provider = new MercadoPagoProvider({
     async createRecurringSubscription() {
@@ -90,7 +150,9 @@ test("provider mapeia authorized payment para o formato de billing", async () =>
         preapproval_id: "mp-sub-1",
         external_reference: "billing_subscription:sub-1",
         status: "authorized",
-        payment_method_id: "pix",
+      payment_method_id: "pix",
+      transaction_amount: 49,
+      currency_id: "BRL",
         payment: {
           id: 987654,
           status: "approved",
@@ -115,7 +177,38 @@ test("provider mapeia authorized payment para o formato de billing", async () =>
     providerSubscriptionId: "mp-sub-1",
     externalReference: "billing_subscription:sub-1",
     paymentMethod: "pix_automatic",
+    amountCents: 4900,
+    currency: "BRL",
   });
+});
+
+test("mapper normaliza valor decimal de authorized payment em centavos sem imprecisão", () => {
+  const payment = mapMercadoPagoAuthorizedPaymentToBillingPayment({
+    id: 123456,
+    preapproval_id: "mp-sub-1",
+    status: "approved",
+    transaction_amount: "49.05",
+    currency_id: "brl",
+  });
+
+  assert.equal(payment.amountCents, 4905);
+  assert.equal(payment.currency, "brl");
+});
+
+test("mapper preserva date_approved do payment detalhado para reconciliation", () => {
+  const payment = mapMercadoPagoPaymentToBillingManualPayment({
+    id: 987654,
+    status: "approved",
+    payment_method_id: "master",
+    date_approved: "2026-08-13T09:30:00.000Z",
+    transaction_amount: "49.00",
+    currency_id: "BRL",
+  });
+
+  assert.equal(payment.providerPaymentId, "987654");
+  assert.equal(payment.approvedAt, "2026-08-13T09:30:00.000Z");
+  assert.equal(payment.amountCents, 4900);
+  assert.equal(payment.currency, "BRL");
 });
 
 test("payload recorrente converte centavos para reais e preserva external reference", () => {
