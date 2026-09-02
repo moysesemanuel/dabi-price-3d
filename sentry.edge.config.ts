@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { registerSentryRouteErrorReporter } from "./src/lib/observability/route-error-reporter";
 import {
   createSentryOptions,
   sanitizeSentryEvent,
@@ -16,4 +17,6 @@ if (sentryOptions) {
     ...sentryOptions,
     beforeSend: sanitizeSentryEvent,
   });
+
+  registerSentryRouteErrorReporter();
 }
