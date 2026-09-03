@@ -486,6 +486,7 @@ test("reconcileInvoice concorrente aplica somente um efeito de invoice paga", as
   assert.equal(dependencies.activations.length, 1);
   assert.equal(completed.length, 1);
 });
+
 test("processAbandonedCheckouts encerra pendências antigas e volta workspace para unpaid", async () => {
   const dependencies = createDependencies({
     async listAbandonedPendingSubscriptions(input) {

@@ -7,7 +7,7 @@ import {
   getClientIpAddress,
   getRateLimitStatus,
 } from "@/lib/server/rate-limit";
-import { resolveDefaultWorkspaceAppPath } from "@/lib/workspace/subscription-access";
+import { resolveLoginRedirect } from "@/lib/auth/login-redirect";
 
 type LoginRequestPayload = {
   email?: string;
@@ -95,29 +95,16 @@ export async function POST(request: Request) {
   const preferences = await getWorkspacePreferences(authResult.session.workspace.id);
   const entitlements = await getWorkspaceEntitlements({
     workspaceId: authResult.session.workspace.id,
+    platformRole: authResult.session.user.platformRole,
   });
 
   return Response.json({
     session: authResult.session,
-    redirectTo: resolveNextPath(body.next, {
+    redirectTo: resolveLoginRedirect({
+      nextPath: body.next,
+      platformRole: authResult.session.user.platformRole,
       onboardingCompleted: preferences.onboardingCompleted,
       accessReason: entitlements.accessReason,
     }),
   });
-}
-
-function resolveNextPath(
-  nextPath: string | undefined,
-  fallbackState: {
-    onboardingCompleted: boolean;
-    accessReason: Parameters<typeof resolveDefaultWorkspaceAppPath>[0]["accessReason"];
-  },
-) {
-  if (typeof nextPath !== "string") {
-    return resolveDefaultWorkspaceAppPath(fallbackState);
-  }
-
-  return nextPath.startsWith("/app")
-    ? nextPath
-    : resolveDefaultWorkspaceAppPath(fallbackState);
 }

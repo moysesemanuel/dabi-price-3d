@@ -2,6 +2,9 @@
   "name": "dabi-price-3d",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev --webpack -p 3005",
     "dev:turbo": "next dev -p 3005",
@@ -11,9 +14,10 @@
     "start": "next start",
     "start:3005": "next start -p 3005",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "test:pricing": "node --no-warnings --experimental-specifier-resolution=node --test tests/*.test.mjs",
     "test:auth-postgres-integration": "node --no-warnings --experimental-loader ./tests/support/server-only-loader.mjs --experimental-specifier-resolution=node --test tests/auth-postgres-concurrency.integration.mjs",
+    "test:billing-repository-postgres-integration": "node --no-warnings --experimental-loader ./tests/support/server-only-loader.mjs --experimental-specifier-resolution=node --test tests/billing-repository-postgres.integration.mjs",
     "test:billing-recovery-postgres-integration": "node --no-warnings --experimental-loader ./tests/support/server-only-loader.mjs --experimental-specifier-resolution=node --test tests/billing-recovery-postgres.integration.mjs",
     "check": "npm run lint && npm run typecheck && npm run test:pricing && npm run build:webpack"
   },
@@ -21,9 +25,13 @@
     "@neondatabase/serverless": "^1.1.0",
     "@sentry/nextjs": "^10.72.0",
     "@vercel/blob": "^2.4.0",
-    "next": "16.2.6",
+    "next": "16.3.2",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "recharts": "^3.10.1"
+  },
+  "overrides": {
+    "undici": "6.28.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -31,7 +39,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.6",
+    "eslint-config-next": "16.3.2",
     "postgres": "^3.4.9",
     "tailwindcss": "^4",
     "typescript": "^5"

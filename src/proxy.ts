@@ -48,6 +48,7 @@ export async function proxy(request: NextRequest) {
   const preferences = await getWorkspacePreferences(session.workspace.id);
   const entitlements = await getWorkspaceEntitlements({
     workspaceId: session.workspace.id,
+    platformRole: session.user.platformRole,
   });
   const protection = resolveAppRouteProtection({
     hasSession: true,

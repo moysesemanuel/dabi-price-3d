@@ -12,11 +12,9 @@ import {
 } from "@/lib/billing/repository";
 import { normalizeBillingManualPaymentState } from "@/lib/billing/manual-payment-status";
 import {
-  getWorkspacePreferences,
   isPlatformPersistenceAvailable,
 } from "@/lib/server/platform";
 import {
-  defaultAppPreferences,
   getWorkspaceBillingCycleLabel,
   getWorkspacePlan,
   resolveWorkspacePlanPriceLabel,
@@ -35,12 +33,6 @@ export default async function CheckoutPage({
   const selectedBillingCycle =
     params.billingCycle === "annual" ? "annual" : "monthly";
   const session = await getCurrentAuthSession();
-  const preferences =
-    session && isPlatformPersistenceAvailable()
-      ? await getWorkspacePreferences(session.workspace.id).catch(
-          () => defaultAppPreferences,
-        )
-      : defaultAppPreferences;
   const billingSubscription =
     session && isPlatformPersistenceAvailable()
       ? await findCurrentBillingSubscriptionForWorkspace(session.workspace.id).catch(
@@ -54,9 +46,7 @@ export default async function CheckoutPage({
           planId: billingSubscription.planId,
           billingCycle: billingSubscription.billingCycle,
           provider: billingSubscription.provider,
-          startedAt:
-            billingSubscription.createdAt ??
-            preferences.subscription.checkoutStartedAt,
+          startedAt: billingSubscription.createdAt,
         }
       : null;
   const pendingInvoice =
@@ -99,11 +89,11 @@ export default async function CheckoutPage({
   const displayPlan = getWorkspacePlan(
     pendingSubscription?.planId ??
       highlightedPlanId ??
-      preferences.subscription.planId,
+      "starter",
   );
   const displayBillingCycle =
     pendingSubscription?.billingCycle ??
-    (highlightedPlan ? selectedBillingCycle : preferences.subscription.billingCycle);
+    selectedBillingCycle;
 
   return (
     <div className="app-page space-y-6">

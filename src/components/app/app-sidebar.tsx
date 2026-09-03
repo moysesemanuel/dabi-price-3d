@@ -18,8 +18,8 @@ import {
 } from "@/lib/settings/app-preferences";
 import {
   canAccessAppPathWithoutPaidWorkspace,
-  canAccessPaidWorkspaceFeatures,
 } from "@/lib/workspace/subscription-access";
+import type { WorkspacePlanId } from "@/lib/workspace/catalog";
 
 const EXPANDED_WIDTH = 262;
 const COLLAPSED_WIDTH = 96;
@@ -368,9 +368,15 @@ const confectioneryNavigationSections: NavigationSection[] = [
 export function AppSidebar({
   platformRole,
   initialBusinessType = null,
+  canUsePaidFeatures,
+  initialPlanId,
+  isSuperAdmin,
 }: {
   platformRole: PlatformRole;
   initialBusinessType?: BusinessType | null;
+  canUsePaidFeatures: boolean;
+  initialPlanId: WorkspacePlanId;
+  isSuperAdmin: boolean;
 }) {
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(true);
@@ -387,12 +393,9 @@ export function AppSidebar({
     cadastros: true,
     gestao: true,
   });
-  const [planLabel, setPlanLabel] = useState(
-    getWorkspacePlan(defaultAppPreferences.subscription.planId).label,
-  );
-  const [planPriceLabel, setPlanPriceLabel] = useState(
-    getWorkspacePlan(defaultAppPreferences.subscription.planId).monthlyPriceLabel,
-  );
+  const plan = getWorkspacePlan(initialPlanId);
+  const planLabel = isSuperAdmin ? "Conta administrativa" : plan.label;
+  const planPriceLabel = isSuperAdmin ? "Acesso completo à plataforma" : plan.monthlyPriceLabel;
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
     if (typeof window !== "undefined") {
@@ -410,11 +413,6 @@ export function AppSidebar({
     sidebarVariant === "confectionery"
       ? confectioneryNavigationSections
       : navigationSections;
-  const workspacePreferences = readAppPreferences();
-  const hasPaidWorkspaceAccess = canAccessPaidWorkspaceFeatures(
-    workspacePreferences.subscription,
-  );
-
   const visibleSections = activeNavigationSections
     .map((section) => ({
       ...section,
@@ -433,7 +431,7 @@ export function AppSidebar({
 
         if (!entry.superAdminOnly || platformRole === "super_admin") {
           if (
-            !hasPaidWorkspaceAccess &&
+            !canUsePaidFeatures &&
             !entry.href.startsWith("/admin/") &&
             !canAccessAppPathWithoutPaidWorkspace(entry.href)
           ) {
@@ -478,7 +476,6 @@ export function AppSidebar({
   useEffect(() => {
     const syncPreferences = () => {
       const preferences = readAppPreferences();
-      const plan = getWorkspacePlan(preferences.subscription.planId);
 
       setWorkspaceName(preferences.workspaceName || "Dabi Price");
       setBusinessType(preferences.businessType);
@@ -487,8 +484,6 @@ export function AppSidebar({
           preferences.operatorName ||
           "Configuração pendente",
       );
-      setPlanLabel(plan.label);
-      setPlanPriceLabel(plan.monthlyPriceLabel);
     };
 
     syncPreferences();
@@ -518,6 +513,8 @@ export function AppSidebar({
         method: "POST",
       });
     } finally {
+      // A hard reload clears workspace state held only in memory after logout.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.href = "/login";
     }
   }
@@ -682,6 +679,7 @@ export function AppSidebar({
               operatorLabel={operatorLabel}
               planLabel={planLabel}
               planPriceLabel={planPriceLabel}
+              isSuperAdmin={isSuperAdmin}
               sidebarVariant={sidebarVariant}
               themeMode={themeMode}
               onToggleTheme={toggleTheme}
@@ -818,6 +816,7 @@ export function AppSidebar({
           operatorLabel={operatorLabel}
           planLabel={planLabel}
           planPriceLabel={planPriceLabel}
+          isSuperAdmin={isSuperAdmin}
           sidebarVariant={sidebarVariant}
           themeMode={themeMode}
           onToggleTheme={toggleTheme}
@@ -956,6 +955,7 @@ function SidebarFooter({
   operatorLabel,
   planLabel,
   planPriceLabel,
+  isSuperAdmin,
   sidebarVariant,
   themeMode,
   onToggleTheme,
@@ -967,6 +967,7 @@ function SidebarFooter({
   operatorLabel: string;
   planLabel: string;
   planPriceLabel: string;
+  isSuperAdmin: boolean;
   sidebarVariant: SidebarVariant;
   themeMode: ThemeMode;
   onToggleTheme: () => void;
@@ -1008,13 +1009,13 @@ function SidebarFooter({
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
-                  Plano atual
+                  {isSuperAdmin ? "Acesso da conta" : "Plano atual"}
                 </p>
                 <p className="mt-2 text-base font-semibold text-[var(--foreground)]">
                   {planLabel}
                 </p>
                 <p className="mt-1 text-xs text-[var(--muted)]">
-                  {planPriceLabel}/mês
+                  {isSuperAdmin ? planPriceLabel : `${planPriceLabel}/mês`}
                 </p>
               </div>
 

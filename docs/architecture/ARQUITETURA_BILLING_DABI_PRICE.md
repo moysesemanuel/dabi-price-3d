@@ -1,7 +1,10 @@
 # Arquitetura de Billing — DaBi Price
 
 > **Status:** arquitetura central implementada; jobs operacionais ativos; homologações externas ainda pendentes  
-> **Objetivo:** documentar o desenho de billing do DaBi Price para suportar planos, ciclos mensal/anual, Pix manual, Pix Automático, cartão, upgrade, downgrade, cancelamento, paywall, webhooks, reconciliação, auditoria e administração sem acoplar o domínio ao Mercado Pago.
+> **Objetivo:** documentar o desenho de billing do DaBi Price para suportar planos, ciclos mensal/anual, Pix manual, cartão recorrente, upgrade, downgrade, cancelamento, paywall, webhooks, reconciliação, auditoria e administração sem acoplar o domínio ao Mercado Pago.
+>
+> **Escopo atual:** Pix Automático é `FUTURE FEATURE`; o tipo técnico reservado
+> no domínio não o torna parte do produto atual nem requisito de release.
 
 ---
 
@@ -95,18 +98,19 @@ Parcelamento no cartão é detalhe do pagamento, não do ciclo de assinatura. Se
 
 ## 3. Métodos de pagamento previstos
 
-O domínio deve comportar:
+O domínio atual comporta:
 
 ```text
 card
 pix_manual
-pix_automatic
 account_money
 boleto
 unknown
 ```
 
-Nem todos precisam existir no MVP.
+`pix_automatic` permanece reservado como compatibilidade técnica para uma
+future feature. Não representa método habilitado nem requisito do produto
+atual. Nem todos os demais métodos precisam existir no MVP.
 
 ### Pix manual
 
@@ -119,7 +123,7 @@ autoRenew = false
 
 O cliente pode pagar um mês, usar, deixar expirar e depois comprar outro período por Pix.
 
-### Pix Automático
+### Pix Automático — future feature
 
 É tratado como recorrência:
 
@@ -128,7 +132,10 @@ paymentMethod = pix_automatic
 autoRenew = true
 ```
 
-A implementação específica será responsabilidade do adapter do provider quando o contrato técnico estiver confirmado.
+Esta é uma possibilidade futura do domínio, fora do escopo atual. A
+implementação específica só poderá ser avaliada pelo adapter do provider quando
+o contrato técnico estiver confirmado; não bloqueia a recorrência mensal por
+cartão, o Pix manual ou o plano anual pago antecipadamente.
 
 ### Cartão
 
@@ -1409,7 +1416,11 @@ Liberação após pagamento deve ocorrer via webhook; job é rede de segurança.
 
 ## 34. Super Admin
 
-Área administrativa independente dos entitlements do workspace.
+Area administrativa independente dos entitlements do workspace. `super_admin`
+e uma conta de plataforma, fora de plano comercial: nao exibe plano ou upgrade
+e nao sofre paywall, limites de seats ou limites funcionais comerciais. Mantem
+acesso integral a `/admin` e pode operar o app no contexto administrativo de
+qualquer workspace.
 
 Rotas previstas:
 
@@ -1434,7 +1445,7 @@ cancelamentos
 churn
 Start / Pro / Max
 mensal / anual
-Pix / Pix Automático / cartão
+Pix manual / cartão recorrente
 past_due
 paused
 scheduled_cancel
@@ -1460,7 +1471,21 @@ cancelar assinatura
 acompanhar divergências
 ```
 
-Toda ação deve gerar auditoria.
+Nao existe editor generico de banco. Operacoes administrativas devem ser acoes
+especificas e controladas. Toda acao sensivel deve gerar auditoria com ator,
+entidade, valor anterior, valor novo, motivo quando aplicavel e data/hora.
+
+### Modo administrativo de workspace
+
+O Super Admin localiza um workspace e entra no seu contexto por uma acao
+explicita, como `Entrar no workspace`. Esse modo nao altera silenciosamente a
+identidade efetiva: toda acao continua atribuida ao `super_admin` e a interface
+deve exibir persistentemente `Visualizando como Super Admin - Workspace <nome>`.
+
+Cadastro e UI comuns nao podem criar ou promover `super_admin`; usuarios comuns
+nao podem alterar ou remover essa conta; e a ultima conta `super_admin` nao
+pode ser removida. 2FA de Super Admin e hardening obrigatorio antes da release
+final.
 
 ---
 
@@ -1679,7 +1704,10 @@ Implementar valor total anual e 12 meses de acesso. Parcelamento continua sendo 
 
 ## Fase 18 — Pix Automático
 
-Implementar no provider quando o contrato técnico estiver confirmado, sem remodelar o domínio.
+**Fora do escopo atual / future feature.** Este item registra a extensão
+arquitetural originalmente avaliada. Não é fase obrigatória, não bloqueia
+release e só poderá ser priorizado em ciclo futuro, após confirmação do
+contrato técnico do provider, sem remodelar o domínio.
 
 ## Fase 19 — Super Admin
 
@@ -1728,14 +1756,17 @@ status legados
 
 Alguns detalhes ainda precisam ser confirmados durante a implementação:
 
-1. contrato técnico exato do Pix Automático no Mercado Pago;
-2. meios de pagamento efetivamente disponíveis na conta;
-3. comportamento de parcelamento anual no provider;
-4. estratégia técnica para alterar recorrência após upgrade/downgrade;
-5. valores comerciais finais mensal/anual;
-6. quantidade definitiva de dias de tolerância;
-7. prazo definitivo para checkout `pending` ser considerado abandonado;
-8. política jurídica final de arrependimento, reembolso e exclusão/retenção de dados.
+1. meios de pagamento efetivamente disponíveis na conta;
+2. comportamento de parcelamento anual no provider;
+3. estratégia técnica para alterar recorrência após upgrade/downgrade;
+4. valores comerciais finais mensal/anual;
+5. quantidade definitiva de dias de tolerância;
+6. prazo definitivo para checkout `pending` ser considerado abandonado;
+7. política jurídica final de arrependimento, reembolso e exclusão/retenção de dados.
+
+Registro histórico fora do escopo atual: o contrato técnico exato do Pix
+Automático no Mercado Pago continua pendente e somente será relevante se a
+future feature for priorizada.
 
 Esses pontos devem ser tratados como configuração, política comercial ou implementação de provider — e não como motivo para redesenhar o domínio.
 
@@ -1787,7 +1818,6 @@ Anual
 
 Pix manual
 Cartão recorrente
-Pix Automático
 
 Renovação manual
 Renovação automática

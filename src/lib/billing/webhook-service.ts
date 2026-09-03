@@ -307,6 +307,7 @@ export class BillingWebhookService {
       throw error;
     }
   }
+
   async processEvent(
     normalizedEvent: BillingWebhookNormalizedEvent,
   ): Promise<BillingWebhookProcessOutcome> {
@@ -542,15 +543,23 @@ export class BillingWebhookService {
       };
     }
 
-    const syncResult = await this.dependencies.applyWorkspaceSubscriptionUpdate({
-      workspaceId: workspaceTarget.workspaceId,
-      planId: workspacePlanId,
-      status: nextStatus,
-      source: "billing-webhook",
-      mercadoPagoSubscriptionId:
-        normalizedEvent.subscription.providerSubscriptionId,
-      description: `Assinatura sincronizada via ${normalizedEvent.sourceTopic}.`,
-    });
+    const syncWorkspaceSubscription = () =>
+      this.dependencies.applyWorkspaceSubscriptionUpdate({
+        workspaceId: workspaceTarget.workspaceId,
+        planId: workspacePlanId,
+        status: nextStatus,
+        source: "billing-webhook",
+        mercadoPagoSubscriptionId:
+          normalizedEvent.subscription.providerSubscriptionId,
+        description: `Assinatura sincronizada via ${normalizedEvent.sourceTopic}.`,
+      });
+    const syncResult =
+      localSubscription && this.dependencies.withSubscriptionOperation
+        ? await this.dependencies.withSubscriptionOperation(
+            localSubscription.id,
+            syncWorkspaceSubscription,
+          )
+        : await syncWorkspaceSubscription();
 
     return {
       status: 200,
@@ -602,12 +611,19 @@ export class BillingWebhookService {
     return this.dependencies.getSubscriptionById(localSubscriptionId);
   }
 
-  private async syncAuthorizedPaymentEvent(
+  private async resolveAuthorizedPaymentSubscriptionContext(
     normalizedEvent: Extract<
       BillingWebhookNormalizedEvent,
       { kind: "authorized_payment" }
     >,
-  ): Promise<BillingWebhookProcessOutcome> {
+  ): Promise<
+    | {
+        ok: true;
+        subscription: BillingSubscription;
+        invoiceType: BillingInvoice["type"];
+      }
+    | { ok: false; outcome: BillingWebhookProcessOutcome }
+  > {
     const subscription =
       await this.dependencies.findSubscriptionByProviderSubscriptionId({
         provider: normalizedEvent.provider,
@@ -617,22 +633,25 @@ export class BillingWebhookService {
 
     if (!subscription) {
       return {
-        status: 202,
-        logLevel: "warn",
-        event: "billing_webhook.authorized_payment_subscription_not_resolved",
-        details: {
-          provider: normalizedEvent.provider,
-          providerEventId: normalizedEvent.providerEventId,
-          eventType: normalizedEvent.eventType,
-          resourceId: normalizedEvent.resourceId,
-          providerAuthorizedPaymentId:
-            normalizedEvent.authorizedPayment.providerAuthorizedPaymentId,
-          providerSubscriptionId:
-            normalizedEvent.authorizedPayment.providerSubscriptionId,
-        },
-        body: {
-          handled: false,
-          reason: "subscription_not_resolved",
+        ok: false,
+        outcome: {
+          status: 202,
+          logLevel: "warn",
+          event: "billing_webhook.authorized_payment_subscription_not_resolved",
+          details: {
+            provider: normalizedEvent.provider,
+            providerEventId: normalizedEvent.providerEventId,
+            eventType: normalizedEvent.eventType,
+            resourceId: normalizedEvent.resourceId,
+            providerAuthorizedPaymentId:
+              normalizedEvent.authorizedPayment.providerAuthorizedPaymentId,
+            providerSubscriptionId:
+              normalizedEvent.authorizedPayment.providerSubscriptionId,
+          },
+          body: {
+            handled: false,
+            reason: "subscription_not_resolved",
+          },
         },
       };
     }
@@ -641,26 +660,41 @@ export class BillingWebhookService {
 
     if (!invoiceType) {
       return {
-        status: 202,
-        logLevel: "warn",
-        event: "billing_webhook.authorized_payment_ignored",
-        details: {
-          provider: normalizedEvent.provider,
-          providerEventId: normalizedEvent.providerEventId,
-          eventType: normalizedEvent.eventType,
-          resourceId: normalizedEvent.resourceId,
-          subscriptionId: subscription.id,
-          subscriptionStatus: subscription.status,
-          providerAuthorizedPaymentId:
-            normalizedEvent.authorizedPayment.providerAuthorizedPaymentId,
-        },
-        body: {
-          handled: false,
-          reason: "subscription_status_not_chargeable",
+        ok: false,
+        outcome: {
+          status: 202,
+          logLevel: "warn",
+          event: "billing_webhook.authorized_payment_ignored",
+          details: {
+            provider: normalizedEvent.provider,
+            providerEventId: normalizedEvent.providerEventId,
+            eventType: normalizedEvent.eventType,
+            resourceId: normalizedEvent.resourceId,
+            subscriptionId: subscription.id,
+            subscriptionStatus: subscription.status,
+            providerAuthorizedPaymentId:
+              normalizedEvent.authorizedPayment.providerAuthorizedPaymentId,
+          },
+          body: {
+            handled: false,
+            reason: "subscription_status_not_chargeable",
+          },
         },
       };
     }
 
+    return { ok: true, subscription, invoiceType };
+  }
+
+  private resolveAuthorizedPaymentNextInvoiceStatus(
+    normalizedEvent: Extract<
+      BillingWebhookNormalizedEvent,
+      { kind: "authorized_payment" }
+    >,
+    subscription: BillingSubscription,
+  ):
+    | { ok: true; nextInvoiceStatus: BillingInvoice["status"] }
+    | { ok: false; outcome: BillingWebhookProcessOutcome } {
     const paymentState = normalizeBillingManualPaymentState(
       normalizedEvent.authorizedPayment.status,
     );
@@ -669,28 +703,45 @@ export class BillingWebhookService {
 
     if (!nextInvoiceStatus) {
       return {
-        status: 202,
-        logLevel: "info",
-        event: "billing_webhook.authorized_payment_status_ignored",
-        details: {
-          provider: normalizedEvent.provider,
-          providerEventId: normalizedEvent.providerEventId,
-          eventType: normalizedEvent.eventType,
-          resourceId: normalizedEvent.resourceId,
-          subscriptionId: subscription.id,
-          paymentStatus: normalizedEvent.authorizedPayment.status,
-        },
-        body: {
-          handled: false,
-          reason: "payment_status_ignored",
+        ok: false,
+        outcome: {
+          status: 202,
+          logLevel: "info",
+          event: "billing_webhook.authorized_payment_status_ignored",
+          details: {
+            provider: normalizedEvent.provider,
+            providerEventId: normalizedEvent.providerEventId,
+            eventType: normalizedEvent.eventType,
+            resourceId: normalizedEvent.resourceId,
+            subscriptionId: subscription.id,
+            paymentStatus: normalizedEvent.authorizedPayment.status,
+          },
+          body: {
+            handled: false,
+            reason: "payment_status_ignored",
+          },
         },
       };
     }
 
-    const nowIso = this.now().toISOString();
-    const effectivePaidAt =
-      normalizedEvent.authorizedPayment.approvedAt ??
-      (nextInvoiceStatus === "paid" ? nowIso : null);
+    return { ok: true, nextInvoiceStatus };
+  }
+
+  private async resolveOrCreateAuthorizedPaymentInvoice(input: {
+    normalizedEvent: Extract<
+      BillingWebhookNormalizedEvent,
+      { kind: "authorized_payment" }
+    >;
+    subscription: BillingSubscription;
+    invoiceType: BillingInvoice["type"];
+    effectivePaidAt: string | null;
+    nowIso: string;
+  }): Promise<
+    | { ok: true; invoice: BillingInvoice }
+    | { ok: false; outcome: BillingWebhookProcessOutcome }
+  > {
+    const { normalizedEvent, subscription, invoiceType, effectivePaidAt, nowIso } =
+      input;
 
     let invoice =
       await this.dependencies.findInvoiceByProviderAuthorizedPaymentId({
@@ -699,25 +750,27 @@ export class BillingWebhookService {
           normalizedEvent.authorizedPayment.providerAuthorizedPaymentId,
       });
 
-    if (
-      !invoice &&
-      normalizedEvent.authorizedPayment.providerPaymentId
-    ) {
+    if (!invoice && normalizedEvent.authorizedPayment.providerPaymentId) {
       invoice = await this.dependencies.findInvoiceByProviderPaymentId({
         provider: normalizedEvent.provider,
         providerPaymentId: normalizedEvent.authorizedPayment.providerPaymentId,
       });
     }
 
-    if (!invoice) {
-      const activePrice = await this.dependencies.findActivePrice({
-        planId: subscription.planId,
-        billingCycle: subscription.billingCycle,
-        asOf: effectivePaidAt ?? nowIso,
-      });
+    if (invoice) {
+      return { ok: true, invoice };
+    }
 
-      if (!activePrice) {
-        return {
+    const activePrice = await this.dependencies.findActivePrice({
+      planId: subscription.planId,
+      billingCycle: subscription.billingCycle,
+      asOf: effectivePaidAt ?? nowIso,
+    });
+
+    if (!activePrice) {
+      return {
+        ok: false,
+        outcome: {
           status: 202,
           logLevel: "warn",
           event: "billing_webhook.authorized_payment_price_not_resolved",
@@ -734,56 +787,265 @@ export class BillingWebhookService {
             handled: false,
             reason: "price_not_resolved",
           },
-        };
-      }
+        },
+      };
+    }
 
-      const periodStart = resolveAuthorizedPaymentPeriodStart({
-        invoiceType,
-        subscription,
-        approvedAt: effectivePaidAt ?? nowIso,
-      });
-      const periodEnd = addBillingCycle(periodStart, subscription.billingCycle);
+    const periodStart = resolveAuthorizedPaymentPeriodStart({
+      invoiceType,
+      subscription,
+      approvedAt: effectivePaidAt ?? nowIso,
+    });
+    const periodEnd = addBillingCycle(periodStart, subscription.billingCycle);
 
-      invoice = await this.dependencies.createInvoice({
-        subscriptionId: subscription.id,
-        workspaceId: subscription.workspaceId,
-        priceId: activePrice.id,
-        type: invoiceType,
-        status: "pending",
-        amountCents: activePrice.amountCents,
-        currency: activePrice.currency,
-        periodStart,
-        periodEnd,
-        paymentMethod:
-          normalizedEvent.authorizedPayment.paymentMethod ?? "unknown",
-        provider: normalizedEvent.provider,
-        providerPaymentId:
-          normalizedEvent.authorizedPayment.providerPaymentId ?? null,
-        providerAuthorizedPaymentId:
-          normalizedEvent.authorizedPayment.providerAuthorizedPaymentId,
-        paidAt: null,
-        failedAt: null,
-      });
+    let createdInvoice = await this.dependencies.createInvoice({
+      subscriptionId: subscription.id,
+      workspaceId: subscription.workspaceId,
+      priceId: activePrice.id,
+      type: invoiceType,
+      status: "pending",
+      amountCents: activePrice.amountCents,
+      currency: activePrice.currency,
+      periodStart,
+      periodEnd,
+      paymentMethod:
+        normalizedEvent.authorizedPayment.paymentMethod ?? "unknown",
+      provider: normalizedEvent.provider,
+      providerPaymentId:
+        normalizedEvent.authorizedPayment.providerPaymentId ?? null,
+      providerAuthorizedPaymentId:
+        normalizedEvent.authorizedPayment.providerAuthorizedPaymentId,
+      paidAt: null,
+      failedAt: null,
+    });
 
-      if (!invoice) {
-        invoice = await this.dependencies.findInvoiceByProviderAuthorizedPaymentId({
+    // A concurrent webhook delivery may have created the same invoice
+    // between our lookup above and this insert (idempotency race). Rather
+    // than fail outright, fall back to looking it up again before giving up.
+    if (!createdInvoice) {
+      createdInvoice =
+        await this.dependencies.findInvoiceByProviderAuthorizedPaymentId({
           provider: normalizedEvent.provider,
           providerAuthorizedPaymentId:
             normalizedEvent.authorizedPayment.providerAuthorizedPaymentId,
         });
-      }
-
-      if (!invoice && normalizedEvent.authorizedPayment.providerPaymentId) {
-        invoice = await this.dependencies.findInvoiceByProviderPaymentId({
-          provider: normalizedEvent.provider,
-          providerPaymentId: normalizedEvent.authorizedPayment.providerPaymentId,
-        });
-      }
-
-      if (!invoice) {
-        throw new Error("Failed to materialize authorized payment invoice.");
-      }
     }
+
+    if (!createdInvoice && normalizedEvent.authorizedPayment.providerPaymentId) {
+      createdInvoice = await this.dependencies.findInvoiceByProviderPaymentId({
+        provider: normalizedEvent.provider,
+        providerPaymentId: normalizedEvent.authorizedPayment.providerPaymentId,
+      });
+    }
+
+    if (!createdInvoice) {
+      throw new Error("Failed to materialize authorized payment invoice.");
+    }
+
+    return { ok: true, invoice: createdInvoice };
+  }
+
+  private async handleNonPaidAuthorizedPayment(input: {
+    normalizedEvent: Extract<
+      BillingWebhookNormalizedEvent,
+      { kind: "authorized_payment" }
+    >;
+    subscription: BillingSubscription;
+    invoice: BillingInvoice;
+    nextInvoiceStatus: BillingInvoice["status"];
+  }): Promise<BillingWebhookProcessOutcome> {
+    const { normalizedEvent, subscription, invoice, nextInvoiceStatus } = input;
+    let effectApplied = false;
+
+    if (invoice.type === "renewal" && subscription.status === "active") {
+      await this.dependencies.billingService.markPastDue(subscription.id, {
+        actorType: "webhook",
+        gracePeriodEndsAt: addDays(this.now(), DEFAULT_PAST_DUE_GRACE_PERIOD_DAYS),
+      });
+      await this.dependencies.applyWorkspaceSubscriptionUpdate({
+        workspaceId: subscription.workspaceId,
+        planId: subscription.planId,
+        billingCycle: subscription.billingCycle,
+        status: "active",
+        mercadoPagoSubscriptionId: subscription.providerSubscriptionId,
+        source: "billing-webhook-authorized-payment",
+        description:
+          "Falha na renovação automática registrada com período de tolerância ativo.",
+      });
+      effectApplied = true;
+    }
+
+    return {
+      status: 200,
+      logLevel: "info",
+      event: "billing_webhook.authorized_payment_synced",
+      details: {
+        provider: normalizedEvent.provider,
+        providerEventId: normalizedEvent.providerEventId,
+        eventType: normalizedEvent.eventType,
+        resourceId: normalizedEvent.resourceId,
+        subscriptionId: subscription.id,
+        invoiceId: invoice.id,
+        invoiceStatus: nextInvoiceStatus,
+        effectApplied,
+      },
+      body: {
+        handled: true,
+        subscriptionId: subscription.id,
+        invoiceId: invoice.id,
+        invoiceStatus: nextInvoiceStatus,
+        effectApplied,
+      },
+    };
+  }
+
+  private async applyPaidAuthorizedPaymentEffect(input: {
+    normalizedEvent: Extract<
+      BillingWebhookNormalizedEvent,
+      { kind: "authorized_payment" }
+    >;
+    subscription: BillingSubscription;
+    invoice: BillingInvoice;
+    effectivePaidAt: string | null;
+    nowIso: string;
+  }): Promise<BillingWebhookProcessOutcome> {
+    const { normalizedEvent, subscription, invoice, effectivePaidAt, nowIso } = input;
+
+    const currentPeriodStart =
+      invoice.periodStart ??
+      resolveAuthorizedPaymentPeriodStart({
+        invoiceType: invoice.type,
+        subscription,
+        approvedAt: effectivePaidAt ?? nowIso,
+      });
+    const currentPeriodEnd =
+      invoice.periodEnd ??
+      addBillingCycle(currentPeriodStart, subscription.billingCycle);
+
+    if (invoice.type === "subscription") {
+      await this.dependencies.billingService.activateSubscription(
+        subscription.id,
+        {
+          actorType: "webhook",
+          currentPeriodStart,
+          currentPeriodEnd,
+          accessUntil: currentPeriodEnd,
+        },
+      );
+    } else if (invoice.type === "renewal") {
+      await this.dependencies.billingService.renewSubscription(
+        subscription.id,
+        {
+          actorType: "webhook",
+          currentPeriodStart,
+          currentPeriodEnd,
+          accessUntil: currentPeriodEnd,
+        },
+      );
+    } else {
+      return {
+        status: 200,
+        logLevel: "info" as const,
+        event: "billing_webhook.authorized_payment_without_effect",
+        details: {
+          provider: normalizedEvent.provider,
+          providerEventId: normalizedEvent.providerEventId,
+          eventType: normalizedEvent.eventType,
+          resourceId: normalizedEvent.resourceId,
+          subscriptionId: subscription.id,
+          invoiceId: invoice.id,
+          invoiceType: invoice.type,
+        },
+        body: {
+          handled: true,
+          subscriptionId: subscription.id,
+          invoiceId: invoice.id,
+          effectApplied: false,
+          reason: "invoice_type_not_supported",
+        },
+      };
+    }
+
+    const syncResult = await this.dependencies.applyWorkspaceSubscriptionUpdate({
+      workspaceId: subscription.workspaceId,
+      planId: subscription.planId,
+      billingCycle: subscription.billingCycle,
+      status: "active",
+      source: "billing-webhook-authorized-payment",
+      mercadoPagoSubscriptionId: subscription.providerSubscriptionId,
+      description: `Cobrança recorrente confirmada via ${normalizedEvent.sourceTopic}.`,
+    });
+
+    return {
+      status: 200,
+      logLevel: "info" as const,
+      event: "billing_webhook.authorized_payment_applied",
+      details: {
+        provider: normalizedEvent.provider,
+        providerEventId: normalizedEvent.providerEventId,
+        eventType: normalizedEvent.eventType,
+        resourceId: normalizedEvent.resourceId,
+        workspaceId: subscription.workspaceId,
+        subscriptionId: subscription.id,
+        invoiceId: invoice.id,
+        invoiceType: invoice.type,
+        changed: syncResult.changed,
+      },
+      body: {
+        handled: true,
+        workspaceId: subscription.workspaceId,
+        subscriptionId: subscription.id,
+        invoiceId: invoice.id,
+        renewed: invoice.type === "renewal",
+        activated: invoice.type === "subscription",
+      },
+    };
+  }
+
+  private async syncAuthorizedPaymentEvent(
+    normalizedEvent: Extract<
+      BillingWebhookNormalizedEvent,
+      { kind: "authorized_payment" }
+    >,
+  ): Promise<BillingWebhookProcessOutcome> {
+    const subscriptionContext =
+      await this.resolveAuthorizedPaymentSubscriptionContext(normalizedEvent);
+
+    if (!subscriptionContext.ok) {
+      return subscriptionContext.outcome;
+    }
+
+    const { subscription, invoiceType } = subscriptionContext;
+
+    const invoiceStatusResult = this.resolveAuthorizedPaymentNextInvoiceStatus(
+      normalizedEvent,
+      subscription,
+    );
+
+    if (!invoiceStatusResult.ok) {
+      return invoiceStatusResult.outcome;
+    }
+
+    const { nextInvoiceStatus } = invoiceStatusResult;
+
+    const nowIso = this.now().toISOString();
+    const effectivePaidAt =
+      normalizedEvent.authorizedPayment.approvedAt ??
+      (nextInvoiceStatus === "paid" ? nowIso : null);
+
+    const invoiceResult = await this.resolveOrCreateAuthorizedPaymentInvoice({
+      normalizedEvent,
+      subscription,
+      invoiceType,
+      effectivePaidAt,
+      nowIso,
+    });
+
+    if (!invoiceResult.ok) {
+      return invoiceResult.outcome;
+    }
+
+    let invoice = invoiceResult.invoice;
 
     const transitionedInvoice = await this.transitionPendingInvoice(invoice.id, {
       status: nextInvoiceStatus,
@@ -816,137 +1078,25 @@ export class BillingWebhookService {
     invoice = transitionedInvoice.invoice ?? invoice;
 
     if (nextInvoiceStatus !== "paid") {
-      let effectApplied = false;
-
-      if (invoice.type === "renewal" && subscription.status === "active") {
-        await this.dependencies.billingService.markPastDue(subscription.id, {
-          actorType: "webhook",
-          gracePeriodEndsAt: addDays(this.now(), DEFAULT_PAST_DUE_GRACE_PERIOD_DAYS),
-        });
-        await this.dependencies.applyWorkspaceSubscriptionUpdate({
-          workspaceId: subscription.workspaceId,
-          planId: subscription.planId,
-          billingCycle: subscription.billingCycle,
-          status: "active",
-          mercadoPagoSubscriptionId: subscription.providerSubscriptionId,
-          source: "billing-webhook-authorized-payment",
-          description:
-            "Falha na renovação automática registrada com período de tolerância ativo.",
-        });
-        effectApplied = true;
-      }
-
-      return {
-        status: 200,
-        logLevel: "info",
-        event: "billing_webhook.authorized_payment_synced",
-        details: {
-          provider: normalizedEvent.provider,
-          providerEventId: normalizedEvent.providerEventId,
-          eventType: normalizedEvent.eventType,
-          resourceId: normalizedEvent.resourceId,
-          subscriptionId: subscription.id,
-          invoiceId: invoice.id,
-          invoiceStatus: nextInvoiceStatus,
-          effectApplied,
-        },
-        body: {
-          handled: true,
-          subscriptionId: subscription.id,
-          invoiceId: invoice.id,
-          invoiceStatus: nextInvoiceStatus,
-          effectApplied,
-        },
-      };
+      return this.handleNonPaidAuthorizedPayment({
+        normalizedEvent,
+        subscription,
+        invoice,
+        nextInvoiceStatus,
+      });
     }
 
     const paidEffect = await this.runPaidInvoiceEffect(
       invoice.id,
       subscription.id,
-      async () => {
-      const currentPeriodStart =
-        invoice.periodStart ??
-        resolveAuthorizedPaymentPeriodStart({
-          invoiceType: invoice.type,
+      () =>
+        this.applyPaidAuthorizedPaymentEffect({
+          normalizedEvent,
           subscription,
-          approvedAt: effectivePaidAt ?? nowIso,
-        });
-      const currentPeriodEnd =
-        invoice.periodEnd ?? addBillingCycle(currentPeriodStart, subscription.billingCycle);
-
-      if (invoice.type === "subscription") {
-        await this.dependencies.billingService.activateSubscription(subscription.id, {
-          actorType: "webhook",
-          currentPeriodStart,
-          currentPeriodEnd,
-          accessUntil: currentPeriodEnd,
-        });
-      } else if (invoice.type === "renewal") {
-        await this.dependencies.billingService.renewSubscription(subscription.id, {
-          actorType: "webhook",
-          currentPeriodStart,
-          currentPeriodEnd,
-          accessUntil: currentPeriodEnd,
-        });
-      } else {
-        return {
-          status: 200,
-          logLevel: "info" as const,
-          event: "billing_webhook.authorized_payment_without_effect",
-          details: {
-            provider: normalizedEvent.provider,
-            providerEventId: normalizedEvent.providerEventId,
-            eventType: normalizedEvent.eventType,
-            resourceId: normalizedEvent.resourceId,
-            subscriptionId: subscription.id,
-            invoiceId: invoice.id,
-            invoiceType: invoice.type,
-          },
-          body: {
-            handled: true,
-            subscriptionId: subscription.id,
-            invoiceId: invoice.id,
-            effectApplied: false,
-            reason: "invoice_type_not_supported",
-          },
-        };
-      }
-
-      const syncResult = await this.dependencies.applyWorkspaceSubscriptionUpdate({
-        workspaceId: subscription.workspaceId,
-        planId: subscription.planId,
-        billingCycle: subscription.billingCycle,
-        status: "active",
-        source: "billing-webhook-authorized-payment",
-        mercadoPagoSubscriptionId: subscription.providerSubscriptionId,
-        description: `Cobrança recorrente confirmada via ${normalizedEvent.sourceTopic}.`,
-      });
-
-      return {
-        status: 200,
-        logLevel: "info" as const,
-        event: "billing_webhook.authorized_payment_applied",
-        details: {
-          provider: normalizedEvent.provider,
-          providerEventId: normalizedEvent.providerEventId,
-          eventType: normalizedEvent.eventType,
-          resourceId: normalizedEvent.resourceId,
-          workspaceId: subscription.workspaceId,
-          subscriptionId: subscription.id,
-          invoiceId: invoice.id,
-          invoiceType: invoice.type,
-          changed: syncResult.changed,
-        },
-        body: {
-          handled: true,
-          workspaceId: subscription.workspaceId,
-          subscriptionId: subscription.id,
-          invoiceId: invoice.id,
-          renewed: invoice.type === "renewal",
-          activated: invoice.type === "subscription",
-        },
-      };
-      },
+          invoice,
+          effectivePaidAt,
+          nowIso,
+        }),
     );
 
     if (!paidEffect.claimed || !paidEffect.value) {
@@ -1415,6 +1565,7 @@ export class BillingWebhookService {
       },
     };
   }
+
   private async resolveWorkspaceTarget(
     workspaceHints: BillingWebhookWorkspaceHints,
     payerEmail: string | null,

@@ -3,6 +3,10 @@ import type { WorkspaceRole } from "@/lib/workspace/catalog";
 
 export type ManagedWorkspaceRole = WorkspaceRole;
 
+export function isManagedWorkspaceRole(role: unknown): role is ManagedWorkspaceRole {
+  return role === "owner" || role === "manager" || role === "operator";
+}
+
 export function normalizeWorkspaceRole(role: unknown): ManagedWorkspaceRole {
   return role === "owner" || role === "manager" ? role : "operator";
 }

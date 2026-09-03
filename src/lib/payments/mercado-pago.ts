@@ -840,6 +840,25 @@ export function resolvePendingSubscriptionRecovery(input: {
   };
 }
 
+/**
+ * Valida a assinatura do webhook do Mercado Pago.
+ *
+ * A ausencia de janela temporal e intencional: uma assinatura HMAC valida e
+ * aceita independentemente da idade de `ts`. O motivo original nao foi
+ * documentado — a decisao foi tomada em 21/08/2026, quando 9c499de removeu a
+ * checagem que 7f2610f havia introduzido no mesmo dia e na mesma branch, e
+ * trocou o teste para afirmar o comportamento atual.
+ *
+ * A alternativa, com janela de 5 minutos e `now`/`maxAgeMs` injetaveis, esta
+ * preservada em 7f2610f, alcancavel a partir de origin/main.
+ *
+ * Mitigacao atual: o billing e idempotente por `providerEventId`, entao a
+ * reentrega do mesmo evento nao gera efeito comercial duplicado.
+ *
+ * Reavaliar somente apos confirmar, com a documentacao e as entregas reais do
+ * Mercado Pago, a unidade e a semantica de `ts` e uma estrategia de replay
+ * compativel com reentregas legitimas.
+ */
 export function verifyMercadoPagoWebhookSignature(input: {
   xSignature: string | null;
   xRequestId: string | null;

@@ -7,6 +7,8 @@ import {
   findCurrentBillingSubscriptionForWorkspace,
 } from "@/lib/billing/repository";
 import { createBillingService } from "@/lib/billing/server-service";
+import { runWithServerBillingSubscriptionOperationClaim } from "@/lib/billing/server-subscription-operation-claim";
+import { BillingSubscriptionOperationInProgressError } from "@/lib/billing/subscription-operation-claim";
 import {
   createRouteRequestContext,
   jsonWithRequestId,
@@ -100,12 +102,12 @@ export async function POST(request: Request) {
     );
   }
 
-  const targetPrice = await findActiveBillingPrice({
+  const targetPriceExists = await findActiveBillingPrice({
     planId: targetPlanId,
     billingCycle: subscription.billingCycle,
   });
 
-  if (!targetPrice) {
+  if (!targetPriceExists) {
     return jsonWithRequestId(
       requestContext,
       {
@@ -118,17 +120,47 @@ export async function POST(request: Request) {
   }
 
   try {
-    const billingService = createBillingService();
-    const scheduledChange = await scheduleBillingSubscriptionDowngrade({
-      subscription,
-      targetPlanId,
-      targetPrice,
-      actorId: session.user.id,
-      dependencies: {
-        billingService,
-        provider: subscription.provider ? getBillingProvider(subscription.provider) : null,
+    const scheduledChange = await runWithServerBillingSubscriptionOperationClaim(
+      subscription.id,
+      async () => {
+        const currentSubscription =
+          await findCurrentBillingSubscriptionForWorkspace(session.workspace.id);
+
+        if (!currentSubscription || currentSubscription.id !== subscription.id) {
+          throw new ScheduleBillingDowngradeError(
+            "A assinatura foi alterada enquanto o downgrade estava sendo iniciado. Atualize a página e tente novamente.",
+            "DOWNGRADE_SUBSCRIPTION_CHANGED_CONCURRENTLY",
+            409,
+          );
+        }
+
+        const currentTargetPrice = await findActiveBillingPrice({
+          planId: targetPlanId,
+          billingCycle: currentSubscription.billingCycle,
+        });
+
+        if (!currentTargetPrice) {
+          throw new ScheduleBillingDowngradeError(
+            "Não existe um preço ativo configurado para o plano de destino no ciclo atual.",
+            "DOWNGRADE_PRICE_NOT_FOUND",
+            503,
+          );
+        }
+
+        return scheduleBillingSubscriptionDowngrade({
+          subscription: currentSubscription,
+          targetPlanId,
+          targetPrice: currentTargetPrice,
+          actorId: session.user.id,
+          dependencies: {
+            billingService: createBillingService(),
+            provider: currentSubscription.provider
+              ? getBillingProvider(currentSubscription.provider)
+              : null,
+          },
+        });
       },
-    });
+    );
 
     logRouteEvent(
       requestContext,
@@ -174,6 +206,18 @@ export async function POST(request: Request) {
           code: error.code,
         },
         { status: error.status },
+      );
+    }
+
+    if (error instanceof BillingSubscriptionOperationInProgressError) {
+      return jsonWithRequestId(
+        requestContext,
+        {
+          error:
+            "Uma atualização desta assinatura já está em andamento. Aguarde alguns segundos e tente novamente.",
+          code: "SUBSCRIPTION_OPERATION_IN_PROGRESS",
+        },
+        { status: 409 },
       );
     }
 

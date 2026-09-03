@@ -40,6 +40,41 @@ Produto funcional
 
 ---
 
+## Regra de registro de evidência
+
+O estado dos checkboxes deste plano e a evidência de homologação são registrados
+**na `main`**, sempre por PR.
+
+Por que a regra existe: em 22/08/2026 a assinatura recorrente por cartão foi
+homologada no ambiente HML e o registro foi gravado **apenas** na branch
+`release/homologation`. A Vercel de homologação acompanha aquela branch e a
+`main` não a recebe, então a Fase 4 continuou aparecendo como nunca iniciada
+durante doze dias — a ponto de uma avaliação de prontidão classificá-la como
+zerada e apontar como pendente um trabalho que já tinha sido feito. O registro só
+foi recuperado em 03/09/2026, numa auditoria commit a commit entre as duas
+branches.
+
+Na prática:
+
+- Homologou algo em qualquer ambiente? O registro entra por PR contra a `main`.
+- Checkbox marcado só em branch de homologação não conta como registro.
+- Toda afirmação de status aqui deve ser verificável no código, ou trazer data e
+  ambiente em que foi observada.
+- Quando o texto descrever o que o repositório contém ou deixa de conter, conferir
+  antes de repetir: essa foi a origem das três correções de 02/09/2026 (Fase 2
+  dizia que o cadastro não estava protegido, Fase 7 negava ações administrativas
+  que existem, Fase 16 afirmava que não havia integração de Sentry).
+
+Para conferir divergência de checkbox entre as duas branches:
+
+```bash
+git fetch origin
+diff <(git show origin/main:docs/PLANO-FINAL-DABI-PRICE-100.md | grep '^- \[') \
+     <(git show origin/release/homologation:docs/PLANO-FINAL-DABI-PRICE-100.md | grep '^- \[')
+```
+
+---
+
 # Fase 0 — Congelamento de escopo e baseline
 
 ## Objetivo
@@ -94,7 +129,7 @@ Garantir que produção não dependa de configuração implícita, local ou não
 - [ ] Separar claramente Development / Preview / Production.
 - [x] Confirmar que nenhum secret está exposto como `NEXT_PUBLIC_*`.
 - [x] Remover variáveis mortas.
-- [ ] Confirmar HTTPS em URLs externas.
+- [x] Confirmar HTTPS em URLs externas.
 - [x] Verificar que Deployment Protection da Vercel não bloqueia providers externos necessários.
 
 ## QStash
@@ -153,8 +188,9 @@ Verificação em 21/08/2026:
   os valores configuráveis usados pelo código estão documentados, incluindo
   bootstrap, contexto opcional do ERP e o fallback legado do Mercado Livre.
   `NODE_ENV` e `VERCEL_ENV` são fornecidas pela plataforma. As URLs fixas de
-  Mercado Pago, Mercado Livre, Resend e Frankfurter usam HTTPS; os valores de
-  `ERP_APP_URL` e `MELI_REDIRECT_URI` seguem pendentes de confirmação externa.
+  Mercado Pago, Mercado Livre, Resend e Frankfurter usam HTTPS. Em 22/08/2026,
+  `ERP_APP_URL` e `MELI_REDIRECT_URI` também foram confirmadas manualmente com
+  esquema `https` na Vercel.
 
 ---
 
@@ -184,7 +220,7 @@ Provar em infraestrutura real que o hardening já implementado funciona corretam
 - [x] Múltiplas instâncias compartilham o contador.
 - [x] Bloqueio retorna `429`.
 - [x] Resposta inclui `Retry-After`.
-- [ ] Cadastro protegido.
+- [x] Cadastro protegido.
 - [x] Recuperação de senha protegida.
 - [x] Reset protegido.
 - [x] Token inválido tratado.
@@ -192,6 +228,10 @@ Provar em infraestrutura real que o hardening já implementado funciona corretam
 - [x] Sessão expirada tratada.
 - [x] Logout invalidando sessão corretamente.
 - [x] Cookie com configuração segura em produção.
+
+O cadastro aplica limite compartilhado de 5 tentativas por IP e 3 por e-mail
+em 15 minutos, com resposta `429` e `Retry-After` quando um dos limites é
+atingido.
 
 ## Administração e autorização
 
@@ -384,6 +424,9 @@ Homologar toda a recorrência real.
   aberta no dashboard.
 - A confirmação cobre a criação e a ativação inicial; renovação, falhas,
   cancelamentos e demais cenários desta fase continuam pendentes.
+- Registro recuperado de `release/homologation` em 03/09/2026. A evidência tinha
+  sido gravada apenas naquela branch e nunca chegou à `main`, o que fez esta fase
+  aparecer como nunca iniciada. Ver "Regra de registro de evidência".
 
 ## Critério de aceite
 
@@ -459,12 +502,12 @@ Eliminar condições de corrida capazes de produzir estado comercial inválido.
 
 - [x] webhook vs webhook
 - [ ] webhook vs reconciliation
-- [ ] reconciliation vs reconciliation
+- [x] reconciliation vs reconciliation
 - [x] checkout simultâneo
-- [ ] upgrade simultâneo
-- [ ] downgrade simultâneo
+- [x] upgrade simultâneo
+- [x] downgrade simultâneo
 - [ ] cancelamento vs pagamento
-- [ ] pagamento vs expiração
+- [x] pagamento vs expiração
 - [ ] mudança de ciclo vs webhook
 
 ## Hardening
@@ -522,10 +565,32 @@ Onde necessário:
   `BillingSubscription` e a projeção do workspace. O claim tem token de posse,
   lease de cinco minutos e liberação em `finally`; o teste cobre tanto a
   exclusão mútua quanto a liberação após erro e o encaminhamento pelo job.
-- Esta camada não cobre ainda comandos concorrentes iniciados pelo usuário
-  (upgrade, downgrade ou cancelamento) nem chamadas externas ao provider. Eles
-  exigem uma estratégia explícita de compensação e retry antes que os cenários
-  restantes da fase possam ser marcados como concluídos.
+- Esta camada ainda não cobre integralmente comandos concorrentes iniciados
+  pelo usuário nem chamadas externas ao provider. Os comandos atuais possuem
+  claim por assinatura; os cenários restantes exigem validação de recuperação
+  e concorrência entre webhook, jobs e mudanças agendadas.
+- Cancelamento e retomada agora usam o mesmo claim antes de chamar o provider
+  e relêem a assinatura dentro da posse do claim. Se outra operação tiver
+  alterado a assinatura, a rota devolve `409` sem executar a mutação externa.
+  Upgrade, downgrade e mudança de ciclo continuam pendentes porque criam ou
+  reconfiguram cobranças e exigem recuperação persistida após o provider.
+- Os checkouts Pix de upgrade e de mudança mensal para anual preservam a
+  invoice e a mudança pendentes se o provider já devolveu um pagamento, mas a
+  persistência local posterior falha. A nova tentativa usa a mesma invoice como
+  idempotency key e completa seus dados de pagamento, sem emitir uma segunda
+  cobrança.
+- Upgrade Pix e mudança mensal para anual obtêm o claim antes de reler
+  assinatura e preços, localizar mudança pendente, criar a invoice e chamar o
+  provider. Requisições simultâneas recebem `409` antes de gerar uma nova
+  cobrança.
+- A sincronização de eventos de assinatura também obtém o claim da assinatura
+  local antes de atualizar a projeção do workspace. A suíte verifica esse
+  encaminhamento; uma colisão com operação do usuário falha para retry do
+  webhook, sem escrita concorrente.
+- Downgrade e mudança anual para mensal obtêm o mesmo claim antes de reler a
+  assinatura e o preço vigente, preparar a recorrência no provider e persistir
+  a mudança agendada. Operações concorrentes recebem `409` antes da mutação
+  externa.
 
 ## Critério de aceite
 
@@ -538,6 +603,25 @@ Nenhuma condição de corrida conhecida cria duplicidade ou estado comercial inv
 ## Objetivo
 
 Permitir operação segura sem acesso direto ao banco.
+
+## Modelo normativo de produto
+
+`super_admin` e uma conta de plataforma, nao uma conta comercial: nao possui
+nem exibe plano atual ou upgrade e nao sofre paywall, limites de seats ou
+limites funcionais comerciais. Ela mantem acesso integral aos modulos,
+incluindo `/admin`, e pode usar o app em modo administrativo de workspace.
+
+O modo administrativo exige entrada explicita no workspace, banner persistente
+(`Visualizando como Super Admin - Workspace <nome>`) e atribuicao de toda acao
+ao `super_admin`; nao e permitida impersonacao silenciosa. A administracao deve
+ocorrer exclusivamente por acoes especificas e controladas, nunca por editor
+generico de banco.
+
+Toda operacao critica deve auditar ator, entidade, valor anterior, valor novo,
+motivo quando aplicavel e data/hora. Cadastro comum e UI comum nao podem criar
+ou promover `super_admin`; usuarios comuns nao podem alterar/remover essa
+conta; e a ultima conta `super_admin` nao pode ser removida. 2FA para essa
+conta e hardening obrigatorio antes da release final.
 
 ## Funcionalidades obrigatórias
 
@@ -573,13 +657,20 @@ Permitir operação segura sem acesso direto ao banco.
   pagamentos, eventos e sistema. O detalhe da assinatura reúne invoices,
   mudanças e auditoria; as ações de inspeção do provider e `accessUntil`
   exigem super admin e gravam auditoria.
-- Ainda faltam ações administrativas controladas para cancelar assinaturas e
-  disparar reconciliação. A lista de divergências é somente de leitura, logo
-  não substitui esses fluxos.
+- O console também permite disparar uma reconciliação limitada a 20 registros,
+  autenticada como super admin e registrada na auditoria. No detalhe da
+  assinatura ativa, o cancelamento administrativo agenda o fim da renovação no
+  provider e preserva o acesso até o período corrente terminar.
+- A lista de divergências continua somente de leitura; ela orienta a operação,
+  mas não permite alterar diretamente o estado comercial no banco.
 
 ## Regra
 
 Não resolver incidentes comerciais com alteração manual direta no banco.
+
+O dashboard administrativo deve evoluir para cobrir visao executiva/comercial,
+gestao de usuarios, workspaces, billing, pagamentos, eventos/webhooks,
+auditoria e modo administrativo de workspace.
 
 ## Critério de aceite
 
@@ -611,9 +702,9 @@ campos sem consumidor
 
 Classificar:
 
-- [ ] necessária
-- [ ] migrar
-- [ ] remover
+- [x] necessária
+- [x] migrar
+- [x] remover
 
 ## Achado de produção
 
@@ -622,7 +713,49 @@ preferências legadas sem assinatura corrente no billing. A consulta de
 assinatura corrente foi corrigida para também retornar uma assinatura com
 `accessUntil` futuro, inclusive se o status comercial for `canceled`. O motor
 de entitlement concede a exceção sem alterar esse status ou simular pagamento
-aprovado. A remoção do fallback legado continua pendente nesta fase.
+aprovado.
+
+## Execução automatizada
+
+- A auditoria classificou as projeções de assentos e claim de checkout como
+  necessárias apenas para operação; todas as decisões comerciais foram
+  migradas para o billing e os helpers sem consumidores foram removidos.
+
+- Em ambiente com `DATABASE_URL`, o serviço de entitlement não consulta mais
+  `workspace_preferences.subscription` quando não existe `BillingSubscription`:
+  esse caso passa a ser `no_subscription`. O modo local sem persistência já
+  resolve esse estado sem usar a projeção legada. As preferências ainda guardam
+  metadados operacionais e o claim de checkout, mas não decidem acesso pago.
+- As telas de assinatura e de acompanhamento de upgrade usam a assinatura do
+  billing para apresentar plano e ciclo. Sem uma assinatura corrente, exibem o
+  estado neutro de ausência de assinatura em vez do espelho legado.
+- A página interna de planos usa `BillingSubscription` para plano, status,
+  ciclo, elegibilidade e retomada de checkout. A leitura de tolerância e
+  `accessUntil` passa pelo serviço de entitlement do billing.
+- A notificação global de billing também deixa de usar o espelho legado quando
+  não encontra assinatura corrente, evitando alertas comerciais divergentes.
+- A tela de checkout lê pendência, plano, ciclo e início diretamente da
+  assinatura do billing; sem pendência, usa apenas os parâmetros explícitos da
+  nova contratação, sem recuperar dados de `workspace_preferences.subscription`.
+- O resumo de conta usa a assinatura corrente para plano e ciclo, mantendo
+  preferências apenas para os dados operacionais do workspace.
+- O checkout recorrente do Mercado Pago decide a situação atual exclusivamente
+  com `BillingSubscription`; o espelho legado deixou de ser consultado até para
+  enriquecer logs desse fluxo.
+- O dashboard recebe sua leitura comercial do servidor: plano, ciclo e status
+  vêm de `BillingSubscription`, e a capacidade vem das memberships persistidas;
+  `workspace_preferences.subscription` não define mais esses indicadores.
+- A navegação lateral recebe o entitlement efetivo e o plano do servidor, e o
+  perfil da empresa usa o plano do billing apenas para apresentação. Assim, o
+  espelho local não oculta recursos nem exibe uma faixa comercial divergente.
+- A retenção de snapshots de cálculo no servidor determina o limite de
+  histórico a partir da assinatura persistida no billing, sem consultar o
+  espelho de preferências.
+- O cache local deixa de aplicar limite comercial por preferências após um
+  salvamento persistente; em modo local sem billing ele usa apenas um teto
+  técnico para evitar crescimento ilimitado.
+- O helper legado de limite de histórico foi removido por não ter mais
+  consumidores; novos limites comerciais devem passar pelo entitlement.
 
 ## Arquitetura final esperada
 
@@ -640,54 +773,34 @@ UI
 
 Nenhuma decisão de plano, cobrança ou acesso depende de estado comercial legado.
 
+## Execução automatizada adicional
+
+- A navegação do produto recebe o entitlement calculado no servidor; a
+  projeção de preferências não decide mais quais módulos pagos são exibidos.
+
 ---
 
 # Fase 9 — Pix Automático
 
-## Objetivo
+> **Status atual: FORA DO ESCOPO ATUAL / FUTURE FEATURE.**
+>
+> Pix Automático não é requisito de conclusão, critério de aceite ou bloqueador
+> de release do DaBi Price. A recorrência mensal do escopo atual é atendida por
+> cartão recorrente; Pix manual continua disponível para pagamentos não
+> recorrentes. O plano anual é pago antecipadamente e concede 12 meses de
+> acesso, sem depender de Pix Automático.
 
-Concluir a funcionalidade real, não apenas tipos internos.
+## Registro histórico da avaliação
 
-## Contrato externo
+Esta funcionalidade foi avaliada como uma possível extensão do domínio de
+billing. O contrato técnico do Mercado Pago para mandato, autorização,
+cobrança, eventos, cancelamento, revogação, idempotência e sandbox não foi
+confirmado nem homologado. Os tipos e mapeamentos técnicos já existentes não
+significam que o fluxo esteja implementado ou habilitado para produção.
 
-Antes de implementar:
-
-- [ ] Confirmar API atual do Mercado Pago.
-- [ ] Confirmar autorização/mandato.
-- [ ] Confirmar criação.
-- [ ] Confirmar cobrança.
-- [ ] Confirmar recorrência.
-- [ ] Confirmar cancelamento.
-- [ ] Confirmar falha.
-- [ ] Confirmar revogação.
-- [ ] Confirmar webhooks.
-- [ ] Confirmar status.
-- [ ] Confirmar idempotência.
-- [ ] Confirmar sandbox/testes.
-
-## Implementação
-
-- [ ] Implementar via `BillingProvider`.
-- [ ] Não espalhar lógica específica do Mercado Pago pelo domínio.
-- [ ] Persistir estado necessário.
-- [ ] Implementar reconciliação.
-- [ ] Implementar observabilidade.
-
-## E2E
-
-- [ ] Autorização.
-- [ ] Primeira cobrança.
-- [ ] Renovação.
-- [ ] Falha.
-- [ ] Recuperação.
-- [ ] Revogação.
-- [ ] Cancelamento.
-- [ ] Webhook.
-- [ ] Reconciliation.
-
-## Critério de aceite
-
-Pix Automático homologado E2E.
+Caso seja priorizada em outro ciclo, a feature deverá ter plano próprio,
+contrato do provider confirmado, implementação via `BillingProvider`, testes e
+homologação E2E antes de ser anunciada ao usuário.
 
 ---
 
@@ -741,6 +854,18 @@ landing
 
 ## Registro de execução
 
+- A gestão de membros possui convites, ativação por link de definição de senha,
+  remoção, transferência de ownership e as permissões distintas de owner,
+  manager e operator. As regras de autorização e os fluxos locais são cobertos
+  pela suíte automatizada.
+- Em 22/08/2026, o convite persistido passou a reservar a vaga no banco sob
+  lock do workspace e só insere a membership quando a contagem atual é menor
+  que o limite de assentos do entitlement. Convites concorrentes não podem
+  ultrapassar a capacidade do plano; convites pendentes também ocupam assento.
+- A interface recebe `409` com mensagem operacional quando o plano atingiu o
+  limite. A validação contra Neon real permanece pendente, pois a suíte local
+  não possui banco de integração para executar o lock SQL.
+
 - Em 21/08/2026, a recuperação foi validada no ambiente remoto: solicitação
   aceita pelo Resend, e-mail entregue no Gmail, link aberto, senha atualizada
   e login realizado com a nova credencial. A suíte local também cobre expiração
@@ -788,10 +913,20 @@ O mesmo input produz o mesmo resultado independentemente da UI, com regras finan
   valores zerados, uma carga alta finita e limites de histórico por plano.
 - Histórico persistido, edição e duplicação continuam pendentes de teste de
   integração/E2E, pois não são regras puras do motor financeiro.
+- A normalização que precede a persistência de cálculos 3D e de confeitaria
+  possui cobertura unitária para tipos, defaults e descarte de campos externos
+  ao contrato, inclusive IDs enviados pelo cliente.
 
 ---
 
 # Fase 12 — Integração ERP
+
+## Execução automatizada
+
+- O proxy de publicação cancela chamadas ao ERP após 12 segundos e retorna
+  `504` com `ERP_UPSTREAM_TIMEOUT`; o evento estruturado
+  `erp.upstream_timeout` preserva o `requestId` para diagnóstico. Os demais
+  erros de rede continuam respondendo `502`.
 
 ## Happy path
 
@@ -840,18 +975,29 @@ precificação
 ## Legado
 
 - [x] Avaliar fallback de token por ambiente.
-- [ ] Remover se não fizer parte do comportamento oficial de produção.
+- [x] Remover se não fizer parte do comportamento oficial de produção.
 
 ## Registro de execução
 
-- O fallback `MELI_ACCESS_TOKEN`/`MELI_USER_ID` só é considerado quando não há
-  persistência de plataforma. Com `DATABASE_URL`, as credenciais são OAuth
-  persistente e isolado por workspace. O fallback continua documentado para
-  desenvolvimento local até a confirmação de que não possui consumidor ativo.
+- O fallback global `MELI_ACCESS_TOKEN`/`MELI_USER_ID` foi removido. A única
+  integração suportada é OAuth persistente, com token isolado por workspace;
+  ambientes sem `DATABASE_URL` e credenciais OAuth deixam a integração
+  explicitamente indisponível.
 
 ---
 
 # Fase 14 — Arquivos e imagens
+
+## Execução automatizada
+
+- Uploads de logo e imagens de produto exigem sessão autenticada e agora emitem
+  token apenas para o namespace `prefixo/<workspaceId>/...` da sessão. MIME
+  permitido: JPEG, PNG e WEBP; tamanho máximo: 12 MB; sem
+  `BLOB_READ_WRITE_TOKEN`, a rota falha sem liberar token.
+- A validação unitária cobre o namespace do workspace e rejeita outro workspace
+  ou segmentos de travessia de diretório. Ainda é necessária a validação manual
+  em produção para upload, URL final, falha, arquivo inválido e remoção, se
+  suportada pelo produto.
 
 ## Validar Blob em produção
 
@@ -890,6 +1036,13 @@ precificação
 - [ ] Back/forward seguro.
 - [ ] Sessão expirada durante operação.
 
+## Execução automatizada
+
+- As ações administrativas de reconciliação, cancelamento, atualização de
+  `accessUntil` e consulta ao provider têm guarda síncrona além do botão
+  desabilitado. A validação visual e os fluxos de browser continuam pendentes
+  de homologação manual.
+
 ## Acessibilidade básica
 
 - [ ] Labels.
@@ -925,13 +1078,35 @@ Sentry + e-mail
 
 ou equivalente.
 
+## O que já existe no repositório (PR #55, 02/09/2026)
+
+- `@sentry/nextjs` integrado nos runtimes de servidor, edge e browser, com
+  `sendDefaultPii: false` e sanitização que remove `request`/`user` e redige
+  token, secret, cookie, assinatura e e-mail antes do envio.
+- Erros **não tratados** chegam ao Sentry pelo `onRequestError`. Isso cobre as
+  rotas de cron, que deixam o erro subir.
+- Erros **tratados** de rota também geram evento: `logRouteEvent` de nível
+  `error` é encaminhado ao Sentry com `fingerprint [route, event]` e as tags
+  `route` e `route_event`. Sem isso, falha de webhook do Mercado Pago não
+  gerava alerta nenhum, porque a rota captura o erro e responde JSON.
+- Limite de 5 eventos por par rota/evento a cada 60s, para que uma rajada de
+  retries do provider não consuma a cota. O console registra todas as
+  ocorrências e o primeiro evento após a janela informa quantas foram suprimidas.
+- `billing.claim_lost` (nível `warning`) quando um claim de operação de
+  assinatura não pode ser liberado.
+
 ## Bloqueio operacional
 
-- O repositório não contém integração ou credencial de Sentry, PagerDuty,
-  Datadog, Slack ou serviço equivalente. Há logs estruturados, `requestId` e
-  backlog administrativo para diagnóstico, mas eles não enviam alertas por si
-  só. A conclusão desta fase requer escolher o provedor, conceder acesso e
-  configurar o canal de destino na infraestrutura externa.
+- O código emite os eventos, mas **nada é enviado sem configuração externa**.
+  Sem `SENTRY_DSN` nada inicializa e o `logRouteEvent` continua sendo só console.
+- Falta, fora do repositório: configurar `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`
+  e `SENTRY_ENVIRONMENT` na Vercel; opcionalmente `SENTRY_AUTH_TOKEN` para
+  source maps; e **criar as regras de alerta no Sentry**. Sem regra, o evento
+  chega no painel e ninguém é notificado — que é exatamente o critério desta
+  fase. Primeira regra sugerida: eventos com tag `route_event` começando em
+  `mercado_pago_webhook.` ou `billing_admin.`.
+- Os itens marcados acima permanecem desmarcados de propósito: eles descrevem
+  **alerta entregue**, não evento emitido.
 
 ## Critério de aceite
 
@@ -982,6 +1157,13 @@ git diff --check
 
 - [x] Todos verdes.
 - [x] Evoluir `npm run check` para representar toda a suíte final, se necessário.
+- [x] Executar o pipeline automaticamente em toda PR.
+
+Até 02/09/2026 esta sequência era executada **à mão**: o repositório não tinha
+`.github/workflows` nem qualquer outro arquivo de pipeline, e o último registro
+de execução era de 22/08/2026 — as quatro PRs mescladas em 02/09 entraram sem
+verificação automática. Desde 03/09/2026 o workflow `check` roda `npm run check`
+e `git diff --check` em toda PR e em `push` para `main` e `release/homologation`.
 
 ## Registro de execução
 
@@ -1020,7 +1202,7 @@ git diff --check
 - [x] Mensagens de erro.
 - [x] Logs.
 - [x] PII.
-- [ ] Dependências vulneráveis.
+- [x] Dependências vulneráveis.
 - [x] Rotas de debug/teste esquecidas.
 - [x] Todas as rotas `/api`.
 
@@ -1029,12 +1211,12 @@ git diff --check
 - A busca no repositório rastreado não encontrou valores literais para os
   secrets operacionais conhecidos. Arquivos de ambiente e dependências foram
   excluídos da verificação por não serem código versionado.
-- `npm audit --omit=dev --audit-level=high`, executado em 22/08/2026, reportou
-  cinco vulnerabilidades altas transitivas: `next@16.2.6`/`postcss`/`sharp`,
-  `nanoid` e `undici`. A correção automática completa propõe
-  `next@16.3.2`, fora da versão compatível atualmente exigida. Atualizar a
-  dependência deve ser tratado como mudança controlada com nova validação de
-  Next.js, não via `npm audit fix --force`.
+- `npm audit` e `npm audit --omit=dev --audit-level=high`, reexecutados em
+  22/08/2026 após atualização controlada para `next@16.3.2`, override
+  transitivo de `undici@6.28.0` e updates compatíveis de desenvolvimento,
+  não reportam vulnerabilidades. A atualização também resolve a cadeia de
+  `postcss`, `sharp`, `nanoid`, `js-yaml` e `brace-expansion`, sem usar
+  `npm audit fix --force`.
 - A sessão usa cookie `HttpOnly`, `Secure` em produção e `SameSite=Lax`. Os
   cookies temporários de OAuth têm a mesma proteção e o callback valida
   `state` e PKCE. Não há configuração de CORS permissiva no código; as rotas
@@ -1244,6 +1426,24 @@ A release só será considerada pronta quando a DaBi Price estiver:
 
 ---
 
+# Bloqueios externos ativos
+
+Esta seção consolida apenas atividades que não podem ser concluídas por mudança
+de código local. Os itens continuam detalhados nas fases de origem.
+
+| Bloqueio | Fase | Evidência atual | Encerramento necessário |
+| --- | --- | --- | --- |
+| Domínio de envio de e-mail | 1, 10 | A recuperação de senha foi validada com Resend e Gmail usando `onboarding@resend.dev`, limitado à conta Resend. | Registrar e verificar um domínio próprio no Resend; atualizar `AUTH_EMAIL_FROM`; enviar e receber uma recuperação fora da conta proprietária. |
+| Homologação real de Pix manual | 3, 20 | O fluxo, webhook, idempotência e reconciliação estão cobertos localmente; a conta sandbox não disponibiliza um caminho de Pix comprador equivalente ao real. | Efetuar pagamento Pix em ambiente autorizado e conferir invoice, assinatura, entitlement, webhook, auditoria e reconciliação. |
+| Cartão recorrente do Mercado Pago | 4, 20 | A primeira assinatura de teste foi aprovada e refletida no DaBi; renovação, falha, recuperação, cancelamento remoto e webhook atrasado continuam sem ciclo temporal completo. | Executar e registrar os cenários pendentes em ambiente de homologação/produção controlada. |
+| Pix Automático | 9 | A abstração `BillingProvider` existe, mas o contrato e o ciclo completo do provider ainda não foram homologados. | Confirmar contrato, autorização, cobrança, webhook, cancelamento, idempotência e sandbox com o Mercado Pago; só então habilitar o fluxo comercial. |
+| Consumo único de redefinição no Neon | 10 | O SQL consome o token com `consumed_at IS NULL` de forma atômica; a suíte local cobre consumo único e expiração. | Usar o mesmo token de recuperação duas vezes contra o ambiente remoto e comprovar que a segunda tentativa é rejeitada. |
+| Alertas operacionais externos | 16 | O Sentry está integrado no código desde a PR #55 e os eventos são emitidos (erro não tratado, erro tratado de rota, `billing.claim_lost`); não há DSN configurado na Vercel nem regra de alerta criada, então nada é entregue a ninguém. | Configurar as variáveis do Sentry nos ambientes e criar as regras de alerta e os destinatários para webhooks, cron, provider, ERP, OAuth e 5xx. |
+| Backup, restauração e LGPD | 19 | Banco e aplicação operam, mas não há evidência versionada de backup/restore, retenção ou políticas jurídicas. | Definir retenção, executar restore controlado, documentar remoção/exportação e validar requisitos legais com responsável competente. |
+| Smoke test de produção | 20 | HML validou recuperação de senha, webhooks e assinatura recorrente; não há evidência completa de um usuário novo em produção. | Executar o roteiro da fase com conta não administrativa e registrar os resultados, sem reutilizar dados de teste. |
+
+---
+
 # Ordem obrigatória de execução
 
 ```text
@@ -1255,21 +1455,20 @@ A release só será considerada pronta quando a DaBi Price estiver:
 6. Concorrência e transações
 7. Super Admin
 8. Remoção do legado
-9. Pix Automático
-10. Usuário / auth / onboarding
-11. Precificação
-12. ERP
-13. Mercado Livre
-14. Uploads
-15. UX/UI
-16. Alertas
-17. Suíte automatizada
-18. Auditoria de segurança
-19. Backup / LGPD
-20. Smoke test produção
-21. Limpeza
-22. Auditoria 100%
-23. Release
+9. Usuário / auth / onboarding
+10. Precificação
+11. ERP
+12. Mercado Livre
+13. Uploads
+14. UX/UI
+15. Alertas
+16. Suíte automatizada
+17. Auditoria de segurança
+18. Backup / LGPD
+19. Smoke test produção
+20. Limpeza
+21. Auditoria 100%
+22. Release
 ```
 
 ---
@@ -1280,13 +1479,16 @@ A release só será considerada pronta quando a DaBi Price estiver:
 
 Exceções só podem ocorrer quando uma fase depender tecnicamente de uma fase posterior. Nesse caso, a dependência deve ser registrada explicitamente neste documento.
 
+A Fase 9 é um registro histórico de uma future feature fora do escopo atual e
+não participa desta regra de bloqueio.
+
 ---
 
 # Critério absoluto de encerramento
 
 Este plano só pode ser marcado como concluído quando:
 
-- [ ] Todas as fases estiverem concluídas.
+- [ ] Todas as fases obrigatórias do escopo atual estiverem concluídas.
 - [ ] Todos os checkboxes obrigatórios estiverem marcados.
 - [ ] Não houver item `parcial`, `faltando` ou `bloqueado` no escopo oficial.
 - [ ] Todos os testes automatizados estiverem verdes.
@@ -1295,7 +1497,6 @@ Este plano só pode ser marcado como concluído quando:
 - [ ] Alertas externos estiverem ativos.
 - [ ] Super Admin cobrir as operações necessárias.
 - [ ] Billing legado não influenciar decisões comerciais.
-- [ ] Pix Automático estiver homologado.
 - [ ] Backup e recuperação estiverem testados.
 - [ ] Smoke test completo de produção estiver aprovado.
 - [ ] Auditoria final estiver verde.

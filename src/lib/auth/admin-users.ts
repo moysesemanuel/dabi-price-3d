@@ -10,9 +10,13 @@ import {
 import {
   appendAuditEvent,
   deletePlatformUser,
+  findPlatformUserById,
+  listPlatformUserMemberships,
   isPlatformPersistenceAvailable,
   listPlatformUsers,
   updatePlatformUserProfile,
+  updatePlatformUserStatus,
+  revokePlatformUserSessions,
   type AuthenticatedWorkspaceSession,
   type PlatformUserRecord,
 } from "@/lib/server/platform";
@@ -29,9 +33,31 @@ export type AdminUsersSnapshot = {
     activeUsers: number;
     invitedUsers: number;
     superAdmins: number;
+    activeSuperAdmins: number;
   };
   users: AdminPlatformUser[];
 };
+
+export async function getAdminUserMembershipsForSession(input: {
+  session: AuthenticatedWorkspaceSession;
+  userId: string;
+}) {
+  if (!isSuperAdminSession(input.session)) {
+    throw new Error("FORBIDDEN_ADMIN_USERS");
+  }
+  if (!isPlatformPersistenceAvailable()) {
+    return listLocalDevelopmentPlatformUsers().some(
+      (user) => user.userId === input.userId,
+    )
+      ? []
+      : null;
+  }
+
+  const user = await findPlatformUserById(input.userId);
+  if (!user) return null;
+
+  return listPlatformUserMemberships(input.userId);
+}
 
 export async function getAdminUsersSnapshot(
   session: AuthenticatedWorkspaceSession,
@@ -132,11 +158,84 @@ export async function deletePlatformUserForSession(input: {
   return removedUser;
 }
 
+export async function updatePlatformUserStatusForSession(input: {
+  session: AuthenticatedWorkspaceSession;
+  userId: string;
+  status: "active" | "disabled";
+}) {
+  if (!isSuperAdminSession(input.session)) {
+    throw new Error("FORBIDDEN_ADMIN_USERS");
+  }
+
+  if (input.userId === input.session.user.id && input.status === "disabled") {
+    throw new Error("CANNOT_DISABLE_CURRENT_USER");
+  }
+
+  if (!isPlatformPersistenceAvailable()) {
+    throw new Error("ADMIN_USER_ACTION_REQUIRES_PERSISTENCE");
+  }
+
+  const user = await updatePlatformUserStatus({
+    userId: input.userId,
+    status: input.status,
+  });
+
+  if (!user) {
+    return null;
+  }
+
+  await appendAuditEvent({
+    workspaceId: input.session.workspace.id,
+    userId: input.session.user.id,
+    type: "platform-user-status-updated",
+    title: "Status de usuario atualizado",
+    description: `Super admin alterou o status de ${user.email} para ${input.status}.`,
+    tone: input.status === "disabled" ? "warning" : "success",
+  });
+
+  return user;
+}
+
+export async function revokePlatformUserSessionsForSession(input: {
+  session: AuthenticatedWorkspaceSession;
+  userId: string;
+}) {
+  if (!isSuperAdminSession(input.session)) {
+    throw new Error("FORBIDDEN_ADMIN_USERS");
+  }
+
+  if (!isPlatformPersistenceAvailable()) {
+    throw new Error("ADMIN_USER_ACTION_REQUIRES_PERSISTENCE");
+  }
+
+  const user = await findPlatformUserById(input.userId);
+  if (!user) {
+    return null;
+  }
+
+  const revokedSessions = await revokePlatformUserSessions(input.userId);
+
+  await appendAuditEvent({
+    workspaceId: input.session.workspace.id,
+    userId: input.session.user.id,
+    type: "platform-user-sessions-revoked",
+    title: "Sessoes de usuario revogadas",
+    description: `Super admin revogou ${revokedSessions} sessoes de ${user.email}.`,
+    tone: "warning",
+  });
+
+  return { user, revokedSessions };
+}
+
 function buildAdminUsersSummary(users: AdminPlatformUser[]) {
   return {
     totalUsers: users.length,
     activeUsers: users.filter((user) => user.userStatus === "active").length,
     invitedUsers: users.filter((user) => user.userStatus === "invited").length,
     superAdmins: users.filter((user) => user.platformRole === "super_admin").length,
+    activeSuperAdmins: users.filter(
+      (user) =>
+        user.platformRole === "super_admin" && user.userStatus === "active",
+    ).length,
   };
 }

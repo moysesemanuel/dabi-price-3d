@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import type {
@@ -232,6 +233,48 @@ export function PlatformUsersPanel({
     }
   }
 
+  async function handleUserAction(
+    user: AdminPlatformUser,
+    action: "set_status" | "revoke_sessions",
+  ) {
+    const nextStatus = user.userStatus === "active" ? "disabled" : "active";
+    const message =
+      action === "revoke_sessions"
+        ? `Revogar todas as sessoes de ${user.email}?`
+        : `${nextStatus === "disabled" ? "Desativar" : "Ativar"} ${user.email}?`;
+
+    if (!window.confirm(message)) {
+      return;
+    }
+
+    setPendingUserId(user.userId);
+    setLoadError(null);
+    setActiveMenuUserId(null);
+
+    try {
+      const response = await fetch(`/api/admin/users/${user.userId}`, {
+        method: "PATCH",
+        headers: { Accept: "application/json", "content-type": "application/json" },
+        body: JSON.stringify(
+          action === "set_status"
+            ? { action, status: nextStatus }
+            : { action },
+        ),
+      });
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Falha na acao administrativa.");
+      }
+
+      await loadUsers();
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Falha na acao administrativa.");
+    } finally {
+      setPendingUserId(null);
+    }
+  }
+
   if (isLoading && !snapshot) {
     return (
       <section className="app-card p-6">
@@ -407,6 +450,9 @@ export function PlatformUsersPanel({
 
                         {activeMenuUserId === user.userId ? (
                           <div className="absolute right-0 top-12 z-20 min-w-[160px] rounded-[20px] border border-[var(--panel-border)] bg-white p-2 shadow-[0_18px_48px_rgba(57,37,118,0.12)]">
+                            <Link href={`/admin/usuarios/${user.userId}`} className="flex w-full rounded-xl px-3 py-2 text-left text-sm text-[var(--foreground)] transition hover:bg-[var(--panel-soft)]">
+                              Abrir detalhe
+                            </Link>
                             <ActionButton
                               onClick={() => {
                                 setActiveMenuUserId(null);
@@ -414,6 +460,18 @@ export function PlatformUsersPanel({
                               }}
                             >
                               Editar
+                            </ActionButton>
+                            <ActionButton
+                              disabled={isPending || isOwnUser}
+                              onClick={() => void handleUserAction(user, "set_status")}
+                            >
+                              {user.userStatus === "active" ? "Desativar" : "Ativar"}
+                            </ActionButton>
+                            <ActionButton
+                              disabled={isPending}
+                              onClick={() => void handleUserAction(user, "revoke_sessions")}
+                            >
+                              Revogar sessoes
                             </ActionButton>
                             <ActionButton
                               disabled={isPending || isOwnUser || isOwnerUser}

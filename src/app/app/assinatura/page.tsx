@@ -12,47 +12,41 @@ import {
 import type { BillingSubscription } from "@/lib/billing/types";
 import { getCurrentAuthSession } from "@/lib/auth/session";
 import {
-  getWorkspacePreferences,
-  isPlatformPersistenceAvailable,
-} from "@/lib/server/platform";
-import {
-  defaultAppPreferences,
   getWorkspaceBillingCycleLabel,
   getWorkspacePlan,
   resolveWorkspacePlanPriceLabel,
 } from "@/lib/settings/app-preferences";
-import { getSubscriptionStatusLabel } from "@/lib/workspace/subscription-access";
 
 export default async function SubscriptionPage() {
   const session = await getCurrentAuthSession();
-  const preferences =
-    session && isPlatformPersistenceAvailable()
-      ? await getWorkspacePreferences(session.workspace.id).catch(
-          () => defaultAppPreferences,
-        )
-      : defaultAppPreferences;
+  const isSuperAdmin = session?.user.platformRole === "super_admin";
+
+  if (isSuperAdmin) {
+    return <SuperAdminSubscriptionPage />;
+  }
+
   const billingSubscription =
-    session && isPlatformPersistenceAvailable()
+    session
       ? await findCurrentBillingSubscriptionForWorkspace(session.workspace.id).catch(
           () => null,
         )
       : null;
   const scheduledDowngrade =
-    billingSubscription && isPlatformPersistenceAvailable()
+    billingSubscription
       ? await findLatestOpenBillingSubscriptionChange({
           subscriptionId: billingSubscription.id,
           type: "downgrade",
         }).catch(() => null)
       : null;
   const pendingUpgrade =
-    billingSubscription && isPlatformPersistenceAvailable()
+    billingSubscription
       ? await findLatestOpenBillingSubscriptionChange({
           subscriptionId: billingSubscription.id,
           type: "upgrade",
         }).catch(() => null)
       : null;
 
-  const subscription = billingSubscription
+  const entitlementSubscription = billingSubscription
     ? {
         planId: billingSubscription.planId,
         status: billingSubscription.status,
@@ -61,20 +55,21 @@ export default async function SubscriptionPage() {
         currentPeriodEnd: billingSubscription.currentPeriodEnd,
         gracePeriodEndsAt: billingSubscription.gracePeriodEndsAt,
       }
-    : preferences.subscription;
+    : null;
   const entitlements = resolveWorkspaceEntitlements({
-    subscription,
+    subscription: entitlementSubscription,
+    platformRole: session?.user.platformRole,
   });
-  const currentPlan = getWorkspacePlan(subscription.planId ?? "starter");
+  const currentPlan = getWorkspacePlan(billingSubscription?.planId ?? "starter");
   const statusLabel = billingSubscription
     ? getBillingStatusLabel(billingSubscription.status)
-    : getSubscriptionStatusLabel(preferences.subscription.status);
+    : "Sem assinatura corrente";
   const statusPresentation = getAccessPresentation(entitlements.accessReason);
   const nextRelevantDate =
     billingSubscription?.gracePeriodEndsAt ??
     billingSubscription?.currentPeriodEnd ??
     billingSubscription?.accessUntil ??
-    preferences.subscription.checkoutStartedAt;
+    null;
   const subscriptionManagementAction = billingSubscription
     ? resolveSubscriptionManagementAction(billingSubscription)
     : null;
@@ -254,14 +249,16 @@ export default async function SubscriptionPage() {
               value={currentPlan.label}
               note={formatSubscriptionPriceDisplay(
                 currentPlan,
-                subscription.billingCycle,
+                billingSubscription?.billingCycle ?? "monthly",
               )}
             />
             <SubscriptionDetail
               label="Ciclo"
-              value={getWorkspaceBillingCycleLabel(subscription.billingCycle)}
+              value={getWorkspaceBillingCycleLabel(
+                billingSubscription?.billingCycle ?? "monthly",
+              )}
               note={
-                subscription.billingCycle === "annual"
+                billingSubscription?.billingCycle === "annual"
                   ? "Pagamento antecipado com 12 meses de acesso liberados por ciclo."
                   : "Cobrança recorrente mensal enquanto a renovação automática permanecer ativa."
               }
@@ -278,9 +275,7 @@ export default async function SubscriptionPage() {
                   ? billingSubscription.autoRenew
                     ? "Ativa"
                     : "Desligada"
-                  : subscription.status === "pending"
-                    ? "Aguardando confirmação"
-                    : "Sem assinatura corrente"
+                  : "Sem assinatura corrente"
               }
               note="O comportamento depende do estado atual da assinatura projetada pelo billing."
             />
@@ -291,11 +286,11 @@ export default async function SubscriptionPage() {
             />
             <SubscriptionDetail
               label="Origem dos dados"
-              value={billingSubscription ? "Billing atual" : "Resumo projetado"}
+              value={billingSubscription ? "Billing atual" : "Sem assinatura"}
               note={
                 billingSubscription
                   ? "Lido da assinatura corrente do billing."
-                  : "Sem assinatura corrente ativa; a tela usa o snapshot projetado mais recente."
+                  : "Nenhum estado comercial legado é usado quando não há assinatura no billing."
               }
             />
           </div>
@@ -332,6 +327,30 @@ export default async function SubscriptionPage() {
             />
           </div>
         </article>
+      </section>
+    </div>
+  );
+}
+
+function SuperAdminSubscriptionPage() {
+  return (
+    <div className="app-page space-y-6">
+      <header className="app-header">
+        <BackLink href="/app" label="Voltar para o início" />
+        <p className="app-eyebrow">Conta administrativa</p>
+        <h1 className="app-title">Acesso completo à plataforma</h1>
+        <p className="app-copy">
+          Esta conta é administrativa e não possui plano, cobrança ou assinatura comercial.
+        </p>
+      </header>
+      <section className="app-card p-6 sm:p-7">
+        <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--accent)]">
+          Acesso liberado
+        </p>
+        <p className="mt-3 max-w-2xl text-base leading-8 text-[var(--muted)]">
+          Precificação, histórico, exportação, integrações e administração de billing
+          estão disponíveis sem paywall ou limites comerciais.
+        </p>
       </section>
     </div>
   );
@@ -400,6 +419,13 @@ function getBillingStatusLabel(status: string) {
 
 function getAccessPresentation(accessReason: WorkspaceEntitlementAccessReason) {
   switch (accessReason) {
+    case "super_admin":
+      return {
+        description: "Esta conta administrativa possui acesso completo à plataforma sem assinatura comercial.",
+        nextStep: "Use o console administrativo para acompanhar a operação da plataforma.",
+        badgeClassName:
+          "rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-4 py-2 text-xs font-semibold text-[var(--accent)]",
+      };
     case "active":
       return {
         description:
@@ -477,6 +503,8 @@ function getAccessPresentation(accessReason: WorkspaceEntitlementAccessReason) {
 
 function getAccessReasonLabel(accessReason: WorkspaceEntitlementAccessReason) {
   switch (accessReason) {
+    case "super_admin":
+      return "Acesso administrativo";
     case "active":
       return "Acesso ativo";
     case "grace_period":
@@ -498,6 +526,8 @@ function getAccessReasonLabel(accessReason: WorkspaceEntitlementAccessReason) {
 
 function getDateNote(accessReason: WorkspaceEntitlementAccessReason) {
   switch (accessReason) {
+    case "super_admin":
+      return "Não há data comercial aplicável a esta conta.";
     case "grace_period":
       return "Limite para manter o acesso antes da suspensão.";
     case "scheduled_cancel":

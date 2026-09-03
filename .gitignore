@@ -4,6 +4,7 @@ node_modules/
 # next
 .next/
 out/
+next-env.d.ts
 
 # local env
 .env
@@ -28,3 +29,11 @@ pnpm-debug.log*
 *.tsbuildinfo
 .vercel
 .env*
+
+# local tooling (agent assistants, editor, MCP configs)
+.repowise/
+.vscode/
+.codex/
+.claude/
+.mcp.json
+docs/superpowers/

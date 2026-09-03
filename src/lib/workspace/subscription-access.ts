@@ -111,6 +111,7 @@ export function resolveDefaultWorkspaceAppPath(input: {
   }
 
   return (
+    input.accessReason === "super_admin" ||
     input.accessReason === "active" ||
     input.accessReason === "grace_period" ||
     input.accessReason === "scheduled_cancel"
