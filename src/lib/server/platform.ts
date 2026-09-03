@@ -180,8 +180,6 @@ export type PlatformUserRecord = {
   primaryWorkspaceRole: string | null;
 };
 
-let platformReadyPromise: Promise<void> | null = null;
-
 export function isPlatformPersistenceAvailable() {
   return hasDatabaseUrl();
 }
@@ -193,11 +191,6 @@ export async function ensurePlatformReady() {
     );
   }
 
-  if (!platformReadyPromise) {
-    platformReadyPromise = initializePlatform();
-  }
-
-  await platformReadyPromise;
 }
 
 export type RegisterWorkspaceOwnerInput = {
@@ -2195,7 +2188,11 @@ export async function saveMercadoLivreToken(input: {
   return rows[0] ?? null;
 }
 
-async function initializePlatform() {
+/**
+ * @deprecated Run `npm run db:migrate` and `npm run db:bootstrap-admin`
+ * outside the request path. Kept temporarily only for controlled recovery.
+ */
+export async function initializePlatform() {
   const sql = getSql();
 
   await sql`

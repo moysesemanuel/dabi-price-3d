@@ -3,13 +3,13 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import postgres from "postgres";
 import { closeNeonPostgresShim } from "./support/neon-postgres-shim.mjs";
+import { migratePlatformDatabase } from "./support/migrate-platform-database.mjs";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 if (!testDatabaseUrl) throw new Error("TEST_DATABASE_URL is required and must be isolated.");
 process.env.NODE_ENV = "test";
 process.env.DATABASE_URL = testDatabaseUrl;
 
-const { ensurePlatformReady } = await import("../src/lib/server/platform.ts");
 const { getAdminDashboardAnalytics } = await import("../src/lib/billing/admin-dashboard-analytics-repository.ts");
 const { resolveAdminAnalyticsPeriod } = await import("../src/lib/billing/admin-dashboard-analytics.ts");
 const { hashPassword } = await import("../src/lib/auth/password.ts");
@@ -54,7 +54,7 @@ async function cleanup(records) {
 }
 
 test.before(async () => {
-  await ensurePlatformReady();
+  await migratePlatformDatabase(testDatabaseUrl);
   await sql`DELETE FROM billing_webhook_events WHERE event_type = 'analytics_fixture'`;
   await sql`
     DELETE FROM billing_webhook_events

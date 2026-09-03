@@ -97,6 +97,25 @@ Nesse modo:
 - OAuth persistente do Mercado Livre pode ser habilitado por workspace
 - a interface mostra a tag `Banco`
 
+Antes de publicar uma versão que dependa de uma alteração de schema, execute as
+migrações fora do tráfego da aplicação:
+
+```bash
+DATABASE_URL="..." npm run db:migrate
+```
+
+Em um banco novo, crie o primeiro super admin uma única vez, após as migrações:
+
+```bash
+DATABASE_URL="..." \
+BOOTSTRAP_ADMIN_EMAIL="..." \
+BOOTSTRAP_ADMIN_PASSWORD="..." \
+npm run db:bootstrap-admin
+```
+
+O comando não altera um banco que já tenha usuários. As requisições do app não
+executam mais criação ou alteração de tabelas e índices.
+
 Variável obrigatória:
 
 ```env

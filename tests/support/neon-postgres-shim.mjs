@@ -1,6 +1,7 @@
 import postgres from "postgres";
 
 let sqlClient = null;
+let queryLog = [];
 
 function renderQuery(query) {
   return query.strings.reduce(
@@ -22,6 +23,9 @@ export function neon(databaseUrl) {
   }
 
   const sql = postgres(databaseUrl, {
+    debug: (_connection, query) => {
+      queryLog.push(query);
+    },
     idle_timeout: 1,
     max: 10,
     onnotice: () => {},
@@ -44,7 +48,16 @@ export function neon(databaseUrl) {
   return sqlClient;
 }
 
+export function clearRecordedQueries() {
+  queryLog = [];
+}
+
+export function recordedQueries() {
+  return [...queryLog];
+}
+
 export async function closeNeonPostgresShim() {
   await sqlClient?.end({ timeout: 1 });
   sqlClient = null;
+  queryLog = [];
 }
