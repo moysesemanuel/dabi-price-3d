@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { upload } from "@vercel/blob/client";
+import { buildWorkspaceUploadPath } from "@/lib/client/workspace-upload-path";
 import { currencyMeta } from "@/lib/currency/display-currency";
 import {
   businessTypeMeta,
@@ -21,6 +22,7 @@ import {
   workspaceRoleMeta,
   writeAppPreferences,
 } from "@/lib/settings/app-preferences";
+import type { WorkspacePlanId } from "@/lib/workspace/catalog";
 
 const brandAccentOptions = [
   "#ff6a00",
@@ -34,9 +36,11 @@ const brandAccentOptions = [
 export function CompanyProfilePanel({
   initialPreferences,
   canEditBusinessType,
+  initialPlanId,
 }: {
   initialPreferences: AppPreferences;
   canEditBusinessType: boolean;
+  initialPlanId: WorkspacePlanId;
 }) {
   const router = useRouter();
   const [preferences, setPreferences] = useState<AppPreferences>(initialPreferences);
@@ -111,7 +115,7 @@ export function CompanyProfilePanel({
 
     try {
       const blob = await upload(
-        buildLogoBlobPath(preferences.workspaceName, file.name),
+        buildLogoBlobPath(file.name),
         file,
         {
           access: "public",
@@ -187,7 +191,7 @@ export function CompanyProfilePanel({
     : null;
   const profileChecklist = getCompanyProfileChecklist(preferences);
   const profileComplete = isCompanyProfileComplete(preferences);
-  const workspacePlan = getWorkspacePlan(preferences.subscription.planId);
+  const workspacePlan = getWorkspacePlan(initialPlanId);
   const paymentMethodsSummary = preferences.paymentMethods
     .map((method) => companyPaymentMethodMeta[method].label)
     .join(" · ");
@@ -808,25 +812,16 @@ function isAcceptedLogoFile(file: File) {
   );
 }
 
-function buildLogoBlobPath(workspaceName: string, fileName: string) {
-  const safeWorkspace = slugify(workspaceName || "workspace");
+function buildLogoBlobPath(fileName: string) {
   const safeFileName = fileName
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-  return `workspace-logos/${safeWorkspace}/logo-${safeFileName || "image"}`;
-}
-
-function slugify(value: string) {
-  return (
-    value
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "workspace"
+  return buildWorkspaceUploadPath(
+    "workspace-logos",
+    `logo-${safeFileName || "image"}`,
   );
 }
 

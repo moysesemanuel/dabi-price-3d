@@ -8,7 +8,6 @@ import {
   type CalculationType,
   type SavedCalculation,
 } from "@/lib/history/workspace-calculations";
-import { readAppPreferences, resolveCalculationHistoryLimit } from "@/lib/settings/app-preferences";
 
 export type { SavedCalculation } from "@/lib/history/workspace-calculations";
 
@@ -255,14 +254,6 @@ export function subscribeCalculationHistory(onStoreChange: () => void) {
   };
 }
 
-function resolveHistoryLimit() {
-  if (typeof window === "undefined") {
-    return MAX_ITEMS;
-  }
-
-  return resolveCalculationHistoryLimit(readAppPreferences());
-}
-
 async function persistCalculationItem(item: SavedCalculation) {
   if (typeof window === "undefined") {
     return readCalculationHistory();
@@ -304,7 +295,9 @@ async function persistCalculationItem(item: SavedCalculation) {
   const currentItems = readCalculationHistory().filter(
     (currentItem) => currentItem.id !== nextItem.id,
   );
-  const nextItems = [nextItem, ...currentItems].slice(0, resolveHistoryLimit());
+  // The server owns commercial retention. Keep the optimistic cache intact
+  // until the following authoritative history load reconciles it.
+  const nextItems = [nextItem, ...currentItems];
 
   writeCalculationHistory(nextItems);
 
@@ -335,7 +328,7 @@ function persistLocalCalculationItem(item: SavedCalculation) {
   const currentItems = readLocalCalculationHistory().filter(
     (currentItem) => currentItem.id !== item.id,
   );
-  const nextItems = [item, ...currentItems].slice(0, resolveHistoryLimit());
+  const nextItems = [item, ...currentItems].slice(0, MAX_ITEMS);
 
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextItems));
   writeCalculationHistory(nextItems);

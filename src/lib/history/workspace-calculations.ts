@@ -1,16 +1,16 @@
 import type {
   DisplayCurrency,
   ExchangeRateSnapshot,
-} from "@/lib/currency/display-currency";
-import { defaultExchangeRateSnapshot } from "@/lib/currency/display-currency";
+} from "../currency/display-currency.ts";
+import { defaultExchangeRateSnapshot } from "../currency/display-currency.ts";
 import {
   hydrateConfectioneryPricingFormState,
   type ConfectioneryPricingFormState,
-} from "@/lib/confectionery/calculate-confectionery-price";
+} from "../confectionery/calculate-confectionery-price.ts";
 import {
   hydratePricingFormState,
   type PricingFormState,
-} from "@/lib/pricing/initial-pricing-form";
+} from "../pricing/initial-pricing-form.ts";
 
 export type CalculationType = "3d" | "confectionery";
 

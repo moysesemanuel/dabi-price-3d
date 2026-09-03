@@ -21,6 +21,10 @@ export function BillingAdminSubscriptionActions({
   const [providerSnapshot, setProviderSnapshot] = useState<string | null>(null);
 
   async function handleAccessUntilSave(nextAccessUntil: string | null) {
+    if (isSaving) {
+      return;
+    }
+
     setIsSaving(true);
     setFeedback(null);
 
@@ -64,6 +68,10 @@ export function BillingAdminSubscriptionActions({
   }
 
   async function handleInspectProvider() {
+    if (isInspecting) {
+      return;
+    }
+
     setIsInspecting(true);
     setFeedback(null);
 

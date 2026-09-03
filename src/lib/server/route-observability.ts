@@ -2,6 +2,37 @@ import { randomUUID } from "node:crypto";
 
 export type RouteLogLevel = "info" | "warn" | "error";
 
+export type RouteErrorReporter = (payload: Record<string, unknown>) => void;
+
+// Chave global (Symbol.for) para que o reporter registrado pela instrumentacao
+// seja visto pelas rotas mesmo quando o bundler as coloca em chunks distintos.
+const ROUTE_ERROR_REPORTER_KEY = Symbol.for("dabi-price.route-error-reporter");
+
+type RouteErrorReporterRegistry = typeof globalThis & {
+  [ROUTE_ERROR_REPORTER_KEY]?: RouteErrorReporter | null;
+};
+
+export function setRouteErrorReporter(reporter: RouteErrorReporter | null) {
+  (globalThis as RouteErrorReporterRegistry)[ROUTE_ERROR_REPORTER_KEY] =
+    reporter;
+}
+
+function reportRouteError(payload: Record<string, unknown>) {
+  const reporter = (globalThis as RouteErrorReporterRegistry)[
+    ROUTE_ERROR_REPORTER_KEY
+  ];
+
+  if (typeof reporter !== "function") {
+    return;
+  }
+
+  try {
+    reporter(payload);
+  } catch {
+    // Observabilidade nunca pode derrubar a rota que estava sendo observada.
+  }
+}
+
 export type RouteRequestContext = {
   route: string;
   requestId: string;
@@ -55,6 +86,10 @@ export function logRouteEvent(
   };
 
   console[level](`[${context.route}] ${event}`, payload);
+
+  if (level === "error") {
+    reportRouteError(payload);
+  }
 }
 
 export function jsonWithRequestId(

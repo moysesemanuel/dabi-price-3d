@@ -79,6 +79,8 @@ function mapMembersApiError(error: unknown) {
       return "Seu nivel de acesso nao permite convidar esse papel.";
     case "INVITE_TOKEN_ISSUE_FAILED":
       return "Nao foi possivel emitir o link de ativacao do convite.";
+    case "SEAT_LIMIT_REACHED":
+      return "O limite de usuarios do plano atual foi atingido.";
     default:
       return "Falha ao convidar membro.";
   }
@@ -92,6 +94,7 @@ function mapMembersApiStatus(error: unknown) {
   switch (error.message) {
     case "MEMBER_ALREADY_EXISTS":
     case "MULTI_WORKSPACE_NOT_SUPPORTED":
+    case "SEAT_LIMIT_REACHED":
       return 409;
     case "USER_DISABLED":
     case "FORBIDDEN_ROLE_ASSIGNMENT":

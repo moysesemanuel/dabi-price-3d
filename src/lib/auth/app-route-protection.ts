@@ -21,11 +21,19 @@ export function resolveAppRouteProtection(input: {
     input.accessReason ?? input.entitlements?.accessReason ?? "no_subscription";
   const canUseApp =
     input.entitlements?.canUseApp ??
-    (accessReason === "active" ||
+    (accessReason === "super_admin" ||
+      accessReason === "active" ||
       accessReason === "grace_period" ||
       accessReason === "scheduled_cancel");
 
   if (input.isApiRequest) {
+    if (canAccessPublicAuthApiPath(input.pathname)) {
+      return {
+        type: "allow" as const,
+        redirectUrl: null,
+      };
+    }
+
     if (canAccessAdministrativeApiPath(input.pathname)) {
       return {
         type: "allow" as const,
@@ -96,4 +104,18 @@ export function resolveAppRouteProtection(input: {
 
 function canAccessAdministrativeApiPath(pathname: string) {
   return pathname === "/api/admin" || pathname.startsWith("/api/admin/");
+}
+
+const PUBLIC_AUTH_API_PATHS = new Set([
+  "/api/auth/login",
+  "/api/auth/logout",
+  "/api/auth/register",
+  "/api/auth/session",
+  "/api/auth/recovery/request",
+  "/api/auth/recovery/reset",
+  "/api/auth/recovery/verify",
+]);
+
+export function canAccessPublicAuthApiPath(pathname: string) {
+  return PUBLIC_AUTH_API_PATHS.has(pathname);
 }

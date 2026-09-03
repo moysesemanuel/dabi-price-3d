@@ -370,25 +370,19 @@ export class BillingService {
       );
     }
 
-    const existingChange = await this.repository.findLatestOpenSubscriptionChange({
+    const reused = await this.reuseOrReplaceScheduledChange(
       subscriptionId,
-      type: "downgrade",
-    });
+      "downgrade",
+      {
+        matchesTarget: (existingChange) =>
+          existingChange.toPlanId === input.toPlanId &&
+          existingChange.effectiveAt === subscription.currentPeriodEnd,
+        shouldCancel: (existingChange) => existingChange.status === "scheduled",
+      },
+    );
 
-    if (
-      existingChange &&
-      existingChange.status === "scheduled" &&
-      existingChange.toPlanId === input.toPlanId &&
-      existingChange.effectiveAt === subscription.currentPeriodEnd
-    ) {
-      return existingChange;
-    }
-
-    if (existingChange && existingChange.status === "scheduled") {
-      await this.repository.updateSubscriptionChange(existingChange.id, {
-        status: "canceled",
-        canceledAt: this.clock.now().toISOString(),
-      });
+    if (reused) {
+      return reused;
     }
 
     const change = await this.repository.createSubscriptionChange({
@@ -464,17 +458,7 @@ export class BillingService {
       );
     }
 
-    const existingChange = await this.repository.findLatestOpenSubscriptionChange({
-      subscriptionId,
-      type: "upgrade",
-    });
-
-    if (existingChange && existingChange.status === "pending_payment") {
-      await this.repository.updateSubscriptionChange(existingChange.id, {
-        status: "canceled",
-        canceledAt: this.clock.now().toISOString(),
-      });
-    }
+    await this.cancelPendingSubscriptionChange(subscriptionId, "upgrade");
 
     const change = await this.repository.createSubscriptionChange({
       subscriptionId: subscription.id,
@@ -583,17 +567,7 @@ export class BillingService {
       );
     }
 
-    const existingChange = await this.repository.findLatestOpenSubscriptionChange({
-      subscriptionId,
-      type: "cycle_change",
-    });
-
-    if (existingChange && existingChange.status === "pending_payment") {
-      await this.repository.updateSubscriptionChange(existingChange.id, {
-        status: "canceled",
-        canceledAt: this.clock.now().toISOString(),
-      });
-    }
+    await this.cancelPendingSubscriptionChange(subscriptionId, "cycle_change");
 
     const change = await this.repository.createSubscriptionChange({
       subscriptionId: subscription.id,
@@ -690,24 +664,23 @@ export class BillingService {
       );
     }
 
-    const existingChange = await this.repository.findLatestOpenSubscriptionChange({
+    const reused = await this.reuseOrReplaceScheduledChange(
       subscriptionId,
-      type: "cycle_change",
-    });
+      "cycle_change",
+      {
+        matchesTarget: (existingChange) =>
+          existingChange.toBillingCycle === "monthly" &&
+          existingChange.effectiveAt === subscription.currentPeriodEnd,
+        // Unlike scheduleDowngrade, an open cycle_change here can also be a
+        // still-unpaid pending_payment change left by requestCycleChange
+        // (both create "cycle_change" type changes). Cancel it regardless
+        // of status so it doesn't linger alongside the new scheduled one.
+        shouldCancel: () => true,
+      },
+    );
 
-    if (
-      existingChange?.status === "scheduled" &&
-      existingChange.toBillingCycle === "monthly" &&
-      existingChange.effectiveAt === subscription.currentPeriodEnd
-    ) {
-      return existingChange;
-    }
-
-    if (existingChange) {
-      await this.repository.updateSubscriptionChange(existingChange.id, {
-        status: "canceled",
-        canceledAt: this.clock.now().toISOString(),
-      });
+    if (reused) {
+      return reused;
     }
 
     const change = await this.repository.createSubscriptionChange({
@@ -895,6 +868,68 @@ export class BillingService {
     });
 
     return updatedSubscription;
+  }
+
+  /**
+   * Shared by the "request" style methods (requestUpgrade, requestCycleChange):
+   * they never reuse an existing change, they only supersede a still-open
+   * pending_payment change of the same type before creating a fresh one.
+   */
+  private async cancelPendingSubscriptionChange(
+    subscriptionId: string,
+    changeType: BillingSubscriptionChangeType,
+  ) {
+    const existingChange = await this.repository.findLatestOpenSubscriptionChange({
+      subscriptionId,
+      type: changeType,
+    });
+
+    if (existingChange && existingChange.status === "pending_payment") {
+      await this.repository.updateSubscriptionChange(existingChange.id, {
+        status: "canceled",
+        canceledAt: this.clock.now().toISOString(),
+      });
+    }
+  }
+
+  /**
+   * Shared by the "schedule" style methods (scheduleDowngrade,
+   * scheduleCycleChange): reuse the existing scheduled change when it
+   * already matches the requested target, otherwise supersede whatever is
+   * still open (per `shouldCancel`, since the two callers disagree on
+   * which existing statuses count as superseded) before the caller creates
+   * a new one. Returns the reused change, or null when the caller must
+   * create a new one.
+   */
+  private async reuseOrReplaceScheduledChange(
+    subscriptionId: string,
+    changeType: BillingSubscriptionChangeType,
+    options: {
+      matchesTarget: (existingChange: BillingSubscriptionChange) => boolean;
+      shouldCancel: (existingChange: BillingSubscriptionChange) => boolean;
+    },
+  ): Promise<BillingSubscriptionChange | null> {
+    const existingChange = await this.repository.findLatestOpenSubscriptionChange({
+      subscriptionId,
+      type: changeType,
+    });
+
+    if (
+      existingChange &&
+      existingChange.status === "scheduled" &&
+      options.matchesTarget(existingChange)
+    ) {
+      return existingChange;
+    }
+
+    if (existingChange && options.shouldCancel(existingChange)) {
+      await this.repository.updateSubscriptionChange(existingChange.id, {
+        status: "canceled",
+        canceledAt: this.clock.now().toISOString(),
+      });
+    }
+
+    return null;
   }
 
   private async transitionSubscription(

@@ -22,12 +22,54 @@
 ## Billing e cobranca
 
 - Catalogo de planos Start, Pro e Max, com ciclos mensal e anual.
-- Pix manual, cartao recorrente e Pix Automatico pelo dominio de billing.
+- Pix manual para pagamentos nao recorrentes e cartao recorrente para a
+  recorrencia mensal.
+- Pix Automatico esta fora do escopo atual (`FUTURE FEATURE`) e nao bloqueia a
+  conclusao ou a release deste ciclo.
 - Checkout, invoices, assinaturas, entitlements, paywall e banners comerciais.
 - Upgrade, downgrade, mudanca de ciclo, cancelamento, tolerancia e expiracao.
 - Webhooks assinados, idempotencia, auditoria, jobs e reconciliacao.
 - Console de Super Admin para usuarios, workspaces, assinaturas, pagamentos,
   eventos, auditoria e saude operacional.
+
+## Modelo de Super Admin
+
+`super_admin` e uma conta de plataforma, fora de qualquer plano comercial. Como
+regra de produto, essa conta:
+
+- nao possui nem exibe plano atual ou upgrade;
+- nao sofre paywall, limite de seats ou limite funcional comercial;
+- possui acesso integral aos modulos da plataforma, incluindo `/admin`;
+- tambem pode usar normalmente o aplicativo no contexto administrativo de um
+  workspace.
+
+O Super Admin pode administrar usuarios, workspaces, memberships, roles,
+assinaturas, invoices, pagamentos, acessos, sessoes e configuracoes
+administrativas permitidas. Nao existe editor generico de banco: qualquer
+alteracao deve ocorrer por uma acao administrativa especifica e controlada.
+
+Operacoes administrativas sensiveis devem registrar auditoria com ator,
+entidade, valor anterior, valor novo, motivo quando aplicavel e data/hora.
+
+### Modo administrativo de workspace
+
+O Super Admin deve localizar um workspace e entrar em seu contexto por uma acao
+explicita, como `Entrar no workspace`. Isso nao e impersonacao silenciosa: as
+acoes continuam atribuidas ao `super_admin` e a interface deve manter um aviso
+persistente, por exemplo: `Visualizando como Super Admin - Workspace <nome>`.
+
+### Limites de seguranca
+
+- cadastro comum nunca cria `super_admin`;
+- a UI comum nunca promove um usuario para `super_admin`;
+- usuarios comuns nao podem alterar ou remover uma conta `super_admin`;
+- a ultima conta `super_admin` nao pode ser removida;
+- operacoes administrativas criticas exigem auditoria;
+- 2FA para Super Admin e hardening obrigatorio antes da release final.
+
+O dashboard administrativo deve contemplar visao executiva/comercial, gestao de
+usuarios, workspaces, billing, pagamentos, eventos/webhooks, auditoria e modo
+administrativo de workspace.
 
 ## Integracoes e operacao
 

@@ -1,12 +1,24 @@
 import {
   deletePlatformUserForSession,
+  revokePlatformUserSessionsForSession,
+  updatePlatformUserStatusForSession,
   updatePlatformUserProfileForSession,
 } from "@/lib/auth/admin-users";
 import { getCurrentAuthSession } from "@/lib/auth/session";
+import {
+  isAdminUserActionPayload,
+  mapAdminUserMutationError,
+  mapAdminUserMutationStatus,
+} from "@/lib/auth/admin-user-route-contract";
 
 type UpdatePlatformUserPayload = {
   fullName?: string;
   email?: string;
+};
+
+type AdminUserActionPayload = {
+  action?: "set_status" | "revoke_sessions";
+  status?: "active" | "disabled";
 };
 
 export async function PUT(
@@ -97,39 +109,56 @@ export async function DELETE(
   }
 }
 
-function mapAdminUserMutationError(error: unknown) {
-  if (!(error instanceof Error)) {
-    return "Falha ao atualizar usuario.";
+export async function PATCH(
+  request: Request,
+  context: { params: Promise<{ userId: string }> },
+) {
+  const session = await getCurrentAuthSession();
+
+  if (!session) {
+    return Response.json({ error: "Nao autenticado." }, { status: 401 });
   }
 
-  switch (error.message) {
-    case "FORBIDDEN_ADMIN_USERS":
-      return "A edicao administrativa de usuarios e exclusiva para super admin.";
-    case "EMAIL_ALREADY_IN_USE":
-      return "Esse e-mail ja esta em uso por outro usuario.";
-    case "CANNOT_DELETE_CURRENT_USER":
-      return "Sua propria conta nao pode ser excluida por essa tela.";
-    case "OWNER_USER_DELETE_FORBIDDEN":
-      return "Nao e permitido excluir um usuario owner de workspace.";
-    default:
-      return "Falha ao atualizar usuario.";
-  }
-}
+  const { userId } = await context.params;
+  let body: AdminUserActionPayload;
 
-function mapAdminUserMutationStatus(error: unknown) {
-  if (!(error instanceof Error)) {
-    return 500;
+  try {
+    body = (await request.json()) as AdminUserActionPayload;
+  } catch {
+    return Response.json({ error: "Payload invalido." }, { status: 400 });
   }
 
-  switch (error.message) {
-    case "FORBIDDEN_ADMIN_USERS":
-      return 403;
-    case "EMAIL_ALREADY_IN_USE":
-      return 409;
-    case "CANNOT_DELETE_CURRENT_USER":
-    case "OWNER_USER_DELETE_FORBIDDEN":
-      return 409;
-    default:
-      return 500;
+  try {
+    if (!isAdminUserActionPayload(body)) {
+      return Response.json({ error: "Acao invalida." }, { status: 400 });
+    }
+
+    if (body.action === "set_status") {
+
+      const user = await updatePlatformUserStatusForSession({
+        session,
+        userId,
+        status: body.status,
+      });
+
+      return user
+        ? Response.json({ user })
+        : Response.json({ error: "Usuario nao encontrado." }, { status: 404 });
+    }
+
+    if (body.action === "revoke_sessions") {
+      const result = await revokePlatformUserSessionsForSession({ session, userId });
+
+      return result
+        ? Response.json(result)
+        : Response.json({ error: "Usuario nao encontrado." }, { status: 404 });
+    }
+
+    return Response.json({ error: "Acao invalida." }, { status: 400 });
+  } catch (error) {
+    return Response.json(
+      { error: mapAdminUserMutationError(error) },
+      { status: mapAdminUserMutationStatus(error) },
+    );
   }
 }

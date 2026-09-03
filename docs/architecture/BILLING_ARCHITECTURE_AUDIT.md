@@ -29,7 +29,6 @@ Validações já realizadas em produção:
 Pontos que ainda não devem ser considerados encerrados:
 
 - homologação real de todos os fluxos de pagamento do Mercado Pago;
-- contrato técnico final do Pix Automático;
 - endurecimento de concorrência/transações nas operações críticas;
 - conclusão das superfícies administrativas restantes;
 - remoção definitiva das últimas camadas de compatibilidade legada onde ainda forem necessárias;
@@ -269,18 +268,23 @@ Pendente operacional:
 
 ### Fase 18 — Pix Automático
 
-Status: `bloqueado`
+Status atual: `fora do escopo atual / future feature`
 
-Evidências:
+Registro histórico da avaliação:
 
 - tipo `pix_automatic` existe em `src/lib/billing/types.ts`;
 - mapeamentos existem no provider/webhook;
 - o domínio foi preparado para recorrência automática.
 
-Lacunas:
+Lacunas da futura feature:
 
 - falta confirmar e homologar o contrato técnico final do Mercado Pago para mandato, autorização, cobrança recorrente e eventos;
 - não deve ser considerado pronto para produção apenas pela existência dos tipos e mapeamentos.
+
+Impacto no ciclo atual: nenhum. Pix Automático não é critério de aceite,
+dependência externa obrigatória ou bloqueador de release. A recorrência mensal
+atual usa cartão recorrente; Pix manual é não recorrente; o anual é pago
+antecipadamente.
 
 ### Fase 19 — Super Admin
 
@@ -381,7 +385,6 @@ Status: `parcial/bloqueado`
 
 Itens que ainda dependem de validação externa ou decisão comercial:
 
-- contrato técnico final do Pix Automático;
 - meios de pagamento efetivamente disponíveis na conta Mercado Pago;
 - parcelamento anual real;
 - estratégia final de atualização de recorrência após mudanças de plano/ciclo, quando aplicável ao provider;
@@ -406,7 +409,6 @@ Já existe base para:
 
 Ainda impede considerar o resultado final completamente entregue:
 
-- Pix Automático não homologado fim a fim;
 - homologação real completa do provider ainda pendente;
 - concorrência/transações ainda precisam de endurecimento;
 - Super Admin ainda não cobre todas as operações previstas.
@@ -423,5 +425,7 @@ Ordem sugerida a partir do estado atual:
 6. auditar compra direta do DaBi Max para garantir que não exista desvio indevido para fluxo consultivo se o plano deve ser autoatendimento;
 7. endurecer concorrência/transações das operações críticas;
 8. completar as operações pendentes do Super Admin;
-9. tratar Pix Automático como trilha própria após confirmação do contrato técnico externo;
-10. remover compatibilidades legadas restantes somente após comprovar que nenhum consumidor ainda depende delas.
+9. remover compatibilidades legadas restantes somente após comprovar que nenhum consumidor ainda depende delas.
+
+Pix Automático permanece apenas como registro histórico de uma future feature,
+fora do escopo de release atual.

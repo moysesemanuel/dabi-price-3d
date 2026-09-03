@@ -26,10 +26,10 @@ import {
   workspacePlans,
   type WorkspacePlanId,
 } from "@/lib/settings/app-preferences";
+import type { SubscriptionStatus } from "@/lib/workspace/catalog";
 import {
   applyWorkspaceSubscriptionUpdate,
   claimWorkspaceSubscriptionCheckout,
-  getWorkspacePreferences,
   releaseWorkspaceSubscriptionCheckout,
   type AuthenticatedWorkspaceSession,
 } from "@/lib/server/platform";
@@ -117,8 +117,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const currentPreferences = await getWorkspacePreferences(session.workspace.id);
-  const currentSubscription = currentPreferences.subscription;
   const currentBillingSubscription = await findCurrentBillingSubscriptionForWorkspace(
     session.workspace.id,
   );
@@ -276,7 +274,6 @@ export async function POST(request: Request) {
         userId: session.user.id,
         planId,
         billingCycle,
-        workspaceStatus: currentSubscription.status,
         billingStatus: currentBillingSubscription?.status ?? null,
       },
     );
@@ -406,7 +403,7 @@ export async function POST(request: Request) {
         userId: session.user.id,
         planId,
         billingCycle,
-        status: currentSubscription.status,
+        billingStatus: currentBillingSubscription?.status ?? null,
         error: serializeError(error),
       },
     );
@@ -727,7 +724,7 @@ async function clearPendingCheckoutState(input: {
   session: AuthenticatedWorkspaceSession;
   currentBillingSubscription: BillingSubscription;
   billingService: ReturnType<typeof createBillingService>;
-  nextWorkspaceStatus: Awaited<ReturnType<typeof getWorkspacePreferences>>["subscription"]["status"];
+  nextWorkspaceStatus: SubscriptionStatus;
   providerSubscriptionId: string | null;
   sourceName: string;
   description: string;

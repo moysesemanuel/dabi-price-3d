@@ -8,6 +8,25 @@ import {
 
 const NOW = new Date("2026-08-14T12:00:00.000Z");
 
+test("super admin sem assinatura recebe acesso integral sem limites comerciais", () => {
+  const entitlements = resolveWorkspaceEntitlements({
+    subscription: null,
+    platformRole: "super_admin",
+    now: NOW,
+  });
+
+  assert.equal(entitlements.canUseApp, true);
+  assert.equal(entitlements.canUsePricing, true);
+  assert.equal(entitlements.canExportPdf, true);
+  assert.equal(entitlements.canViewHistory, true);
+  assert.equal(entitlements.canManageIntegrations, true);
+  assert.equal(entitlements.canManageBilling, true);
+  assert.equal(entitlements.historyLimit, null);
+  assert.equal(entitlements.seatsLimit, null);
+  assert.equal(entitlements.accessReason, "super_admin");
+  assert.equal(getEntitlementAccessBlockedMessage(entitlements.accessReason), null);
+});
+
 test("active libera o produto com limites do plano contratado", () => {
   const entitlements = resolveWorkspaceEntitlements({
     subscription: {

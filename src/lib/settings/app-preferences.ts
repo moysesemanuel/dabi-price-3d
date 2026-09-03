@@ -6,7 +6,6 @@ import {
   type ProfitDestinationPercentages,
 } from "@/lib/pricing/profit-destination";
 import type { PricingFormState } from "@/lib/pricing/initial-pricing-form";
-import { resolveHistoryLimitPlanId } from "../workspace/subscription-access";
 import {
   getWorkspaceBillingCycleLabel,
   getWorkspacePlan,
@@ -297,12 +296,6 @@ export function getBusinessPreset(presetId: BusinessPresetId) {
     businessPresets.find((preset) => preset.id === presetId) ??
     businessPresets[0]
   );
-}
-
-export function resolveCalculationHistoryLimit(preferences: AppPreferences) {
-  return getWorkspacePlan(
-    resolveHistoryLimitPlanId(preferences.subscription),
-  ).historyLimit;
 }
 
 export function getCompanyProfileChecklist(preferences: AppPreferences) {

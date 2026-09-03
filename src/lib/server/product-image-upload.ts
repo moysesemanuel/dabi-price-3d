@@ -1,12 +1,14 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
+import { isAllowedWorkspaceUploadPath } from "@/lib/uploads/workspace-upload-path";
 
 const ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_IMAGE_SIZE_IN_BYTES = 12 * 1024 * 1024;
 
 export async function createProductImageUploadResponse(
   request: Request,
-  allowedPrefixes: string[],
+  allowedPrefix: string,
+  workspaceId: string,
 ): Promise<NextResponse> {
   const body = (await request.json()) as HandleUploadBody;
   const readWriteToken = process.env.BLOB_READ_WRITE_TOKEN?.trim();
@@ -27,7 +29,7 @@ export async function createProductImageUploadResponse(
       request,
       token: readWriteToken,
       onBeforeGenerateToken: async (pathname) => {
-        if (!allowedPrefixes.some((prefix) => pathname.startsWith(prefix))) {
+        if (!isAllowedWorkspaceUploadPath(pathname, allowedPrefix, workspaceId)) {
           throw new Error("Destino de upload inválido.");
         }
 

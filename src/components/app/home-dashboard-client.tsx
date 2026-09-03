@@ -20,6 +20,7 @@ import {
 } from "@/lib/history/workspace-calculations";
 import { formatCurrency, formatPercent } from "@/lib/pricing/formatters";
 import type { AppPreferences } from "@/lib/settings/app-preferences";
+import type { WorkspaceSubscription } from "@/lib/workspace/catalog";
 import {
   businessTypeMeta,
   getWorkspacePlan,
@@ -33,12 +34,16 @@ import { buildWorkspaceCommercialSnapshot } from "@/lib/workspace/commercial-ins
 
 export function HomeDashboardClient({
   initialFullName,
+  isSuperAdmin,
   initialPreferences,
   initialHistory,
+  initialCommercialSubscription,
 }: {
   initialFullName: string | null;
+  isSuperAdmin: boolean;
   initialPreferences: AppPreferences;
   initialHistory: SavedCalculation[];
+  initialCommercialSubscription: WorkspaceSubscription;
 }) {
   const preferences = useSyncExternalStore(
     subscribeAppPreferences,
@@ -59,7 +64,7 @@ export function HomeDashboardClient({
     void loadCalculationHistory().catch(() => undefined);
   }, [initialHistory, initialPreferences]);
 
-  const workspacePlan = getWorkspacePlan(preferences.subscription.planId);
+  const workspacePlan = getWorkspacePlan(initialCommercialSubscription.planId);
   const firstName =
     initialFullName?.trim().split(/\s+/).filter(Boolean)[0] || "operador";
   const activeBusinessMeta = preferences.businessType
@@ -75,6 +80,7 @@ export function HomeDashboardClient({
   });
   const commercialSnapshot = buildWorkspaceCommercialSnapshot({
     preferences,
+    subscription: initialCommercialSubscription,
     history: scopedHistory,
     auditLog: [],
   });
@@ -86,7 +92,7 @@ export function HomeDashboardClient({
         history={scopedHistory}
         preferences={preferences}
         firstSteps={firstSteps}
-        workspacePlanLabel={workspacePlan.label}
+        workspacePlanLabel={isSuperAdmin ? "Conta administrativa" : workspacePlan.label}
       />
     );
   }
@@ -123,7 +129,11 @@ export function HomeDashboardClient({
             <HeroStat
               label="Orçamentos salvos"
               value={String(scopedHistory.length)}
-              note={`Limite atual ${commercialSnapshot.historyLimit}`}
+              note={
+                isSuperAdmin
+                  ? "Histórico ilimitado para esta conta"
+                  : `Limite atual ${commercialSnapshot.historyLimit}`
+              }
             />
             <HeroStat
               label="Canais usados"
@@ -135,25 +145,30 @@ export function HomeDashboardClient({
 
         <aside className="app-card-soft p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--muted)]">
-            Plano atual
+            {isSuperAdmin ? "Acesso da conta" : "Plano atual"}
           </p>
           <div className="mt-4 rounded-[24px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.76)] p-5">
             <p className="text-2xl font-semibold tracking-[-0.04em] text-[var(--foreground)]">
-              {workspacePlan.label}
+              {isSuperAdmin ? "Conta administrativa" : workspacePlan.label}
             </p>
             <p className="mt-2 text-sm text-[var(--muted)]">
-              {workspacePlan.monthlyPriceLabel}/mês · {workspacePlan.supportLabel}
+              {isSuperAdmin
+                ? "Acesso completo à plataforma"
+                : `${workspacePlan.monthlyPriceLabel}/mês · ${workspacePlan.supportLabel}`}
             </p>
             <p className="mt-4 text-sm leading-7 text-[var(--muted)]">
-              Seu plano inclui recursos de equipe, histórico salvo e integrações
-              conforme a faixa contratada.
+              {isSuperAdmin
+                ? "Esta conta não possui plano comercial, paywall ou limites de recursos."
+                : "Seu plano inclui recursos de equipe, histórico salvo e integrações conforme a faixa contratada."}
             </p>
-            <Link
-              href="/app/assinatura"
-              className="app-button app-button-secondary mt-5 w-full"
-            >
-              Ver assinatura
-            </Link>
+            {!isSuperAdmin ? (
+              <Link
+                href="/app/assinatura"
+                className="app-button app-button-secondary mt-5 w-full"
+              >
+                Ver assinatura
+              </Link>
+            ) : null}
           </div>
         </aside>
       </section>

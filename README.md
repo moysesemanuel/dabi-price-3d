@@ -167,7 +167,11 @@ Observações:
 
 - sem `DATABASE_URL`, a UI de membros persistidos fica indisponível
 - no fallback local ainda existe um fluxo local de convite/ativação para desenvolvimento
-- o `super_admin` ignora limites de papel do workspace
+- `super_admin` é uma conta de plataforma, sem plano comercial, paywall ou
+  limites de seats/funcionalidades; o modelo normativo completo está em
+  [`docs/ESCOPO-OFICIAL-DABI-PRICE.md`](docs/ESCOPO-OFICIAL-DABI-PRICE.md)
+- a operação de um workspace por `super_admin` deve usar modo administrativo
+  explícito, sem impersonação silenciosa e com auditoria das ações sensíveis
 
 ## Preferências e integração do Mercado Livre
 
@@ -212,24 +216,9 @@ Nesse modo:
 - o app persiste `refresh_token`
 - o `access_token` é renovado automaticamente quando necessário
 
-#### Token legado por ambiente
-
-Fallback manual:
-
-```env
-MELI_ACCESS_TOKEN=
-MELI_USER_ID=
-```
-
-Nesse modo:
-
-- a integração funciona
-- mas não fica separada por workspace
-- a tela de preferências mostra que a origem da conexão é um token legado
-
 #### Sem configuração
 
-Sem OAuth persistente e sem token legado:
+Sem OAuth persistente:
 
 - o app continua funcionando
 - a precificadora usa prévia local de taxas
@@ -309,7 +298,9 @@ Observação importante:
 
 Para validar com comprador e cartão de teste do Mercado Pago sem depender do link manual:
 
-- entre com um `super_admin`
+- entre com um `super_admin` somente para iniciar a ferramenta administrativa
+  de teste; o checkout e o resultado devem permanecer vinculados a um workspace
+  QA, nunca ao `super_admin` como conta comercial
 - abra `/app/planos`
 - use o card `Assinatura de teste com integração`
 - se o painel do Mercado Pago não mostrar o e-mail do comprador de teste, use o botão `Criar comprador de teste`
@@ -323,7 +314,7 @@ Esse fluxo:
 
 ### Observabilidade operacional
 
-As rotas críticas de ERP e Mercado Livre agora retornam `requestId` em erros operacionais.
+As rotas críticas de ERP e Mercado Livre retornam `requestId` em erros operacionais.
 
 Isso aparece:
 
@@ -332,6 +323,29 @@ Isso aparece:
 - na interface, quando a falha vem dessas integrações
 
 Use essa referência para correlacionar logs de suporte.
+
+#### Sentry
+
+O projeto integra o Sentry nos runtimes de servidor, edge e browser. Chegam lá:
+
+- erros **não tratados**, pelo `onRequestError` do Next — inclui as rotas de cron;
+- erros **tratados** de rota: todo `logRouteEvent` de nível `error` vira evento,
+  com `fingerprint [route, event]` e as tags `route` e `route_event`. Sem isso,
+  falha de webhook do Mercado Pago não geraria alerta, porque a rota captura o
+  erro e responde JSON;
+- `billing.claim_lost`, quando um claim de operação de assinatura não pode ser
+  liberado.
+
+Dois comportamentos que valem conhecer:
+
+- **Sem `SENTRY_DSN` nada é enviado.** Em desenvolvimento local o Sentry fica
+  desligado por padrão e o `logRouteEvent` continua sendo só `console`.
+- **Há limite de rajada:** 5 eventos por par rota/evento a cada 60 segundos. O
+  console registra todas as ocorrências, e o primeiro evento após a janela traz
+  `suppressedSinceLastEvent` com quantas foram suprimidas.
+
+Emitir evento não é o mesmo que alertar alguém: as regras de alerta são
+configuradas no painel do Sentry, fora deste repositório.
 
 ## Publicação no site
 
@@ -369,9 +383,12 @@ Principais grupos:
 
 - persistência e bootstrap: `DATABASE_URL`, `BOOTSTRAP_*`
 - recuperação de acesso: `RESEND_API_KEY`, `AUTH_EMAIL_FROM`
-- Mercado Livre: `MELI_CLIENT_*`, `MELI_REDIRECT_URI`, `MELI_ACCESS_TOKEN`, `MELI_USER_ID`
+- Mercado Livre: `MELI_CLIENT_*`, `MELI_REDIRECT_URI`
 - ERP: `ERP_APP_URL`, `PRICING_INTEGRATION_TOKEN`
 - Blob: `BLOB_READ_WRITE_TOKEN`
+- Sentry: `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ENVIRONMENT` e, só
+  para subir source maps no build da Vercel, `SENTRY_ORG`, `SENTRY_PROJECT` e
+  `SENTRY_AUTH_TOKEN`. Mantenha todas vazias no desenvolvimento local.
 
 ## Testes e validação
 
@@ -399,6 +416,9 @@ Validação completa:
 npm run check
 ```
 
+Esse mesmo comando roda automaticamente em toda pull request e em `push` para
+`main` e `release/homologation`, pelo workflow `.github/workflows/check.yml`.
+
 Atualmente essa suíte cobre, entre outros pontos:
 
 - motor de precificação
@@ -408,6 +428,7 @@ Atualmente essa suíte cobre, entre outros pontos:
 - proteção de `/app`
 - regras de acesso e papéis
 - helpers de observabilidade e rate limit
+- configuração do Sentry, sanitização de evento e limite de rajada
 
 ## Build e execução em produção
 

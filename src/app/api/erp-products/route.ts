@@ -13,6 +13,8 @@ import type {
   ErpProductSaveResponse,
 } from "@/lib/erp-products/types";
 
+const ERP_REQUEST_TIMEOUT_MS = 12_000;
+
 export async function POST(request: Request) {
   const requestContext = createRouteRequestContext(request, "/api/erp-products");
   const session = await requireCurrentAuthSession();
@@ -41,7 +43,7 @@ export async function POST(request: Request) {
   const integrationToken = process.env.PRICING_INTEGRATION_TOKEN?.trim();
 
   if (!erpAppUrl || !integrationToken) {
-    logRouteEvent(requestContext, "error", "erp.integration_not_configured", {
+    logRouteEvent(requestContext, "warn", "erp.integration_not_configured", {
       workspaceId: session.workspace.id,
       userId: session.user.id,
       missingEnv: [
@@ -105,26 +107,35 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify(payload),
         cache: "no-store",
+        signal: AbortSignal.timeout(ERP_REQUEST_TIMEOUT_MS),
       },
     );
   } catch (error) {
-    logRouteEvent(requestContext, "error", "erp.upstream_network_failed", {
+    const timedOut = isTimeoutError(error);
+
+    logRouteEvent(
+      requestContext,
+      "error",
+      timedOut ? "erp.upstream_timeout" : "erp.upstream_network_failed",
+      {
       workspaceId: session.workspace.id,
       userId: session.user.id,
       erpAppUrl,
       sku: payload.sku ?? null,
       slug: payload.slug ?? null,
       error: serializeError(error),
-    });
+      },
+    );
 
     return jsonWithRequestId(
       requestContext,
       {
-        error:
-          "Não foi possível conectar a precificadora ao ERP. Verifique ERP_APP_URL, o token de integração e a disponibilidade do ERP.",
-        code: "ERP_UPSTREAM_UNREACHABLE",
+        error: timedOut
+          ? "O ERP demorou mais que o esperado para responder. Tente novamente em alguns instantes."
+          : "Não foi possível conectar a precificadora ao ERP. Verifique ERP_APP_URL, o token de integração e a disponibilidade do ERP.",
+        code: timedOut ? "ERP_UPSTREAM_TIMEOUT" : "ERP_UPSTREAM_UNREACHABLE",
       },
-      { status: 502 },
+      { status: timedOut ? 504 : 502 },
     );
   }
 
@@ -204,4 +215,11 @@ export async function POST(request: Request) {
     mercadoLivre:
       "mercadoLivre" in responsePayload ? responsePayload.mercadoLivre : undefined,
   });
+}
+
+function isTimeoutError(error: unknown) {
+  return (
+    error instanceof DOMException &&
+    (error.name === "TimeoutError" || error.name === "AbortError")
+  );
 }
