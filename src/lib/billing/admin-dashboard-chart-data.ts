@@ -30,9 +30,9 @@ export function formatAdminAnalyticsCurrency(value: number) {
 
 export function getDistributionLabel(dimension: "plan" | "billingCycle" | "status", key: string) {
   const labels: Record<string, string> = {
-    starter: "Essencial",
-    growth: "Profissional",
-    scale: "Escala",
+    starter: "Start",
+    growth: "Pro",
+    scale: "Max",
     monthly: "Mensal",
     annual: "Anual",
     active: "Ativa",

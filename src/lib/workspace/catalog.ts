@@ -56,7 +56,7 @@ export const workspaceRoleMeta: Record<
 export const workspacePlans: readonly WorkspacePlan[] = [
   {
     id: "starter",
-    label: "DaBi Essencial",
+    label: "DaBi Start",
     description: "Entrada comercial da DaBi para operar com preço e histórico sem complicação.",
     monthlyPrice: 49,
     monthlyPriceLabel: "R$ 49",
@@ -84,7 +84,7 @@ export const workspacePlans: readonly WorkspacePlan[] = [
   },
   {
     id: "scale",
-    label: "DaBi Equipe",
+    label: "DaBi Max",
     description: "Estrutura DaBi para operação com time, volume, integração forte e acompanhamento consultivo.",
     monthlyPrice: null,
     monthlyPriceLabel: "Sob consulta",
