@@ -1,95 +1,59 @@
-import Image from "next/image";
 import Link from "next/link";
-import horizontalLogo from "@/app/dabi-price-horizontal.svg";
-import whiteLogo from "@/app/logo-dabi-branco.svg";
+import {
+  LandingHeader,
+  LandingWordmark,
+} from "@/components/public/landing-header";
 import { LandingPlanCards } from "@/components/public/landing-plan-cards";
 import { segmentCards } from "@/lib/public/segment-landings";
 
-const hiddenCostItems = [
-  "Mão de obra",
-  "Embalagem",
-  "Energia",
-  "Manutenção",
-  "Impostos",
-  "Taxas de marketplace",
-  "Perdas",
-  "Frete",
-  "Despesas do negócio",
-  "Reservas",
-  "Comissões",
-];
-
-const resultCards = [
-  { label: "Custo do produto", value: "R$ 24,80", tone: "bg-[#f6f1ff] text-[#3b2d73]" },
-  { label: "Preço sugerido", value: "R$ 49,90", tone: "bg-[#eef8f3] text-[#20543f]" },
-  { label: "Lucro por venda", value: "R$ 14,32", tone: "bg-[#fff3ea] text-[#a04f15]" },
-  { label: "Margem", value: "28,7%", tone: "bg-[#eef4ff] text-[#1f4d9a]" },
-];
+const costBreakdown = [
+  { label: "Material", value: "8,20", width: "29%", tone: "muted" },
+  { label: "Mão de obra", value: "6,00", width: "21%", tone: "muted" },
+  { label: "Taxas de venda", value: "6,78", width: "24%", tone: "gold" },
+  { label: "Despesas e reservas", value: "4,30", width: "15%", tone: "action" },
+  { label: "Embalagem", value: "1,50", width: "5%", tone: "muted" },
+  { label: "Energia e produção", value: "1,20", width: "4%", tone: "muted" },
+] as const;
 
 const howItWorks = [
   {
-    step: "1. Informe o produto",
+    step: "01",
+    title: "Informe o produto",
     description:
-      "Cadastre material, embalagem, mão de obra, tempo de produção e outros custos envolvidos.",
+      "Material, embalagem, mão de obra, tempo de produção e os demais custos envolvidos.",
   },
   {
-    step: "2. Escolha como você vende",
+    step: "02",
+    title: "Escolha como você vende",
     description:
-      "Venda direta, marketplace, kit, atacado ou outros cenários.",
+      "Venda direta, marketplace, kit, atacado ou consignado — cada canal com suas regras.",
   },
   {
-    step: "3. Defina sua estratégia",
-    description:
-      "Escolha margem, lucro, reservas e regras comerciais.",
+    step: "03",
+    title: "Defina sua estratégia",
+    description: "Margem, lucro, reservas e as regras comerciais do seu negócio.",
   },
   {
-    step: "4. Veja o preço ideal",
+    step: "04",
+    title: "Veja o preço ideal",
     description:
-      "O DaBi Price calcula custos, taxas, resultado esperado e mostra quanto você realmente ganha.",
+      "O cálculo mostra custos, taxas, resultado esperado e quanto você realmente ganha.",
   },
 ];
 
-const practicalCaseRows = [
-  { label: "Material", value: "R$ 8,20" },
-  { label: "Embalagem", value: "R$ 1,50" },
-  { label: "Mão de obra", value: "R$ 6,00" },
-  { label: "Energia e produção", value: "R$ 1,20" },
-  { label: "Taxas de venda", value: "R$ 6,78" },
-  { label: "Despesas e reservas", value: "R$ 4,30" },
-];
+const resultRows = [
+  { label: "Custo do produto", value: "R$ 24,80", tone: "ink" },
+  { label: "Preço sugerido", value: "R$ 49,90", tone: "ink" },
+  { label: "Lucro por venda", value: "R$ 14,32", tone: "profit" },
+  { label: "Margem", value: "28,7%", tone: "profit" },
+] as const;
 
-const benefitCards = [
-  {
-    title: "Saiba onde seu dinheiro está indo",
-    description:
-      "Visualize materiais, mão de obra, taxas, despesas e outros custos separadamente.",
-  },
-  {
-    title: "Proteja sua margem",
-    description:
-      "Evite vender mais barato do que deveria simplesmente porque o concorrente cobra determinado valor.",
-  },
-  {
-    title: "Simule antes de decidir",
-    description:
-      "Teste preços, custos, margens e diferentes cenários sem alterar sua operação.",
-  },
-  {
-    title: "Organize suas precificações",
-    description:
-      "Mantenha seus produtos e cálculos registrados para consultar posteriormente.",
-  },
-  {
-    title: "Adapte ao seu negócio",
-    description:
-      "Configure regras de acordo com a realidade da sua operação.",
-  },
-  {
-    title: "Tome decisões com números",
-    description:
-      "Entenda quais produtos fazem sentido manter, ajustar ou deixar de vender.",
-  },
-];
+const heroCostRows = [
+  { label: "Material e insumos", value: "11,30", width: "78%", tone: "muted" },
+  { label: "Mão de obra", value: "6,00", width: "56%", tone: "gold" },
+  { label: "Taxas do canal", value: "4,18", width: "42%", tone: "action" },
+  { label: "Despesas e reservas", value: "3,32", width: "34%", tone: "muted" },
+] as const;
 
 const channelComparison = [
   {
@@ -97,32 +61,64 @@ const channelComparison = [
     salePrice: "R$ 49,90",
     note: "Sem taxas de intermediário",
     profit: "R$ 18,20",
-    accent: "border-[#dcebe4] bg-[#f7fcf9]",
+    best: true,
   },
   {
     channel: "Mercado Livre",
     salePrice: "R$ 49,90",
     note: "Taxas maiores",
     profit: "R$ 8,70",
-    accent: "border-[#f0dccf] bg-[#fff8f3]",
+    best: false,
   },
   {
     channel: "Outro canal",
     salePrice: "R$ 49,90",
     note: "Comissão intermediária",
     profit: "R$ 13,40",
-    accent: "border-[#e4def7] bg-[#faf8ff]",
+    best: false,
+  },
+];
+
+const benefitCards = [
+  {
+    title: "Saiba onde seu dinheiro está indo",
+    description:
+      "Materiais, mão de obra, taxas e despesas aparecem separados, com o peso de cada um.",
+  },
+  {
+    title: "Proteja sua margem",
+    description:
+      "Pare de vender mais barato do que deveria só porque o concorrente cobra determinado valor.",
+  },
+  {
+    title: "Simule antes de decidir",
+    description:
+      "Teste preços, custos, margens e cenários diferentes sem alterar sua operação.",
+  },
+  {
+    title: "Organize suas precificações",
+    description:
+      "Produtos e cálculos ficam registrados para consultar e revisar depois.",
+  },
+  {
+    title: "Adapte ao seu negócio",
+    description:
+      "Configure as regras de acordo com a realidade da sua operação, não de um modelo genérico.",
+  },
+  {
+    title: "Decida com números",
+    description:
+      "Entenda quais produtos vale manter, ajustar ou deixar de vender.",
   },
 ];
 
 const beforeItems = [
   "Planilhas espalhadas",
-  "Calculadora",
-  "Anotações",
-  "Fórmulas difíceis",
+  "Calculadora e anotações",
+  "Fórmulas difíceis de manter",
   "Custos esquecidos",
-  "Preço baseado no concorrente",
-  "Dificuldade para saber o lucro",
+  "Preço copiado do concorrente",
+  "Lucro incerto",
 ];
 
 const afterItems = [
@@ -130,21 +126,18 @@ const afterItems = [
   "Cálculo automático",
   "Histórico organizado",
   "Margem conhecida",
-  "Lucro visível",
-  "Simulações rápidas",
-  "Decisões baseadas em números",
+  "Lucro visível por canal",
+  "Decisão baseada em número",
 ];
 
 const trustCards = [
   {
     title: "Acesso protegido",
-    description:
-      "Sua conta e suas informações ficam protegidas por autenticação.",
+    description: "Sua conta e suas informações ficam protegidas por autenticação.",
   },
   {
     title: "Dados organizados",
-    description:
-      "Suas precificações ficam centralizadas em um único ambiente.",
+    description: "Suas precificações ficam centralizadas em um único ambiente.",
   },
   {
     title: "Privacidade",
@@ -158,6 +151,12 @@ const trustCards = [
   },
 ];
 
+const roiCards = [
+  { sales: "100 vendas", value: "R$ 400" },
+  { sales: "500 vendas", value: "R$ 2.000" },
+  { sales: "1.000 vendas", value: "R$ 4.000" },
+];
+
 const faqItems = [
   {
     question: "Preciso instalar o DaBi Price?",
@@ -166,7 +165,7 @@ const faqItems = [
   {
     question: "Funciona no celular?",
     answer:
-      "Sim. Você pode acessar sua conta pelo navegador do celular, tablet ou computador.",
+      "Sim. Você acessa sua conta pelo navegador do celular, tablet ou computador.",
   },
   {
     question: "Preciso entender de contabilidade?",
@@ -176,673 +175,657 @@ const faqItems = [
   {
     question: "Posso comparar canais antes de vender?",
     answer:
-      "Sim. O DaBi Price ajuda você a entender como taxas e regras comerciais afetam o lucro em cada canal.",
+      "Sim. Você entende como as taxas e regras comerciais de cada canal afetam o lucro.",
   },
   {
     question: "A assinatura pode ser cancelada?",
     answer:
-      "Sim. O fluxo comercial foi pensado para assinatura recorrente com cancelamento quando fizer sentido para a operação.",
+      "Sim. A assinatura é recorrente e pode ser cancelada quando fizer sentido para a operação.",
   },
 ];
 
 const footerLinks = [
   { label: "Como funciona", href: "#como-funciona" },
+  { label: "Segmentos", href: "#segmentos" },
   { label: "Planos", href: "#planos" },
   { label: "FAQ", href: "#faq" },
   { label: "Entrar", href: "/login" },
+  { label: "Criar conta", href: "/cadastro" },
 ];
+
+const barTone: Record<string, string> = {
+  muted: "var(--landing-muted-soft)",
+  gold: "var(--landing-gold)",
+  action: "var(--landing-action)",
+  profit: "var(--landing-profit)",
+};
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#fffdf9] text-[#21352d]">
-      <section className="border-b border-[#e6e1d4] bg-[radial-gradient(circle_at_top_left,rgba(255,213,181,0.32),transparent_28%),radial-gradient(circle_at_88%_14%,rgba(223,241,230,0.48),transparent_24%),linear-gradient(180deg,#fffefb_0%,#fff8f2_100%)]">
-        <div className="mx-auto max-w-[1200px] px-4 pb-14 pt-6 sm:px-6 lg:px-8">
-          <header className="flex flex-wrap items-center justify-between gap-4">
-            <Link href="/" aria-label="DaBi Price" className="inline-flex">
-              <Image
-                src={horizontalLogo}
-                alt="Dabi Price"
-                width={176}
-                height={42}
-                unoptimized
-                className="h-8 w-auto"
-              />
-            </Link>
+    <main className="landing-root min-h-screen overflow-x-hidden">
+      <LandingHeader />
 
-            <nav className="hidden items-center gap-6 text-base text-[#42574d] lg:flex">
-              <a href="#como-funciona" className="transition hover:text-[#21352d]">
-                Como funciona
-              </a>
-              <a href="#recursos" className="transition hover:text-[#21352d]">
-                Recursos
-              </a>
-              <a href="#para-quem-e" className="transition hover:text-[#21352d]">
-                Para quem é
-              </a>
-              <a href="#planos" className="transition hover:text-[#21352d]">
-                Planos
-              </a>
-              <a href="#faq" className="transition hover:text-[#21352d]">
-                FAQ
-              </a>
-            </nav>
+      {/* ---------- herói ---------- */}
+      <section className="landing-hero">
+        <div className="landing-shell">
+          <div className="landing-hero__grid">
+            <div className="flex flex-col gap-7">
+              <span className="landing-eyebrow">Precificação com clareza</span>
 
-            <div className="flex items-center gap-2">
-              <Link
-                href="/login"
-                className="rounded-full border border-[#d7e3dc] bg-white px-5 py-2.5 text-base font-medium text-[#21352d] transition hover:border-[#f06d2f] hover:text-[#a24b1c]"
-              >
-                Entrar
-              </Link>
-              <Link
-                href="/planos"
-                className="rounded-full bg-[#21352d] px-6 py-2.5 text-base font-semibold text-white transition hover:bg-[#17251f]"
-              >
-                Começar agora
-              </Link>
-            </div>
-          </header>
-
-          <div className="grid gap-10 pt-12 lg:grid-cols-[minmax(0,1.02fr)_minmax(380px,0.98fr)] lg:items-center">
-            <div>
-              <p className="font-mono text-xs uppercase tracking-[0.32em] text-[#b8511d]">
-                Precificação com clareza
-              </p>
-              <h1 className="mt-4 max-w-[720px] text-6xl font-semibold leading-[0.9] tracking-[-0.07em] text-[#17261f] sm:text-[5.2rem]">
-                Pare de colocar preço no chute.
+              <h1 className="landing-display">
+                Pare de colocar preço{" "}
+                <span className="landing-turn">no chute</span>.
               </h1>
-              <p className="mt-6 max-w-[700px] text-xl leading-9 text-[#374b42]">
-                Calcule o preço ideal dos seus produtos considerando custos,
-                mão de obra, taxas, despesas, margem e lucro, tudo em um só
-                lugar.
+
+              <p
+                className="landing-lede"
+                style={{ maxWidth: "46ch", fontSize: "1.0625rem" }}
+              >
+                Calcule o preço dos seus produtos considerando custos, mão de
+                obra, taxas, despesas, margem e lucro — e veja quanto realmente
+                sobra em cada canal de venda.
               </p>
 
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Link
-                  href="/planos"
-                  className="inline-flex items-center justify-center rounded-full bg-[#21352d] px-7 py-3.5 text-lg font-semibold text-white transition hover:bg-[#17251f]"
-                >
+              <div className="flex flex-wrap gap-3">
+                <Link href="/planos" className="landing-cta">
                   Começar agora
                 </Link>
-                <a
-                  href="#como-funciona"
-                  className="inline-flex items-center justify-center rounded-full border border-[#d7e3dc] bg-white px-7 py-3.5 text-lg font-semibold text-[#21352d] transition hover:border-[#21352d]"
-                >
+                <a href="#como-funciona" className="landing-cta landing-cta--ghost">
                   Ver como funciona
                 </a>
               </div>
 
-              <p className="mt-6 text-lg text-[#42574d]">
-                Sem planilhas complicadas • Configure em poucos minutos •
+              <p className="landing-note">
+                Sem planilhas complicadas · Configure em poucos minutos ·
                 Cancele quando quiser
               </p>
             </div>
 
-            <PricingEditorMock />
-          </div>
-        </div>
-      </section>
-
-      <section className="border-b border-[#ece6db] bg-white">
-        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1.06fr)_360px]">
-            <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#d16025]">
-                Dor principal
-              </p>
-              <h2 className="mt-4 text-5xl font-semibold leading-[1.02] tracking-[-0.06em] text-[#17261f]">
-                Você sabe quanto realmente ganha em cada produto que vende?
-              </h2>
-              <p className="mt-5 max-w-[760px] text-lg leading-9 text-[#42574d]">
-                É fácil olhar para o preço de venda, descontar o material e
-                achar que o restante é lucro. Mas no meio do caminho existem
-                vários custos que diminuem o resultado real da operação.
-              </p>
-            </div>
-
-            <div className="rounded-[30px] border border-[#e7e1d6] bg-[#fff9f3] p-6 shadow-[0_20px_48px_rgba(41,55,45,0.06)]">
-              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#9b7a64]">
-                Custos escondidos
-              </p>
-              <div className="mt-4 grid gap-2">
-                {hiddenCostItems.map((item) => (
-                  <div
-                    key={item}
-                    className="rounded-2xl border border-[#efe6dc] bg-white px-4 py-3 text-sm text-[#476056]"
-                  >
-                    {item}
-                  </div>
-                ))}
-              </div>
+            <div className="landing-hero__bleed">
+              <PricingPanel />
             </div>
           </div>
-
-          <div className="mt-8 rounded-[28px] border border-[#f0d7c8] bg-[#fff2ea] px-6 py-5 text-center">
-            <p className="text-xl font-semibold tracking-[-0.03em] text-[#9d4615]">
-              Vender muito não significa lucrar muito.
-            </p>
-          </div>
         </div>
       </section>
 
-      <section id="recursos" className="border-b border-[#ece6db] bg-[#fcfbf8]">
-        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-[760px] text-center">
-            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
-              A solução
+      {/* ---------- o problema ---------- */}
+      <section className="landing-section landing-section--alt">
+        <div className="landing-shell landing-split">
+          <div className="flex flex-col gap-5">
+            <span className="landing-eyebrow">O problema</span>
+            <h2 className="landing-h2">R$ 39,90 parece um bom preço.</h2>
+            <p className="landing-lede">
+              Até você somar tudo o que sai do caminho antes de o dinheiro
+              chegar. É fácil descontar o material e achar que o resto é lucro.
             </p>
-            <h2 className="mt-4 text-5xl font-semibold leading-[1.02] tracking-[-0.06em] text-[#17261f]">
-              O DaBi Price faz as contas por você.
-            </h2>
-            <p className="mt-5 text-lg leading-9 text-[#42574d]">
-              Cadastre seus custos, escolha como você vende e veja exatamente
-              quanto custa produzir, quanto precisa cobrar e quanto realmente
-              sobra.
-            </p>
-          </div>
 
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {resultCards.map((card) => (
-              <div
-                key={card.label}
-                className={`rounded-[28px] border border-white/70 p-6 shadow-[0_18px_40px_rgba(41,55,45,0.05)] ${card.tone}`}
-              >
-                <p className="font-mono text-[11px] uppercase tracking-[0.24em] opacity-70">
-                  {card.label}
-                </p>
-                <p className="mt-4 text-3xl font-semibold tracking-[-0.05em]">
-                  {card.value}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          <p className="mt-5 text-center text-sm text-[#7a8d83]">
-            Exemplo ilustrativo.
-          </p>
-        </div>
-      </section>
-
-      <section id="como-funciona" className="border-b border-[#ece6db] bg-white">
-        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-[760px] text-center">
-            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
-              Como funciona
-            </p>
-            <h2 className="mt-4 text-5xl font-semibold leading-[1.02] tracking-[-0.06em] text-[#17261f]">
-              Precificar não precisa ser complicado.
-            </h2>
-          </div>
-
-          <div className="mt-10 grid gap-4 lg:grid-cols-2">
-            {howItWorks.map((item) => (
-              <div
-                key={item.step}
-                className="rounded-[30px] border border-[#e7e1d6] bg-[#fffdf9] p-6 shadow-[0_18px_40px_rgba(41,55,45,0.04)]"
-              >
-                <p className="font-mono text-xs uppercase tracking-[0.24em] text-[#b8511d]">
-                  {item.step}
-                </p>
-                <p className="mt-4 text-lg leading-9 text-[#42574d]">
-                  {item.description}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-10 text-center">
-            <Link
-              href="/cadastro"
-              className="inline-flex items-center justify-center rounded-full bg-[#21352d] px-7 py-3.5 text-base font-semibold text-white transition hover:bg-[#17251f]"
+            <div
+              className="mt-3 flex flex-col gap-1 pt-6"
+              style={{ borderTop: "1px solid var(--landing-line)" }}
             >
-              Criar minha primeira precificação
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      <section className="border-b border-[#ece6db] bg-[linear-gradient(180deg,#fffdfa_0%,#f7fbf8_100%)]">
-        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center">
-            <LargePricingShowcase />
-
-            <div>
-              <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
-                Demonstração real
-              </p>
-              <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
-                Veja o resultado antes de colocar o produto à venda.
-              </h2>
-              <p className="mt-4 text-lg leading-9 text-[#42574d]">
-                Você não recebe apenas um preço. Você entende de onde ele veio.
-              </p>
-
-              <div className="mt-6 grid gap-4">
-                <DetailCard
-                  title="Custos do produto"
-                  description="Veja exatamente o que está consumindo sua margem."
-                />
-                <DetailCard
-                  title="Preço recomendado"
-                  description="Descubra quanto cobrar de acordo com sua estratégia."
-                />
-                <DetailCard
-                  title="Lucro real"
-                  description="Saiba quanto efetivamente sobra depois de todos os custos."
-                />
-                <DetailCard
-                  title="Margem"
-                  description="Compare cenários e encontre equilíbrio entre competitividade e rentabilidade."
-                />
-              </div>
+              <span
+                className="landing-num"
+                style={{
+                  fontSize: 11,
+                  letterSpacing: "0.22em",
+                  textTransform: "uppercase",
+                  color: "var(--landing-muted-soft)",
+                }}
+              >
+                Sobra de verdade
+              </span>
+              <span
+                style={{
+                  fontFamily: "var(--font-display-ui)",
+                  fontSize: "clamp(2.75rem, 5vw, 4rem)",
+                  lineHeight: 1,
+                  color: "var(--landing-profit)",
+                }}
+              >
+                R$ 11,92
+              </span>
+              <span className="landing-note">
+                29,87% de margem — não os 79% que a conta de cabeça sugere.
+              </span>
             </div>
           </div>
-        </div>
-      </section>
 
-      <section className="border-b border-[#ece6db] bg-white">
-        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-[760px] text-center">
-            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
-              Caso prático
-            </p>
-            <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
-              R$ 39,90 parece um bom preço. Até você fazer todas as contas.
-            </h2>
-          </div>
+          <div className="landing-rail">
+            <div
+              className="landing-rail__head flex items-baseline justify-between gap-4 px-6 py-5 sm:px-7"
+              style={{ borderBottom: "1px solid var(--landing-line)" }}
+            >
+              <span className="text-[15px] font-semibold">
+                O que come os R$ 39,90
+              </span>
+              <span
+                className="landing-num"
+                style={{
+                  fontSize: 11,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color: "var(--landing-muted-soft)",
+                }}
+              >
+                Exemplo ilustrativo
+              </span>
+            </div>
 
-          <div className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="rounded-[32px] border border-[#e7e1d6] bg-[#fffdf9] p-6 shadow-[0_18px_44px_rgba(41,55,45,0.05)]">
-              <div className="flex items-end justify-between gap-4 border-b border-[#eee6db] pb-5">
-                <div>
-                  <p className="font-mono text-sm uppercase tracking-[0.24em] text-[#5c6e65]">
-                    Produto vendido por
-                  </p>
-                  <p className="mt-3 text-5xl font-semibold tracking-[-0.06em] text-[#21352d]">
-                    R$ 39,90
-                  </p>
-                </div>
-                <span className="rounded-full bg-[#fff2ea] px-4 py-2 text-xs font-semibold text-[#b1561d]">
-                  Exemplo ilustrativo
+            {costBreakdown.map((row) => (
+              <div key={row.label} className="landing-row">
+                <span
+                  className="text-sm"
+                  style={{ color: "var(--landing-ink-soft)" }}
+                >
+                  {row.label}
+                </span>
+                <span className="landing-bar">
+                  <span
+                    style={{ width: row.width, background: barTone[row.tone] }}
+                  />
+                </span>
+                <span
+                  className="landing-num text-right text-sm"
+                  style={{
+                    color:
+                      row.tone === "gold"
+                        ? "var(--landing-gold)"
+                        : "var(--landing-ink-soft)",
+                  }}
+                >
+                  {row.value}
                 </span>
               </div>
-
-              <div className="mt-6 grid gap-3">
-                {practicalCaseRows.map((item) => (
-                  <div
-                    key={item.label}
-                    className="flex items-center justify-between rounded-2xl border border-[#efe8dd] bg-white px-4 py-4 text-base"
-                  >
-                    <span className="text-[#42574d]">{item.label}</span>
-                    <span className="font-semibold text-[#21352d]">{item.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid gap-4">
-              <StatSummary
-                label="Custo considerado"
-                value="R$ 27,98"
-                tone="bg-[#f6f1ff] text-[#3d2f77]"
-              />
-              <StatSummary
-                label="Lucro"
-                value="R$ 11,92"
-                tone="bg-[#eef8f3] text-[#20543f]"
-              />
-              <StatSummary
-                label="Margem"
-                value="29,87%"
-                tone="bg-[#fff3ea] text-[#a04f15]"
-              />
-              <div className="rounded-[28px] border border-[#f0dccf] bg-[#fff8f3] p-6">
-                <p className="text-lg leading-9 text-[#5f4d42]">
-                  Agora imagine descobrir isso antes de definir o preço de
-                  todos os seus produtos.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-8 rounded-[30px] bg-[#21352d] px-6 py-8 text-center text-white">
-            <p className="mx-auto max-w-[760px] text-xl font-semibold tracking-[-0.04em]">
-              O DaBi Price transforma esse cálculo em um processo simples e
-              repetível.
-            </p>
-            <Link
-              href="/planos"
-              className="mt-6 inline-flex items-center justify-center rounded-full bg-white px-7 py-3.5 text-base font-semibold text-[#21352d] transition hover:bg-[#f1f4f2]"
-            >
-              Quero precificar melhor
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      <section className="border-b border-[#ece6db] bg-[#fcfbf8]">
-        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-[760px] text-center">
-            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
-              Benefícios
-            </p>
-            <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
-              Mais do que uma calculadora de preço.
-            </h2>
-          </div>
-
-          <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {benefitCards.map((item) => (
-              <InfoCard
-                key={item.title}
-                title={item.title}
-                description={item.description}
-              />
             ))}
-          </div>
-        </div>
-      </section>
 
-      <section className="border-b border-[#ece6db] bg-white">
-        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
-          <div className="grid gap-8 lg:grid-cols-[320px_minmax(0,1fr)]">
-            <div>
-              <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
-                Marketplace
-              </p>
-              <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
-                Um produto pode ser lucrativo em um canal e dar prejuízo em outro.
-              </h2>
-              <p className="mt-4 text-lg leading-9 text-[#42574d]">
-                Compare antes de publicar. O DaBi Price ajuda você a entender o
-                impacto das taxas e regras comerciais de cada canal sobre seu
-                resultado.
-              </p>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              {channelComparison.map((item) => (
-                <div
-                  key={item.channel}
-                  className={`rounded-[28px] border p-5 shadow-[0_18px_40px_rgba(41,55,45,0.05)] ${item.accent}`}
-                >
-                  <p className="font-mono text-xs uppercase tracking-[0.24em] text-[#5c6e65]">
-                    {item.channel}
-                  </p>
-                  <p className="mt-4 text-3xl font-semibold tracking-[-0.05em] text-[#21352d]">
-                    {item.salePrice}
-                  </p>
-                  <p className="mt-2 text-base text-[#42574d]">{item.note}</p>
-                  <div className="mt-6 rounded-2xl bg-white/82 px-4 py-4">
-                    <p className="text-sm uppercase tracking-[0.18em] text-[#5c6e65]">
-                      Lucro
-                    </p>
-                    <p className="mt-2 text-2xl font-semibold text-[#21352d]">
-                      {item.profit}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="para-quem-e" className="border-b border-[#ece6db] bg-[#f8fbf9]">
-        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-[760px] text-center">
-            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
-              Segmentos
-            </p>
-            <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
-              Feito para diferentes formas de produzir e vender.
-            </h2>
-            <p className="mt-5 text-lg leading-9 text-[#42574d]">
-              A home explica o que é o DaBi Price. As páginas por segmento
-              mostram como a mesma lógica resolve o problema específico de cada
-              operação.
-            </p>
-          </div>
-
-          <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {segmentCards.map((item) => (
-              <SegmentCard
-                key={item.href}
-                title={item.title}
-                description={item.description}
-                href={item.href}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="border-b border-[#ece6db] bg-white">
-        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-[760px] text-center">
-            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
-              Antes x DaBi Price
-            </p>
-            <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
-              Precificar pode ser assim:
-            </h2>
-          </div>
-
-          <div className="mt-10 grid gap-4 lg:grid-cols-2">
-            <ComparisonPanel
-              title="Sem DaBi Price"
-              items={beforeItems}
-              accent="border-[#f1ddd2] bg-[#fff7f2] text-[#7c5f52]"
-            />
-            <ComparisonPanel
-              title="Com DaBi Price"
-              items={afterItems}
-              accent="border-[#d9ebe1] bg-[#f7fcf9] text-[#345647]"
-            />
-          </div>
-
-          <div className="mt-8 text-center">
-            <Link
-              href="/planos"
-              className="inline-flex items-center justify-center rounded-full bg-[#21352d] px-7 py-3.5 text-base font-semibold text-white transition hover:bg-[#17251f]"
+            <div
+              className="landing-rail__foot landing-row"
+              style={{ borderTop: "1px solid var(--landing-gold-soft)" }}
             >
+              <span className="text-sm font-semibold">Sobra</span>
+              <span className="landing-bar">
+                <span
+                  style={{ width: "30%", background: "var(--landing-profit)" }}
+                />
+              </span>
+              <span
+                className="landing-num text-right text-[15px] font-semibold"
+                style={{ color: "var(--landing-profit)" }}
+              >
+                11,92
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="landing-shell mt-14">
+          <div
+            className="landing-card landing-card--gold flex flex-wrap items-center justify-between gap-8"
+            style={{ padding: "34px clamp(24px, 3vw, 40px)" }}
+          >
+            <div className="flex flex-col gap-2">
+              <span className="landing-h3">
+                Descubra isso <span className="landing-turn">antes</span> de
+                definir o preço.
+              </span>
+              <span className="landing-note">Não depois de cem vendas.</span>
+            </div>
+            <Link href="/planos" className="landing-cta">
               Começar agora
             </Link>
           </div>
         </div>
       </section>
 
-      <section className="border-b border-[#ece6db] bg-[#fcfbf8]">
-        <div className="mx-auto max-w-[980px] px-4 py-16 text-center sm:px-6 lg:px-8">
-          <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
-            Por que o DaBi Price existe
-          </p>
-          <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
-            Criado a partir de um problema real.
-          </h2>
-          <p className="mx-auto mt-5 max-w-[760px] text-lg leading-9 text-[#42574d]">
-            Quem produz e vende precisa tomar várias decisões de preço. O
-            problema é que, com o crescimento do negócio, uma conta
-            aparentemente simples começa a envolver matéria-prima, mão de obra,
-            taxas, impostos, despesas, perdas e margem.
-          </p>
-          <p className="mx-auto mt-4 max-w-[760px] text-lg leading-9 text-[#42574d]">
-            O DaBi Price nasceu para transformar essa conta em um processo mais
-            simples, organizado e confiável.
-          </p>
-          <p className="mt-8 text-2xl font-semibold tracking-[-0.04em] text-[#21352d]">
-            Menos improviso. Mais clareza sobre seus números.
-          </p>
+      {/* ---------- como funciona ---------- */}
+      <section id="como-funciona" className="landing-section">
+        <div className="landing-shell flex flex-col gap-12">
+          <div className="flex flex-col gap-5" style={{ maxWidth: "62ch" }}>
+            <span className="landing-eyebrow">Como funciona</span>
+            <h2 className="landing-h2">Precificar não precisa ser complicado.</h2>
+            <p className="landing-lede">
+              Quatro passos, uma vez. Depois disso, cada produto novo entra na
+              mesma régua.
+            </p>
+          </div>
+
+          <div className="landing-grid landing-grid--4">
+            {howItWorks.map((item) => (
+              <div key={item.step} className="landing-card flex flex-col gap-4">
+                <span
+                  className="landing-num"
+                  style={{
+                    fontSize: 11,
+                    letterSpacing: "0.26em",
+                    color: "var(--landing-gold)",
+                  }}
+                >
+                  {item.step}
+                </span>
+                <span className="text-lg font-semibold tracking-[-0.01em]">
+                  {item.title}
+                </span>
+                <p className="landing-note">{item.description}</p>
+              </div>
+            ))}
+          </div>
+
+          <div>
+            <Link href="/cadastro" className="landing-cta">
+              Criar minha primeira precificação
+            </Link>
+          </div>
         </div>
       </section>
 
-      <section className="border-b border-[#ece6db] bg-white">
-        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-[760px] text-center">
-            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
-              Confiança
-            </p>
-            <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
-              Seus dados e seu negócio continuam sendo seus.
-            </h2>
+      {/* ---------- demonstração ---------- */}
+      <section className="landing-section landing-section--alt">
+        <div className="landing-shell landing-split landing-split--wide-first">
+          <div className="landing-rail">
+            <div
+              className="landing-rail__head flex flex-wrap items-baseline justify-between gap-3 px-6 py-5 sm:px-7"
+              style={{ borderBottom: "1px solid var(--landing-line)" }}
+            >
+              <span className="text-[15px] font-semibold">
+                Resumo antes de vender
+              </span>
+              <span
+                className="landing-num"
+                style={{
+                  fontSize: 11,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color: "var(--landing-muted-soft)",
+                }}
+              >
+                Canal · Marketplace
+              </span>
+            </div>
+
+            {resultRows.map((row) => (
+              <div
+                key={row.label}
+                className="flex items-baseline justify-between gap-4 px-6 py-5 sm:px-7"
+                style={{ borderBottom: "1px solid var(--landing-line)" }}
+              >
+                <span
+                  className="text-sm"
+                  style={{ color: "var(--landing-ink-soft)" }}
+                >
+                  {row.label}
+                </span>
+                <span
+                  className="landing-num text-xl font-semibold"
+                  style={{
+                    color:
+                      row.tone === "profit"
+                        ? "var(--landing-profit)"
+                        : "var(--landing-ink)",
+                  }}
+                >
+                  {row.value}
+                </span>
+              </div>
+            ))}
+
+            <div className="px-6 py-6 sm:px-7">
+              <span
+                className="landing-num"
+                style={{
+                  fontSize: 11,
+                  letterSpacing: "0.22em",
+                  textTransform: "uppercase",
+                  color: "var(--landing-muted-soft)",
+                }}
+              >
+                Composição do custo
+              </span>
+              <div className="mt-4 flex flex-col gap-4">
+                {heroCostRows.map((row) => (
+                  <div key={row.label} className="flex flex-col gap-2">
+                    <div className="flex items-baseline justify-between gap-3 text-sm">
+                      <span style={{ color: "var(--landing-ink-soft)" }}>
+                        {row.label}
+                      </span>
+                      <span className="landing-num font-semibold">
+                        R$ {row.value}
+                      </span>
+                    </div>
+                    <span className="landing-bar">
+                      <span
+                        style={{
+                          width: row.width,
+                          background: barTone[row.tone],
+                        }}
+                      />
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {trustCards.map((item) => (
-              <InfoCard
-                key={item.title}
-                title={item.title}
-                description={item.description}
-              />
+          <div className="flex flex-col gap-5">
+            <span className="landing-eyebrow">Demonstração</span>
+            <h2 className="landing-h2">
+              Você não recebe só um preço. Você entende{" "}
+              <span className="landing-turn">de onde ele veio</span>.
+            </h2>
+            <p className="landing-lede">
+              Cada bloco do resultado é rastreável: custo do produto, taxas do
+              canal, despesas, reservas e o lucro que sobra no fim.
+            </p>
+            <p className="landing-note">Exemplo ilustrativo.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* ---------- canais ---------- */}
+      <section className="landing-section">
+        <div className="landing-shell landing-split">
+          <div className="flex flex-col gap-5">
+            <span className="landing-eyebrow">Canais</span>
+            <h2 className="landing-h2">
+              O mesmo produto pode dar lucro em um canal e prejuízo em outro.
+            </h2>
+            <p className="landing-lede">
+              Compare antes de publicar. As taxas e regras comerciais de cada
+              canal entram no cálculo.
+            </p>
+          </div>
+
+          <div className="landing-grid landing-grid--3">
+            {channelComparison.map((item) => (
+              <div
+                key={item.channel}
+                className={`landing-card flex flex-col gap-4 ${
+                  item.best ? "landing-card--gold" : ""
+                }`}
+              >
+                <span
+                  className="landing-num"
+                  style={{
+                    fontSize: 11,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color: item.best
+                      ? "var(--landing-gold)"
+                      : "var(--landing-muted-soft)",
+                  }}
+                >
+                  {item.channel}
+                </span>
+                <span className="landing-num text-2xl font-semibold">
+                  {item.salePrice}
+                </span>
+                <p className="landing-note">{item.note}</p>
+                <div
+                  className="mt-2 flex items-baseline justify-between gap-3 pt-4"
+                  style={{ borderTop: "1px solid var(--landing-line)" }}
+                >
+                  <span
+                    className="text-sm"
+                    style={{ color: "var(--landing-muted)" }}
+                  >
+                    Lucro
+                  </span>
+                  <span
+                    className="landing-num text-xl font-semibold"
+                    style={{ color: "var(--landing-profit)" }}
+                  >
+                    {item.profit}
+                  </span>
+                </div>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section id="planos" className="border-b border-[#ece6db] bg-[linear-gradient(180deg,#f8fbf9_0%,#fff9f4_100%)]">
-        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-[760px] text-center">
-            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
-              Planos
+      {/* ---------- segmentos ---------- */}
+      <section id="segmentos" className="landing-section landing-section--alt">
+        <div className="landing-shell flex flex-col gap-12">
+          <div className="flex flex-col gap-5" style={{ maxWidth: "62ch" }}>
+            <span className="landing-eyebrow">Segmentos</span>
+            <h2 className="landing-h2">
+              Feito para diferentes formas de produzir e vender.
+            </h2>
+            <p className="landing-lede">
+              A mesma lógica de cálculo, ajustada ao que cada operação precisa
+              considerar.
             </p>
-            <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
+          </div>
+
+          <div className="landing-grid landing-grid--4">
+            {segmentCards.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="landing-card flex flex-col gap-4 transition"
+                style={{ textDecoration: "none" }}
+              >
+                <span
+                  className="landing-num"
+                  style={{
+                    fontSize: 11,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color: "var(--landing-gold)",
+                  }}
+                >
+                  Página do segmento
+                </span>
+                <span className="landing-h3">{item.title}</span>
+                <p className="landing-note">{item.description}</p>
+                <span
+                  className="mt-auto pt-2 text-sm font-semibold"
+                  style={{ color: "var(--landing-action)" }}
+                >
+                  Ver página →
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---------- benefícios ---------- */}
+      <section className="landing-section">
+        <div className="landing-shell flex flex-col gap-12">
+          <div className="flex flex-col gap-5" style={{ maxWidth: "62ch" }}>
+            <span className="landing-eyebrow">Benefícios</span>
+            <h2 className="landing-h2">Mais do que uma calculadora de preço.</h2>
+          </div>
+
+          <div className="landing-grid landing-grid--3">
+            {benefitCards.map((item) => (
+              <div key={item.title} className="landing-card flex flex-col gap-3">
+                <span className="landing-h3">{item.title}</span>
+                <p className="landing-note">{item.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---------- antes x depois ---------- */}
+      <section className="landing-section landing-section--alt">
+        <div className="landing-shell flex flex-col gap-12">
+          <div className="flex flex-col gap-5" style={{ maxWidth: "62ch" }}>
+            <span className="landing-eyebrow">Antes e depois</span>
+            <h2 className="landing-h2">Precificar pode ser assim:</h2>
+          </div>
+
+          <div className="landing-grid landing-grid--2">
+            <ComparisonPanel title="Sem DaBi Price" items={beforeItems} />
+            <ComparisonPanel title="Com DaBi Price" items={afterItems} positive />
+          </div>
+        </div>
+      </section>
+
+      {/* ---------- confiança ---------- */}
+      <section className="landing-section">
+        <div className="landing-shell flex flex-col gap-12">
+          <div className="flex flex-col gap-5" style={{ maxWidth: "62ch" }}>
+            <span className="landing-eyebrow">Confiança</span>
+            <h2 className="landing-h2">
+              Seus dados e seu negócio continuam sendo seus.
+            </h2>
+          </div>
+
+          <div className="landing-grid landing-grid--4">
+            {trustCards.map((item) => (
+              <div key={item.title} className="landing-card flex flex-col gap-3">
+                <span className="text-lg font-semibold tracking-[-0.01em]">
+                  {item.title}
+                </span>
+                <p className="landing-note">{item.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---------- planos ---------- */}
+      <section id="planos" className="landing-section landing-section--alt">
+        <div className="landing-shell flex flex-col gap-12">
+          <div className="flex flex-col gap-5" style={{ maxWidth: "62ch" }}>
+            <span className="landing-eyebrow">Planos</span>
+            <h2 className="landing-h2">
               Um plano que se paga quando você começa a precificar melhor.
             </h2>
           </div>
 
           <LandingPlanCards />
-
-          <p className="mt-5 text-center text-base text-[#4f6259]">
-            Escolha o plano ideal para o momento do seu negócio e comece a precificar com mais segurança.
-          </p>
         </div>
       </section>
 
-      <section className="border-b border-[#ece6db] bg-white">
-        <div className="mx-auto max-w-[980px] px-4 py-16 text-center sm:px-6 lg:px-8">
-          <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
-            Demonstração de ROI
-          </p>
-          <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
-            Quanto custa precificar errado?
-          </h2>
-
-          <div className="mt-10 grid gap-4 sm:grid-cols-3">
-            <RoiCard sales="100 vendas" value="R$ 400" />
-            <RoiCard sales="500 vendas" value="R$ 2.000" />
-            <RoiCard sales="1.000 vendas" value="R$ 4.000" />
-          </div>
-
-          <p className="mt-6 text-lg leading-9 text-[#42574d]">
-            Exemplo hipotético para demonstrar impacto de custos não
-            considerados.
-          </p>
-          <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[#21352d]">
-            Uma pequena diferença no preço pode pagar vários meses do DaBi Price.
-          </p>
-        </div>
-      </section>
-
-      <section id="faq" className="border-b border-[#ece6db] bg-[#fcfbf8]">
-        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-[760px] text-center">
-            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
-              FAQ
+      {/* ---------- ROI ---------- */}
+      <section className="landing-section">
+        <div className="landing-shell flex flex-col gap-12">
+          <div className="flex flex-col gap-5" style={{ maxWidth: "62ch" }}>
+            <span className="landing-eyebrow">O custo de errar</span>
+            <h2 className="landing-h2">Quanto custa precificar errado?</h2>
+            <p className="landing-lede">
+              Exemplo hipotético: R$ 4 de custo não considerado por venda.
             </p>
-            <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
-              Ficou com alguma dúvida?
-            </h2>
           </div>
 
-          <div className="mt-10 grid gap-4 lg:grid-cols-2">
+          <div className="landing-grid landing-grid--3">
+            {roiCards.map((item) => (
+              <div key={item.sales} className="landing-card flex flex-col gap-3">
+                <span
+                  className="landing-num"
+                  style={{
+                    fontSize: 11,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color: "var(--landing-muted-soft)",
+                  }}
+                >
+                  {item.sales}
+                </span>
+                <span
+                  style={{
+                    fontFamily: "var(--font-display-ui)",
+                    fontSize: "2.75rem",
+                    lineHeight: 1,
+                    color: "var(--landing-gold)",
+                  }}
+                >
+                  {item.value}
+                </span>
+                <p className="landing-note">
+                  potencialmente deixados para trás na precificação
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <p className="landing-lede" style={{ color: "var(--landing-ink)" }}>
+            Uma pequena diferença no preço pode pagar vários meses do DaBi
+            Price.
+          </p>
+        </div>
+      </section>
+
+      {/* ---------- FAQ ---------- */}
+      <section id="faq" className="landing-section landing-section--alt">
+        <div className="landing-shell landing-split">
+          <div className="flex flex-col gap-5">
+            <span className="landing-eyebrow">FAQ</span>
+            <h2 className="landing-h2">Ficou com alguma dúvida?</h2>
+          </div>
+
+          <div className="flex flex-col">
             {faqItems.map((item) => (
               <div
                 key={item.question}
-                className="rounded-[30px] border border-[#e7e1d6] bg-white p-6 shadow-[0_18px_40px_rgba(41,55,45,0.04)]"
+                className="flex flex-col gap-3 py-6"
+                style={{ borderBottom: "1px solid var(--landing-line)" }}
               >
-                <h3 className="text-xl font-semibold tracking-[-0.03em] text-[#21352d]">
+                <h3 className="text-lg font-semibold tracking-[-0.01em]">
                   {item.question}
                 </h3>
-                <p className="mt-4 text-lg leading-9 text-[#42574d]">
-                  {item.answer}
-                </p>
+                <p className="landing-note">{item.answer}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="bg-[#1a2b24] text-white">
-        <div className="mx-auto max-w-[1200px] px-4 py-12 sm:px-6 lg:px-8">
-          <div className="rounded-[34px] bg-[linear-gradient(135deg,#d16025,#f38a42)] px-6 py-10 shadow-[0_26px_80px_rgba(0,0,0,0.22)] sm:px-8">
-            <div className="flex flex-wrap items-end justify-between gap-6">
-              <div className="max-w-[620px]">
-                <p className="font-mono text-xs uppercase tracking-[0.28em] text-white/90">
-                  Próximo passo
-                </p>
-                <h2 className="mt-4 text-4xl font-semibold tracking-[-0.06em]">
-                  Pare de precificar no improviso.
-                </h2>
-                <p className="mt-4 text-lg leading-9 text-white">
-                  Comece agora pelo plano certo e leve sua precificação para uma
-                  rotina mais clara, profissional e repetível.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <Link
-                  href="/planos"
-                  className="rounded-full bg-[#1a2b24] px-7 py-3.5 text-base font-semibold text-white transition hover:bg-[#111c17]"
-                >
-                  Começar agora
-                </Link>
-                <Link
-                  href="/login"
-                  className="rounded-full border border-white/30 bg-white px-7 py-3.5 text-base font-semibold text-[#1a2b24] transition hover:bg-[#f7f4f0]"
-                >
-                  Entrar
-                </Link>
-              </div>
+      {/* ---------- CTA final + rodapé ---------- */}
+      <section className="landing-section">
+        <div className="landing-shell flex flex-col gap-16">
+          <div
+            className="landing-card landing-card--gold flex flex-wrap items-end justify-between gap-8"
+            style={{ padding: "clamp(32px, 5vw, 56px) clamp(24px, 4vw, 48px)" }}
+          >
+            <div className="flex flex-col gap-4" style={{ maxWidth: "34ch" }}>
+              <span className="landing-eyebrow">Próximo passo</span>
+              <span className="landing-h2">
+                Pare de precificar no <span className="landing-turn">improviso</span>.
+              </span>
+              <p className="landing-lede">
+                Comece pelo plano certo e leve sua precificação para uma rotina
+                clara e repetível.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/planos" className="landing-cta">
+                Começar agora
+              </Link>
+              <Link href="/login" className="landing-cta landing-cta--ghost">
+                Entrar
+              </Link>
             </div>
           </div>
 
-          <footer className="mt-10 grid gap-10 border-t border-white/10 pt-10 lg:grid-cols-[280px_minmax(0,1fr)]">
-            <div>
-              <Image
-                src={whiteLogo}
-                alt="Dabi Price"
-                width={84}
-                height={84}
-                unoptimized
-                className="h-14 w-auto"
-              />
-              <p className="mt-4 max-w-[240px] text-base leading-8 text-white/88">
+          <footer
+            className="flex flex-wrap justify-between gap-10 pt-10"
+            style={{ borderTop: "1px solid var(--landing-line)" }}
+          >
+            <div className="flex flex-col gap-4" style={{ maxWidth: "34ch" }}>
+              <LandingWordmark size="lg" />
+              <p className="landing-note">
                 Precificação mais clara para quem produz, vende e precisa
                 proteger a margem com números reais.
               </p>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <nav className="grid gap-3 sm:grid-cols-2">
               {footerLinks.map((item) =>
                 item.href.startsWith("/") ? (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className="text-base text-white/88 transition hover:text-white"
-                  >
+                  <Link key={item.label} href={item.href} className="landing-link">
                     {item.label}
                   </Link>
                 ) : (
-                  <a
-                    key={item.label}
-                    href={item.href}
-                    className="text-base text-white/88 transition hover:text-white"
-                  >
+                  <a key={item.label} href={item.href} className="landing-link">
                     {item.label}
                   </a>
                 ),
               )}
-            </div>
+            </nav>
           </footer>
         </div>
       </section>
@@ -850,325 +833,157 @@ export default function LandingPage() {
   );
 }
 
-function PricingEditorMock() {
+function PricingPanel() {
   return (
-    <div className="rounded-[34px] border border-[#e5ded1] bg-white p-4 shadow-[0_28px_80px_rgba(33,53,45,0.12)] sm:p-5">
-      <div className="rounded-[28px] border border-[#ece6db] bg-[#fffdf9] p-5">
-        <div className="flex items-center justify-between gap-3 border-b border-[#efe8dc] pb-4">
-          <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#84968d]">
-              Editor de precificação
-            </p>
-            <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#21352d]">
-              Caneca 3D personalizada
-            </p>
-          </div>
-          <span className="rounded-full bg-[#eef8f3] px-3 py-2 text-xs font-semibold text-[#20543f]">
-            Resultado saudável
+    <div className="landing-rail">
+      <div
+        className="landing-rail__head flex flex-wrap items-baseline justify-between gap-3 px-6 py-5 sm:px-7"
+        style={{ borderBottom: "1px solid var(--landing-line)" }}
+      >
+        <div className="flex flex-col gap-1">
+          <span
+            className="landing-num"
+            style={{
+              fontSize: 11,
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              color: "var(--landing-muted-soft)",
+            }}
+          >
+            Editor de precificação
+          </span>
+          <span className="text-lg font-semibold tracking-[-0.01em]">
+            Caneca 3D personalizada
           </span>
         </div>
-
-        <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_220px]">
-          <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <MetricTile label="Custo total" value="R$ 24,80" note="Material + produção" />
-              <MetricTile label="Preço sugerido" value="R$ 49,90" note="Meta de margem aplicada" />
-              <MetricTile label="Margem" value="28,7%" note="Resultado atual" />
-              <MetricTile label="Lucro" value="R$ 14,32" note="Por unidade vendida" />
-            </div>
-
-            <div className="rounded-[24px] border border-[#ece6db] bg-white p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-base font-semibold text-[#21352d]">
-                  Distribuição do custo
-                </p>
-                <span className="text-sm uppercase tracking-[0.18em] text-[#5c6e65]">
-                  Canal Mercado Livre
-                </span>
-              </div>
-              <div className="mt-4 space-y-3">
-                <CostBar label="Material e insumos" value="R$ 11,30" width="w-[78%]" color="bg-[#21352d]" />
-                <CostBar label="Mão de obra" value="R$ 6,00" width="w-[56%]" color="bg-[#d16025]" />
-                <CostBar label="Taxas do canal" value="R$ 4,18" width="w-[42%]" color="bg-[#4e7d69]" />
-                <CostBar label="Despesas e reservas" value="R$ 3,32" width="w-[34%]" color="bg-[#8aa99a]" />
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-4">
-            <div className="rounded-[24px] border border-[#ece6db] bg-[#21352d] p-4 text-white">
-              <p className="text-sm uppercase tracking-[0.18em] text-white/84">
-                Canal de venda
-              </p>
-              <p className="mt-2 text-xl font-semibold">Marketplace</p>
-              <p className="mt-3 text-base leading-8 text-white/88">
-                Taxas e regras comerciais consideradas no cálculo final.
-              </p>
-            </div>
-            <div className="rounded-[24px] border border-[#ece6db] bg-[#fff8f3] p-4">
-              <p className="text-sm uppercase tracking-[0.18em] text-[#8a5b38]">
-                Alerta atual
-              </p>
-              <p className="mt-2 text-xl font-semibold text-[#7f3f15]">
-                Ainda existe pressão de taxa
-              </p>
-              <p className="mt-3 text-base leading-8 text-[#634a38]">
-                O sistema mostra quando o canal aperta a margem antes da
-                publicação.
-              </p>
-            </div>
-          </div>
-        </div>
+        <span
+          className="landing-num"
+          style={{
+            fontSize: 11,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            color: "var(--landing-profit)",
+          }}
+        >
+          Resultado saudável
+        </span>
       </div>
-    </div>
-  );
-}
 
-function LargePricingShowcase() {
-  return (
-    <div className="rounded-[34px] border border-[#e5ded1] bg-white p-5 shadow-[0_24px_72px_rgba(33,53,45,0.09)]">
-      <div className="rounded-[30px] border border-[#ece6db] bg-[#fffdf9] p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#efe8dc] pb-4">
-          <div>
-            <p className="font-mono text-xs uppercase tracking-[0.24em] text-[#5c6e65]">
-              Resultado da precificação
-            </p>
-            <p className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-[#21352d]">
-              Resumo antes de vender
-            </p>
-          </div>
-          <Link
-            href="/planos"
-            className="rounded-full border border-[#dce8e2] bg-white px-5 py-2.5 text-base font-semibold text-[#21352d] transition hover:border-[#21352d]"
+      <div
+        className="grid grid-cols-2"
+        style={{ borderBottom: "1px solid var(--landing-line)" }}
+      >
+        {resultRows.map((row, index) => (
+          <div
+            key={row.label}
+            className="flex flex-col gap-2 px-6 py-5 sm:px-7"
+            style={{
+              borderRight:
+                index % 2 === 0 ? "1px solid var(--landing-line)" : undefined,
+              borderTop:
+                index > 1 ? "1px solid var(--landing-line)" : undefined,
+            }}
           >
-            Ver planos
-          </Link>
-        </div>
+            <span
+              className="landing-num"
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.20em",
+                textTransform: "uppercase",
+                color: "var(--landing-muted-soft)",
+              }}
+            >
+              {row.label}
+            </span>
+            <span
+              className="landing-num text-2xl font-semibold"
+              style={{
+                color:
+                  row.tone === "profit"
+                    ? "var(--landing-profit)"
+                    : "var(--landing-ink)",
+              }}
+            >
+              {row.value}
+            </span>
+          </div>
+        ))}
+      </div>
 
-        <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_250px]">
-          <div className="rounded-[24px] border border-[#ece6db] bg-white p-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <MetricTile label="Preço recomendado" value="R$ 49,90" note="Meta comercial aplicada" />
-              <MetricTile label="Lucro real" value="R$ 14,32" note="Após todos os custos" />
-              <MetricTile label="Margem" value="28,7%" note="Equilíbrio saudável" />
-              <MetricTile label="Canal" value="Marketplace" note="Taxas consideradas" />
-            </div>
-
-            <div className="mt-5 rounded-[24px] bg-[#f8fbf9] p-4">
-              <p className="text-base font-semibold text-[#21352d]">
-                Composição detalhada
-              </p>
-              <div className="mt-4 space-y-3">
-                <CostBar label="Custos do produto" value="R$ 18,80" width="w-[72%]" color="bg-[#21352d]" />
-                <CostBar label="Taxas do canal" value="R$ 4,18" width="w-[38%]" color="bg-[#d16025]" />
-                <CostBar label="Despesas e reservas" value="R$ 1,82" width="w-[24%]" color="bg-[#4e7d69]" />
-                <CostBar label="Lucro esperado" value="R$ 14,32" width="w-[52%]" color="bg-[#8aa99a]" />
+      <div className="px-6 py-6 sm:px-7">
+        <span
+          className="landing-num"
+          style={{
+            fontSize: 11,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            color: "var(--landing-muted-soft)",
+          }}
+        >
+          Distribuição do custo
+        </span>
+        <div className="mt-4 flex flex-col gap-4">
+          {heroCostRows.map((row) => (
+            <div key={row.label} className="flex flex-col gap-2">
+              <div className="flex items-baseline justify-between gap-3 text-sm">
+                <span style={{ color: "var(--landing-ink-soft)" }}>
+                  {row.label}
+                </span>
+                <span className="landing-num font-semibold">R$ {row.value}</span>
               </div>
+              <span className="landing-bar">
+                <span
+                  style={{ width: row.width, background: barTone[row.tone] }}
+                />
+              </span>
             </div>
-          </div>
-
-          <div className="grid gap-4">
-            <div className="rounded-[24px] border border-[#ece6db] bg-[#f6f1ff] p-4">
-              <p className="text-sm uppercase tracking-[0.18em] text-[#5d4f82]">
-                Custos sob controle
-              </p>
-              <p className="mt-2 text-xl font-semibold text-[#3d2f77]">
-                Nada fica invisível
-              </p>
-              <p className="mt-3 text-base leading-8 text-[#4f4370]">
-                Você entende o peso de cada bloco no resultado final.
-              </p>
-            </div>
-            <div className="rounded-[24px] border border-[#ece6db] bg-[#eef8f3] p-4">
-              <p className="text-sm uppercase tracking-[0.18em] text-[#2e5946]">
-                Decisão mais clara
-              </p>
-              <p className="mt-2 text-xl font-semibold text-[#20543f]">
-                Preço recomendado com contexto
-              </p>
-              <p className="mt-3 text-base leading-8 text-[#365848]">
-                O valor deixa de ser chute e vira política operacional.
-              </p>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>
-  );
-}
-
-function DetailCard({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="rounded-[24px] border border-[#e7e1d6] bg-white px-5 py-5 shadow-[0_12px_26px_rgba(41,55,45,0.04)]">
-      <p className="text-xl font-semibold tracking-[-0.03em] text-[#17261f]">
-        {title}
-      </p>
-      <p className="mt-3 text-base leading-8 text-[#42574d]">{description}</p>
-    </div>
-  );
-}
-
-function InfoCard({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="rounded-[30px] border border-[#e7e1d6] bg-white p-6 shadow-[0_18px_40px_rgba(41,55,45,0.05)]">
-      <p className="text-[1.65rem] font-semibold tracking-[-0.03em] text-[#17261f]">
-        {title}
-      </p>
-      <p className="mt-4 text-lg leading-9 text-[#42574d]">{description}</p>
-    </div>
-  );
-}
-
-function SegmentCard({
-  title,
-  description,
-  href,
-}: {
-  title: string;
-  description: string;
-  href: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group rounded-[30px] border border-[#dfe7e1] bg-white p-6 shadow-[0_18px_40px_rgba(41,55,45,0.05)] transition hover:-translate-y-0.5 hover:border-[#21352d]"
-    >
-      <p className="font-mono text-xs uppercase tracking-[0.24em] text-[#b8511d]">
-        Página específica
-      </p>
-      <p className="mt-4 text-[1.65rem] font-semibold tracking-[-0.03em] text-[#17261f]">
-        {title}
-      </p>
-      <p className="mt-4 text-lg leading-9 text-[#42574d]">{description}</p>
-      <span className="mt-6 inline-flex items-center gap-2 text-base font-semibold text-[#21352d]">
-        Ver página do segmento
-        <span className="transition group-hover:translate-x-1">→</span>
-      </span>
-    </Link>
   );
 }
 
 function ComparisonPanel({
   title,
   items,
-  accent,
+  positive = false,
 }: {
   title: string;
   items: string[];
-  accent: string;
+  positive?: boolean;
 }) {
   return (
-    <div className={`rounded-[32px] border p-6 shadow-[0_18px_40px_rgba(41,55,45,0.05)] ${accent}`}>
-      <p className="text-[1.9rem] font-semibold tracking-[-0.04em]">{title}</p>
-      <div className="mt-6 grid gap-3">
+    <div
+      className={`landing-card flex flex-col gap-5 ${
+        positive ? "landing-card--gold" : ""
+      }`}
+    >
+      <span className="landing-h3">{title}</span>
+      <ul className="flex flex-col gap-3" style={{ listStyle: "none", margin: 0, padding: 0 }}>
         {items.map((item) => (
-          <div
+          <li
             key={item}
-            className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3.5 text-base"
+            className="flex items-baseline gap-3 pb-3 text-sm"
+            style={{
+              borderBottom: "1px solid var(--landing-line)",
+              color: "var(--landing-ink-soft)",
+            }}
           >
+            <span
+              aria-hidden="true"
+              style={{
+                color: positive
+                  ? "var(--landing-profit)"
+                  : "var(--landing-muted-soft)",
+              }}
+            >
+              {positive ? "✓" : "—"}
+            </span>
             {item}
-          </div>
+          </li>
         ))}
-      </div>
-    </div>
-  );
-}
-
-function RoiCard({
-  sales,
-  value,
-}: {
-  sales: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-[30px] border border-[#e7e1d6] bg-white p-6 shadow-[0_18px_40px_rgba(41,55,45,0.04)]">
-      <p className="font-mono text-xs uppercase tracking-[0.24em] text-[#60736a]">
-        {sales}
-      </p>
-      <p className="mt-4 text-4xl font-semibold tracking-[-0.06em] text-[#21352d]">
-        {value}
-      </p>
-      <p className="mt-3 text-base text-[#42574d]">
-        potencialmente deixados para trás na precificação
-      </p>
-    </div>
-  );
-}
-
-function StatSummary({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: string;
-}) {
-  return (
-    <div className={`rounded-[30px] p-6 ${tone}`}>
-      <p className="font-mono text-[11px] uppercase tracking-[0.24em] opacity-70">
-        {label}
-      </p>
-      <p className="mt-4 text-4xl font-semibold tracking-[-0.05em]">{value}</p>
-    </div>
-  );
-}
-
-function MetricTile({
-  label,
-  value,
-  note,
-}: {
-  label: string;
-  value: string;
-  note: string;
-}) {
-  return (
-    <div className="rounded-[22px] border border-[#ece6db] bg-[#fffdf9] px-4 py-4">
-      <p className="text-sm uppercase tracking-[0.16em] text-[#5f7269]">
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#21352d]">
-        {value}
-      </p>
-      <p className="mt-2 text-base text-[#465950]">{note}</p>
-    </div>
-  );
-}
-
-function CostBar({
-  label,
-  value,
-  width,
-  color,
-}: {
-  label: string;
-  value: string;
-  width: string;
-  color: string;
-}) {
-  return (
-    <div>
-      <div className="mb-2 flex items-center justify-between gap-3 text-base">
-        <span className="text-[#42574d]">{label}</span>
-        <span className="font-semibold text-[#21352d]">{value}</span>
-      </div>
-      <div className="h-3 rounded-full bg-[#eef2ef]">
-        <div className={`h-3 rounded-full ${width} ${color}`} />
-      </div>
+      </ul>
     </div>
   );
 }

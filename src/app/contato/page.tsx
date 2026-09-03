@@ -94,7 +94,7 @@ export default async function ContactPage({
                   </p>
                   <p className="mt-2 text-sm leading-7 text-[var(--muted)]">
                     {selectedPlan?.id === "scale"
-                      ? "O DaBi Equipe segue por atendimento consultivo antes da contratação."
+                      ? "O DaBi Max segue por atendimento consultivo antes da contratação."
                       : "A contratação dos planos de autoatendimento acontece dentro da área autenticada, depois da criação da conta."}
                   </p>
                 </div>

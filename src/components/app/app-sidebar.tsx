@@ -1,12 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ComponentType, type SVGProps } from "react";
-import horizontalLogo from "@/app/dabi-price-horizontal.svg";
-import whiteLogo from "@/app/logo-dabi-branco.svg";
-import blackLogo from "@/app/logo-dabi-preto.svg";
+import { DabiMark, DabiWordmark } from "@/components/brand/dabi-brand";
 import type { PlatformRole } from "@/lib/server/platform";
 import {
   type BusinessType,
@@ -523,7 +520,6 @@ export function AppSidebar({
     setThemeMode((current) => (current === "dark" ? "light" : "dark"));
   }
 
-  const sidebarCollapsedLogoSrc = themeMode === "dark" ? whiteLogo : blackLogo;
   const shellToneClassName =
     sidebarVariant === "confectionery"
       ? "border-[#e4efe9] bg-[linear-gradient(180deg,rgba(254,255,254,0.96)_0%,rgba(245,252,248,0.96)_100%)] shadow-[0_18px_48px_rgba(92,154,131,0.12)]"
@@ -544,25 +540,7 @@ export function AppSidebar({
       >
         <div className="mx-auto flex max-w-[1488px] items-center justify-between gap-3">
           <Link href="/app" className="min-w-0" aria-label="Dabi Price">
-            {themeMode === "dark" ? (
-              <Image
-                src={whiteLogo}
-                alt="Dabi Price"
-                width={84}
-                height={84}
-                unoptimized
-                className="h-8 w-auto"
-              />
-            ) : (
-              <Image
-                src={horizontalLogo}
-                alt="Dabi Price"
-                width={176}
-                height={42}
-                unoptimized
-                className="h-8 w-auto"
-              />
-            )}
+            <DabiWordmark size="sm" />
           </Link>
 
           <button
@@ -591,25 +569,7 @@ export function AppSidebar({
             <div className={`rounded-[32px] border px-4 py-5 ${glassPanelToneClassName}`}>
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  {themeMode === "dark" ? (
-                    <Image
-                      src={whiteLogo}
-                      alt="Dabi Price"
-                      width={96}
-                      height={96}
-                      unoptimized
-                      className="h-9 w-auto"
-                    />
-                  ) : (
-                    <Image
-                      src={horizontalLogo}
-                      alt="Dabi Price"
-                      width={198}
-                      height={47}
-                      unoptimized
-                      className="h-9 w-auto"
-                    />
-                  )}
+                  <DabiWordmark />
                 </div>
                 <button
                   type="button"
@@ -699,34 +659,9 @@ export function AppSidebar({
               aria-label="Dabi Price"
             >
               {isExpanded ? (
-                themeMode === "dark" ? (
-                  <Image
-                    src={whiteLogo}
-                    alt="Dabi Price"
-                    width={96}
-                    height={96}
-                    unoptimized
-                    className="h-9 w-auto"
-                  />
-                ) : (
-                  <Image
-                    src={horizontalLogo}
-                    alt="Dabi Price"
-                    width={198}
-                    height={47}
-                    unoptimized
-                    className="h-9 w-auto"
-                  />
-                )
+                <DabiWordmark />
               ) : (
-                <Image
-                  src={sidebarCollapsedLogoSrc}
-                  alt="Dabi Price"
-                  width={64}
-                  height={64}
-                  unoptimized
-                  className="h-10 w-auto"
-                />
+                <DabiMark size={36} title="dabi price" />
               )}
             </Link>
 

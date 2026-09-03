@@ -178,7 +178,7 @@ test("workspace validado com histórico e ERP sobe para pronto para venda", () =
   assert.equal(snapshot.channelsUsedCount, 3);
   assert.equal(snapshot.erpSyncCount, 8);
   assert.equal(snapshot.siteProductLinksCount, 4);
-  assert.equal(snapshot.planLabel, "DaBi Equipe");
+  assert.equal(snapshot.planLabel, "DaBi Max");
   assert.ok(snapshot.readinessScore >= 80);
 });
 
@@ -239,7 +239,7 @@ test("snapshot usa a assinatura comercial fornecida em vez do espelho de prefere
     auditLog: [],
   });
 
-  assert.equal(snapshot.planLabel, "DaBi Essencial");
+  assert.equal(snapshot.planLabel, "DaBi Start");
   assert.equal(snapshot.planStatusLabel, "Aguardando contratação");
   assert.equal(snapshot.seatsUsed, 1);
 });
