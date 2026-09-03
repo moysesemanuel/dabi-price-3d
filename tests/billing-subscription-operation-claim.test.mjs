@@ -70,3 +70,101 @@ test("claim de operação é liberado quando o efeito falha", async () => {
     { subscriptionId: "sub-claim-2", claimToken: "claim-2" },
   ]);
 });
+
+test("claim perdido é reportado quando a liberação devolve false", async () => {
+  const reported = [];
+
+  await runWithBillingSubscriptionOperationClaim({
+    subscriptionId: "sub-claim-3",
+    async claimSubscriptionOperation() {
+      return "claim-3";
+    },
+    async releaseSubscriptionOperationClaim() {
+      return false;
+    },
+    reportClaimLost(event) {
+      reported.push(event);
+    },
+    async operation() {},
+  });
+
+  assert.deepEqual(reported, [
+    { claimType: "subscription_operation", subscriptionId: "sub-claim-3" },
+  ]);
+});
+
+test("claim perdido é reportado quando a liberação lança erro", async () => {
+  const reported = [];
+
+  await runWithBillingSubscriptionOperationClaim({
+    subscriptionId: "sub-claim-4",
+    async claimSubscriptionOperation() {
+      return "claim-4";
+    },
+    async releaseSubscriptionOperationClaim() {
+      throw new Error("conexao perdida");
+    },
+    reportClaimLost(event) {
+      reported.push(event);
+    },
+    async operation() {},
+  });
+
+  assert.deepEqual(reported, [
+    { claimType: "subscription_operation", subscriptionId: "sub-claim-4" },
+  ]);
+});
+
+test("liberação bem-sucedida não reporta claim perdido", async () => {
+  const reported = [];
+
+  await runWithBillingSubscriptionOperationClaim({
+    subscriptionId: "sub-claim-5",
+    async claimSubscriptionOperation() {
+      return "claim-5";
+    },
+    async releaseSubscriptionOperationClaim() {
+      return true;
+    },
+    reportClaimLost(event) {
+      reported.push(event);
+    },
+    async operation() {},
+  });
+
+  assert.deepEqual(reported, []);
+});
+
+test("falha do reporter não derruba a operação nem mascara o erro do efeito", async () => {
+  await assert.rejects(
+    runWithBillingSubscriptionOperationClaim({
+      subscriptionId: "sub-claim-6",
+      async claimSubscriptionOperation() {
+        return "claim-6";
+      },
+      async releaseSubscriptionOperationClaim() {
+        return false;
+      },
+      reportClaimLost() {
+        throw new Error("sentry indisponivel");
+      },
+      async operation() {
+        throw new Error("provider unavailable");
+      },
+    }),
+    /provider unavailable/,
+  );
+});
+
+test("sem reporter registrado a liberação falha em silêncio, como antes", async () => {
+  await runWithBillingSubscriptionOperationClaim({
+    subscriptionId: "sub-claim-7",
+    async claimSubscriptionOperation() {
+      return "claim-7";
+    },
+    async releaseSubscriptionOperationClaim() {
+      throw new Error("conexao perdida");
+    },
+    async operation() {},
+  });
+});
