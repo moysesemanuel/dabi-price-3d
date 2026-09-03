@@ -314,7 +314,7 @@ Esse fluxo:
 
 ### Observabilidade operacional
 
-As rotas críticas de ERP e Mercado Livre agora retornam `requestId` em erros operacionais.
+As rotas críticas de ERP e Mercado Livre retornam `requestId` em erros operacionais.
 
 Isso aparece:
 
@@ -323,6 +323,29 @@ Isso aparece:
 - na interface, quando a falha vem dessas integrações
 
 Use essa referência para correlacionar logs de suporte.
+
+#### Sentry
+
+O projeto integra o Sentry nos runtimes de servidor, edge e browser. Chegam lá:
+
+- erros **não tratados**, pelo `onRequestError` do Next — inclui as rotas de cron;
+- erros **tratados** de rota: todo `logRouteEvent` de nível `error` vira evento,
+  com `fingerprint [route, event]` e as tags `route` e `route_event`. Sem isso,
+  falha de webhook do Mercado Pago não geraria alerta, porque a rota captura o
+  erro e responde JSON;
+- `billing.claim_lost`, quando um claim de operação de assinatura não pode ser
+  liberado.
+
+Dois comportamentos que valem conhecer:
+
+- **Sem `SENTRY_DSN` nada é enviado.** Em desenvolvimento local o Sentry fica
+  desligado por padrão e o `logRouteEvent` continua sendo só `console`.
+- **Há limite de rajada:** 5 eventos por par rota/evento a cada 60 segundos. O
+  console registra todas as ocorrências, e o primeiro evento após a janela traz
+  `suppressedSinceLastEvent` com quantas foram suprimidas.
+
+Emitir evento não é o mesmo que alertar alguém: as regras de alerta são
+configuradas no painel do Sentry, fora deste repositório.
 
 ## Publicação no site
 
@@ -363,6 +386,9 @@ Principais grupos:
 - Mercado Livre: `MELI_CLIENT_*`, `MELI_REDIRECT_URI`
 - ERP: `ERP_APP_URL`, `PRICING_INTEGRATION_TOKEN`
 - Blob: `BLOB_READ_WRITE_TOKEN`
+- Sentry: `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ENVIRONMENT` e, só
+  para subir source maps no build da Vercel, `SENTRY_ORG`, `SENTRY_PROJECT` e
+  `SENTRY_AUTH_TOKEN`. Mantenha todas vazias no desenvolvimento local.
 
 ## Testes e validação
 
@@ -390,6 +416,9 @@ Validação completa:
 npm run check
 ```
 
+Esse mesmo comando roda automaticamente em toda pull request e em `push` para
+`main` e `release/homologation`, pelo workflow `.github/workflows/check.yml`.
+
 Atualmente essa suíte cobre, entre outros pontos:
 
 - motor de precificação
@@ -399,6 +428,7 @@ Atualmente essa suíte cobre, entre outros pontos:
 - proteção de `/app`
 - regras de acesso e papéis
 - helpers de observabilidade e rate limit
+- configuração do Sentry, sanitização de evento e limite de rajada
 
 ## Build e execução em produção
 

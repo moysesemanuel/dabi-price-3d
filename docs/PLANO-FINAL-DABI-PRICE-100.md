@@ -40,6 +40,41 @@ Produto funcional
 
 ---
 
+## Regra de registro de evidência
+
+O estado dos checkboxes deste plano e a evidência de homologação são registrados
+**na `main`**, sempre por PR.
+
+Por que a regra existe: em 22/08/2026 a assinatura recorrente por cartão foi
+homologada no ambiente HML e o registro foi gravado **apenas** na branch
+`release/homologation`. A Vercel de homologação acompanha aquela branch e a
+`main` não a recebe, então a Fase 4 continuou aparecendo como nunca iniciada
+durante doze dias — a ponto de uma avaliação de prontidão classificá-la como
+zerada e apontar como pendente um trabalho que já tinha sido feito. O registro só
+foi recuperado em 03/09/2026, numa auditoria commit a commit entre as duas
+branches.
+
+Na prática:
+
+- Homologou algo em qualquer ambiente? O registro entra por PR contra a `main`.
+- Checkbox marcado só em branch de homologação não conta como registro.
+- Toda afirmação de status aqui deve ser verificável no código, ou trazer data e
+  ambiente em que foi observada.
+- Quando o texto descrever o que o repositório contém ou deixa de conter, conferir
+  antes de repetir: essa foi a origem das três correções de 02/09/2026 (Fase 2
+  dizia que o cadastro não estava protegido, Fase 7 negava ações administrativas
+  que existem, Fase 16 afirmava que não havia integração de Sentry).
+
+Para conferir divergência de checkbox entre as duas branches:
+
+```bash
+git fetch origin
+diff <(git show origin/main:docs/PLANO-FINAL-DABI-PRICE-100.md | grep '^- \[') \
+     <(git show origin/release/homologation:docs/PLANO-FINAL-DABI-PRICE-100.md | grep '^- \[')
+```
+
+---
+
 # Fase 0 — Congelamento de escopo e baseline
 
 ## Objetivo
@@ -360,10 +395,10 @@ Homologar toda a recorrência real.
 
 ## Cenários
 
-- [ ] Assinatura criada.
+- [x] Assinatura criada.
 - [ ] Checkout abandonado.
-- [ ] Cartão aprovado.
-- [ ] Subscription ativa.
+- [x] Cartão aprovado.
+- [x] Subscription ativa.
 - [ ] Primeira cobrança.
 - [ ] Renovação.
 - [ ] Falha na renovação.
@@ -378,6 +413,20 @@ Homologar toda a recorrência real.
 - [ ] Webhook atrasado.
 - [ ] Webhook fora de ordem.
 - [ ] Reconciliação corrigindo divergência.
+
+## Evidência de homologação
+
+- Em 22/08/2026, no ambiente HML isolado, uma conta compradora de teste do
+  Mercado Pago concluiu uma assinatura recorrente por cartão.
+- O workspace ficou com plano ativo e acesso liberado em `/app/assinatura`.
+- O painel administrativo registrou assinatura `active` com identificador do
+  provider, webhook de assinatura/pagamento processado e nenhuma divergência
+  aberta no dashboard.
+- A confirmação cobre a criação e a ativação inicial; renovação, falhas,
+  cancelamentos e demais cenários desta fase continuam pendentes.
+- Registro recuperado de `release/homologation` em 03/09/2026. A evidência tinha
+  sido gravada apenas naquela branch e nunca chegou à `main`, o que fez esta fase
+  aparecer como nunca iniciada. Ver "Regra de registro de evidência".
 
 ## Critério de aceite
 
@@ -1029,13 +1078,35 @@ Sentry + e-mail
 
 ou equivalente.
 
+## O que já existe no repositório (PR #55, 02/09/2026)
+
+- `@sentry/nextjs` integrado nos runtimes de servidor, edge e browser, com
+  `sendDefaultPii: false` e sanitização que remove `request`/`user` e redige
+  token, secret, cookie, assinatura e e-mail antes do envio.
+- Erros **não tratados** chegam ao Sentry pelo `onRequestError`. Isso cobre as
+  rotas de cron, que deixam o erro subir.
+- Erros **tratados** de rota também geram evento: `logRouteEvent` de nível
+  `error` é encaminhado ao Sentry com `fingerprint [route, event]` e as tags
+  `route` e `route_event`. Sem isso, falha de webhook do Mercado Pago não
+  gerava alerta nenhum, porque a rota captura o erro e responde JSON.
+- Limite de 5 eventos por par rota/evento a cada 60s, para que uma rajada de
+  retries do provider não consuma a cota. O console registra todas as
+  ocorrências e o primeiro evento após a janela informa quantas foram suprimidas.
+- `billing.claim_lost` (nível `warning`) quando um claim de operação de
+  assinatura não pode ser liberado.
+
 ## Bloqueio operacional
 
-- O repositório não contém integração ou credencial de Sentry, PagerDuty,
-  Datadog, Slack ou serviço equivalente. Há logs estruturados, `requestId` e
-  backlog administrativo para diagnóstico, mas eles não enviam alertas por si
-  só. A conclusão desta fase requer escolher o provedor, conceder acesso e
-  configurar o canal de destino na infraestrutura externa.
+- O código emite os eventos, mas **nada é enviado sem configuração externa**.
+  Sem `SENTRY_DSN` nada inicializa e o `logRouteEvent` continua sendo só console.
+- Falta, fora do repositório: configurar `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`
+  e `SENTRY_ENVIRONMENT` na Vercel; opcionalmente `SENTRY_AUTH_TOKEN` para
+  source maps; e **criar as regras de alerta no Sentry**. Sem regra, o evento
+  chega no painel e ninguém é notificado — que é exatamente o critério desta
+  fase. Primeira regra sugerida: eventos com tag `route_event` começando em
+  `mercado_pago_webhook.` ou `billing_admin.`.
+- Os itens marcados acima permanecem desmarcados de propósito: eles descrevem
+  **alerta entregue**, não evento emitido.
 
 ## Critério de aceite
 
@@ -1086,6 +1157,13 @@ git diff --check
 
 - [x] Todos verdes.
 - [x] Evoluir `npm run check` para representar toda a suíte final, se necessário.
+- [x] Executar o pipeline automaticamente em toda PR.
+
+Até 02/09/2026 esta sequência era executada **à mão**: o repositório não tinha
+`.github/workflows` nem qualquer outro arquivo de pipeline, e o último registro
+de execução era de 22/08/2026 — as quatro PRs mescladas em 02/09 entraram sem
+verificação automática. Desde 03/09/2026 o workflow `check` roda `npm run check`
+e `git diff --check` em toda PR e em `push` para `main` e `release/homologation`.
 
 ## Registro de execução
 
@@ -1360,7 +1438,7 @@ de código local. Os itens continuam detalhados nas fases de origem.
 | Cartão recorrente do Mercado Pago | 4, 20 | A primeira assinatura de teste foi aprovada e refletida no DaBi; renovação, falha, recuperação, cancelamento remoto e webhook atrasado continuam sem ciclo temporal completo. | Executar e registrar os cenários pendentes em ambiente de homologação/produção controlada. |
 | Pix Automático | 9 | A abstração `BillingProvider` existe, mas o contrato e o ciclo completo do provider ainda não foram homologados. | Confirmar contrato, autorização, cobrança, webhook, cancelamento, idempotência e sandbox com o Mercado Pago; só então habilitar o fluxo comercial. |
 | Consumo único de redefinição no Neon | 10 | O SQL consome o token com `consumed_at IS NULL` de forma atômica; a suíte local cobre consumo único e expiração. | Usar o mesmo token de recuperação duas vezes contra o ambiente remoto e comprovar que a segunda tentativa é rejeitada. |
-| Alertas operacionais externos | 16 | Logs estruturados, dashboard e backlog existem; não há provedor externo de alerta configurado. | Escolher e configurar provedor, destinatários, limiares e testes de entrega para webhooks, cron, provider, ERP, OAuth e 5xx. |
+| Alertas operacionais externos | 16 | O Sentry está integrado no código desde a PR #55 e os eventos são emitidos (erro não tratado, erro tratado de rota, `billing.claim_lost`); não há DSN configurado na Vercel nem regra de alerta criada, então nada é entregue a ninguém. | Configurar as variáveis do Sentry nos ambientes e criar as regras de alerta e os destinatários para webhooks, cron, provider, ERP, OAuth e 5xx. |
 | Backup, restauração e LGPD | 19 | Banco e aplicação operam, mas não há evidência versionada de backup/restore, retenção ou políticas jurídicas. | Definir retenção, executar restore controlado, documentar remoção/exportação e validar requisitos legais com responsável competente. |
 | Smoke test de produção | 20 | HML validou recuperação de senha, webhooks e assinatura recorrente; não há evidência completa de um usuário novo em produção. | Executar o roteiro da fase com conta não administrativa e registrar os resultados, sem reutilizar dados de teste. |
 
