@@ -713,3 +713,390 @@ input[type="number"] {
 :root[data-theme="dark"] .app-shell [class~="border-[#bdaa99]"] {
   border-color: rgba(220, 213, 255, 0.2) !important;
 }
+
+/* ============================================================
+   Landing (prospecção) — camada premium preto / dourado / azul
+   Escopo isolado em .landing-root para não vazar no app.
+   Claro é o padrão; escuro entra por :root[data-theme="dark"].
+   ============================================================ */
+
+.landing-root {
+  --landing-surface: #fbfaf7;
+  --landing-surface-alt: #f4f2ed;
+  --landing-panel: #ffffff;
+  --landing-panel-alt: #faf8f4;
+  --landing-ink: #0a0b0d;
+  --landing-ink-soft: #2c3037;
+  --landing-gold: #a8813a;
+  --landing-gold-soft: rgba(168, 129, 58, 0.24);
+  --landing-gold-faint: rgba(168, 129, 58, 0.10);
+  --landing-action: #1f4fd8;
+  --landing-action-hover: #17409f;
+  --landing-action-ink: #ffffff;
+  --landing-profit: #1f7a4f;
+  --landing-muted: #5a6067;
+  --landing-muted-soft: #7a8087;
+  --landing-line: rgba(10, 11, 13, 0.10);
+  --landing-line-strong: rgba(10, 11, 13, 0.16);
+  --landing-track: rgba(10, 11, 13, 0.07);
+  --landing-glow-a: rgba(168, 129, 58, 0.10);
+  --landing-glow-b: rgba(31, 79, 216, 0.08);
+  --landing-radius: 12px;
+  --landing-radius-sm: 6px;
+  --landing-gutter: clamp(20px, 5vw, 72px);
+
+  background: var(--landing-surface);
+  color: var(--landing-ink);
+  font-family: var(--font-sans-ui);
+}
+
+:root[data-theme="dark"] .landing-root {
+  --landing-surface: #0a0b0d;
+  --landing-surface-alt: #0c0e11;
+  --landing-panel: #141619;
+  --landing-panel-alt: #101216;
+  --landing-ink: #f2f0eb;
+  --landing-ink-soft: #c6cbd2;
+  --landing-gold: #C9A961;
+  --landing-gold-soft: rgba(201, 169, 97, 0.20);
+  --landing-gold-faint: rgba(201, 169, 97, 0.08);
+  --landing-action: #2b5ce6;
+  --landing-action-hover: #3d6cf0;
+  --landing-action-ink: #ffffff;
+  --landing-profit: #5fbf8b;
+  --landing-muted: #a8adb5;
+  --landing-muted-soft: #7c828b;
+  --landing-line: rgba(242, 240, 235, 0.08);
+  --landing-line-strong: rgba(242, 240, 235, 0.14);
+  --landing-track: rgba(242, 240, 235, 0.06);
+  --landing-glow-a: rgba(201, 169, 97, 0.10);
+  --landing-glow-b: rgba(43, 92, 230, 0.10);
+}
+
+.landing-shell {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding-inline: var(--landing-gutter);
+}
+
+.landing-section {
+  border-top: 1px solid var(--landing-line);
+  padding-block: clamp(56px, 8vw, 96px);
+}
+
+.landing-section--alt {
+  background: var(--landing-surface-alt);
+}
+
+/* — marca — */
+.landing-wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  color: var(--landing-ink);
+}
+
+.landing-wordmark__name {
+  font-family: var(--font-display-ui);
+  font-size: 26px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.landing-wordmark__suffix {
+  font-family: var(--font-mono-ui);
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.30em;
+  text-transform: uppercase;
+  color: var(--landing-gold);
+  padding-bottom: 2px;
+}
+
+/* — tipografia — */
+.landing-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono-ui);
+  font-size: 11px;
+  letter-spacing: 0.30em;
+  text-transform: uppercase;
+  color: var(--landing-gold);
+}
+
+.landing-eyebrow::before {
+  content: "";
+  width: 32px;
+  height: 1px;
+  background: var(--landing-gold);
+}
+
+.landing-eyebrow--plain::before {
+  display: none;
+}
+
+.landing-display {
+  font-family: var(--font-display-ui);
+  font-weight: 400;
+  font-size: clamp(3rem, 6.2vw, 5.5rem);
+  line-height: 0.94;
+  letter-spacing: -0.025em;
+  margin: 0;
+}
+
+.landing-h2 {
+  font-family: var(--font-display-ui);
+  font-weight: 400;
+  font-size: clamp(2.1rem, 3.6vw, 3.25rem);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.landing-h3 {
+  font-family: var(--font-display-ui);
+  font-weight: 400;
+  font-size: clamp(1.5rem, 2.2vw, 1.9rem);
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+
+.landing-turn {
+  font-style: italic;
+  color: var(--landing-gold);
+}
+
+.landing-lede {
+  font-size: clamp(1rem, 1.2vw, 1.0625rem);
+  line-height: 1.62;
+  color: var(--landing-muted);
+  margin: 0;
+}
+
+.landing-note {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--landing-muted-soft);
+  margin: 0;
+}
+
+.landing-num {
+  font-family: var(--font-mono-ui);
+  font-variant-numeric: tabular-nums;
+}
+
+/* — ações — */
+.landing-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--landing-radius-sm);
+  padding: 15px 28px;
+  font-size: 15px;
+  font-weight: 600;
+  background: var(--landing-action);
+  color: var(--landing-action-ink);
+  border: 1px solid transparent;
+  transition: background 160ms ease;
+  white-space: nowrap;
+}
+
+.landing-cta:hover {
+  background: var(--landing-action-hover);
+}
+
+.landing-cta--sm {
+  padding: 10px 18px;
+  font-size: 13px;
+}
+
+.landing-cta--ghost {
+  background: transparent;
+  color: var(--landing-ink);
+  border-color: var(--landing-line-strong);
+}
+
+.landing-cta--ghost:hover {
+  background: transparent;
+  border-color: var(--landing-gold);
+  color: var(--landing-gold);
+}
+
+.landing-link {
+  font-size: 13px;
+  color: var(--landing-muted);
+  transition: color 160ms ease;
+}
+
+.landing-link:hover {
+  color: var(--landing-ink);
+}
+
+/* — superfícies — */
+.landing-card {
+  border: 1px solid var(--landing-line-strong);
+  border-radius: var(--landing-radius);
+  background: var(--landing-panel);
+  padding: 26px 28px;
+}
+
+.landing-card--gold {
+  border-color: var(--landing-gold-soft);
+}
+
+.landing-rail {
+  border: 1px solid var(--landing-gold-soft);
+  border-radius: var(--landing-radius);
+  overflow: hidden;
+  background: var(--landing-panel);
+}
+
+.landing-rail__head,
+.landing-rail__foot {
+  background: var(--landing-panel-alt);
+}
+
+.landing-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 150px) minmax(0, 1fr) 96px;
+  align-items: center;
+  gap: clamp(12px, 2vw, 20px);
+  padding: 17px clamp(18px, 2vw, 28px);
+  border-bottom: 1px solid var(--landing-line);
+}
+
+.landing-row:last-child {
+  border-bottom: none;
+}
+
+.landing-bar {
+  height: 10px;
+  border-radius: 2px;
+  background: var(--landing-track);
+  overflow: hidden;
+}
+
+.landing-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--landing-muted-soft);
+}
+
+/* — herói — */
+.landing-hero {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(60% 70% at 8% 0%, var(--landing-glow-a), transparent 60%),
+    radial-gradient(50% 60% at 92% 12%, var(--landing-glow-b), transparent 58%),
+    var(--landing-surface);
+}
+
+.landing-hero__grid {
+  display: grid;
+  gap: clamp(36px, 5vw, 64px);
+  align-items: center;
+  padding-block: clamp(48px, 7vw, 92px);
+}
+
+@media (min-width: 1024px) {
+  .landing-hero__grid {
+    grid-template-columns: minmax(0, 1.02fr) minmax(0, 1fr);
+  }
+
+  /* o painel sangra pela borda direita: mata a moldura e dá profundidade */
+  .landing-hero__bleed {
+    margin-right: calc(var(--landing-gutter) * -1);
+  }
+
+  .landing-hero__bleed .landing-rail {
+    border-radius: var(--landing-radius) 0 0 var(--landing-radius);
+    border-right: none;
+  }
+}
+
+/* — grades utilitárias — */
+.landing-grid {
+  display: grid;
+  gap: 16px;
+}
+
+@media (min-width: 700px) {
+  .landing-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .landing-grid--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .landing-grid--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1024px) {
+  .landing-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .landing-grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.landing-split {
+  display: grid;
+  gap: clamp(32px, 5vw, 72px);
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .landing-split {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  }
+
+  .landing-split--wide-first {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  }
+}
+
+/* — header — */
+.landing-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid var(--landing-line);
+  background: color-mix(in srgb, var(--landing-surface) 88%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.landing-header__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding-block: 18px;
+}
+
+.landing-header__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--landing-radius-sm);
+  border: 1px solid var(--landing-line-strong);
+  background: transparent;
+  color: var(--landing-ink);
+  cursor: pointer;
+}
+
+.landing-header__panel {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 20px;
+  border-top: 1px solid var(--landing-line);
+  padding-top: 16px;
+}
+
+@media (min-width: 1024px) {
+  .landing-header__toggle {
+    display: none;
+  }
+
+  .landing-header__panel {
+    display: none;
+  }
+}

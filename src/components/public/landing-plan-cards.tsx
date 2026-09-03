@@ -58,29 +58,37 @@ export function LandingPlanCards() {
     useState<WorkspaceBillingCycle>("monthly");
 
   return (
-    <div className="mt-10">
-      <div className="mx-auto flex w-fit rounded-full border border-[#d7e3dc] bg-white/90 p-1 shadow-[0_12px_28px_rgba(41,55,45,0.06)]">
-        <CycleButton
-          active={billingCycle === "monthly"}
-          onClick={() => setBillingCycle("monthly")}
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-3">
+        <div
+          className="flex w-fit gap-1 p-1"
+          style={{
+            border: "1px solid var(--landing-line-strong)",
+            borderRadius: "var(--landing-radius-sm)",
+          }}
         >
-          Assinatura mensal
-        </CycleButton>
-        <CycleButton
-          active={billingCycle === "annual"}
-          onClick={() => setBillingCycle("annual")}
-        >
-          Assinatura anual
-        </CycleButton>
+          <CycleButton
+            active={billingCycle === "monthly"}
+            onClick={() => setBillingCycle("monthly")}
+          >
+            Assinatura mensal
+          </CycleButton>
+          <CycleButton
+            active={billingCycle === "annual"}
+            onClick={() => setBillingCycle("annual")}
+          >
+            Assinatura anual
+          </CycleButton>
+        </div>
+
+        <p className="landing-note">
+          {billingCycle === "annual"
+            ? "Pagamento antecipado para 12 meses de acesso."
+            : "Cobrança recorrente por workspace, a cada mês."}
+        </p>
       </div>
 
-      <p className="mt-4 text-center text-sm text-[#5f7468]">
-        {billingCycle === "annual"
-          ? "Pagamento antecipado para 12 meses de acesso."
-          : "Cobrança recorrente por workspace, a cada mês."}
-      </p>
-
-      <div className="mt-8 grid gap-4 lg:grid-cols-3">
+      <div className="landing-grid landing-grid--3">
         {workspacePlans.map((plan) => (
           <LandingPlanCard
             key={plan.id}
@@ -90,6 +98,11 @@ export function LandingPlanCards() {
           />
         ))}
       </div>
+
+      <p className="landing-note">
+        Os valores exibidos são à vista no Pix. No cartão, o parcelamento em até
+        10x tem juros informados antes da confirmação.
+      </p>
     </div>
   );
 }
@@ -108,10 +121,12 @@ function CycleButton({
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`rounded-full px-4 py-2 text-sm font-semibold transition sm:px-5 ${active
-          ? "bg-[#21352d] text-white shadow-[0_4px_12px_rgba(33,53,45,0.16)]"
-          : "text-[#5f7468] hover:text-[#21352d]"
-        }`}
+      className="px-4 py-2 text-sm font-semibold transition sm:px-5"
+      style={{
+        borderRadius: "calc(var(--landing-radius-sm) - 2px)",
+        background: active ? "var(--landing-action)" : "transparent",
+        color: active ? "var(--landing-action-ink)" : "var(--landing-muted)",
+      }}
     >
       {children}
     </button>
@@ -136,44 +151,64 @@ function LandingPlanCard({
 
   return (
     <article
-      className={`rounded-[34px] border p-6 shadow-[0_20px_48px_rgba(41,55,45,0.06)] ${content.highlighted
-          ? "border-[#f0d7c8] bg-[#fff7f1]"
-          : "border-[#e7e1d6] bg-white"
-        }`}
+      className={`landing-card flex flex-col gap-5 ${
+        content.highlighted ? "landing-card--gold" : ""
+      }`}
     >
-      <p className="font-mono text-xs uppercase tracking-[0.24em] text-[#b8511d]">
+      <span
+        className="landing-num"
+        style={{
+          fontSize: 11,
+          letterSpacing: "0.22em",
+          textTransform: "uppercase",
+          color: content.highlighted
+            ? "var(--landing-gold)"
+            : "var(--landing-muted-soft)",
+        }}
+      >
         {content.eyebrow}
-      </p>
-      <h3 className="mt-4 text-[2.15rem] font-semibold tracking-[-0.05em] text-[#17261f]">
-        {plan.label}
-      </h3>
-      <p className="mt-4 text-lg leading-9 text-[#42574d]">
-        {content.description}
-      </p>
-      <p className="mt-5 text-4xl font-semibold tracking-[-0.06em] text-[#21352d]">
-        {price}
-      </p>
-      <p className="mt-2 text-sm text-[#60736a]">
-        {billingCycle === "annual"
-          ? "valor total anual"
-          : "por workspace / mês"}
-      </p>
-      <div className="mt-6 grid gap-3">
+      </span>
+
+      <h3 className="landing-h3">{plan.label}</h3>
+      <p className="landing-note">{content.description}</p>
+
+      <div className="flex flex-col gap-1">
+        <span
+          className="landing-num text-4xl font-semibold"
+          style={{ letterSpacing: "-0.03em" }}
+        >
+          {price}
+        </span>
+        <span className="landing-note">
+          {billingCycle === "annual"
+            ? "valor total anual"
+            : "por workspace / mês"}
+        </span>
+      </div>
+
+      <ul
+        className="flex flex-col gap-3"
+        style={{ listStyle: "none", margin: 0, padding: 0 }}
+      >
         {content.items.map((item) => (
-          <div key={item} className="flex items-start gap-3">
-            <span className="mt-1 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-[#eef8f3] text-[10px] font-bold text-[#20543f]">
+          <li
+            key={item}
+            className="flex items-baseline gap-3 text-sm"
+            style={{ color: "var(--landing-ink-soft)" }}
+          >
+            <span aria-hidden="true" style={{ color: "var(--landing-profit)" }}>
               ✓
             </span>
-            <p className="text-base leading-8 text-[#42574d]">{item}</p>
-          </div>
+            {item}
+          </li>
         ))}
-      </div>
+      </ul>
+
       <Link
         href={href}
-        className={`mt-8 inline-flex w-full items-center justify-center rounded-full px-5 py-3.5 text-base font-semibold transition ${content.highlighted
-            ? "bg-[#21352d] text-white hover:bg-[#17251f]"
-            : "border border-[#d7e3dc] bg-white text-[#21352d] hover:border-[#21352d]"
-          }`}
+        className={`landing-cta mt-auto w-full ${
+          content.highlighted ? "" : "landing-cta--ghost"
+        }`}
       >
         {content.cta}
       </Link>
