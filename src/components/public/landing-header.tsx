@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+
+import { DabiWordmark } from "@/components/brand/dabi-brand";
 import { useEffect, useState } from "react";
 
 const THEME_STORAGE_KEY = "dabi-price-theme";
@@ -14,13 +16,8 @@ export const landingNavLinks = [
   { label: "FAQ", href: "#faq" },
 ];
 
-export function LandingWordmark() {
-  return (
-    <span className="landing-wordmark">
-      <span className="landing-wordmark__name">DaBi</span>
-      <span className="landing-wordmark__suffix">Price</span>
-    </span>
-  );
+export function LandingWordmark({ size }: { size?: "lg" }) {
+  return <DabiWordmark size={size ?? "md"} />;
 }
 
 export function LandingHeader() {

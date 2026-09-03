@@ -806,7 +806,7 @@ export default function LandingPage() {
             style={{ borderTop: "1px solid var(--landing-line)" }}
           >
             <div className="flex flex-col gap-4" style={{ maxWidth: "34ch" }}>
-              <LandingWordmark />
+              <LandingWordmark size="lg" />
               <p className="landing-note">
                 Precificação mais clara para quem produz, vende e precisa
                 proteger a margem com números reais.

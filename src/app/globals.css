@@ -33,6 +33,8 @@
   --clay-shadow-accent:
     0 18px 36px rgba(108, 86, 255, 0.24);
   --app-sidebar-width: 215px;
+  --brand-blue: #2b5ce6;
+  --brand-gold: #a8813a;
   --font-sans-ui: "Geist", "Avenir Next", "Segoe UI", sans-serif;
   --font-mono-ui: "Geist Mono", "SFMono-Regular", "Menlo", monospace;
 }
@@ -69,6 +71,8 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
   --clay-shadow-accent:
     0 18px 40px rgba(108, 86, 255, 0.18);
+  --brand-blue: #4d7bf5;
+  --brand-gold: #c9a961;
 }
 
 @theme inline {
@@ -732,6 +736,7 @@ input[type="number"] {
   --landing-gold-faint: rgba(168, 129, 58, 0.10);
   --landing-action: #1f4fd8;
   --landing-action-hover: #17409f;
+  --landing-brand: #2b5ce6;
   --landing-action-ink: #ffffff;
   --landing-profit: #1f7a4f;
   --landing-muted: #5a6067;
@@ -762,6 +767,7 @@ input[type="number"] {
   --landing-gold-faint: rgba(201, 169, 97, 0.08);
   --landing-action: #2b5ce6;
   --landing-action-hover: #3d6cf0;
+  --landing-brand: #4d7bf5;
   --landing-action-ink: #ffffff;
   --landing-profit: #5fbf8b;
   --landing-muted: #a8adb5;
@@ -790,28 +796,48 @@ input[type="number"] {
 }
 
 /* — marca — */
-.landing-wordmark {
+/* O SVG de origem fixava #0A0B0D no "price" e trocava de arquivo por tema.
+   Aqui "price" herda currentColor: uma marca so, em qualquer superficie. */
+.dabi-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-brand-ui);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.dabi-lockup__text {
   display: inline-flex;
   align-items: baseline;
-  gap: 7px;
-  color: var(--landing-ink);
 }
 
-.landing-wordmark__name {
-  font-family: var(--font-display-ui);
-  font-size: 26px;
-  line-height: 1;
+.dabi-lockup__brand {
+  font-weight: 600;
+  font-size: 27px;
   letter-spacing: -0.01em;
+  color: var(--brand-blue);
 }
 
-.landing-wordmark__suffix {
-  font-family: var(--font-mono-ui);
-  font-size: 12px;
-  line-height: 1;
-  letter-spacing: 0.30em;
-  text-transform: uppercase;
-  color: var(--landing-gold);
-  padding-bottom: 2px;
+.dabi-lockup__product {
+  font-weight: 500;
+  font-size: 15px;
+  letter-spacing: 0.005em;
+  color: currentColor;
+  margin-left: 3px;
+}
+
+.dabi-lockup--sm { gap: 7px; }
+.dabi-lockup--sm .dabi-lockup__brand { font-size: 22px; }
+.dabi-lockup--sm .dabi-lockup__product { font-size: 12px; }
+
+.dabi-lockup--lg { gap: 12px; }
+.dabi-lockup--lg .dabi-lockup__brand { font-size: 38px; }
+.dabi-lockup--lg .dabi-lockup__product { font-size: 21px; margin-left: 4px; }
+
+.dabi-mark {
+  flex-shrink: 0;
+  display: block;
 }
 
 /* — tipografia — */

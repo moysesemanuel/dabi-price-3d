@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import horizontalLogo from "@/app/dabi-price-horizontal.svg";
-import Image from "next/image";
+import { DabiWordmark } from "@/components/brand/dabi-brand";
 import { getCurrentAuthSession } from "@/lib/auth/session";
 import {
   defaultAppPreferences,
@@ -178,14 +177,7 @@ export default async function PublicPlansPage({
         <div className="mx-auto max-w-[1180px] px-4 pb-14 pt-6 sm:px-6 lg:px-8">
           <header className="flex flex-wrap items-center justify-between gap-4">
             <Link href="/" className="inline-flex" aria-label="Dabi Price">
-              <Image
-                src={horizontalLogo}
-                alt="Dabi Price"
-                width={176}
-                height={42}
-                unoptimized
-                className="h-8 w-auto"
-              />
+              <DabiWordmark size="md" />
             </Link>
 
             <nav className="hidden items-center gap-7 text-sm text-[#6c897b] md:flex">

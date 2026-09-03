@@ -42,14 +42,18 @@ test("a landing preserva as rotas e ancoras de conversao", () => {
   );
 });
 
-test("a marca no header e o lockup textual, sem simbolo", () => {
+test("o header usa a marca compartilhada, e nao uma copia local", () => {
   assert.ok(
-    headerSource.includes("landing-wordmark"),
-    "o lockup textual DaBi Price nao esta no header",
+    headerSource.includes("DabiWordmark"),
+    "o header precisa consumir o componente de marca do produto",
   );
   assert.ok(
     !/next\/image/.test(headerSource),
-    "o header voltou a usar imagem de logo; a marca aprovada e apenas texto",
+    "a marca e vetor inline; nao deve voltar a ser arquivo de imagem",
+  );
+  assert.ok(
+    !/dabi-lockup__|landing-wordmark__/.test(headerSource),
+    "o header nao deve remontar o lockup por conta propria",
   );
 });
 
@@ -114,4 +118,17 @@ test("a fonte display serifada esta registrada no layout", () => {
     layoutSource.includes("instrument-serif-latin.woff2"),
     "a Instrument Serif precisa ser carregada localmente, como a Geist",
   );
+});
+
+test("a fonte da marca esta registrada no layout", () => {
+  assert.ok(
+    layoutSource.includes("--font-brand-ui"),
+    "o layout precisa expor a variavel da fonte da marca",
+  );
+  for (const face of ["fredoka-latin-600.woff2", "fredoka-latin-500.woff2"]) {
+    assert.ok(
+      layoutSource.includes(face),
+      `a Fredoka ${face} precisa ser carregada localmente, sem rede no build`,
+    );
+  }
 });

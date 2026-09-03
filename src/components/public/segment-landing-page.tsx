@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
-import Image from "next/image";
 import Link from "next/link";
-import horizontalLogo from "@/app/dabi-price-horizontal.svg";
+import { DabiWordmark } from "@/components/brand/dabi-brand";
 import type { SegmentLandingConfig } from "@/lib/public/segment-landings";
 
 type SegmentLandingPageProps = {
@@ -19,14 +18,7 @@ export function SegmentLandingPage({
         <div className="mx-auto max-w-[1200px] px-4 pb-14 pt-6 sm:px-6 lg:px-8">
           <header className="flex flex-wrap items-center justify-between gap-4">
             <Link href="/" aria-label="DaBi Price" className="inline-flex">
-              <Image
-                src={horizontalLogo}
-                alt="Dabi Price"
-                width={176}
-                height={42}
-                unoptimized
-                className="h-8 w-auto"
-              />
+              <DabiWordmark size="md" />
             </Link>
 
             <div className="flex items-center gap-2">
