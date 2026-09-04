@@ -98,11 +98,11 @@ export function ConfectioneryLandingCalculator() {
         id="captura"
         className="grid gap-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]"
       >
-        <div className="rounded-[32px] border border-[#bddccd] bg-[#24473c] px-6 py-7 text-white shadow-[0_24px_60px_rgba(36,71,60,0.24)] sm:px-7">
+        <div className="rounded-[var(--landing-radius)] border border-[color:var(--landing-line-strong)] bg-[color:var(--landing-panel-alt)] px-6 py-7 shadow-[var(--landing-shadow)] sm:px-7">
           <h2 className="mt-4 text-3xl font-semibold leading-[1.02] tracking-[-0.06em] sm:text-4xl">
             Antes de calcular, receba também o mini guia gratuito.
           </h2>
-          <p className="mt-4 max-w-[36rem] text-sm leading-7 text-[#dcebe4] sm:text-base">
+          <p className="mt-4 max-w-[36rem] text-sm leading-7 text-[color:var(--landing-ink-soft)] sm:text-base">
             Além da calculadora, você recebe um material rápido com os principais
             erros que fazem uma confeiteira vender e ainda assim não ver o
             dinheiro sobrar.
@@ -128,10 +128,10 @@ export function ConfectioneryLandingCalculator() {
             ].map((item) => (
               <div
                 key={item.title}
-                className="rounded-[24px] border border-white/12 bg-white/8 px-4 py-4 backdrop-blur"
+                className="rounded-[var(--landing-radius)] border border-[color:var(--landing-line)] bg-[color:var(--landing-panel)] px-4 py-4"
               >
-                <p className="text-sm font-semibold text-white">{item.title}</p>
-                <p className="mt-1 text-sm leading-6 text-[#d4e5dd]">
+                <p className="text-sm font-semibold">{item.title}</p>
+                <p className="mt-1 text-sm leading-6 text-[color:var(--landing-ink-soft)]">
                   {item.description}
                 </p>
               </div>
@@ -141,12 +141,12 @@ export function ConfectioneryLandingCalculator() {
 
         <form
           onSubmit={handleUnlock}
-          className="rounded-[32px] border border-[#d8e9df] bg-white/94 px-6 py-7 shadow-[0_24px_60px_rgba(99,144,126,0.12)] sm:px-7"
+          className="rounded-[var(--landing-radius)] border border-[color:var(--landing-line-strong)] bg-[color:var(--landing-panel)] px-6 py-7 shadow-[var(--landing-shadow)] sm:px-7"
         >
-          <h2 className="mt-4 text-2xl font-semibold tracking-[-0.05em] text-[#274338] sm:text-3xl">
+          <h2 className="mt-4 text-2xl font-semibold tracking-[-0.05em] text-[color:var(--landing-ink)] sm:text-3xl">
             Libere seu acesso gratuito
           </h2>
-          <p className="mt-3 max-w-[34rem] text-sm leading-7 text-[#6c897b]">
+          <p className="mt-3 max-w-[34rem] text-sm leading-7 text-[color:var(--landing-muted)]">
             Preencha abaixo. Nesta versão demonstrativa, os dados ficam apenas
             no seu navegador.
           </p>
@@ -178,19 +178,19 @@ export function ConfectioneryLandingCalculator() {
 
           <button
             type="submit"
-            className="mt-6 inline-flex w-full items-center justify-center rounded-[18px] bg-[#f68ab0] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_18px_34px_rgba(246,138,176,0.28)] transition hover:bg-[#eb739d]"
+            className="mt-6 inline-flex w-full items-center justify-center rounded-[var(--landing-radius-sm)] bg-[color:var(--landing-accent)] px-5 py-3.5 text-sm font-semibold text-[color:var(--landing-accent-ink)] shadow-[var(--landing-shadow)] transition hover:bg-[color:var(--landing-accent-hover)]"
           >
             Quero acessar a calculadora
           </button>
 
-          <p className="mt-4 text-xs leading-6 text-[#7e9689]">
+          <p className="mt-4 text-xs leading-6 text-[color:var(--landing-muted)]">
             Ao continuar, você concorda em receber conteúdos relacionados a
             confeitaria, vendas, gestão e precificação. Você poderá sair da
             lista quando quiser.
           </p>
 
           {isUnlocked ? (
-            <div className="mt-4 rounded-[20px] border border-[#b9dec7] bg-[#f4fff8] px-4 py-3 text-sm font-medium text-[#2e6c51]">
+            <div className="mt-4 rounded-[var(--landing-radius)] border border-[color:var(--landing-line)] bg-[color:var(--landing-panel-alt)] px-4 py-3 text-sm font-medium text-[color:var(--landing-profit)]">
               Acesso liberado. Role a página para usar a calculadora.
             </div>
           ) : null}
@@ -201,11 +201,11 @@ export function ConfectioneryLandingCalculator() {
         id="calculadora"
         className="grid gap-4 xl:grid-cols-[minmax(0,1.18fr)_360px]"
       >
-        <div className="rounded-[32px] border border-[#d8e9df] bg-white/94 px-6 py-7 shadow-[0_24px_60px_rgba(99,144,126,0.12)] sm:px-7">
-          <h2 className="text-3xl font-semibold leading-[1.02] tracking-[-0.06em] text-[#274338] sm:text-4xl">
+        <div className="rounded-[var(--landing-radius)] border border-[color:var(--landing-line-strong)] bg-[color:var(--landing-panel)] px-6 py-7 shadow-[var(--landing-shadow)] sm:px-7">
+          <h2 className="text-3xl font-semibold leading-[1.02] tracking-[-0.06em] text-[color:var(--landing-ink)] sm:text-4xl">
             Calculadora de precificação
           </h2>
-          <p className="mt-3 max-w-[42rem] text-sm leading-7 text-[#6c897b] sm:text-base">
+          <p className="mt-3 max-w-[42rem] text-sm leading-7 text-[color:var(--landing-muted)] sm:text-base">
             Preencha os dados de uma receita ou lote completo. Os resultados são
             atualizados automaticamente.
           </p>
@@ -313,19 +313,19 @@ export function ConfectioneryLandingCalculator() {
           </div>
         </div>
 
-        <aside className="rounded-[32px] border border-[#e5d6de] bg-[#fff8fb] px-6 py-7 shadow-[0_24px_60px_rgba(168,121,140,0.12)] xl:sticky xl:top-6 xl:self-start">
-          <h2 className="mt-4 text-2xl font-semibold tracking-[-0.05em] text-[#4d3240]">
+        <aside className="rounded-[var(--landing-radius)] border border-[color:var(--landing-line-strong)] bg-[color:var(--landing-panel-alt)] px-6 py-7 shadow-[var(--landing-shadow)] xl:sticky xl:top-6 xl:self-start">
+          <h2 className="mt-4 text-2xl font-semibold tracking-[-0.05em] text-[color:var(--landing-ink)]">
             Preço sugerido
           </h2>
-          <small className="mt-3 block text-[#846674]">
+          <small className="mt-3 block text-[color:var(--landing-muted)]">
             Com base nos dados preenchidos
           </small>
 
-          <div className="mt-6 rounded-[28px] border border-[#f2d6e3] bg-white/84 px-5 py-5">
-            <p className="mt-3 text-4xl font-semibold tracking-[-0.07em] text-[#24473c] sm:text-5xl">
+          <div className="mt-6 rounded-[var(--landing-radius)] border border-[color:var(--landing-line)] bg-[color:var(--landing-panel)] px-5 py-5">
+            <p className="mt-3 text-4xl font-semibold tracking-[-0.07em] text-[color:var(--landing-ink)] sm:text-5xl">
               {formatCurrency(summary.suggestedPrice)}
             </p>
-            <p className="mt-2 text-sm text-[#7e6872]">
+            <p className="mt-2 text-sm text-[color:var(--landing-muted)]">
               {formatCurrency(summary.unitPrice)} por unidade
             </p>
           </div>
@@ -350,14 +350,14 @@ export function ConfectioneryLandingCalculator() {
             />
           </div>
 
-          <div className="mt-6 rounded-[24px] border border-[#f2d6e3] bg-[#fff7f8] px-4 py-4 text-sm leading-7 text-[#6e4b54]">
+          <div className="mt-6 rounded-[var(--landing-radius)] border border-[color:var(--landing-line)] bg-[color:var(--landing-panel-alt)] px-4 py-4 text-sm leading-7 text-[color:var(--landing-muted)]">
             Esta é uma estimativa educacional. Custos, impostos, taxas e
             posicionamento devem ser revisados antes de definir o preço final.
           </div>
 
-          <div className="mt-6 rounded-[16px] bg-[#24473c] px-[18px] py-[18px] text-white">
+          <div className="mt-6 rounded-[var(--landing-radius)] bg-[color:var(--landing-panel-alt)] px-[18px] py-[18px]">
             <strong className="block text-base">Quer profissionalizar sua confeitaria?</strong>
-            <span className="mt-1 block text-[0.86rem] leading-[1.45] text-[#dcebe4]">
+            <span className="mt-1 block text-[0.86rem] leading-[1.45] text-[color:var(--landing-ink-soft)]">
               Em breve: aulas, materiais práticos e ferramentas para ajudar você
               a precificar, organizar e vender melhor.
             </span>
@@ -387,10 +387,10 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="flex items-center gap-2 text-sm font-semibold text-[#35584a]">
+      <span className="flex items-center gap-2 text-sm font-semibold text-[color:var(--landing-ink-soft)]">
         {label}
         {helper ? (
-          <span className="text-xs font-medium text-[#8aa595]">{helper}</span>
+          <span className="text-xs font-medium text-[color:var(--landing-muted-soft)]">{helper}</span>
         ) : null}
       </span>
       <input
@@ -399,7 +399,7 @@ function Field({
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full rounded-[18px] border border-[#d7e8df] bg-[#fbfffc] px-4 py-3 text-sm text-[#24473c] outline-none transition focus:border-[#f68ab0] focus:ring-2 focus:ring-[#f68ab0]/20"
+        className="mt-2 w-full rounded-[var(--landing-radius-sm)] border border-[color:var(--landing-line-strong)] bg-[color:var(--landing-panel-alt)] px-4 py-3 text-sm text-[color:var(--landing-ink)] outline-none transition focus:border-[color:var(--landing-accent)] focus:ring-2 focus:ring-[color:var(--landing-accent-ring)]"
       />
     </label>
   );
@@ -420,15 +420,15 @@ function NumberField({
 }) {
   return (
     <label className="block">
-      <span className="flex items-center gap-2 text-sm font-semibold text-[#35584a]">
+      <span className="flex items-center gap-2 text-sm font-semibold text-[color:var(--landing-ink-soft)]">
         {label}
         {helper ? (
-          <span className="text-xs font-medium text-[#8aa595]">{helper}</span>
+          <span className="text-xs font-medium text-[color:var(--landing-muted-soft)]">{helper}</span>
         ) : null}
       </span>
-      <div className="mt-2 flex items-center overflow-hidden rounded-[18px] border border-[#d7e8df] bg-[#fbfffc] transition focus-within:border-[#f68ab0] focus-within:ring-2 focus-within:ring-[#f68ab0]/20">
+      <div className="mt-2 flex items-center overflow-hidden rounded-[var(--landing-radius-sm)] border border-[color:var(--landing-line-strong)] bg-[color:var(--landing-panel-alt)] transition focus-within:border-[color:var(--landing-accent)] focus-within:ring-2 focus-within:ring-[color:var(--landing-accent-ring)]">
         {suffix ? (
-          <span className="border-r border-[#d7e8df] px-4 py-3 text-sm text-[#7a9487]">
+          <span className="border-r border-[color:var(--landing-line-strong)] px-4 py-3 text-sm text-[color:var(--landing-muted-soft)]">
             {suffix}
           </span>
         ) : null}
@@ -438,7 +438,7 @@ function NumberField({
           step="0.1"
           value={Number.isFinite(value) ? value : 0}
           onChange={(event) => onChange(toPositiveNumber(event.target.value))}
-          className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-[#24473c] outline-none"
+          className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-[color:var(--landing-ink)] outline-none"
         />
       </div>
     </label>
@@ -455,11 +455,11 @@ function CalculatorBlock({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-[28px] border border-[#deece4] bg-[#f8fcfa] px-5 py-5 sm:px-6">
-      <h3 className="text-xl font-semibold tracking-[-0.04em] text-[#274338]">
+    <section className="rounded-[var(--landing-radius)] border border-[color:var(--landing-line)] bg-[color:var(--landing-panel-alt)] px-5 py-5 sm:px-6">
+      <h3 className="text-xl font-semibold tracking-[-0.04em] text-[color:var(--landing-ink)]">
         {title}
       </h3>
-      <p className="mt-2 text-sm leading-7 text-[#6c897b]">{description}</p>
+      <p className="mt-2 text-sm leading-7 text-[color:var(--landing-muted)]">{description}</p>
       <div className="mt-5">{children}</div>
     </section>
   );
@@ -475,9 +475,9 @@ function MetricRow({
   tone?: "default" | "success";
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-[20px] border border-[#efdde5] bg-white/84 px-4 py-3 text-sm">
-      <span className="text-[#735b65]">{label}</span>
-      <strong className={tone === "success" ? "text-[#2c8058]" : "text-[#31483f]"}>
+    <div className="flex items-center justify-between gap-4 rounded-[var(--landing-radius)] border border-[color:var(--landing-line)] bg-[color:var(--landing-panel)] px-4 py-3 text-sm">
+      <span className="text-[color:var(--landing-muted)]">{label}</span>
+      <strong className={tone === "success" ? "text-[color:var(--landing-profit)]" : "text-[color:var(--landing-ink)]"}>
         {value}
       </strong>
     </div>
