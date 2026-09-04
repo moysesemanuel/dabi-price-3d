@@ -26,8 +26,8 @@ export function AdminDashboardPeriodFilter({
             href={`/admin/dashboard?period=${preset}`}
             aria-current={active ? "page" : undefined}
             className={active
-              ? "rounded-full bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-[var(--accent-ink)]"
-              : "rounded-full border border-[var(--panel-border)] bg-[var(--panel-soft)] px-3 py-2 text-sm font-medium text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--foreground)]"}
+              ? "rounded-[var(--admin-radius-sm)] bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-[var(--accent-ink)]"
+              : "rounded-[var(--admin-radius-sm)] border border-[var(--panel-border)] bg-[var(--panel-soft)] px-3 py-2 text-sm font-medium text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--foreground)]"}
           >
             {labels[preset]}
           </Link>
