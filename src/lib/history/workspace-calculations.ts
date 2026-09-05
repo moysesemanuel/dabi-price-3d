@@ -5,6 +5,7 @@ import type {
 import { defaultExchangeRateSnapshot } from "../currency/display-currency.ts";
 import {
   hydrateConfectioneryPricingFormState,
+  LEGACY_CONFECTIONERY_PRICING_MODEL,
   type ConfectioneryPricingFormState,
 } from "../confectionery/calculate-confectionery-price.ts";
 import {
@@ -116,9 +117,15 @@ export function normalizeSavedCalculation(value: unknown): SavedCalculation | nu
     return {
       ...baseCalculation,
       kind: "confectionery",
-      confectionerySnapshot: hydrateConfectioneryPricingFormState(
-        item.confectionerySnapshot,
-      ),
+      // Registro sem pricingModel foi salvo antes de 05/09/2026: reabre no
+      // modelo daquela epoca, para o preco continuar sendo o que a pessoa
+      // cobrou. O resumo guardado nunca e recalculado.
+      confectionerySnapshot: hydrateConfectioneryPricingFormState({
+        ...item.confectionerySnapshot,
+        pricingModel:
+          item.confectionerySnapshot?.pricingModel ??
+          LEGACY_CONFECTIONERY_PRICING_MODEL,
+      }),
     };
   }
 

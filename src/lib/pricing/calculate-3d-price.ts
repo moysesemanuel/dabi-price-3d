@@ -1,3 +1,5 @@
+import { calculateSuggestedPrice } from "./suggested-price.ts";
+
 export type PricingMode = "manual" | "margin";
 
 export type Calculate3DPriceInput = {
@@ -187,8 +189,12 @@ export function calculate3DPrice(
   const targetPriceBeforeFees = costWithLoss;
 
   const priceByMargin = isValidFees
-    ? (costWithLoss + marketplaceFixedFeeCost) /
-      (1 - variableFeeRate - desiredMarginRate)
+    ? calculateSuggestedPrice({
+        costWithLoss,
+        fixedFee: marketplaceFixedFeeCost,
+        variableFeeRate,
+        marginRate: desiredMarginRate,
+      })
     : 0;
 
   const manualTotalPrice =
