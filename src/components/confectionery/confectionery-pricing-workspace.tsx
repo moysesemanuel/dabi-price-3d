@@ -401,14 +401,33 @@ export function ConfectioneryPricingWorkspace({
                 Margem e preço sugerido
               </h3>
 
-              <div className="mt-5 grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+              <div className="mt-5 grid gap-4 md:grid-cols-3">
+                <PastelNumberField
+                  label="Perdas de produção"
+                  hint="Massa que erra o ponto, unidade que quebra, sobra que não vende."
+                  suffix="%"
+                  value={form.lossPercentage}
+                  onChange={(value) => updateNumberField(setForm, "lossPercentage", value)}
+                />
+                <PastelNumberField
+                  label="Taxas de venda"
+                  hint="Comissão do canal, maquininha e tributos sobre o preço."
+                  suffix="%"
+                  value={form.salesFeePercentage}
+                  onChange={(value) =>
+                    updateNumberField(setForm, "salesFeePercentage", value)
+                  }
+                />
                 <PastelNumberField
                   label="Margem de lucro"
-                  hint="Percentual aplicado sobre o custo por unidade."
+                  hint="Quanto do preço final você quer que sobre."
                   suffix="%"
                   value={form.marginPercentage}
                   onChange={(value) => updateNumberField(setForm, "marginPercentage", value)}
                 />
+              </div>
+
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <div className="rounded-[24px] border border-[#f0eadf] bg-[#fffdf7] px-4 py-4">
                   <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#b89347]">
                     Custo por unidade
@@ -417,19 +436,50 @@ export function ConfectioneryPricingWorkspace({
                     {formatCurrency(result.unitCost, "BRL")}
                   </p>
                   <p className="mt-2 text-sm text-[#7f7565]">
-                    {formatCurrency(result.totalBatchCost, "BRL")} ÷{" "}
+                    {formatCurrency(result.totalBatchCostWithLoss, "BRL")} ÷{" "}
                     {form.unitsProduced} unidade(s)
+                    {result.lossCost > 0
+                      ? ` · inclui ${formatCurrency(result.lossCost, "BRL")} de perda`
+                      : ""}
+                  </p>
+                </div>
+                <div className="rounded-[24px] border border-[#f0eadf] bg-[#fffdf7] px-4 py-4">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#b89347]">
+                    Sobra por unidade
+                  </p>
+                  <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[#26473a]">
+                    {formatCurrency(result.unitProfit, "BRL")}
+                  </p>
+                  <p className="mt-2 text-sm text-[#7f7565]">
+                    {formatNumber(result.effectiveMarginPercentage)}% do preço
+                    {result.salesFeeValue > 0
+                      ? ` · depois de ${formatCurrency(result.salesFeeValue, "BRL")} de taxas`
+                      : ""}
                   </p>
                 </div>
               </div>
 
-              <div className="mt-5 rounded-[24px] border border-[#efe8dc] bg-[#fffdf7] px-4 py-4 text-sm text-[#7f7565]">
-                Preço sugerido = {formatCurrency(result.unitCost, "BRL")} × (1 +{" "}
-                {formatNumber(form.marginPercentage)}%) ={" "}
-                <strong className="text-[#26473a]">
-                  {formatCurrency(result.suggestedUnitPrice, "BRL")}
-                </strong>
-              </div>
+              {result.isPricingViable ? (
+                <div className="mt-5 rounded-[24px] border border-[#efe8dc] bg-[#fffdf7] px-4 py-4 text-sm text-[#7f7565]">
+                  Preço sugerido = {formatCurrency(result.unitCost, "BRL")} ÷ (1 −{" "}
+                  {formatNumber(form.salesFeePercentage)}% de taxas −{" "}
+                  {formatNumber(form.marginPercentage)}% de margem) ={" "}
+                  <strong className="text-[#26473a]">
+                    {formatCurrency(result.suggestedUnitPrice, "BRL")}
+                  </strong>
+                  <span className="mt-2 block">
+                    A margem é sobre o preço de venda, não sobre o custo: as taxas
+                    incidem sobre o preço, então é assim que a margem pedida vira a
+                    margem obtida.
+                  </span>
+                </div>
+              ) : (
+                <div className="mt-5 rounded-[24px] border border-[#f0d7c8] bg-[#fff2ea] px-4 py-4 text-sm text-[#9d4615]">
+                  Taxas ({formatNumber(form.salesFeePercentage)}%) e margem (
+                  {formatNumber(form.marginPercentage)}%) somam 100% ou mais do
+                  preço. Não existe preço que satisfaça as duas — reduza uma delas.
+                </div>
+              )}
             </section>
           </div>
         </div>

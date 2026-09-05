@@ -3,6 +3,11 @@
 import type { FormEvent, HTMLInputTypeAttribute, ReactNode } from "react";
 import { useEffect, useState } from "react";
 
+import {
+  calculateSuggestedPrice,
+  isSuggestedPriceViable,
+} from "@/lib/pricing/suggested-price";
+
 type LeadState = {
   name: string;
   email: string;
@@ -498,8 +503,16 @@ function buildCalculatorSummary(input: CalculatorState) {
 
   const base = ingredients + packaging + energy + other + labor + fixed;
   const totalCost = base + base * lossPct;
-  const divisor = Math.max(0.01, 1 - feesPct - marginPct);
-  const suggestedPrice = totalCost / divisor;
+  // Mesma primitiva do motor do produto: a demo e o app nao podem divergir.
+  const isViable = isSuggestedPriceViable({
+    variableFeeRate: feesPct,
+    marginRate: marginPct,
+  });
+  const suggestedPrice = calculateSuggestedPrice({
+    costWithLoss: totalCost,
+    variableFeeRate: feesPct,
+    marginRate: marginPct,
+  });
   const feesValue = suggestedPrice * feesPct;
   const profit = suggestedPrice - totalCost - feesValue;
   const unitPrice = suggestedPrice / quantity;
@@ -514,6 +527,7 @@ function buildCalculatorSummary(input: CalculatorState) {
     unitPrice,
     unitCost,
     effectiveMargin,
+    isViable,
   };
 }
 

@@ -1,3 +1,8 @@
+import {
+  calculateSuggestedPrice,
+  isSuggestedPriceViable,
+} from "../pricing/suggested-price.ts";
+
 export type ConfectioneryIngredientUnit = "g" | "ml" | "un";
 
 export type ConfectioneryIngredientInput = {
@@ -19,6 +24,10 @@ export type ConfectioneryPricingFormState = {
   packagingCost: number;
   productionTimeMinutes: number;
   unitsProduced: number;
+  /** Percentual de perda de producao, aplicado sobre o custo do lote. */
+  lossPercentage: number;
+  /** Taxas proporcionais ao preco de venda (marketplace, tributos). */
+  salesFeePercentage: number;
   marginPercentage: number;
 };
 
@@ -35,11 +44,17 @@ export type ConfectioneryPricingResult = {
   >;
   timeCost: number;
   totalBatchCost: number;
+  lossCost: number;
+  totalBatchCostWithLoss: number;
   unitCost: number;
   suggestedUnitPrice: number;
   suggestedBatchRevenue: number;
+  salesFeeValue: number;
   unitProfit: number;
   batchProfit: number;
+  effectiveMarginPercentage: number;
+  /** false quando taxas + margem consomem 100% do preco. */
+  isPricingViable: boolean;
 };
 
 export const initialConfectioneryPricingForm: ConfectioneryPricingFormState = {
@@ -77,6 +92,8 @@ export const initialConfectioneryPricingForm: ConfectioneryPricingFormState = {
   packagingCost: 2,
   productionTimeMinutes: 120,
   unitsProduced: 1,
+  lossPercentage: 0,
+  salesFeePercentage: 0,
   marginPercentage: 40,
 };
 
@@ -141,6 +158,10 @@ export function hydrateConfectioneryPricingFormState(
         ),
       ),
     ),
+    // Calculos salvos antes destes campos existirem hidratam com zero, o que
+    // preserva o custo; o preco muda porque o modelo de margem mudou.
+    lossPercentage: sanitizeNumber(input?.lossPercentage, 0),
+    salesFeePercentage: sanitizeNumber(input?.salesFeePercentage, 0),
     marginPercentage: sanitizeNumber(
       input?.marginPercentage,
       initialConfectioneryPricingForm.marginPercentage,
@@ -180,12 +201,27 @@ export function calculateConfectioneryPrice(
   const timeCost = productionTimeHours * hourlyCost;
   const totalBatchCost =
     ingredientCost + Math.max(0, input.packagingCost) + timeCost;
-  const unitCost = input.unitsProduced > 0 ? totalBatchCost / input.unitsProduced : 0;
-  const suggestedUnitPrice =
-    unitCost * (1 + Math.max(-100, input.marginPercentage) / 100);
+  const lossRate = Math.min(Math.max(0, input.lossPercentage), 100) / 100;
+  const lossCost = totalBatchCost * lossRate;
+  const totalBatchCostWithLoss = totalBatchCost + lossCost;
+  const unitCost =
+    input.unitsProduced > 0 ? totalBatchCostWithLoss / input.unitsProduced : 0;
+
+  const variableFeeRate = Math.min(Math.max(0, input.salesFeePercentage), 100) / 100;
+  const marginRate = Math.max(0, input.marginPercentage) / 100;
+  const isPricingViable = isSuggestedPriceViable({ variableFeeRate, marginRate });
+  const suggestedUnitPrice = calculateSuggestedPrice({
+    costWithLoss: unitCost,
+    variableFeeRate,
+    marginRate,
+  });
+
   const suggestedBatchRevenue = suggestedUnitPrice * input.unitsProduced;
-  const unitProfit = suggestedUnitPrice - unitCost;
-  const batchProfit = suggestedBatchRevenue - totalBatchCost;
+  const salesFeeValue = suggestedUnitPrice * variableFeeRate;
+  const unitProfit = suggestedUnitPrice - unitCost - salesFeeValue;
+  const batchProfit = unitProfit * input.unitsProduced;
+  const effectiveMarginPercentage =
+    suggestedUnitPrice > 0 ? (unitProfit / suggestedUnitPrice) * 100 : 0;
 
   return {
     monthlyHours,
@@ -195,11 +231,16 @@ export function calculateConfectioneryPrice(
     ingredientBreakdown,
     timeCost,
     totalBatchCost,
+    lossCost,
+    totalBatchCostWithLoss,
     unitCost,
     suggestedUnitPrice,
     suggestedBatchRevenue,
+    salesFeeValue,
     unitProfit,
     batchProfit,
+    effectiveMarginPercentage,
+    isPricingViable,
   };
 }
 
