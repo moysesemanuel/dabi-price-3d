@@ -3,11 +3,8 @@
 import Link from "next/link";
 
 import { DabiWordmark } from "@/components/brand/dabi-brand";
-import { useEffect, useState } from "react";
-
-const THEME_STORAGE_KEY = "dabi-price-theme";
-
-type ThemeMode = "light" | "dark";
+import { LandingThemeToggle } from "@/components/public/landing-theme-toggle";
+import { useState } from "react";
 
 export const landingNavLinks = [
   { label: "Como funciona", href: "#como-funciona" },
@@ -22,28 +19,6 @@ export function LandingWordmark({ size }: { size?: "lg" }) {
 
 export function LandingHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
-    if (typeof window !== "undefined") {
-      return window.localStorage.getItem(THEME_STORAGE_KEY) === "dark"
-        ? "dark"
-        : "light";
-    }
-
-    return "light";
-  });
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = themeMode;
-    try {
-      window.localStorage.setItem(THEME_STORAGE_KEY, themeMode);
-    } catch {
-      /* preferencia visual nunca derruba a pagina */
-    }
-  }, [themeMode]);
-
-  function toggleTheme() {
-    setThemeMode((previous) => (previous === "dark" ? "light" : "dark"));
-  }
 
   return (
     <header className="landing-header">
@@ -64,22 +39,7 @@ export function LandingHeader() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={toggleTheme}
-              aria-label={
-                themeMode === "dark"
-                  ? "Usar modo claro"
-                  : "Usar modo escuro"
-              }
-              aria-pressed={themeMode === "dark"}
-              className="landing-header__toggle !flex"
-              style={{ width: 40, height: 40 }}
-            >
-              <span aria-hidden="true">
-                {themeMode === "dark" ? "☾" : "☀"}
-              </span>
-            </button>
+            <LandingThemeToggle />
 
             <Link
               href="/login"

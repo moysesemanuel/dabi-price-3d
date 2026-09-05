@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { DabiWordmark } from "@/components/brand/dabi-brand";
+import { LandingThemeToggle } from "@/components/public/landing-theme-toggle";
 import type { SegmentLandingConfig } from "@/lib/public/segment-landings";
 
 type SegmentLandingPageProps = {
@@ -13,62 +14,71 @@ export function SegmentLandingPage({
   children,
 }: SegmentLandingPageProps) {
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#fffefb_0%,#f7fbf8_42%,#fff8f2_100%)] text-[#21352d]">
-      <section className="border-b border-[#e6e1d4] bg-[radial-gradient(circle_at_top_left,rgba(255,213,181,0.28),transparent_28%),radial-gradient(circle_at_88%_14%,rgba(223,241,230,0.45),transparent_24%),linear-gradient(180deg,#fffefb_0%,#fff8f2_100%)]">
-        <div className="mx-auto max-w-[1200px] px-4 pb-14 pt-6 sm:px-6 lg:px-8">
-          <header className="flex flex-wrap items-center justify-between gap-4">
-            <Link href="/" aria-label="DaBi Price" className="inline-flex">
-              <DabiWordmark size="md" />
+    <main
+      className="landing-root min-h-screen overflow-x-hidden"
+      data-segment={config.slug}
+    >
+      <header className="landing-header">
+        <div className="landing-shell">
+          <div className="landing-header__bar">
+            <Link href="/" aria-label="dabi price">
+              <DabiWordmark />
             </Link>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <LandingThemeToggle />
               <Link
                 href="/"
-                className="rounded-full border border-[#d7e3dc] bg-white px-5 py-2.5 text-base font-medium text-[#21352d] transition hover:border-[#f06d2f] hover:text-[#a24b1c]"
+                className="landing-link hidden sm:inline-flex"
               >
-                Voltar para home
+                Voltar para a home
               </Link>
-              <Link
-                href="/planos"
-                className="rounded-full bg-[#21352d] px-6 py-2.5 text-base font-semibold text-white transition hover:bg-[#17251f]"
-              >
+              <Link href="/planos" className="landing-cta landing-cta--sm">
                 Ver planos
               </Link>
             </div>
-          </header>
+          </div>
+        </div>
+      </header>
 
-          <div className="grid gap-10 pt-12 lg:grid-cols-[minmax(0,1.02fr)_minmax(380px,0.98fr)] lg:items-center">
-            <div>
-              <p className="font-mono text-xs uppercase tracking-[0.32em] text-[#b8511d]">
-                {config.eyebrow}
-              </p>
-              <h1 className="mt-4 max-w-[760px] text-6xl font-semibold leading-[0.92] tracking-[-0.07em] text-[#17261f] sm:text-[5rem]">
-                {config.headline}
-              </h1>
-              <p className="mt-6 max-w-[720px] text-xl leading-9 text-[#374b42]">
+      {/* ---------- herói do segmento ---------- */}
+      <section className="landing-hero">
+        <div className="landing-shell">
+          <div className="landing-hero__grid">
+            <div className="flex flex-col gap-7">
+              <span className="landing-eyebrow">{config.eyebrow}</span>
+
+              <h1 className="landing-display">{config.headline}</h1>
+
+              <p
+                className="landing-lede"
+                style={{ maxWidth: "46ch", fontSize: "1.0625rem" }}
+              >
                 {config.description}
               </p>
 
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Link
-                  href={config.ctaHref}
-                  className="inline-flex items-center justify-center rounded-full bg-[#21352d] px-7 py-3.5 text-lg font-semibold text-white transition hover:bg-[#17251f]"
-                >
+              <div className="flex flex-wrap gap-3">
+                <Link href={config.ctaHref} className="landing-cta">
                   {config.ctaLabel}
                 </Link>
                 <a
                   href="#como-funciona"
-                  className="inline-flex items-center justify-center rounded-full border border-[#d7e3dc] bg-white px-7 py-3.5 text-lg font-semibold text-[#21352d] transition hover:border-[#21352d]"
+                  className="landing-cta landing-cta--ghost"
                 >
                   Ver como funciona
                 </a>
               </div>
 
-              <div className="mt-8 flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-2">
                 {config.costs.map((cost) => (
                   <span
                     key={cost}
-                    className="rounded-full border border-[#dbe7e0] bg-white px-4 py-2 text-base font-medium text-[#42574d]"
+                    className="px-3 py-2 text-sm"
+                    style={{
+                      border: "1px solid var(--landing-line-strong)",
+                      borderRadius: "var(--landing-radius-sm)",
+                      color: "var(--landing-muted)",
+                    }}
                   >
                     {cost}
                   </span>
@@ -76,41 +86,81 @@ export function SegmentLandingPage({
               </div>
             </div>
 
-            <div className="rounded-[34px] border border-[#e5ded1] bg-white p-5 shadow-[0_28px_80px_rgba(33,53,45,0.1)]">
-              <div className="rounded-[28px] border border-[#ece6db] bg-[#fffdf9] p-5">
-                <div className="flex items-center justify-between gap-3 border-b border-[#efe8dc] pb-4">
-                  <div>
-                    <p className="font-mono text-xs uppercase tracking-[0.24em] text-[#5c6e65]">
+            <div className="landing-hero__bleed">
+              <div className="landing-rail">
+                <div
+                  className="landing-rail__head flex flex-wrap items-baseline justify-between gap-3 px-6 py-5 sm:px-7"
+                  style={{ borderBottom: "1px solid var(--landing-line)" }}
+                >
+                  <div className="flex flex-col gap-1">
+                    <span
+                      className="landing-num"
+                      style={{
+                        fontSize: 11,
+                        letterSpacing: "0.22em",
+                        textTransform: "uppercase",
+                        color: "var(--landing-muted-soft)",
+                      }}
+                    >
                       {config.proofLabel}
-                    </p>
-                    <p className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-[#21352d]">
+                    </span>
+                    <span className="text-lg font-semibold tracking-[-0.01em]">
                       {config.proofTitle}
-                    </p>
+                    </span>
                   </div>
-                  <span className="rounded-full bg-[#eef8f3] px-3 py-2 text-xs font-semibold text-[#20543f]">
+                  <span
+                    className="landing-num"
+                    style={{
+                      fontSize: 11,
+                      letterSpacing: "0.18em",
+                      textTransform: "uppercase",
+                      color: "var(--landing-muted-soft)",
+                    }}
+                  >
                     Exemplo ilustrativo
                   </span>
                 </div>
 
-                <div className="mt-5 grid gap-3">
-                  {config.proofRows.map((row) => (
-                    <div
-                      key={row.label}
-                      className="flex items-center justify-between rounded-2xl border border-[#efe8dd] bg-white px-4 py-4 text-base"
+                {config.proofRows.map((row) => (
+                  <div
+                    key={row.label}
+                    className="flex items-baseline justify-between gap-4 px-6 py-4 sm:px-7"
+                    style={{ borderBottom: "1px solid var(--landing-line)" }}
+                  >
+                    <span
+                      className="text-sm"
+                      style={{ color: "var(--landing-ink-soft)" }}
                     >
-                      <span className="text-[#42574d]">{row.label}</span>
-                      <span className="font-semibold text-[#21352d]">{row.value}</span>
-                    </div>
-                  ))}
-                </div>
+                      {row.label}
+                    </span>
+                    <span className="landing-num text-base font-semibold">
+                      {row.value}
+                    </span>
+                  </div>
+                ))}
 
-                <div className="mt-5 rounded-[24px] bg-[#fff2ea] p-5">
-                  <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#a5551d]">
+                <div className="landing-rail__foot flex flex-col gap-1 px-6 py-6 sm:px-7">
+                  <span
+                    className="landing-num"
+                    style={{
+                      fontSize: 11,
+                      letterSpacing: "0.22em",
+                      textTransform: "uppercase",
+                      color: "var(--landing-muted-soft)",
+                    }}
+                  >
                     {config.proofResultLabel}
-                  </p>
-                  <p className="mt-3 text-4xl font-semibold tracking-[-0.05em] text-[#9d4615]">
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-display-ui)",
+                      fontSize: "clamp(2.25rem, 4vw, 3rem)",
+                      lineHeight: 1,
+                      color: "var(--landing-profit)",
+                    }}
+                  >
                     {config.proofResultValue}
-                  </p>
+                  </span>
                 </div>
               </div>
             </div>
@@ -118,36 +168,37 @@ export function SegmentLandingPage({
         </div>
       </section>
 
-      <section id="como-funciona" className="border-b border-[#ece6db] bg-white">
-        <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-[780px] text-center">
-            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
-              Como o DaBi Price ajuda
-            </p>
-            <h2 className="mt-4 text-5xl font-semibold leading-[1.02] tracking-[-0.06em] text-[#17261f]">
-              O mesmo motor de precificação, com linguagem do seu negócio.
+      {/* ---------- como funciona no segmento ---------- */}
+      <section id="como-funciona" className="landing-section landing-section--alt">
+        <div className="landing-shell flex flex-col gap-12">
+          <div className="flex flex-col gap-5" style={{ maxWidth: "62ch" }}>
+            <span className="landing-eyebrow">Como o dabi price ajuda</span>
+            <h2 className="landing-h2">
+              O mesmo motor de cálculo, com a{" "}
+              <span className="landing-turn">linguagem do seu negócio</span>.
             </h2>
-            <p className="mt-5 text-lg leading-9 text-[#42574d]">
-              Você não precisa adaptar o problema para a ferramenta. O DaBi
-              Price organiza a conta do jeito que a operação realmente funciona.
+            <p className="landing-lede">
+              Você não precisa adaptar o problema à ferramenta. A conta é
+              organizada do jeito que a operação funciona.
             </p>
           </div>
 
-          <div className="mt-10 grid gap-4 lg:grid-cols-3">
+          <div className="landing-grid landing-grid--3">
             {config.steps.map((step) => (
-              <article
-                key={step.label}
-                className="rounded-[30px] border border-[#e7e1d6] bg-[#fffdf9] p-6 shadow-[0_18px_40px_rgba(41,55,45,0.04)]"
-              >
-                <p className="font-mono text-xs uppercase tracking-[0.24em] text-[#b8511d]">
+              <article key={step.label} className="landing-card flex flex-col gap-4">
+                <span
+                  className="landing-num"
+                  style={{
+                    fontSize: 11,
+                    letterSpacing: "0.26em",
+                    textTransform: "uppercase",
+                    color: "var(--landing-gold)",
+                  }}
+                >
                   {step.label}
-                </p>
-                <h3 className="mt-4 text-[1.7rem] font-semibold tracking-[-0.04em] text-[#17261f]">
-                  {step.title}
-                </h3>
-                <p className="mt-4 text-lg leading-9 text-[#42574d]">
-                  {step.description}
-                </p>
+                </span>
+                <h3 className="landing-h3">{step.title}</h3>
+                <p className="landing-note">{step.description}</p>
               </article>
             ))}
           </div>
@@ -155,59 +206,41 @@ export function SegmentLandingPage({
       </section>
 
       {children ? (
-        <section className="border-b border-[#ece6db] bg-[#fcfbf8]">
-          <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6 lg:px-8">
-            {children}
-          </div>
+        <section className="landing-section">
+          <div className="landing-shell">{children}</div>
         </section>
       ) : null}
 
-      <section className="border-b border-[#ece6db] bg-[#f8fbf9]">
-        <div className="mx-auto max-w-[980px] px-4 py-16 text-center sm:px-6 lg:px-8">
-          <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#b8511d]">
-            Feito para decidir melhor
-          </p>
-          <h2 className="mt-4 text-5xl font-semibold tracking-[-0.06em] text-[#17261f]">
-            Menos improviso. Mais clareza sobre custos, preço e margem.
-          </h2>
-          <p className="mx-auto mt-5 max-w-[760px] text-lg leading-9 text-[#42574d]">
-            A home do DaBi Price mostra o produto. As páginas segmentadas
-            mostram como ele resolve um problema específico sem mudar o sistema
-            inteiro por trás.
-          </p>
-        </div>
-      </section>
+      {/* ---------- fechamento + CTA ---------- */}
+      <section className="landing-section landing-section--alt">
+        <div className="landing-shell flex flex-col gap-12">
+          <div className="flex flex-col gap-5" style={{ maxWidth: "62ch" }}>
+            <span className="landing-eyebrow">Feito para decidir melhor</span>
+            <h2 className="landing-h2">
+              Menos improviso. Mais clareza sobre custo, preço e margem.
+            </h2>
+            <p className="landing-lede">
+              A home mostra o produto. Esta página mostra como ele resolve um
+              problema específico — sem trocar o sistema por trás.
+            </p>
+          </div>
 
-      <section className="bg-[#1a2b24] text-white">
-        <div className="mx-auto max-w-[1200px] px-4 py-12 sm:px-6 lg:px-8">
-          <div className="rounded-[34px] bg-[linear-gradient(135deg,#d16025,#f38a42)] px-6 py-10 shadow-[0_26px_80px_rgba(0,0,0,0.22)] sm:px-8">
-            <div className="flex flex-wrap items-end justify-between gap-6">
-              <div className="max-w-[680px]">
-                <p className="font-mono text-xs uppercase tracking-[0.28em] text-white/90">
-                  Próximo passo
-                </p>
-                <h2 className="mt-4 text-4xl font-semibold tracking-[-0.06em]">
-                  {config.ctaTitle}
-                </h2>
-                <p className="mt-4 text-lg leading-9 text-white">
-                  {config.ctaDescription}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <Link
-                  href={config.ctaHref}
-                  className="rounded-full bg-[#1a2b24] px-7 py-3.5 text-base font-semibold text-white transition hover:bg-[#111c17]"
-                >
-                  {config.ctaLabel}
-                </Link>
-                <Link
-                  href="/planos"
-                  className="rounded-full border border-white/30 bg-white px-7 py-3.5 text-base font-semibold text-[#1a2b24] transition hover:bg-[#f7f4f0]"
-                >
-                  Ver planos
-                </Link>
-              </div>
+          <div
+            className="landing-card landing-card--gold flex flex-wrap items-end justify-between gap-8"
+            style={{ padding: "clamp(32px, 5vw, 52px) clamp(24px, 4vw, 44px)" }}
+          >
+            <div className="flex flex-col gap-4" style={{ maxWidth: "38ch" }}>
+              <span className="landing-eyebrow">Próximo passo</span>
+              <span className="landing-h2">{config.ctaTitle}</span>
+              <p className="landing-lede">{config.ctaDescription}</p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Link href={config.ctaHref} className="landing-cta">
+                {config.ctaLabel}
+              </Link>
+              <Link href="/planos" className="landing-cta landing-cta--ghost">
+                Ver planos
+              </Link>
             </div>
           </div>
         </div>
