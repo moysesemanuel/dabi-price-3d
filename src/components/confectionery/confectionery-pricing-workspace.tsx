@@ -17,6 +17,7 @@ import { formatCurrency } from "@/lib/pricing/formatters";
 import {
   calculateConfectioneryPrice,
   createConfectioneryIngredientInput,
+  convertToCurrentPricingModel,
   hydrateConfectioneryPricingFormState,
   initialConfectioneryPricingForm,
   type ConfectioneryIngredientInput,
@@ -72,6 +73,8 @@ export function ConfectioneryPricingWorkspace({
 
     return () => window.clearTimeout(timeoutId);
   }, [saveState]);
+
+  const isLegacyPricing = form.pricingModel === "markup_on_cost";
 
   const result = useMemo(() => calculateConfectioneryPrice(form), [form]);
   const completedFields = [
@@ -401,6 +404,26 @@ export function ConfectioneryPricingWorkspace({
                 Margem e preço sugerido
               </h3>
 
+              {isLegacyPricing ? (
+                <div className="mt-5 rounded-[24px] border border-[#efe0c8] bg-[#fffaf0] px-4 py-4 text-sm text-[#8a6a33]">
+                  <strong className="block text-[#6f5326]">
+                    Cálculo salvo no modelo anterior
+                  </strong>
+                  <span className="mt-2 block">
+                    Este cálculo foi feito quando a margem era aplicada sobre o
+                    custo, sem perdas e sem taxas de venda. Ele continua
+                    mostrando o preço que você cobrou na época.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setForm(convertToCurrentPricingModel)}
+                    className="mt-3 inline-flex items-center justify-center rounded-full border border-[#e0c89a] bg-white px-4 py-2 text-sm font-semibold text-[#6f5326] transition hover:border-[#b89347]"
+                  >
+                    Atualizar para o cálculo atual
+                  </button>
+                </div>
+              ) : null}
+
               <div className="mt-5 grid gap-4 md:grid-cols-3">
                 <PastelNumberField
                   label="Perdas de produção"
@@ -459,7 +482,15 @@ export function ConfectioneryPricingWorkspace({
                 </div>
               </div>
 
-              {result.isPricingViable ? (
+              {isLegacyPricing ? (
+                <div className="mt-5 rounded-[24px] border border-[#efe8dc] bg-[#fffdf7] px-4 py-4 text-sm text-[#7f7565]">
+                  Preço sugerido = {formatCurrency(result.unitCost, "BRL")} × (1 +{" "}
+                  {formatNumber(form.marginPercentage)}%) ={" "}
+                  <strong className="text-[#26473a]">
+                    {formatCurrency(result.suggestedUnitPrice, "BRL")}
+                  </strong>
+                </div>
+              ) : result.isPricingViable ? (
                 <div className="mt-5 rounded-[24px] border border-[#efe8dc] bg-[#fffdf7] px-4 py-4 text-sm text-[#7f7565]">
                   Preço sugerido = {formatCurrency(result.unitCost, "BRL")} ÷ (1 −{" "}
                   {formatNumber(form.salesFeePercentage)}% de taxas −{" "}

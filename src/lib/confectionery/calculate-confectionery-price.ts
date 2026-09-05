@@ -14,6 +14,21 @@ export type ConfectioneryIngredientInput = {
   usageQuantity: number;
 };
 
+/**
+ * Como o preco foi derivado do custo.
+ *
+ * "markup_on_cost" e o modelo que a confeitaria usava ate 05/09/2026: preco =
+ * custo x (1 + margem), sem perdas e sem taxas. Ele continua vivo porque o
+ * historico e registro do que a pessoa cobrou — reabrir um calculo antigo tem
+ * que mostrar o numero daquele dia, e as taxas que ela usava na epoca.
+ *
+ * Calculos novos usam "margin_on_price", o modelo do resto do produto.
+ */
+export type ConfectioneryPricingModel = "markup_on_cost" | "margin_on_price";
+
+export const LEGACY_CONFECTIONERY_PRICING_MODEL: ConfectioneryPricingModel =
+  "markup_on_cost";
+
 export type ConfectioneryPricingFormState = {
   productName: string;
   fixedMonthlyCosts: number;
@@ -29,6 +44,7 @@ export type ConfectioneryPricingFormState = {
   /** Taxas proporcionais ao preco de venda (marketplace, tributos). */
   salesFeePercentage: number;
   marginPercentage: number;
+  pricingModel: ConfectioneryPricingModel;
 };
 
 export type ConfectioneryPricingResult = {
@@ -95,6 +111,7 @@ export const initialConfectioneryPricingForm: ConfectioneryPricingFormState = {
   lossPercentage: 0,
   salesFeePercentage: 0,
   marginPercentage: 40,
+  pricingModel: "margin_on_price",
 };
 
 export function createConfectioneryIngredientInput(
@@ -166,7 +183,20 @@ export function hydrateConfectioneryPricingFormState(
       input?.marginPercentage,
       initialConfectioneryPricingForm.marginPercentage,
     ),
+    // O default aqui e o modelo atual. Quem le registro salvo passa
+    // "markup_on_cost" explicitamente — ver normalizeSavedCalculation.
+    pricingModel:
+      input?.pricingModel === "markup_on_cost"
+        ? "markup_on_cost"
+        : initialConfectioneryPricingForm.pricingModel,
   };
+}
+
+/** Passa um calculo antigo para o modelo atual, mantendo os custos. */
+export function convertToCurrentPricingModel(
+  input: ConfectioneryPricingFormState,
+): ConfectioneryPricingFormState {
+  return { ...input, pricingModel: "margin_on_price" };
 }
 
 export function calculateConfectioneryPrice(
@@ -207,14 +237,21 @@ export function calculateConfectioneryPrice(
   const unitCost =
     input.unitsProduced > 0 ? totalBatchCostWithLoss / input.unitsProduced : 0;
 
-  const variableFeeRate = Math.min(Math.max(0, input.salesFeePercentage), 100) / 100;
+  const isLegacyModel = input.pricingModel === "markup_on_cost";
+  const variableFeeRate = isLegacyModel
+    ? 0
+    : Math.min(Math.max(0, input.salesFeePercentage), 100) / 100;
   const marginRate = Math.max(0, input.marginPercentage) / 100;
-  const isPricingViable = isSuggestedPriceViable({ variableFeeRate, marginRate });
-  const suggestedUnitPrice = calculateSuggestedPrice({
-    costWithLoss: unitCost,
-    variableFeeRate,
-    marginRate,
-  });
+  const isPricingViable = isLegacyModel
+    ? true
+    : isSuggestedPriceViable({ variableFeeRate, marginRate });
+  const suggestedUnitPrice = isLegacyModel
+    ? unitCost * (1 + marginRate)
+    : calculateSuggestedPrice({
+        costWithLoss: unitCost,
+        variableFeeRate,
+        marginRate,
+      });
 
   const suggestedBatchRevenue = suggestedUnitPrice * input.unitsProduced;
   const salesFeeValue = suggestedUnitPrice * variableFeeRate;
