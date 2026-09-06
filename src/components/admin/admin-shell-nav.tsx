@@ -28,6 +28,12 @@ const groups = [
       ["/admin/sistema", "Sistema"],
     ],
   },
+  {
+    // Configuracao nao e operacao: muda raramente e nao se olha em incidente.
+    // O grupo nasce com um item, mas e onde WhatsApp, pixel e canais entram.
+    label: "Configuracoes",
+    links: [["/admin/configuracoes", "Empresa"]],
+  },
 ] as const;
 
 export function AdminShellNav({ userName }: { userName: string }) {

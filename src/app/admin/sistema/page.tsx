@@ -7,22 +7,12 @@ import {
   SummaryGrid,
 } from "@/components/admin/billing-admin-ui";
 import { BillingAdminReconciliationAction } from "@/components/admin/billing-admin-reconciliation-action";
-import { CompanyIdentityPanel } from "@/components/admin/company-identity-panel";
-import { getCompanyIdentity } from "@/lib/legal/company-identity-server";
-import {
-  isPlatformPersistenceAvailable,
-  listCompanyIdentityChanges,
-} from "@/lib/server/platform";
 import { createBillingAdminService } from "@/lib/billing/server-admin-service";
 import { requireCurrentAuthSession } from "@/lib/auth/session";
 
 export default async function BillingAdminSystemPage() {
   const session = await requireCurrentAuthSession();
   const snapshot = await createBillingAdminService().getSnapshot(session);
-  const companyIdentity = await getCompanyIdentity();
-  const identityHistory = isPlatformPersistenceAvailable()
-    ? await listCompanyIdentityChanges().catch(() => [])
-    : [];
 
   return (
     <div className="space-y-6">
@@ -31,16 +21,6 @@ export default async function BillingAdminSystemPage() {
         title="Saúde operacional e ferramentas administrativas"
         description="Leitura do modo de persistência, fila de reconciliação, estado operacional do billing e atalhos de suporte administrativo."
       />
-
-      <AdminPageSection
-        title="Identidade da empresa"
-        description="Razão social, CNPJ, endereço e canais que aparecem nos Termos, na Política de Privacidade e no rodapé. Toda alteração fica registrada."
-      >
-        <CompanyIdentityPanel
-          initialIdentity={companyIdentity}
-          history={identityHistory}
-        />
-      </AdminPageSection>
 
       <AdminPageSection
         title="Resumo sistêmico"

@@ -49,6 +49,21 @@ test("a alteracao gera um diff auditavel", () => {
   assert.equal(changes.address.to, "Rua Nova, 100");
 });
 
+test("a identidade tem tela propria, fora das telas de operacao", () => {
+  const settings = read("src/app/admin/configuracoes/page.tsx");
+  assert.match(settings, /CompanyIdentityPanel/, "a tela nova precisa montar o painel");
+
+  const sistema = read("src/app/admin/sistema/page.tsx");
+  assert.doesNotMatch(
+    sistema,
+    /CompanyIdentityPanel/,
+    "Sistema e tela de operacao; configuracao nao mora ali",
+  );
+
+  const nav = read("src/components/admin/admin-shell-nav.tsx");
+  assert.match(nav, /\/admin\/configuracoes/, "falta a entrada na navegacao");
+});
+
 test("so super admin altera, e a rota registra quem alterou", () => {
   const route = read("src/app/api/admin/settings/company/route.ts");
 
