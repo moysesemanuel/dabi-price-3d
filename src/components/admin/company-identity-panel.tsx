@@ -129,7 +129,7 @@ export function CompanyIdentityPanel({
                   [field.key]: event.target.value,
                 }))
               }
-              className="app-input rounded-2xl px-4 py-3 text-sm"
+              className="app-input"
             />
             <span className="text-xs text-[var(--muted)]">{field.hint}</span>
           </label>

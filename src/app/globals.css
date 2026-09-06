@@ -1301,3 +1301,50 @@ input[type="number"] {
   color: var(--landing-muted-soft);
   font-weight: 400;
 }
+
+/* — campos de formulario — */
+/* Fundo branco nos dois temas, por escolha: campo editavel se distingue do
+   painel por ser "papel". No escuro isso obriga a fixar a tinta escura — sem
+   isso o texto herdaria a tinta clara e sumiria no branco. */
+.app-input {
+  width: 100%;
+  background: #ffffff;
+  color: #101114;
+  border: 1px solid var(--input-border, rgba(10, 11, 13, 0.22));
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  line-height: 1.4;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.app-input::placeholder {
+  color: rgba(16, 17, 20, 0.42);
+}
+
+.app-input:focus {
+  outline: none;
+  border-color: var(--input-border-focus, #1f4fd8);
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--input-border-focus, #1f4fd8) 22%, transparent);
+}
+
+.app-input:disabled {
+  background: #f1f0ee;
+  color: rgba(16, 17, 20, 0.5);
+}
+
+/* No claro o campo branco encosta no painel branco, entao quem define a borda
+   e o contorno — dourado, que destaca sem imitar o estado de foco. */
+.admin-shell .app-input {
+  --input-border: var(--landing-gold);
+  --input-border-focus: var(--landing-action);
+  border-width: 1.5px;
+}
+
+/* No escuro o proprio branco ja separa o campo do fundo; a borda recua. */
+:root[data-theme="dark"] .admin-shell .app-input {
+  --input-border: rgba(10, 11, 13, 0.28);
+  border-width: 1px;
+}

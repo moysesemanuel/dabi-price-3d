@@ -75,3 +75,13 @@ test("as paginas legais leem a identidade viva, nao a constante", () => {
     );
   }
 });
+
+test("campo de fundo branco fixa a tinta escura", () => {
+  // Fundo branco no tema escuro herdaria a tinta clara e ficaria invisivel.
+  const globals = read("src/app/globals.css");
+  const block = globals.slice(globals.indexOf(".app-input {"));
+  const rule = block.slice(0, block.indexOf("}"));
+
+  assert.match(rule, /background: #ffffff/, "o campo precisa ser branco");
+  assert.match(rule, /color: #/, "o campo precisa fixar a cor do texto");
+});
