@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -18,6 +19,7 @@ export function RegisterForm({
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
 
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -45,6 +47,7 @@ export function RegisterForm({
           email,
           password,
           workspaceName,
+          acceptedTerms,
         }),
       });
 
@@ -124,9 +127,37 @@ export function RegisterForm({
           autoComplete="new-password"
         />
 
+        <label className="flex items-start gap-3 text-sm leading-6 text-[var(--muted)]">
+          <input
+            type="checkbox"
+            checked={acceptedTerms}
+            onChange={(event) => setAcceptedTerms(event.target.checked)}
+            className="mt-1 size-4 shrink-0 accent-[var(--accent)]"
+          />
+          <span>
+            Li e aceito os{" "}
+            <Link
+              href="/termos"
+              target="_blank"
+              className="font-medium text-[var(--accent)] underline underline-offset-2"
+            >
+              Termos de Uso
+            </Link>{" "}
+            e a{" "}
+            <Link
+              href="/privacidade"
+              target="_blank"
+              className="font-medium text-[var(--accent)] underline underline-offset-2"
+            >
+              Política de Privacidade
+            </Link>
+            .
+          </span>
+        </label>
+
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={isSubmitting || !acceptedTerms}
           className="auth-login-submit app-button app-button-primary w-full rounded-2xl px-5 py-3"
         >
           {isSubmitting ? "Criando conta..." : "Criar minha conta"}

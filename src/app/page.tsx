@@ -191,6 +191,8 @@ const footerLinks = [
   { label: "FAQ", href: "#faq" },
   { label: "Entrar", href: "/login" },
   { label: "Criar conta", href: "/cadastro" },
+  { label: "Termos de Uso", href: "/termos" },
+  { label: "Privacidade", href: "/privacidade" },
 ];
 
 const barTone: Record<string, string> = {
