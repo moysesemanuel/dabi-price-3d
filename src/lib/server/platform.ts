@@ -222,6 +222,60 @@ export async function findUserByEmail(email: string) {
   return rows[0] ?? null;
 }
 
+export type RecordUserConsentInput = {
+  userId: string;
+  /** Par documento/versao aceito. Guardar a versao e o que prova o aceite. */
+  versions: Record<string, string>;
+  ipAddress: string | null;
+  userAgent: string | null;
+};
+
+/**
+ * Registra o aceite dos documentos legais.
+ *
+ * Guarda uma linha por documento, com a versao vigente no momento. Quando um
+ * documento muda de versao, o aceite antigo continua valendo para o texto
+ * antigo — e da para saber quem ainda nao aceitou o novo.
+ */
+export async function recordUserConsent(input: RecordUserConsentInput) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+
+  for (const [document, version] of Object.entries(input.versions)) {
+    await sql`
+      INSERT INTO user_consents (
+        id, user_id, document, version, ip_address, user_agent
+      ) VALUES (
+        ${randomUUID()},
+        ${input.userId},
+        ${document},
+        ${version},
+        ${input.ipAddress},
+        ${input.userAgent}
+      )
+    `;
+  }
+}
+
+export async function findUserConsents(userId: string) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+
+  return (await sql`
+    SELECT document, version, accepted_at, ip_address
+    FROM user_consents
+    WHERE user_id = ${userId}
+    ORDER BY accepted_at DESC
+  `) as Array<{
+    document: string;
+    version: string;
+    accepted_at: string;
+    ip_address: string | null;
+  }>;
+}
+
 export async function registerWorkspaceOwner(
   input: RegisterWorkspaceOwnerInput,
 ) {
@@ -2132,6 +2186,18 @@ async function initializePlatform() {
       description TEXT NOT NULL,
       tone TEXT NOT NULL,
       occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS user_consents (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      document TEXT NOT NULL,
+      version TEXT NOT NULL,
+      accepted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ip_address TEXT NULL,
+      user_agent TEXT NULL
     )
   `;
 

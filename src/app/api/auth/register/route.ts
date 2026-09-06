@@ -7,16 +7,30 @@ import {
     consumeRateLimit,
     getClientIpAddress,
 } from "@/lib/server/rate-limit";
-import { registerWorkspaceOwner } from "@/lib/server/platform";
+import {
+    recordUserConsent,
+    registerWorkspaceOwner,
+} from "@/lib/server/platform";
+import { currentConsentVersions } from "@/lib/legal/documents";
+import {
+    createRouteRequestContext,
+    logRouteEvent,
+    serializeError,
+} from "@/lib/server/route-observability";
 
 type RegisterRequestPayload = {
     fullName?: string;
     email?: string;
     password?: string;
     workspaceName?: string;
+    acceptedTerms?: boolean;
 };
 
 export async function POST(request: Request) {
+    const requestContext = createRouteRequestContext(
+        request,
+        "/api/auth/register",
+    );
     let body: RegisterRequestPayload;
 
     try {
@@ -32,6 +46,7 @@ export async function POST(request: Request) {
     const email = body.email?.trim() ?? "";
     const password = body.password ?? "";
     const workspaceName = body.workspaceName?.trim() ?? "";
+    const acceptedTerms = body.acceptedTerms === true;
 
     if (!fullName || !email || !password || !workspaceName) {
         return Response.json(
@@ -50,6 +65,18 @@ export async function POST(request: Request) {
     if (password.length < 8) {
         return Response.json(
             { error: "A senha deve ter pelo menos 8 caracteres." },
+            { status: 400 },
+        );
+    }
+
+    // O aceite e validado no servidor, nao so no formulario: sem isto, um POST
+    // direto criaria conta sem consentimento registrado.
+    if (!acceptedTerms) {
+        return Response.json(
+            {
+                error:
+                    "É necessário aceitar os Termos de Uso e a Política de Privacidade.",
+            },
             { status: 400 },
         );
     }
@@ -88,8 +115,10 @@ export async function POST(request: Request) {
         );
     }
 
+    let registration: Awaited<ReturnType<typeof registerWorkspaceOwner>>;
+
     try {
-        await registerWorkspaceOwner({
+        registration = await registerWorkspaceOwner({
             fullName,
             email,
             password,
@@ -107,6 +136,22 @@ export async function POST(request: Request) {
         }
 
         throw error;
+    }
+
+    try {
+        await recordUserConsent({
+            userId: registration.userId,
+            versions: currentConsentVersions,
+            ipAddress: clientIp,
+            userAgent: request.headers.get("user-agent"),
+        });
+    } catch (error) {
+        // A conta ja existe neste ponto. Falhar aqui derrubaria um cadastro
+        // valido; o registro do aceite e reconciliavel, a conta perdida nao.
+        logRouteEvent(requestContext, "error", "register.consent_record_failed", {
+            userId: registration.userId,
+            ...serializeError(error),
+        });
     }
 
     const authResult = await loginWithEmailPassword({

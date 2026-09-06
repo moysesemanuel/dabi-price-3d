@@ -1232,3 +1232,72 @@ input[type="number"] {
   --landing-accent-hover: #f6a3c2;
   --landing-accent-ink: #2a0f1b;
 }
+
+/* — texto corrido de documento legal — */
+.legal-prose {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  color: var(--landing-ink-soft);
+  font-size: 0.9375rem;
+  line-height: 1.7;
+}
+
+.legal-prose h2 {
+  font-family: var(--font-display-ui);
+  font-weight: 400;
+  font-size: 1.5rem;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--landing-ink);
+  margin: 18px 0 0;
+}
+
+.legal-prose h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--landing-ink);
+  margin: 8px 0 0;
+}
+
+.legal-prose p,
+.legal-prose li {
+  margin: 0;
+}
+
+.legal-prose ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.legal-prose a {
+  color: var(--landing-action);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.legal-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.legal-prose th,
+.legal-prose td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--landing-line);
+  vertical-align: top;
+}
+
+.legal-prose th {
+  font-family: var(--font-mono-ui);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--landing-muted-soft);
+  font-weight: 400;
+}
