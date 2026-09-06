@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalPage } from "@/components/public/legal-page";
-import { companyIdentity } from "@/lib/legal/company";
+import { getCompanyIdentity } from "@/lib/legal/company-identity-server";
 import { getLegalDocument } from "@/lib/legal/documents";
 
 const document = getLegalDocument("privacy");
@@ -12,9 +12,13 @@ export const metadata: Metadata = {
     "Como a dabi price coleta, usa, compartilha e protege dados pessoais, conforme a LGPD.",
 };
 
-export default function PrivacyPage() {
+export const revalidate = 3600;
+
+export default async function PrivacyPage() {
+  const companyIdentity = await getCompanyIdentity();
+
   return (
-    <LegalPage document={document}>
+    <LegalPage document={document} identity={companyIdentity}>
       <p>
         Esta Política explica como a dabi price trata dados pessoais, conforme a
         Lei Geral de Proteção de Dados (Lei 13.709/2018). O controlador é{" "}

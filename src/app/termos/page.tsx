@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalPage } from "@/components/public/legal-page";
-import { companyIdentity } from "@/lib/legal/company";
+import { getCompanyIdentity } from "@/lib/legal/company-identity-server";
 import { getLegalDocument } from "@/lib/legal/documents";
 
 const document = getLegalDocument("terms");
@@ -12,9 +12,13 @@ export const metadata: Metadata = {
     "Condições de uso da plataforma de precificação dabi price, incluindo assinatura, cobrança e cancelamento.",
 };
 
-export default function TermsPage() {
+export const revalidate = 3600;
+
+export default async function TermsPage() {
+  const companyIdentity = await getCompanyIdentity();
+
   return (
-    <LegalPage document={document}>
+    <LegalPage document={document} identity={companyIdentity}>
       <p>
         Estes Termos regem o uso da plataforma dabi price, operada por{" "}
         {companyIdentity.legalName ?? "[razão social]"}, inscrita no CNPJ{" "}

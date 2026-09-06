@@ -2,7 +2,10 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { DabiWordmark } from "@/components/brand/dabi-brand";
 import { LandingThemeToggle } from "@/components/public/landing-theme-toggle";
-import { companyIdentity, missingCompanyFields } from "@/lib/legal/company";
+import {
+  missingCompanyFields,
+  type CompanyIdentity,
+} from "@/lib/legal/company";
 import {
   formatLegalDate,
   legalDocumentList,
@@ -11,12 +14,14 @@ import {
 
 export function LegalPage({
   document,
+  identity,
   children,
 }: {
   document: LegalDocument;
+  identity: CompanyIdentity;
   children: ReactNode;
 }) {
-  const pending = missingCompanyFields();
+  const pending = missingCompanyFields(identity);
 
   return (
     <main className="landing-root min-h-screen overflow-x-hidden">
@@ -72,11 +77,11 @@ export function LegalPage({
             style={{ borderTop: "1px solid var(--landing-line)" }}
           >
             <span className="landing-note">
-              {companyIdentity.legalName ?? "Razão social a definir"} · CNPJ{" "}
-              {companyIdentity.cnpj}
+              {identity.legalName ?? "Razão social a definir"} · CNPJ{" "}
+              {identity.cnpj}
             </span>
             <span className="landing-note">
-              {companyIdentity.address ?? "Endereço a definir"}
+              {identity.address ?? "Endereço a definir"}
             </span>
             <nav className="mt-2 flex flex-wrap gap-5">
               {legalDocumentList.map((item) => (

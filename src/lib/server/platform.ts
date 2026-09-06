@@ -222,6 +222,92 @@ export async function findUserByEmail(email: string) {
   return rows[0] ?? null;
 }
 
+const COMPANY_IDENTITY_SETTING_KEY = "company_identity";
+
+export async function readPlatformSetting<T>(key: string): Promise<T | null> {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT value FROM platform_settings WHERE key = ${key} LIMIT 1
+  `) as Array<{ value: T }>;
+
+  return rows[0]?.value ?? null;
+}
+
+export async function readCompanyIdentityOverrides() {
+  return readPlatformSetting<Record<string, string>>(
+    COMPANY_IDENTITY_SETTING_KEY,
+  );
+}
+
+export type SaveCompanyIdentityInput = {
+  overrides: Record<string, string>;
+  /** O diff, ja calculado, para a trilha. */
+  changes: Record<string, { from: string | null; to: string | null }>;
+  userId: string;
+  userEmail: string;
+};
+
+/**
+ * Grava a identidade da empresa e a trilha da alteracao.
+ *
+ * A trilha nao e enfeite: esses campos aparecem em documento legal, e sem
+ * historico nao da para demonstrar o que o site dizia numa data passada.
+ */
+export async function saveCompanyIdentity(input: SaveCompanyIdentityInput) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+
+  await sql`
+    INSERT INTO platform_settings (key, value, updated_at, updated_by_user_id)
+    VALUES (
+      ${COMPANY_IDENTITY_SETTING_KEY},
+      ${JSON.stringify(input.overrides)}::jsonb,
+      NOW(),
+      ${input.userId}
+    )
+    ON CONFLICT (key) DO UPDATE SET
+      value = EXCLUDED.value,
+      updated_at = NOW(),
+      updated_by_user_id = EXCLUDED.updated_by_user_id
+  `;
+
+  if (Object.keys(input.changes).length > 0) {
+    await sql`
+      INSERT INTO platform_setting_changes (
+        id, key, changes, changed_by_user_id, changed_by_email
+      ) VALUES (
+        ${randomUUID()},
+        ${COMPANY_IDENTITY_SETTING_KEY},
+        ${JSON.stringify(input.changes)}::jsonb,
+        ${input.userId},
+        ${input.userEmail}
+      )
+    `;
+  }
+}
+
+export async function listCompanyIdentityChanges(limit = 20) {
+  await ensurePlatformReady();
+
+  const sql = getSql();
+
+  return (await sql`
+    SELECT id, changes, changed_at, changed_by_email
+    FROM platform_setting_changes
+    WHERE key = ${COMPANY_IDENTITY_SETTING_KEY}
+    ORDER BY changed_at DESC
+    LIMIT ${limit}
+  `) as Array<{
+    id: string;
+    changes: Record<string, { from: string | null; to: string | null }>;
+    changed_at: string;
+    changed_by_email: string | null;
+  }>;
+}
+
 export type RecordUserConsentInput = {
   userId: string;
   /** Par documento/versao aceito. Guardar a versao e o que prova o aceite. */
@@ -2186,6 +2272,26 @@ async function initializePlatform() {
       description TEXT NOT NULL,
       tone TEXT NOT NULL,
       occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS platform_settings (
+      key TEXT PRIMARY KEY,
+      value JSONB NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by_user_id TEXT NULL REFERENCES users(id) ON DELETE SET NULL
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS platform_setting_changes (
+      id TEXT PRIMARY KEY,
+      key TEXT NOT NULL,
+      changes JSONB NOT NULL,
+      changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      changed_by_user_id TEXT NULL REFERENCES users(id) ON DELETE SET NULL,
+      changed_by_email TEXT NULL
     )
   `;
 
