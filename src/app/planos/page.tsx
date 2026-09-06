@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DabiWordmark } from "@/components/brand/dabi-brand";
+import { LandingThemeToggle } from "@/components/public/landing-theme-toggle";
 import { getCurrentAuthSession } from "@/lib/auth/session";
 import {
   defaultAppPreferences,
-  getWorkspaceBillingCycleLabel,
   resolveWorkspacePlanPriceLabel,
   workspacePlans,
 } from "@/lib/settings/app-preferences";
@@ -13,46 +13,39 @@ import {
   isPlatformPersistenceAvailable,
 } from "@/lib/server/platform";
 
+type PlanId = (typeof workspacePlans)[number]["id"];
+
+/**
+ * O Max e mostrado como futuro e nao vendido: a regra comercial e nao
+ * comercializa-lo antes das automacoes e do ERP existirem. Vender agora seria
+ * cobrar por promessa.
+ */
+const purchasablePlans: Record<PlanId, boolean> = {
+  starter: true,
+  growth: true,
+  scale: false,
+};
+
 const planFeatureRows = [
   {
-    label: "Precificações e exportação PDF",
-    values: {
-      starter: "Ilimitado",
-      growth: "Ilimitado",
-      scale: "Ilimitado",
-    },
+    label: "Precificações e exportação em PDF",
+    values: { starter: "Ilimitado", growth: "Ilimitado", scale: "Ilimitado" },
   },
   {
     label: "Orçamentos salvos",
-    values: {
-      starter: "Até 50",
-      growth: "Até 200",
-      scale: "Até 1000",
-    },
+    values: { starter: "Até 50", growth: "Até 200", scale: "Até 1000" },
   },
   {
     label: "Usuários incluídos",
-    values: {
-      starter: "1 usuário",
-      growth: "3 usuários",
-      scale: "10 usuários",
-    },
+    values: { starter: "1 usuário", growth: "3 usuários", scale: "10 usuários" },
   },
   {
     label: "Logo e identidade da empresa",
-    values: {
-      starter: "Incluído",
-      growth: "Incluído",
-      scale: "Incluído",
-    },
+    values: { starter: "Incluído", growth: "Incluído", scale: "Incluído" },
   },
   {
     label: "Modelos de orçamento",
-    values: {
-      starter: "Base",
-      growth: "Avançado",
-      scale: "Completo",
-    },
+    values: { starter: "Base", growth: "Avançado", scale: "Completo" },
   },
   {
     label: "Integrações ERP e Mercado Livre",
@@ -64,65 +57,58 @@ const planFeatureRows = [
   },
   {
     label: "Suporte",
-    values: {
-      starter: "Base",
-      growth: "Prioritário",
-      scale: "Consultivo",
-    },
+    values: { starter: "Base", growth: "Prioritário", scale: "Consultivo" },
   },
 ] as const;
 
-const planHighlights: Record<
-  (typeof workspacePlans)[number]["id"],
-  readonly string[]
-> = {
+const planHighlights: Record<PlanId, readonly string[]> = {
   starter: [
-    "Operação enxuta com controle essencial",
+    "Para quem está organizando a precificação pela primeira vez",
     "Até 50 orçamentos salvos",
-    "1 usuário incluído",
-    "Logo da empresa e identidade básica",
+    "1 usuário",
+    "Logo e identidade da sua empresa nos orçamentos",
   ],
   growth: [
-    "Plano equilibrado para recorrência e catálogo",
+    "Para quem vende com recorrência e precisa proteger margem",
     "Até 200 orçamentos salvos",
-    "3 usuários incluídos",
-    "ERP e integrações liberadas",
+    "3 usuários",
+    "Comparação entre canais e integrações liberadas",
   ],
   scale: [
-    "Estrutura para time, volume e governança",
+    "Para operação com time, volume e integração forte",
     "Até 1000 orçamentos salvos",
-    "10 usuários incluídos",
-    "Suporte consultivo e prioridade máxima",
+    "10 usuários",
+    "Acompanhamento consultivo",
   ],
 };
 
 const faqItems = [
   {
-    question: "Como funciona a contratação do acesso?",
+    question: "Como funciona a cobrança?",
     answer:
-      "Você escolhe o plano ideal para a operação e avança para a assinatura do Mercado Pago quando ela estiver liberada para essa faixa. Planos sob medida continuam com atendimento comercial.",
+      "A assinatura é recorrente, por workspace. Você escolhe mensal ou anual, e a renovação acontece automaticamente até você cancelar.",
   },
   {
-    question: "O acesso ao projeto muda conforme o plano?",
+    question: "Posso cancelar quando quiser?",
     answer:
-      "Sim. A estrutura de permissões e limites já considera plano contratado, histórico salvo, usuários incluídos e nível de suporte.",
+      "Sim. O cancelamento interrompe as próximas renovações e o acesso continua até o fim do período já pago. Nos primeiros 7 dias você pode desistir e receber o valor de volta.",
   },
   {
-    question: "Posso começar em um plano e mudar depois?",
+    question: "Consigo mudar de plano depois?",
     answer:
-      "Sim. A evolução de faixa já faz parte da estrutura do produto e pode acompanhar o crescimento da operação.",
+      "Sim. Dá para subir ou descer de plano conforme o negócio muda, e o valor é ajustado proporcionalmente.",
   },
   {
-    question: "A página já substitui o checkout?",
+    question: "Quantas pessoas podem usar a mesma conta?",
     answer:
-      "Ela organiza a decisão comercial e entrega o fluxo certo: escolher o plano, abrir a assinatura do Mercado Pago quando houver autoatendimento, ou cair no contato consultivo quando o plano exigir análise.",
+      "Depende do plano: o Start inclui 1 usuário, o Pro inclui 3. Cada pessoa entra com o próprio acesso.",
   },
 ] as const;
 
 export const metadata: Metadata = {
-  title: "Planos | Dabi Price",
+  title: "Planos | dabi price",
   description:
-    "Página pública de planos da Dabi Price para escolha comercial antes do acesso à plataforma.",
+    "Planos e preços da dabi price. Assinatura por workspace, com cancelamento quando você quiser.",
 };
 
 export default async function PublicPlansPage({
@@ -134,9 +120,10 @@ export default async function PublicPlansPage({
   }>;
 }) {
   const params = (await searchParams) ?? {};
-  const origin = params.origin ?? "site";
+  const origin = params.origin;
   const selectedBillingCycle =
     params.billingCycle === "annual" ? "annual" : "monthly";
+
   const session = await getCurrentAuthSession();
   const preferences =
     session && isPlatformPersistenceAvailable()
@@ -145,343 +132,388 @@ export default async function PublicPlansPage({
       )
       : defaultAppPreferences;
 
-  const resolvePlanHref = (planId: "starter" | "growth" | "scale") =>
+  const resolvePlanHref = (planId: PlanId) =>
     session
       ? preferences.onboardingCompleted
         ? {
           pathname: "/app/planos",
-          query: {
-            plan: planId,
-            billingCycle: selectedBillingCycle,
-            origin,
-          },
+          query: { plan: planId, billingCycle: selectedBillingCycle, origin },
         }
         : {
           pathname: "/app/onboarding",
-          query: {
-            plan: planId,
-            billingCycle: selectedBillingCycle,
-          },
+          query: { plan: planId, billingCycle: selectedBillingCycle },
         }
       : {
         pathname: "/cadastro",
-        query: {
-          plan: planId,
-          billingCycle: selectedBillingCycle,
-        },
+        query: { plan: planId, billingCycle: selectedBillingCycle },
       };
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#fffefc_0%,#f6fbf7_36%,#fff6fa_100%)] text-[#274338]">
-      <section className="border-b border-[#dcebe3] bg-[radial-gradient(circle_at_top_left,rgba(207,234,219,0.78),transparent_30%),radial-gradient(circle_at_90%_8%,rgba(247,203,221,0.42),transparent_20%),linear-gradient(180deg,#fffefd_0%,#f8fcfa_100%)]">
-        <div className="mx-auto max-w-[1180px] px-4 pb-14 pt-6 sm:px-6 lg:px-8">
-          <header className="flex flex-wrap items-center justify-between gap-4">
-            <Link href="/" className="inline-flex" aria-label="Dabi Price">
-              <DabiWordmark size="md" />
-            </Link>
+    <main className="landing-root min-h-screen overflow-x-hidden">
+      <header className="landing-header">
+        <div className="landing-shell">
+          <div className="landing-header__bar">
+            <div className="flex items-center gap-10">
+              <Link href="/" aria-label="dabi price">
+                <DabiWordmark />
+              </Link>
+              <nav className="hidden items-center gap-7 lg:flex">
+                <a href="#planos" className="landing-link">
+                  Planos
+                </a>
+                <a href="#comparacao" className="landing-link">
+                  Comparação
+                </a>
+                <a href="#duvidas" className="landing-link">
+                  Perguntas
+                </a>
+              </nav>
+            </div>
 
-            <nav className="hidden items-center gap-7 text-sm text-[#6c897b] md:flex">
-              <a href="#planos" className="transition hover:text-[#274338]">
-                Planos
-              </a>
-              <a href="#comparacao" className="transition hover:text-[#274338]">
-                Comparação
-              </a>
-              <a href="#duvidas" className="transition hover:text-[#274338]">
-                Perguntas
-              </a>
-            </nav>
-
-            <div className="flex items-center gap-2">
-              <Link
-                href="/login"
-                className="rounded-full border border-[#d6e8de] bg-white/92 px-4 py-2 text-sm font-medium text-[#274338] transition hover:border-[#f68ab0] hover:text-[#b85178]"
-              >
+            <div className="flex items-center gap-3">
+              <LandingThemeToggle />
+              <Link href="/login" className="landing-link hidden sm:inline-flex">
                 Entrar
               </Link>
-              <Link
-                href="/contato"
-                className="rounded-full bg-[#24473c] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1d3a31]"
-              >
-                Falar com consultor
+              <Link href="/contato" className="landing-cta landing-cta--sm">
+                Falar com a gente
               </Link>
             </div>
-          </header>
+          </div>
+        </div>
+      </header>
 
-          <div className="mx-auto max-w-[860px] pt-14 text-center">
-            <p className="font-mono text-[11px] uppercase tracking-[0.32em] text-[#7ca893]">
-              01 — Planos
-            </p>
-            <h1 className="mt-4 text-5xl font-semibold leading-[0.94] tracking-[-0.08em] text-[#24473c] sm:text-6xl">
-              Escolha o plano certo antes de liberar o acesso ao projeto.
+      {/* ---------- topo ---------- */}
+      <section className="landing-hero">
+        <div className="landing-shell">
+          <div
+            className="flex flex-col gap-6"
+            style={{ paddingBlock: "clamp(48px, 7vw, 88px)", maxWidth: "58ch" }}
+          >
+            <span className="landing-eyebrow">Planos</span>
+            <h1 className="landing-display">
+              Um plano que se paga quando você{" "}
+              <span className="landing-turn">para de errar o preço</span>.
             </h1>
-            <p className="mx-auto mt-5 max-w-[720px] text-base leading-8 text-[#6c897b]">
-              A pessoa que vem da landing precisa cair aqui, escolher a faixa
-              certa e só depois seguir para contratação. Assim o acesso à
-              plataforma nasce já alinhado ao plano pago.
+            <p className="landing-lede" style={{ fontSize: "1.0625rem" }}>
+              Assinatura por workspace, sem fidelidade. Você troca de plano
+              quando o negócio muda e cancela quando quiser.
             </p>
 
-            <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-[#dcebe3] bg-white/86 p-1">
-              <Link
-                href={{
-                  pathname: "/planos",
-                  query: {
-                    origin,
-                    billingCycle: "monthly",
-                  },
-                }}
-                className={`rounded-full px-5 py-2 text-sm font-semibold transition ${selectedBillingCycle === "monthly"
-                  ? "bg-[#24473c] text-white"
-                  : "text-[#7e9689] hover:text-[#274338]"
-                  }`}
-              >
-                Mensal
-              </Link>
-              <Link
-                href={{
-                  pathname: "/planos",
-                  query: {
-                    origin,
-                    billingCycle: "annual",
-                  },
-                }}
-                className={`rounded-full px-5 py-2 text-sm font-semibold transition ${selectedBillingCycle === "annual"
-                  ? "bg-[#24473c] text-white"
-                  : "text-[#7e9689] hover:text-[#274338]"
-                  }`}
-              >
-                Anual · 12 meses
-              </Link>
+            <div
+              className="mt-2 flex w-fit gap-1 p-1"
+              style={{
+                border: "1px solid var(--landing-line-strong)",
+                borderRadius: "var(--landing-radius-sm)",
+              }}
+            >
+              {(["monthly", "annual"] as const).map((cycle) => (
+                <Link
+                  key={cycle}
+                  href={{
+                    pathname: "/planos",
+                    query: { origin, billingCycle: cycle },
+                  }}
+                  className="px-5 py-2 text-sm font-semibold transition"
+                  style={{
+                    borderRadius: "calc(var(--landing-radius-sm) - 2px)",
+                    background:
+                      selectedBillingCycle === cycle
+                        ? "var(--landing-accent)"
+                        : "transparent",
+                    color:
+                      selectedBillingCycle === cycle
+                        ? "var(--landing-accent-ink)"
+                        : "var(--landing-muted)",
+                  }}
+                >
+                  {cycle === "monthly" ? "Mensal" : "Anual · 12 meses"}
+                </Link>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
-      <section id="planos" className="mx-auto max-w-[1180px] px-4 py-16 sm:px-6 lg:px-8">
-        <div className="grid gap-4 lg:grid-cols-3">
-          {workspacePlans.map((plan) => {
-            const isHighlighted = plan.id === "growth";
+      {/* ---------- planos ---------- */}
+      <section id="planos" className="landing-section">
+        <div className="landing-shell flex flex-col gap-8">
+          <div className="landing-grid landing-grid--3">
+            {workspacePlans.map((plan) => {
+              const isHighlighted = plan.id === "growth";
+              const isPurchasable = purchasablePlans[plan.id];
 
-            return (
-              <article
-                key={plan.id}
-                className={`rounded-[30px] border px-6 py-6 shadow-[0_18px_44px_rgba(99,144,126,0.08)] ${isHighlighted
-                  ? "border-[#f2d6e3] bg-[#fff8fb]"
-                  : "border-[#dcebe3] bg-white/94"
-                  }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-3xl font-semibold tracking-[-0.05em] text-[#274338]">
-                      {plan.label}
-                    </p>
-                    <p className="mt-3 text-sm leading-7 text-[#6c897b]">
-                      {plan.description}
-                    </p>
+              return (
+                <article
+                  key={plan.id}
+                  className={`landing-card flex flex-col gap-5 ${isHighlighted ? "landing-card--gold" : ""
+                    }`}
+                  style={isPurchasable ? undefined : { opacity: 0.86 }}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <h2 className="landing-h3">{plan.label}</h2>
+                    {isHighlighted ? (
+                      <span
+                        className="landing-num shrink-0"
+                        style={{
+                          fontSize: 10,
+                          letterSpacing: "0.18em",
+                          textTransform: "uppercase",
+                          color: "var(--landing-gold)",
+                        }}
+                      >
+                        Mais escolhido
+                      </span>
+                    ) : null}
+                    {!isPurchasable ? (
+                      <span
+                        className="landing-num shrink-0"
+                        style={{
+                          fontSize: 10,
+                          letterSpacing: "0.18em",
+                          textTransform: "uppercase",
+                          color: "var(--landing-muted-soft)",
+                        }}
+                      >
+                        Em breve
+                      </span>
+                    ) : null}
                   </div>
-                  {isHighlighted ? (
-                    <span className="rounded-full bg-[#f68ab0] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white">
-                      Mais escolhido
+
+                  <p className="landing-note">{plan.description}</p>
+
+                  <div className="flex flex-col gap-1">
+                    <span
+                      className="landing-num text-4xl font-semibold"
+                      style={{ letterSpacing: "-0.03em" }}
+                    >
+                      {isPurchasable
+                        ? resolveWorkspacePlanPriceLabel(
+                          plan,
+                          selectedBillingCycle,
+                        )
+                        : "A definir"}
                     </span>
-                  ) : null}
-                </div>
+                    <span className="landing-note">
+                      {isPurchasable
+                        ? selectedBillingCycle === "annual"
+                          ? "valor total por 12 meses"
+                          : "por workspace / mês"
+                        : "disponível quando as automações e o ERP estiverem prontos"}
+                    </span>
+                  </div>
 
-                <div className="mt-6">
-                  <p className="text-4xl font-semibold tracking-[-0.07em] text-[#24473c]">
-                    {resolveWorkspacePlanPriceLabel(plan, selectedBillingCycle)}
-                  </p>
-                  <p className="mt-2 text-sm text-[#7e9689]">
-                    {selectedBillingCycle === "annual"
-                      ? "pagamento antecipado por 12 meses de acesso"
-                      : "por workspace / mês"}
-                  </p>
-                </div>
-
-                <div className="mt-6 space-y-3">
-                  {planHighlights[plan.id].map((item) => (
-                    <PlanBullet key={item}>{item}</PlanBullet>
-                  ))}
-                </div>
-
-                <div className="mt-8 grid gap-3">
-                  <Link
-                    href={resolvePlanHref(plan.id)}
-                    className={`inline-flex items-center justify-center rounded-[16px] px-5 py-3 text-sm font-semibold transition ${isHighlighted
-                        ? "bg-[#24473c] text-white hover:bg-[#1d3a31]"
-                        : "border border-[#dcebe3] bg-white text-[#274338] hover:bg-[#f8fcfa]"
-                      }`}
+                  <ul
+                    className="flex flex-col gap-3"
+                    style={{ listStyle: "none", margin: 0, padding: 0 }}
                   >
-                    Começar com {plan.label}
-                  </Link>
-                  <Link
-                    href={{
-                      pathname: "/contato",
-                      query: {
-                        plan: plan.id,
-                        origin,
-                        intent: "consultor",
-                      },
-                    }}
-                    className="inline-flex items-center justify-center rounded-[16px] border border-[#f2d6e3] bg-[#fff5f9] px-5 py-3 text-sm font-semibold text-[#c8618b] transition hover:bg-[#fff0f6]"
-                  >
-                    Falar com consultor
-                  </Link>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+                    {planHighlights[plan.id].map((item) => (
+                      <li
+                        key={item}
+                        className="flex items-baseline gap-3 text-sm"
+                        style={{ color: "var(--landing-ink-soft)" }}
+                      >
+                        <span
+                          aria-hidden="true"
+                          style={{ color: "var(--landing-profit)" }}
+                        >
+                          ✓
+                        </span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
 
-        <div className="mt-8 rounded-[28px] border border-[#f2d6e3] bg-[#fff5f9] px-5 py-4 text-center text-sm text-[#7d6872]">
-          Quando a URL do plano estiver configurada, o CTA abre a assinatura do
-          Mercado Pago no ciclo {getWorkspaceBillingCycleLabel(selectedBillingCycle).toLowerCase()}. Nos demais casos, o fluxo continua pelo contato
-          consultivo sem quebrar a navegação pública.
+                  {isPurchasable ? (
+                    <Link
+                      href={resolvePlanHref(plan.id)}
+                      className={`landing-cta mt-auto w-full ${isHighlighted ? "" : "landing-cta--ghost"
+                        }`}
+                    >
+                      Assinar {plan.label}
+                    </Link>
+                  ) : (
+                    <Link
+                      href={{
+                        pathname: "/contato",
+                        query: { plan: plan.id, origin, intent: "aviso" },
+                      }}
+                      className="landing-cta landing-cta--ghost mt-auto w-full"
+                    >
+                      Quero saber quando lançar
+                    </Link>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+
+          <p className="landing-note">
+            Os valores são à vista no Pix. No cartão, o parcelamento em até 10x
+            tem juros, informados antes de você confirmar.
+          </p>
         </div>
       </section>
 
-      <section
-        id="comparacao"
-        className="border-y border-[#dcebe3] bg-[linear-gradient(180deg,#f7fcf9_0%,#fff7fa_100%)]"
-      >
-        <div className="mx-auto max-w-[1180px] px-4 py-16 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-[760px] text-center">
-            <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#7ca893]">
-              02 — Comparação
-            </p>
-            <h2 className="mt-4 text-4xl font-semibold tracking-[-0.06em] text-[#24473c]">
-              Só o essencial para escolher com clareza.
-            </h2>
-            <p className="mt-4 text-base leading-8 text-[#6c897b]">
-              A ideia aqui não é complicar. É deixar visível o que muda em
-              volume, equipe, integração e suporte.
-            </p>
+      {/* ---------- comparação ---------- */}
+      <section id="comparacao" className="landing-section landing-section--alt">
+        <div className="landing-shell flex flex-col gap-10">
+          <div className="flex flex-col gap-5" style={{ maxWidth: "62ch" }}>
+            <span className="landing-eyebrow">Comparação</span>
+            <h2 className="landing-h2">O que muda de um plano para o outro.</h2>
           </div>
 
-          <div className="mt-10 overflow-hidden rounded-[30px] border border-[#dcebe3] bg-white/94 shadow-[0_18px_44px_rgba(99,144,126,0.08)]">
-            <div className="overflow-x-auto">
-              <table className="min-w-full border-collapse text-sm">
-                <thead>
-                  <tr className="bg-[#f8fcfa] text-left">
-                    <th className="border-b border-[#dcebe3] px-6 py-4 font-semibold text-[#274338]">
-                      Recurso
+          <div className="landing-rail" style={{ overflowX: "auto" }}>
+            <table
+              style={{
+                width: "100%",
+                minWidth: 640,
+                borderCollapse: "collapse",
+              }}
+            >
+              <thead>
+                <tr className="landing-rail__head">
+                  <th
+                    className="landing-num"
+                    style={{
+                      textAlign: "left",
+                      padding: "16px 24px",
+                      fontSize: 11,
+                      letterSpacing: "0.18em",
+                      textTransform: "uppercase",
+                      color: "var(--landing-muted-soft)",
+                      fontWeight: 400,
+                    }}
+                  >
+                    Recurso
+                  </th>
+                  {workspacePlans.map((plan) => (
+                    <th
+                      key={plan.id}
+                      style={{
+                        textAlign: "left",
+                        padding: "16px 24px",
+                        fontSize: 14,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {plan.label}
+                      {purchasablePlans[plan.id] ? null : (
+                        <span
+                          className="landing-num ml-2"
+                          style={{
+                            fontSize: 10,
+                            letterSpacing: "0.16em",
+                            textTransform: "uppercase",
+                            color: "var(--landing-muted-soft)",
+                          }}
+                        >
+                          Em breve
+                        </span>
+                      )}
                     </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {planFeatureRows.map((row) => (
+                  <tr key={row.label}>
+                    <td
+                      style={{
+                        padding: "14px 24px",
+                        borderTop: "1px solid var(--landing-line)",
+                        fontSize: 14,
+                        color: "var(--landing-muted)",
+                      }}
+                    >
+                      {row.label}
+                    </td>
                     {workspacePlans.map((plan) => (
-                      <th
+                      <td
                         key={plan.id}
-                        className={`border-b px-6 py-4 font-semibold ${plan.id === "growth"
-                          ? "border-[#f2d6e3] bg-[#fff8fb] text-[#c8618b]"
-                          : "border-[#dcebe3] text-[#274338]"
-                          }`}
+                        style={{
+                          padding: "14px 24px",
+                          borderTop: "1px solid var(--landing-line)",
+                          fontSize: 14,
+                          color: "var(--landing-ink-soft)",
+                        }}
                       >
-                        {plan.label}
-                      </th>
+                        {row.values[plan.id]}
+                      </td>
                     ))}
                   </tr>
-                </thead>
-                <tbody>
-                  {planFeatureRows.map((row) => (
-                    <tr key={row.label} className="bg-white/84">
-                      <td className="border-b border-[#dcebe3] px-6 py-4 text-[#274338]">
-                        {row.label}
-                      </td>
-                      {workspacePlans.map((plan) => (
-                        <td
-                          key={`${row.label}-${plan.id}`}
-                          className={`border-b px-6 py-4 ${plan.id === "growth"
-                            ? "border-[#f2d6e3] font-semibold text-[#b85178]"
-                            : "border-[#dcebe3] text-[#6c897b]"
-                            }`}
-                        >
-                          {row.values[plan.id]}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* ---------- dúvidas ---------- */}
+      <section id="duvidas" className="landing-section">
+        <div className="landing-shell landing-split">
+          <div className="flex flex-col gap-5">
+            <span className="landing-eyebrow">Perguntas</span>
+            <h2 className="landing-h2">Ficou alguma dúvida?</h2>
+            <p className="landing-lede">
+              Se a sua não estiver aqui,{" "}
+              <Link href="/contato" style={{ color: "var(--landing-action)" }}>
+                fale com a gente
+              </Link>
+              .
+            </p>
+          </div>
+
+          <div className="flex flex-col">
+            {faqItems.map((item) => (
+              <div
+                key={item.question}
+                className="flex flex-col gap-3 py-6"
+                style={{ borderBottom: "1px solid var(--landing-line)" }}
+              >
+                <h3 className="text-lg font-semibold tracking-[-0.01em]">
+                  {item.question}
+                </h3>
+                <p className="landing-note">{item.answer}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---------- fechamento ---------- */}
+      <section className="landing-section landing-section--alt">
+        <div className="landing-shell">
+          <div
+            className="landing-card landing-card--gold flex flex-wrap items-end justify-between gap-8"
+            style={{ padding: "clamp(32px, 5vw, 52px) clamp(24px, 4vw, 44px)" }}
+          >
+            <div className="flex flex-col gap-4" style={{ maxWidth: "38ch" }}>
+              <span className="landing-eyebrow">Próximo passo</span>
+              <span className="landing-h2">
+                Comece a precificar com <span className="landing-turn">números</span>.
+              </span>
+              <p className="landing-lede">
+                Você configura uma vez e cada produto novo entra na mesma régua.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Link href={resolvePlanHref("growth")} className="landing-cta">
+                Assinar DaBi Pro
+              </Link>
+              <Link
+                href={{
+                  pathname: "/contato",
+                  query: { origin, intent: "consultor" },
+                }}
+                className="landing-cta landing-cta--ghost"
+              >
+                Falar com a gente
+              </Link>
             </div>
           </div>
-        </div>
-      </section>
-
-      <section id="duvidas" className="mx-auto max-w-[1180px] px-4 py-16 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-[760px] text-center">
-          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#7ca893]">
-            03 — Perguntas frequentes
-          </p>
-          <h2 className="mt-4 text-4xl font-semibold tracking-[-0.06em] text-[#24473c]">
-            Ficou alguma dúvida?
-          </h2>
-          <p className="mt-4 text-base leading-8 text-[#6c897b]">
-            Só o essencial para você decidir com tranquilidade.
-          </p>
-        </div>
-
-        <div className="mt-10 grid gap-4 lg:grid-cols-2">
-          {faqItems.map((item) => (
-            <article
-              key={item.question}
-              className="rounded-[28px] border border-[#dcebe3] bg-white/94 px-6 py-6 shadow-[0_18px_40px_rgba(99,144,126,0.08)]"
-            >
-              <h3 className="text-lg font-semibold tracking-[-0.03em] text-[#274338]">
-                {item.question}
-              </h3>
-              <p className="mt-3 text-sm leading-7 text-[#6c897b]">
-                {item.answer}
-              </p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="px-4 pb-16 sm:px-6">
-        <div className="mx-auto max-w-[1180px] rounded-[34px] bg-[linear-gradient(135deg,#cf6f94,#b7557f)] px-6 py-10 text-center text-white shadow-[0_24px_60px_rgba(183,85,127,0.24)]">
-          <h2 className="mx-auto max-w-[820px] text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">
-            Transforme a operação da sua marca com o plano certo desde a entrada.
-          </h2>
-          <p className="mx-auto mt-4 max-w-[700px] text-base leading-8 text-[#ffeaf2]">
-            A landing educa. A página pública de planos converte. E o acesso ao
-            projeto só deve nascer depois da contratação da faixa correta.
-          </p>
-
-          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link
-              href={resolvePlanHref("growth")}
-              className="inline-flex items-center justify-center rounded-[16px] bg-white px-6 py-4 text-sm font-semibold text-[#cf6f94] transition hover:bg-[#fff7fa]"
-            >
-              Começar com DaBi Pro
-              <span className="ml-3 text-base">→</span>
-            </Link>
-            <Link
-              href={{
-                pathname: "/contato",
-                query: {
-                  origin,
-                  intent: "consultor",
-                },
-              }}
-              className="inline-flex items-center justify-center rounded-[16px] border border-white/38 bg-transparent px-6 py-4 text-sm font-semibold text-white transition hover:bg-white/8"
-            >
-              Falar com consultor
-            </Link>
-          </div>
-
-          <p className="mt-5 text-sm text-[#ffeaf2]">
-            Suporte humanizado · Ativação comercial guiada
-          </p>
         </div>
       </section>
     </main>
-  );
-}
-
-function PlanBullet({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-start gap-3">
-      <span className="mt-1 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-[#e8f4ed] text-[11px] font-semibold text-[#5b8b75]">
-        ✓
-      </span>
-      <p className="text-sm leading-7 text-[#6c897b]">{children}</p>
-    </div>
   );
 }
