@@ -251,7 +251,7 @@ test("o reporter e compartilhado por referencia global entre bundles", () => {
   assert.equal(captured[0].event, "test.global");
 });
 
-test("o reporter do Sentry so e registrado quando a instrumentacao inicializa", async () => {
+test("o reporter de rotas do Sentry e registrado somente no runtime Node", async () => {
   const source = await readFile(
     new URL("../src/lib/observability/route-error-reporter.ts", import.meta.url),
     "utf8",
@@ -263,18 +263,22 @@ test("o reporter do Sentry so e registrado quando a instrumentacao inicializa", 
   assert.match(source, /createRouteErrorThrottle/);
   assert.match(source, /suppressedSinceLastEvent/);
 
-  for (const configFile of ["sentry.server.config.ts", "sentry.edge.config.ts"]) {
-    const configSource = await readFile(
-      new URL(`../${configFile}`, import.meta.url),
-      "utf8",
-    );
+  const serverConfig = await readFile(
+    new URL("../sentry.server.config.ts", import.meta.url),
+    "utf8",
+  );
+  const edgeConfig = await readFile(
+    new URL("../sentry.edge.config.ts", import.meta.url),
+    "utf8",
+  );
 
-    assert.match(configSource, /registerSentryRouteErrorReporter\(\)/);
-    assert.match(
-      configSource,
-      /if \(sentryOptions\) \{[\s\S]*registerSentryRouteErrorReporter\(\)/,
-    );
-  }
+  assert.match(serverConfig, /registerSentryRouteErrorReporter\(\)/);
+  assert.match(
+    serverConfig,
+    /if \(sentryOptions\) \{[\s\S]*registerSentryRouteErrorReporter\(\)/,
+  );
+  assert.doesNotMatch(edgeConfig, /route-error-reporter/);
+  assert.doesNotMatch(edgeConfig, /registerSentryRouteErrorReporter\(\)/);
 });
 
 test("configuracao ausente do ERP e warn, nao error", async () => {

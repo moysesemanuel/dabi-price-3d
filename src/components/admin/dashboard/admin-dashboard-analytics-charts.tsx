@@ -48,13 +48,13 @@ function ChartCard({
   return (
     <section className="app-card min-w-0 p-5 sm:p-6" aria-labelledby={`chart-${title}`}>
       <div className="mb-5 space-y-1">
-        <h2 id={`chart-${title}`} className="text-lg font-semibold tracking-[-0.03em] text-[var(--foreground)]">
+        <h2 id={`chart-${title}`} className="admin-page-title text-lg text-[var(--foreground)]">
           {title}
         </h2>
         <p className="text-sm leading-6 text-[var(--muted)]">{description}</p>
       </div>
       {empty ? (
-        <div className="flex h-[264px] items-center justify-center rounded-2xl border border-dashed border-[var(--panel-border)] bg-[var(--panel-soft)] px-6 text-center text-sm leading-6 text-[var(--muted)]">
+        <div className="flex h-[264px] items-center justify-center rounded-[var(--admin-radius)] border border-dashed border-[var(--panel-border)] bg-[var(--panel-soft)] px-6 text-center text-sm leading-6 text-[var(--muted)]">
           Ainda não há dados para este período.
         </div>
       ) : children}
@@ -75,7 +75,7 @@ function AnalyticsTooltip({
 }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-xl border border-[var(--panel-border)] bg-[var(--panel-strong)] px-3 py-2.5 shadow-lg">
+    <div className="rounded-[var(--admin-radius-sm)] border border-[var(--panel-border)] bg-[var(--panel-strong)] px-3 py-2.5 shadow-lg">
       {label ? <p className="mb-2 text-xs font-semibold text-[var(--foreground)]">{formatAdminAnalyticsDate(label)}</p> : null}
       <div className="space-y-1.5">
         {payload.map((item) => (
@@ -112,7 +112,7 @@ export function AdminDashboardAnalyticsCharts({ analytics }: { analytics: AdminD
   return (
     <div className="space-y-6">
       {!hasData ? (
-        <div className="rounded-2xl border border-dashed border-[var(--panel-border)] bg-[var(--panel-soft)] p-5 text-sm leading-6 text-[var(--muted)]">
+        <div className="rounded-[var(--admin-radius)] border border-dashed border-[var(--panel-border)] bg-[var(--panel-soft)] p-5 text-sm leading-6 text-[var(--muted)]">
           Não há atividade comercial ou operacional registrada no período selecionado.
         </div>
       ) : null}
@@ -186,7 +186,7 @@ function Distribution({
 }) {
   const total = data.reduce((sum, item) => sum + item.count, 0);
   return (
-    <section className="rounded-xl border border-[var(--panel-border)] bg-[var(--panel-soft)] p-3" aria-label={`Distribuição por ${title.toLowerCase()}`}>
+    <section className="rounded-[var(--admin-radius-sm)] border border-[var(--panel-border)] bg-[var(--panel-soft)] p-3" aria-label={`Distribuição por ${title.toLowerCase()}`}>
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">{title}</p>
       <div className="mt-2 h-28">
         <ResponsiveContainer width="100%" height="100%">

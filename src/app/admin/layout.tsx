@@ -20,7 +20,7 @@ export default async function AdminLayout({
   }
 
   return (
-    <main className="admin-shell min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main className="admin-shell landing-root min-h-screen">
       <AdminShellNav userName={session.user.fullName} />
       <div className="min-h-screen px-4 pb-10 pt-20 sm:px-6 lg:ml-[264px] lg:px-10 lg:pt-8">
         <div className="mx-auto max-w-[1440px]">{children}</div>

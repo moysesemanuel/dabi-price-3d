@@ -25,10 +25,10 @@ export function AdminPageHeader({
     <header className="space-y-4">
       <BackLink href="/app" label="Voltar para a aplicacao" />
       <div className="space-y-3">
-        <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--accent)]">
+        <p className="admin-eyebrow font-mono text-[11px] uppercase tracking-[0.24em]">
           {eyebrow}
         </p>
-        <h1 className="text-4xl font-semibold tracking-[-0.05em] text-[var(--foreground)]">
+        <h1 className="admin-page-title text-4xl text-[var(--foreground)]">
           {title}
         </h1>
         <p className="max-w-3xl text-base leading-8 text-[var(--muted)]">
@@ -51,7 +51,7 @@ export function AdminPageSection({
   return (
     <section className="app-card space-y-5 p-6 sm:p-7">
       <div className="space-y-2">
-        <h2 className="text-2xl font-semibold tracking-[-0.04em] text-[var(--foreground)]">
+        <h2 className="admin-page-title text-2xl text-[var(--foreground)]">
           {title}
         </h2>
         <p className="text-sm leading-7 text-[var(--muted)]">{description}</p>
@@ -103,7 +103,7 @@ export function SummaryGrid({ summary }: { summary: BillingAdminSummary }) {
       {cards.map((card) => (
         <article
           key={card.label}
-          className="rounded-[24px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.8)] p-5"
+          className="rounded-[var(--admin-radius)] border border-[var(--panel-border)] bg-[var(--admin-panel)] p-5"
         >
           <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--muted)]">
             {card.label}
@@ -125,7 +125,7 @@ export function WorkspacesTable({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-sm">
+      <table className="admin-data-table min-w-full text-left text-sm">
         <thead className="text-[11px] uppercase tracking-[0.22em] text-[var(--muted)]">
           <tr>
             <th className="px-3 py-3 font-medium">Workspace</th>
@@ -200,7 +200,7 @@ export function SubscriptionsTable({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-sm">
+      <table className="admin-data-table min-w-full text-left text-sm">
         <thead className="text-[11px] uppercase tracking-[0.22em] text-[var(--muted)]">
           <tr>
             <th className="px-3 py-3 font-medium">Workspace</th>
@@ -266,7 +266,7 @@ export function SubscriptionsTable({
 export function InvoicesTable({ invoices }: { invoices: BillingAdminInvoiceRecord[] }) {
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-sm">
+      <table className="admin-data-table min-w-full text-left text-sm">
         <thead className="text-[11px] uppercase tracking-[0.22em] text-[var(--muted)]">
           <tr>
             <th className="px-3 py-3 font-medium">Workspace</th>
@@ -319,7 +319,7 @@ export function WebhookEventsTable({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-sm">
+      <table className="admin-data-table min-w-full text-left text-sm">
         <thead className="text-[11px] uppercase tracking-[0.22em] text-[var(--muted)]">
           <tr>
             <th className="px-3 py-3 font-medium">Evento</th>
@@ -363,7 +363,7 @@ export function AuditEventsTable({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-sm">
+      <table className="admin-data-table min-w-full text-left text-sm">
         <thead className="text-[11px] uppercase tracking-[0.22em] text-[var(--muted)]">
           <tr>
             <th className="px-3 py-3 font-medium">Quando</th>
@@ -408,7 +408,7 @@ export function FindingsList({
 }) {
   if (findings.length === 0) {
     return (
-      <div className="rounded-[22px] border border-[var(--panel-border)] bg-[rgba(255,255,255,0.76)] p-5 text-sm text-[var(--muted)]">
+      <div className="rounded-[var(--admin-radius)] border border-[var(--panel-border)] bg-[var(--admin-panel-alt)] p-5 text-sm text-[var(--muted)]">
         Nenhuma divergencia operacional aberta no momento.
       </div>
     );
@@ -419,7 +419,7 @@ export function FindingsList({
       {findings.map((finding, index) => (
         <article
           key={`${finding.code}-${finding.subscriptionId ?? ""}-${index}`}
-          className="rounded-[22px] border border-[rgba(217,119,6,0.18)] bg-[rgba(255,248,235,0.92)] p-5"
+          className="rounded-[var(--admin-radius)] border border-[var(--landing-gold-soft)] bg-[var(--landing-gold-faint)] p-5"
         >
           <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--accent)]">
             {finding.code}
@@ -552,13 +552,13 @@ function resolveStatusTone(
 function resolveToneClassName(tone: "success" | "warning" | "danger" | "neutral") {
   switch (tone) {
     case "success":
-      return "inline-flex items-center rounded-full border border-[rgba(16,185,129,0.2)] bg-[rgba(236,253,245,0.92)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[rgb(5,150,105)]";
+      return "inline-flex items-center rounded-[var(--admin-radius-sm)] border border-[color:var(--success)]/25 bg-[color:var(--success)]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--success)]";
     case "warning":
-      return "inline-flex items-center rounded-full border border-[rgba(217,119,6,0.2)] bg-[rgba(255,247,237,0.92)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[rgb(180,83,9)]";
+      return "inline-flex items-center rounded-[var(--admin-radius-sm)] border border-[var(--landing-gold-soft)] bg-[var(--landing-gold-faint)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--warning)]";
     case "danger":
-      return "inline-flex items-center rounded-full border border-[rgba(220,38,38,0.2)] bg-[rgba(254,242,242,0.92)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[rgb(185,28,28)]";
+      return "inline-flex items-center rounded-[var(--admin-radius-sm)] border border-[color:var(--danger)]/25 bg-[color:var(--danger)]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--danger)]";
     case "neutral":
     default:
-      return "inline-flex items-center rounded-full border border-[var(--panel-border)] bg-[rgba(255,255,255,0.78)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]";
+      return "inline-flex items-center rounded-[var(--admin-radius-sm)] border border-[var(--panel-border)] bg-[var(--admin-panel-alt)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]";
   }
 }

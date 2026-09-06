@@ -785,6 +785,82 @@ input[type="number"] {
   --landing-shadow: 0 18px 44px rgba(0, 0, 0, 0.36);
 }
 
+/* The admin keeps its operational layout, but consumes the landing system. */
+.admin-shell {
+  --admin-surface: var(--landing-surface);
+  --admin-surface-alt: var(--landing-surface-alt);
+  --admin-panel: var(--landing-panel);
+  --admin-panel-alt: var(--landing-panel-alt);
+  --admin-ink: var(--landing-ink);
+  --admin-ink-soft: var(--landing-ink-soft);
+  --admin-muted: var(--landing-muted);
+  --admin-line: var(--landing-line);
+  --admin-line-strong: var(--landing-line-strong);
+  --admin-radius: var(--landing-radius);
+  --admin-radius-sm: var(--landing-radius-sm);
+  --admin-font-display: var(--font-display-ui);
+  --background: var(--landing-surface);
+  --foreground: var(--landing-ink);
+  --panel: var(--landing-panel);
+  --panel-strong: var(--landing-panel);
+  --panel-soft: var(--landing-surface-alt);
+  --panel-subtle: var(--landing-panel-alt);
+  --panel-border: var(--landing-line-strong);
+  --muted: var(--landing-muted);
+  --accent: var(--landing-action);
+  --accent-strong: var(--landing-action-hover);
+  --accent-soft: var(--landing-gold-faint);
+  --accent-ink: var(--landing-action-ink);
+  --success: var(--landing-profit);
+  --warning: var(--landing-gold);
+  --danger: #b33a3a;
+  --admin-shell-nav-bg: var(--landing-panel);
+  --admin-shell-nav-fg: var(--landing-ink);
+  --admin-shell-nav-muted: var(--landing-muted);
+  --admin-shell-nav-active: var(--landing-gold-faint);
+  background:
+    radial-gradient(circle at 0 0, var(--landing-glow-a), transparent 28%),
+    radial-gradient(circle at 100% 8%, var(--landing-glow-b), transparent 24%),
+    var(--landing-surface);
+  color: var(--landing-ink);
+  font-family: var(--font-sans-ui);
+}
+
+.admin-shell .app-card {
+  border-color: var(--landing-line-strong);
+  border-radius: var(--landing-radius);
+  background: var(--landing-panel);
+  box-shadow: none;
+}
+
+.admin-shell .app-card-soft {
+  border-color: var(--landing-line);
+  border-radius: var(--landing-radius);
+  background: var(--landing-surface-alt);
+}
+
+.admin-shell .app-button {
+  border-radius: var(--landing-radius-sm);
+}
+
+.admin-shell .admin-page-title {
+  font-family: var(--admin-font-display);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+}
+
+.admin-shell .admin-eyebrow {
+  color: var(--landing-gold);
+}
+
+.admin-shell .admin-data-table tbody tr {
+  transition: background-color 160ms ease;
+}
+
+.admin-shell .admin-data-table tbody tr:hover {
+  background: var(--landing-surface-alt);
+}
+
 .landing-shell {
   width: 100%;
   max-width: 1440px;
