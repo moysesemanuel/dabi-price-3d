@@ -227,5 +227,3 @@ export async function POST(request: Request) {
       "mercadoLivre" in responsePayload ? responsePayload.mercadoLivre : undefined,
   });
 }
-
-
