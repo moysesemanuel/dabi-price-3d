@@ -2,6 +2,8 @@
 
 > Status: em execução  
 > Objetivo: concluir 100% do escopo técnico, operacional e funcional definido para a DaBi Price, sem pendências classificadas como `parcial`, `faltando` ou `bloqueado` dentro do escopo oficial.
+>
+> Última verificação de estado do repositório: 07/09/2026 (ver `Estado verificado em 07/09/2026`).
 
 ---
 
@@ -72,6 +74,80 @@ git fetch origin
 diff <(git show origin/main:docs/PLANO-FINAL-DABI-PRICE-100.md | grep '^- \[') \
      <(git show origin/release/homologation:docs/PLANO-FINAL-DABI-PRICE-100.md | grep '^- \[')
 ```
+
+---
+
+# Estado verificado em 07/09/2026
+
+Auditoria do repositório e dos serviços externos. Registra apenas o que foi
+observado, não o que se espera que exista.
+
+## Verde
+
+- Lint, typecheck, suíte e build passam. A suíte tem **395 testes** depois da
+  PR #67, contra 373 na base auditada e 202 em 22/08/2026.
+- O workflow `check` roda em toda PR desde 03/09/2026.
+
+## Achados que mudam o plano
+
+1. **Chamadas externas não tinham timeout — corrigido pela PR #67.** A
+   auditoria encontrou duas ocorrências de `AbortSignal` em toda a `src/`,
+   ambas na rota do ERP. Mercado Pago, Resend, Mercado Livre e o câmbio usavam
+   `fetch` cru, então um upstream pendurado segurava a function até o limite da
+   plataforma e nenhuma falha transitória era reexecutada.
+
+   Registro de uma correção de rumo: a primeira redação deste achado afirmava
+   que **nenhuma** integração tinha timeout, incluindo o ERP. Estava errada — a
+   própria Fase 12 já documentava o cancelamento em 12 segundos desde antes. O
+   erro foi encontrado ao ler o código para implementar a correção, e o ERP
+   virou o modelo a generalizar em vez de um caso a consertar.
+
+2. **Sentry não entrega nada, e agora há evidência disso.** A organização
+   `dabi-tech` e o projeto `dabi-price` existem, mas a consulta de eventos em
+   07/09/2026 retornou **zero eventos em 30 dias**, em qualquer ambiente. O DSN
+   nunca chegou a ser configurado na Vercel. Fase 16 inteira depende disso.
+3. **Não existe suíte E2E.** O repositório não tem Playwright, Cypress ou
+   qualquer runner de browser — nem dependência, nem configuração, nem
+   diretório. Os dez fluxos E2E da Fase 17 são trabalho de implementação, não de
+   execução. É o maior item de código pendente do ciclo.
+4. **2FA de Super Admin não existe e não tinha checkbox.** Zero ocorrência de
+   `totp`, `2fa`, `two-factor` ou `authenticator` em `src/`. O
+   `ESCOPO-OFICIAL-DABI-PRICE.md` classifica isso como obrigatório antes da
+   release final, mas nenhuma fase cobrava o item. Passou a ser cobrado na
+   Fase 18.
+5. **LGPD operacional é só texto.** `/privacidade` promete os direitos do
+   titular, mas não há exportação de dados nem exclusão de conta ou workspace
+   pelo próprio usuário: os únicos `DELETE` existentes são administrativos
+   (`/api/admin/users/[userId]`, membros de workspace) e de cálculos. Fase 19.
+6. **Catálogo comercial divergiu do escopo.** O commit `dce27d6`
+   (06/09/2026) reescreveu `/planos` e tirou o Max da venda, enquanto o
+   `ESCOPO-OFICIAL-DABI-PRICE.md` continua descrevendo o catálogo como
+   Start, Pro e Max. Uma das duas fontes está errada e a decisão é comercial,
+   não técnica. Cobrado na Fase 22.
+7. **O plano estava atrasado em relação ao produto.** Entre 04/09 e 06/09
+   entraram landing premium, adoção da marca, Termos e Privacidade com aceite
+   no cadastro, identidade da empresa editável no admin com trilha e a
+   reescrita de `/planos`. Nada disso tinha registro aqui.
+
+## Higiene pendente
+
+- Branches mortas: `release/homologation` (132 commits atrás de `origin/main`,
+  2 à frente) e `fix/mercado-pago-webhook-secret` (193 atrás, 2 à frente).
+- Worktree `dabi-price-platform-migrations` marcado como `prunable`, apontando
+  para `codex/platform-schema-migrations` (38 atrás, 1 à frente): decidir entre
+  integrar as migrations e descartar.
+- Árvore suja: `AGENTS.md` modificado (bloco regravado pelo `next dev`) e
+  `dabi-tech-saas-options.svg` não versionado.
+
+## Leitura honesta do que falta
+
+Dos 235 checkboxes abertos, a maior parte é **evidência manual** em ambiente
+real (Fases 3, 4, 5, 10, 12, 13, 14, 20), não implementação. O trabalho de
+código que resta está concentrado em: E2E (Fase 17), hardening de concorrência
+(Fase 6), 2FA (Fase 18), LGPD operacional (Fase 19) e auditoria de estados de
+UX (Fase 15). As duas configurações externas que destravam mais coisa por menos
+esforço são o DSN do Sentry e o domínio próprio no Resend — esta segunda é
+bloqueador comercial, porque sem ela nenhum cliente real recebe e-mail.
 
 ---
 
@@ -521,7 +597,7 @@ Onde necessário:
 - [ ] Optimistic concurrency.
 - [ ] `SELECT ... FOR UPDATE` ou equivalente.
 - [x] Idempotency keys.
-- [ ] Retries seguros.
+- [x] Retries seguros.
 
 ## Testes
 
@@ -591,6 +667,15 @@ Onde necessário:
   assinatura e o preço vigente, preparar a recorrência no provider e persistir
   a mudança agendada. Operações concorrentes recebem `409` antes da mutação
   externa.
+- `Retries seguros` foi marcado pela PR #67 (`3521470`, 07/09/2026). O cliente
+  `src/lib/server/http.ts` só repete falha transitória — timeout, rede, 5xx,
+  429 — e só em método idempotente ou quando quem chama declara que a
+  requisição carrega idempotency key montada antes da primeira tentativa. As
+  chamadas do Mercado Pago repetem porque a `X-Idempotency-Key` entra nos
+  headers antes da primeira tentativa; o OAuth do Mercado Livre não repete
+  porque o `code` é de uso único e o refresh token rotaciona; o POST do ERP só
+  repete quando o payload traz SKU, porque `saveSalesProduct` faz upsert por
+  SKU. Corpo em stream desliga a repetição, já que não pode ser reenviado.
 
 ## Critério de aceite
 
@@ -923,10 +1008,34 @@ O mesmo input produz o mesmo resultado independentemente da UI, com regras finan
 
 ## Execução automatizada
 
-- O proxy de publicação cancela chamadas ao ERP após 12 segundos e retorna
-  `504` com `ERP_UPSTREAM_TIMEOUT`; o evento estruturado
-  `erp.upstream_timeout` preserva o `requestId` para diagnóstico. Os demais
-  erros de rede continuam respondendo `502`.
+- O proxy de publicação cancela chamadas ao ERP e retorna `504` com
+  `ERP_UPSTREAM_TIMEOUT`; o evento estruturado `erp.upstream_timeout` preserva
+  o `requestId` para diagnóstico. Os demais erros de rede continuam
+  respondendo `502`.
+- Desde a PR #67 (`3521470`, 07/09/2026) o prazo deixou de ser único. O
+  endpoint do ERP faz trabalho diferente conforme o payload: sem publicação no
+  Mercado Livre são banco e um salto HTTP interno; com publicação, ainda uma
+  chamada à API do Mercado Livre, que passa a dominar o tempo. Os 12 segundos
+  anteriores eram o pior lado das duas pontas. `resolveErpRequestPolicy`
+  (`src/lib/erp-products/request-policy.ts`) resolve 8 segundos sem publicação
+  e 20 com, e libera retry apenas quando o payload traz SKU — `saveSalesProduct`
+  faz upsert por SKU, e sem SKU o ERP geraria um segundo cadastro. Publicação
+  no Mercado Livre nunca repete.
+- A tela de envio avisa que a publicação pode demorar e que o produto já fica
+  salvo no ERP, o que o endpoint de fato garante: o `saveSalesProduct` roda
+  antes da publicação externa.
+- Os checkboxes abaixo continuam desmarcados de propósito. Eles descrevem
+  **comportamento observado em ambiente real**, não mecanismo implementado. O
+  código agora trata timeout, indisponibilidade e erro do upstream; falta
+  exercitar cada caso contra o ERP e registrar o resultado.
+- Achado externo pendente: `syncSalesProductToEcommerceSafely`, no repositório
+  `sales-system` (`lib/ecommerce-catalog-sync.ts:241`), chama o e-commerce sem
+  timeout nenhum. Hoje quem limita essa espera é o timeout do lado do DaBi
+  Price. A correção pertence àquele repositório.
+- Inconsistência conhecida: num timeout do caminho com Mercado Livre, o produto
+  existe no ERP mas `attachErpProductToCalculation` não roda, então o histórico
+  local não registra o vínculo. Precisa de reconciliação por SKU ou vínculo
+  otimista.
 
 ## Happy path
 
@@ -983,6 +1092,14 @@ precificação
   integração suportada é OAuth persistente, com token isolado por workspace;
   ambientes sem `DATABASE_URL` e credenciais OAuth deixam a integração
   explicitamente indisponível.
+- Desde a PR #67 (`3521470`, 07/09/2026) as chamadas ao Mercado Livre têm
+  timeout de oito segundos. As duas trocas de token do OAuth ficam
+  deliberadamente **fora** do retry: o `code` é de uso único e o refresh token
+  rotaciona a cada troca, então repetir uma requisição que talvez tenha sido
+  aceita queimaria a credencial do workspace. As consultas de categoria, tarifa
+  e frete repetem falha transitória, por serem leitura.
+- Os checkboxes de homologação acima seguem desmarcados: eles pedem
+  comportamento observado contra o provider, não mecanismo no código.
 
 ---
 
@@ -1107,6 +1224,11 @@ ou equivalente.
   `mercado_pago_webhook.` ou `billing_admin.`.
 - Os itens marcados acima permanecem desmarcados de propósito: eles descrevem
   **alerta entregue**, não evento emitido.
+- Confirmado em 07/09/2026 pela API do Sentry: a organização `dabi-tech` e o
+  projeto `dabi-price` existem, e a busca de eventos retornou **zero eventos em
+  30 dias**, em qualquer ambiente. Não é ausência de erro em produção: é a
+  ausência do DSN. Enquanto isso não mudar, nenhum item desta fase pode ser
+  marcado.
 
 ## Critério de aceite
 
@@ -1178,6 +1300,16 @@ e `git diff --check` em toda PR e em `push` para `main` e `release/homologation`
 - `npm run check` executa lint, typecheck, a suíte `test:pricing` e o build
   Webpack, concentrando toda a validação local obrigatória do plano em um
   comando.
+- Em 07/09/2026, `lint`, `typecheck` e `test:pricing` passaram na branch
+  `fix/pagina-de-planos`, com **378 testes** — 176 a mais que em 22/08/2026.
+- Os itens de E2E acima não são de execução, e sim de implementação: em
+  07/09/2026 o repositório não tinha Playwright, Cypress nem qualquer outro
+  runner de browser instalado ou configurado. Antes de marcar qualquer fluxo,
+  é preciso escolher a ferramenta, versioná-la e colocá-la no workflow `check`.
+- Os testes `*.integration.mjs` dependem de `TEST_DATABASE_URL` e ficam fora do
+  `npm run check`, por isso não rodam no CI. Os itens `Repository` e `Database`
+  desta fase só podem ser marcados quando essa execução tiver ambiente e
+  registro.
 
 ---
 
@@ -1260,6 +1392,22 @@ e `git diff --check` em toda PR e em `push` para `main` e `release/homologation`
   uma falha de upstream não pode devolver nem registrar mensagem bruta que
   contenha detalhes operacionais ou credenciais.
 
+## 2FA do Super Admin
+
+O `ESCOPO-OFICIAL-DABI-PRICE.md` define 2FA para Super Admin como hardening
+obrigatório antes da release final. Até 07/09/2026 não havia nenhuma ocorrência
+de `totp`, `2fa`, `two-factor` ou `authenticator` em `src/`, e nenhuma fase
+cobrava o item — ele estava a caminho de sair despercebido da release.
+
+- [ ] Definir o fator (TOTP ou equivalente) e onde o segredo é guardado.
+- [ ] Habilitar 2FA para contas `super_admin`.
+- [ ] Exigir o segundo fator no login administrativo.
+- [ ] Fluxo de recuperação que não permita contornar o fator.
+- [ ] Códigos de reserva, se aplicável.
+- [ ] Auditoria de ativação, uso e desativação.
+- [ ] Testes automatizados do fluxo.
+- [ ] Impossível remover o 2FA da última conta `super_admin` sem trilha.
+
 ## Critério de aceite
 
 Nenhum achado crítico ou alto conhecido permanece aberto.
@@ -1285,6 +1433,17 @@ Nenhum achado crítico ou alto conhecido permanece aberto.
 - [ ] Exportação quando aplicável.
 - [ ] Requisitos LGPD avaliados.
 - [ ] Política comercial/jurídica documentada.
+
+## Registro de execução
+
+- Em 07/09/2026, `/privacidade` e `/termos` estão publicados e o aceite é
+  exigido no cadastro (PR #66), mas o produto não tem **execução** dos direitos
+  do titular: não existe exportação de dados nem exclusão de conta ou workspace
+  pelo próprio usuário. Os únicos `DELETE` do `/api` são administrativos
+  (usuário da plataforma, membro de workspace) e de cálculos do workspace.
+  Publicar a política sem o meio de exercê-la é uma exposição jurídica, não
+  apenas um checkbox aberto.
+- Não há evidência versionada de backup, restore ou retenção do banco.
 
 ---
 
@@ -1358,6 +1517,17 @@ Somente depois de tudo aprovado:
 - [ ] Remover compatibilidades legadas que não possuam consumidor.
 - [ ] Remover `docs/PLANO-TEMPORARIO-SEGURANCA-E-COBRANCA.md` somente após todos os critérios correspondentes estarem concluídos.
 
+## Alvos concretos identificados em 07/09/2026
+
+- [ ] `release/homologation`: 132 commits atrás de `origin/main` e 2 à frente.
+      Decidir o destino dos 2 commits próprios antes de apagar.
+- [ ] `fix/mercado-pago-webhook-secret`: 193 atrás, 2 à frente.
+- [ ] `codex/platform-schema-migrations` e o worktree `prunable`
+      `dabi-price-platform-migrations`: integrar as migrations ou descartar,
+      e rodar `git worktree prune`.
+- [ ] Árvore de trabalho limpa: `AGENTS.md` (bloco regravado pelo `next dev`) e
+      `dabi-tech-saas-options.svg` não versionado.
+
 ---
 
 # Fase 22 — Auditoria final 100%
@@ -1394,6 +1564,9 @@ bloqueado
 - [ ] Testes.
 - [ ] Dados.
 - [ ] Documentação.
+- [ ] Catálogo comercial: resolver a divergência entre `/planos` sem o Max
+      (commit `dce27d6`, 06/09/2026) e o `ESCOPO-OFICIAL-DABI-PRICE.md`, que
+      descreve Start, Pro e Max. Corrigir a fonte errada, não as duas.
 
 ---
 
@@ -1438,7 +1611,7 @@ de código local. Os itens continuam detalhados nas fases de origem.
 | Cartão recorrente do Mercado Pago | 4, 20 | A primeira assinatura de teste foi aprovada e refletida no DaBi; renovação, falha, recuperação, cancelamento remoto e webhook atrasado continuam sem ciclo temporal completo. | Executar e registrar os cenários pendentes em ambiente de homologação/produção controlada. |
 | Pix Automático | 9 | A abstração `BillingProvider` existe, mas o contrato e o ciclo completo do provider ainda não foram homologados. | Confirmar contrato, autorização, cobrança, webhook, cancelamento, idempotência e sandbox com o Mercado Pago; só então habilitar o fluxo comercial. |
 | Consumo único de redefinição no Neon | 10 | O SQL consome o token com `consumed_at IS NULL` de forma atômica; a suíte local cobre consumo único e expiração. | Usar o mesmo token de recuperação duas vezes contra o ambiente remoto e comprovar que a segunda tentativa é rejeitada. |
-| Alertas operacionais externos | 16 | O Sentry está integrado no código desde a PR #55 e os eventos são emitidos (erro não tratado, erro tratado de rota, `billing.claim_lost`); não há DSN configurado na Vercel nem regra de alerta criada, então nada é entregue a ninguém. | Configurar as variáveis do Sentry nos ambientes e criar as regras de alerta e os destinatários para webhooks, cron, provider, ERP, OAuth e 5xx. |
+| Alertas operacionais externos | 16 | O Sentry está integrado no código desde a PR #55 e os eventos são emitidos (erro não tratado, erro tratado de rota, `billing.claim_lost`); em 07/09/2026 a API do Sentry confirmou zero eventos em 30 dias, ou seja, não há DSN configurado na Vercel nem regra de alerta criada, e nada é entregue a ninguém. | Configurar as variáveis do Sentry nos ambientes e criar as regras de alerta e os destinatários para webhooks, cron, provider, ERP, OAuth e 5xx. |
 | Backup, restauração e LGPD | 19 | Banco e aplicação operam, mas não há evidência versionada de backup/restore, retenção ou políticas jurídicas. | Definir retenção, executar restore controlado, documentar remoção/exportação e validar requisitos legais com responsável competente. |
 | Smoke test de produção | 20 | HML validou recuperação de senha, webhooks e assinatura recorrente; não há evidência completa de um usuário novo em produção. | Executar o roteiro da fase com conta não administrativa e registrar os resultados, sem reutilizar dados de teste. |
 
