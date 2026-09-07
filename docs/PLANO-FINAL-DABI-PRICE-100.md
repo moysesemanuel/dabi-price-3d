@@ -588,6 +588,13 @@ Eliminar condições de corrida capazes de produzir estado comercial inválido.
 
 ## Hardening
 
+> Os itens `Transações`, `Locking` e `SELECT ... FOR UPDATE ou equivalente`
+> dependem de uma decisão registrada, não de implementação: o driver HTTP do
+> Neon não oferece transação interativa, e o billing resolve exclusão mútua por
+> statement atômico e claim durável. Ver
+> `docs/architecture/ADR-001-CONCORRENCIA-BILLING.md`, em estado de proposta.
+> Enquanto o ADR não for aceito, os três seguem desmarcados.
+
 Onde necessário:
 
 - [ ] Transações.
