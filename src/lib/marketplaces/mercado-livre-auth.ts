@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { outboundFetch } from "@/lib/server/http";
 import { getCurrentAuthSession } from "@/lib/auth/session";
 import {
   getStoredMercadoLivreToken,
@@ -182,7 +183,12 @@ export async function exchangeMercadoLivreCode(
     throw new Error("Sessão autenticada ausente para conectar o Mercado Livre.");
   }
 
-  const response = await fetch("https://api.mercadolibre.com/oauth/token", {
+  // Sem retry de proposito: o `code` do OAuth e de uso unico e o refresh token
+  // rotaciona a cada troca. Repetir uma requisicao que talvez tenha sido aceita
+  // queimaria a credencial do workspace. Timeout continua obrigatorio.
+  const response = await outboundFetch("https://api.mercadolibre.com/oauth/token", {
+    integration: "mercado_livre",
+    retry: false,
     method: "POST",
     headers: {
       accept: "application/json",
@@ -225,7 +231,10 @@ async function refreshStoredToken(
     );
   }
 
-  const response = await fetch("https://api.mercadolibre.com/oauth/token", {
+  // Mesma regra da troca por `code`: refresh token rotaciona, retry nao entra.
+  const response = await outboundFetch("https://api.mercadolibre.com/oauth/token", {
+    integration: "mercado_livre",
+    retry: false,
     method: "POST",
     headers: {
       accept: "application/json",

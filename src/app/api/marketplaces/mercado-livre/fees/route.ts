@@ -7,6 +7,7 @@ import {
   type MercadoLivreRootCategoryKey,
 } from "@/lib/marketplaces/mercado-livre";
 import { mapMercadoLivreOperationalError } from "@/lib/server/operational-messages";
+import { outboundFetch } from "@/lib/server/http";
 import {
   createRouteRequestContext,
   jsonWithRequestId,
@@ -224,7 +225,10 @@ async function predictCategory(query: string): Promise<PredictedCategory | null>
   url.searchParams.set("q", query);
   url.searchParams.set("limit", "1");
 
-  const response = await fetch(url, { cache: "no-store" });
+  const response = await outboundFetch(url, {
+    integration: "mercado_livre",
+    cache: "no-store",
+  });
   if (!response.ok) {
     return null;
   }
@@ -272,7 +276,8 @@ async function fetchListingPrices(input: {
     }
   }
 
-  const response = await fetch(url, {
+  const response = await outboundFetch(url, {
+    integration: "mercado_livre",
     headers: {
       Authorization: `Bearer ${input.token}`,
     },
@@ -348,7 +353,8 @@ async function fetchShippingEstimate(input: {
   url.searchParams.set("free_shipping", input.freeShipping ? "true" : "false");
   url.searchParams.set("verbose", "true");
 
-  const response = await fetch(url, {
+  const response = await outboundFetch(url, {
+    integration: "mercado_livre",
     headers: {
       Authorization: `Bearer ${input.token}`,
     },
@@ -392,9 +398,10 @@ async function fetchUserShippingPreferences(input: {
   token: string;
   userId: string;
 }) {
-  const response = await fetch(
+  const response = await outboundFetch(
     `https://api.mercadolibre.com/users/${input.userId}/shipping_preferences`,
     {
+      integration: "mercado_livre",
       headers: {
         Authorization: `Bearer ${input.token}`,
       },
@@ -416,9 +423,10 @@ async function fetchCategoryShippingPreferences(input: {
   token: string;
   categoryId: string;
 }) {
-  const response = await fetch(
+  const response = await outboundFetch(
     `https://api.mercadolibre.com/categories/${input.categoryId}/shipping_preferences`,
     {
+      integration: "mercado_livre",
       headers: {
         Authorization: `Bearer ${input.token}`,
       },

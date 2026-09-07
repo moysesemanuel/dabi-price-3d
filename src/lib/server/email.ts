@@ -1,5 +1,9 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+
+import { outboundFetch } from "./http.ts";
+
 type TransactionalEmailInput = {
   to: string;
   subject: string;
@@ -39,12 +43,19 @@ async function sendViaResend(input: TransactionalEmailInput) {
     throw new Error("RESEND_API_KEY não configurada.");
   }
 
-  const response = await fetch("https://api.resend.com/emails", {
+  // Chave montada antes da primeira tentativa: um retry chega ao Resend com a
+  // mesma chave e o destinatario nao recebe o e-mail duas vezes.
+  const idempotencyKey = randomUUID();
+
+  const response = await outboundFetch("https://api.resend.com/emails", {
+    integration: "resend",
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey,
     },
+    retryNonIdempotentMethod: true,
     body: JSON.stringify({
       from: fromAddress,
       to: [input.to],

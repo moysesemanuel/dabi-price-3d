@@ -764,7 +764,13 @@ export function SiteProductPublisher({
                   ou ambos, informe uma categoria ML valida e envie a imagem
                   principal.
                 </p>
-              ) : null}
+              ) : (
+                <p className="mt-3 text-xs leading-5 text-[#7c6858]">
+                  O envio ao Mercado Livre pode levar um tempinho, porque
+                  dependemos da resposta do sistema deles. Enquanto isso, o
+                  produto ja fica salvo no ERP.
+                </p>
+              )}
             </section>
           </aside>
         </div>

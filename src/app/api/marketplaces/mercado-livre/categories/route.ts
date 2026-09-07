@@ -11,6 +11,7 @@ import {
   logRouteEvent,
   serializeError,
 } from "@/lib/server/route-observability";
+import { outboundFetch } from "@/lib/server/http";
 
 type MercadoLivreDomainDiscoveryItem = {
   category_id?: string;
@@ -431,7 +432,8 @@ async function fetchMercadoLivreJson<T>(
 
   for (const accessToken of attemptTokens) {
     try {
-      const response = await fetch(url, {
+      const response = await outboundFetch(url, {
+        integration: "mercado_livre",
         headers: {
           accept: "application/json",
           ...(accessToken

@@ -1,4 +1,5 @@
 import { defaultExchangeRateSnapshot } from "@/lib/currency/display-currency";
+import { outboundFetch } from "@/lib/server/http";
 
 type FrankfurterResponse = {
   base?: string;
@@ -11,9 +12,10 @@ type FrankfurterResponse = {
 
 export async function GET() {
   try {
-    const response = await fetch(
+    const response = await outboundFetch(
       "https://api.frankfurter.dev/v2/rates?base=BRL&quotes=USD,EUR",
       {
+        integration: "exchange_rates",
         cache: "no-store",
       },
     );
