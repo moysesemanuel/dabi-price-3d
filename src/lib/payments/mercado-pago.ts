@@ -4,6 +4,7 @@ import {
   type WorkspacePlanId,
 } from "../workspace/catalog.ts";
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { outboundFetch } from "../server/http.ts";
 import type { BillingCycle } from "../billing/types.ts";
 
 export type MercadoPagoWebhookTopic =
@@ -938,7 +939,8 @@ export function resolveMercadoPagoWorkspaceHint(input: {
 async function mercadoPagoApiRequest<T>(path: string, accessTokenOverride?: string) {
   const accessToken = accessTokenOverride ?? resolveMercadoPagoAccessToken();
 
-  const response = await fetch(`https://api.mercadopago.com${path}`, {
+  const response = await outboundFetch(`https://api.mercadopago.com${path}`, {
+    integration: "mercado_pago",
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -974,7 +976,8 @@ async function mercadoPagoApiMutation<T>(
 
   const accessToken = accessTokenOverride ?? resolveMercadoPagoAccessToken();
 
-  const response = await fetch(`https://api.mercadopago.com${path}`, {
+  const response = await outboundFetch(`https://api.mercadopago.com${path}`, {
+    integration: "mercado_pago",
     method,
     headers: {
       Accept: "application/json",
@@ -986,6 +989,10 @@ async function mercadoPagoApiMutation<T>(
     },
     body: JSON.stringify(body),
     cache: "no-store",
+    // A chave de idempotencia entra nos headers antes da primeira tentativa,
+    // entao um retry chega ao Mercado Pago com a mesma chave e nao cobra duas
+    // vezes. Sem essa garantia, repetir POST de cobranca seria inaceitavel.
+    retryNonIdempotentMethod: true,
   });
 
   if (!response.ok) {

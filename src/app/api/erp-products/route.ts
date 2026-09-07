@@ -1,7 +1,9 @@
 import { requireCurrentAuthSession } from "@/lib/auth/session";
 import { resolvePricingTenantContext } from "@/lib/erp-products/context";
 import { normalizeErpProductSaveRequest } from "@/lib/erp-products/normalize-save-request";
+import { resolveErpRequestPolicy } from "@/lib/erp-products/request-policy";
 import { mapErpUpstreamFailure } from "@/lib/server/operational-messages";
+import { isOutboundTimeoutError, outboundFetch } from "@/lib/server/http";
 import {
   createRouteRequestContext,
   jsonWithRequestId,
@@ -12,8 +14,6 @@ import type {
   ErpProductSaveRequest,
   ErpProductSaveResponse,
 } from "@/lib/erp-products/types";
-
-const ERP_REQUEST_TIMEOUT_MS = 12_000;
 
 export async function POST(request: Request) {
   const requestContext = createRouteRequestContext(request, "/api/erp-products");
@@ -92,12 +92,24 @@ export async function POST(request: Request) {
     );
   }
 
+  const erpRequestPolicy = resolveErpRequestPolicy({
+    sku: payload.sku,
+    publishToMercadoLivre: payload.publishToMercadoLivre,
+  });
+
   let response: Response;
 
   try {
-    response = await fetch(
+    response = await outboundFetch(
       `${erpAppUrl.replace(/\/$/, "")}/api/integrations/pricing/products`,
       {
+        integration: "erp",
+        requestId: requestContext.requestId,
+        timeoutMs: erpRequestPolicy.timeoutMs,
+        retry: erpRequestPolicy.canRetry
+          ? { maxAttempts: erpRequestPolicy.maxAttempts }
+          : false,
+        retryNonIdempotentMethod: erpRequestPolicy.canRetry,
         method: "POST",
         headers: {
           Accept: "application/json",
@@ -107,11 +119,10 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify(payload),
         cache: "no-store",
-        signal: AbortSignal.timeout(ERP_REQUEST_TIMEOUT_MS),
       },
     );
   } catch (error) {
-    const timedOut = isTimeoutError(error);
+    const timedOut = isOutboundTimeoutError(error);
 
     logRouteEvent(
       requestContext,
@@ -215,11 +226,4 @@ export async function POST(request: Request) {
     mercadoLivre:
       "mercadoLivre" in responsePayload ? responsePayload.mercadoLivre : undefined,
   });
-}
-
-function isTimeoutError(error: unknown) {
-  return (
-    error instanceof DOMException &&
-    (error.name === "TimeoutError" || error.name === "AbortError")
-  );
 }

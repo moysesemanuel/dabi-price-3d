@@ -9,6 +9,7 @@ import {
   logRouteEvent,
   serializeError,
 } from "@/lib/server/route-observability";
+import { outboundFetch } from "@/lib/server/http";
 
 type PredictedCategory = {
   id: string;
@@ -259,7 +260,10 @@ async function predictCategory(query: string): Promise<PredictedCategory | null>
   url.searchParams.set("q", query);
   url.searchParams.set("limit", "1");
 
-  const response = await fetch(url, { cache: "no-store" });
+  const response = await outboundFetch(url, {
+    integration: "mercado_livre",
+    cache: "no-store",
+  });
 
   if (!response.ok) {
     return null;
@@ -309,9 +313,10 @@ async function fetchUserShippingPreferences(input: {
   token: string;
   userId: string;
 }) {
-  const response = await fetch(
+  const response = await outboundFetch(
     `https://api.mercadolibre.com/users/${input.userId}/shipping_preferences`,
     {
+      integration: "mercado_livre",
       headers: {
         Authorization: `Bearer ${input.token}`,
       },
@@ -334,9 +339,10 @@ async function fetchCategoryShippingPreferences(input: {
   token: string;
   categoryId: string;
 }) {
-  const response = await fetch(
+  const response = await outboundFetch(
     `https://api.mercadolibre.com/categories/${input.categoryId}/shipping_preferences`,
     {
+      integration: "mercado_livre",
       headers: {
         Authorization: `Bearer ${input.token}`,
       },
@@ -384,7 +390,8 @@ async function fetchFreeShippingCost(input: {
   url.searchParams.set("free_shipping", "true");
   url.searchParams.set("verbose", "true");
 
-  const response = await fetch(url, {
+  const response = await outboundFetch(url, {
+    integration: "mercado_livre",
     headers: {
       Authorization: `Bearer ${input.token}`,
     },
