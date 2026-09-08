@@ -119,11 +119,21 @@ observado, não o que se espera que exista.
    titular, mas não há exportação de dados nem exclusão de conta ou workspace
    pelo próprio usuário: os únicos `DELETE` existentes são administrativos
    (`/api/admin/users/[userId]`, membros de workspace) e de cálculos. Fase 19.
-6. **Catálogo comercial divergiu do escopo.** O commit `dce27d6`
-   (06/09/2026) reescreveu `/planos` e tirou o Max da venda, enquanto o
-   `ESCOPO-OFICIAL-DABI-PRICE.md` continua descrevendo o catálogo como
-   Start, Pro e Max. Uma das duas fontes está errada e a decisão é comercial,
-   não técnica. Cobrado na Fase 22.
+6. **Catálogo comercial: não há divergência.** Correção de 08/09/2026. A
+   auditoria tratou o commit `dce27d6` como se ele tivesse mudado o catálogo,
+   mas ele **nunca chegou à `main`**: está numa branch local
+   (`fix/pagina-de-planos`) que não foi publicada. Na `main`, `/planos` e
+   `src/lib/workspace/catalog.ts` seguem com Start, Pro e Max, iguais ao
+   `ESCOPO-OFICIAL-DABI-PRICE.md`.
+
+   A decisão de produto foi confirmada: **o Max continua no catálogo** e passa
+   a ser vendido mais adiante, quando o ERP e o site estiverem completos.
+
+   A branch já faz exatamente isso, apesar do que o título do commit sugere:
+   o Max continua listado na página e na tabela comparativa, marcado como
+   `Em breve`, e só perde o botão de assinatura. O mapa `purchasablePlans`
+   controla isso, com a regra escrita no próprio arquivo — não comercializar
+   antes de as automações e o ERP existirem.
 7. **O plano estava atrasado em relação ao produto.** Entre 04/09 e 06/09
    entraram landing premium, adoção da marca, Termos e Privacidade com aceite
    no cadastro, identidade da empresa editável no admin com trilha e a
@@ -1571,9 +1581,10 @@ bloqueado
 - [ ] Testes.
 - [ ] Dados.
 - [ ] Documentação.
-- [ ] Catálogo comercial: resolver a divergência entre `/planos` sem o Max
-      (commit `dce27d6`, 06/09/2026) e o `ESCOPO-OFICIAL-DABI-PRICE.md`, que
-      descreve Start, Pro e Max. Corrigir a fonte errada, não as duas.
+- [ ] Catálogo comercial: confirmar na auditoria final que `/planos`, o
+      catálogo e o `ESCOPO-OFICIAL-DABI-PRICE.md` seguem com Start, Pro e Max.
+      Não há divergência aberta: o commit que tirava o Max nunca foi publicado,
+      e a decisão de 08/09/2026 é manter o plano no catálogo para venda futura.
 
 ---
 
