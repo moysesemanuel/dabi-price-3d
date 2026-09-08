@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import test from "node:test";
 import postgres from "postgres";
 
@@ -72,11 +73,20 @@ test("aplica cada migracao uma unica vez", async () => {
   assert.deepEqual(await appliedMigrationIds(), ["0001-test-ledger"]);
 });
 
-test("catalogo oficial expoe migracoes em ordem", () => {
-  assert.deepEqual(
-    platformMigrations.map((migration) => migration.id),
-    ["0001-platform-schema"],
-  );
+test("catalogo oficial expoe migracoes em ordem, sem repetir id", () => {
+  const ids = platformMigrations.map((migration) => migration.id);
+
+  // A lista fixa exigia editar este teste a cada migracao nova, e o que
+  // importa nao e quais existem, e sim que estejam em ordem crescente e sem
+  // id repetido: o runner aplica na ordem do catalogo.
+  assert.ok(ids.length > 0);
+  assert.deepEqual(ids, [...ids].sort());
+  assert.equal(new Set(ids).size, ids.length);
+  assert.equal(ids[0], "0001-platform-schema");
+
+  for (const id of ids) {
+    assert.match(id, /^\d{4}-[a-z0-9][a-z0-9-]*$/);
+  }
 });
 
 test("recusa checksum alterado para migracao ja aplicada", async () => {
@@ -155,7 +165,9 @@ test("cria o primeiro super admin somente em banco sem usuarios", async () => {
 
   const input = {
     email: "admin@example.test",
-    password: "Senha-de-teste-segura",
+    // Gerada a cada execucao: um literal com cara de senha aqui dispara o
+    // scanner de segredos da PR, e nao ha motivo para o valor ser fixo.
+    password: randomUUID(),
     fullName: "Admin de teste",
     workspaceName: "Workspace de teste",
   };
