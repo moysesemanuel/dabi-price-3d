@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { migrationChecksum } from "./checksum.mjs";
+
 const bootstrapPrices = [
   { planId: "starter", billingCycle: "monthly", amountCents: 4900 },
   { planId: "starter", billingCycle: "annual", amountCents: 49000 },
@@ -9,7 +11,7 @@ const bootstrapPrices = [
 
 const platformSchemaMigration = {
   id: "0001-platform-schema",
-  checksum: "8cfb83d7e5f024ce799df0c18148eab9d5c2b55d5f90d7e70d20ab780ce9d7fe",
+  checksum: migrationChecksum(import.meta.url),
   async up(sql) {
   await sql`
     CREATE TABLE IF NOT EXISTS users (
