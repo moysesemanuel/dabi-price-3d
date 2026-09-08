@@ -587,14 +587,14 @@ Eliminar condições de corrida capazes de produzir estado comercial inválido.
 ## Cenários a auditar
 
 - [x] webhook vs webhook
-- [ ] webhook vs reconciliation
+- [x] webhook vs reconciliation
 - [x] reconciliation vs reconciliation
 - [x] checkout simultâneo
 - [x] upgrade simultâneo
 - [x] downgrade simultâneo
-- [ ] cancelamento vs pagamento
+- [x] cancelamento vs pagamento
 - [x] pagamento vs expiração
-- [ ] mudança de ciclo vs webhook
+- [x] mudança de ciclo vs webhook
 
 ## Hardening
 
@@ -690,6 +690,23 @@ Onde necessário:
   assinatura e o preço vigente, preparar a recorrência no provider e persistir
   a mudança agendada. Operações concorrentes recebem `409` antes da mutação
   externa.
+- Os três cenários que faltavam foram marcados em 08/09/2026, e a maior parte
+  da evidência ja existia: o commit `c9a51ee`, de 24/08/2026, fechou as
+  lacunas e escreveu os três testes concorrentes correspondentes. O registro
+  aqui nunca foi feito — o mesmo atraso de registro que a regra de evidência
+  deste documento existe para evitar.
+- A revisão de 08/09/2026 acrescentou as direções inversas, que não estavam
+  cobertas: reconciliação segurando o claim antes do webhook, pagamento
+  chegando durante o cancelamento e mudança agendada em execução contra o
+  webhook de renovação. Seis testes concorrentes no total.
+- **Consequência do desenho, agora coberta por teste:** o webhook marca a
+  invoice como paga **antes** de disputar o claim da assinatura. Se perder a
+  disputa, a transição já aconteceu e a reentrega seguinte do provider é
+  tratada como duplicata, sem aplicar efeito comercial. Quem recupera é a
+  reconciliação, que procura invoices pagas com claim de efeito incompleto.
+  O retry do provider não basta: a janela entre a falha e a próxima execução
+  do cron é o tempo em que o cliente pagou e não tem acesso. Reduzir essa
+  janela depende da frequência do job, não do código do webhook.
 - `Retries seguros` foi marcado pela PR #67 (`3521470`, 07/09/2026). O cliente
   `src/lib/server/http.ts` só repete falha transitória — timeout, rede, 5xx,
   429 — e só em método idempotente ou quando quem chama declara que a
