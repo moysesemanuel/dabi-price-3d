@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import postgres from "postgres";
 import { closeNeonPostgresShim } from "./support/neon-postgres-shim.mjs";
+import { migratePlatformDatabase } from "./support/migrate-platform-database.mjs";
 
 const testDatabaseUrl = resolveTestDatabaseUrl(process.env.TEST_DATABASE_URL);
 
@@ -22,7 +23,6 @@ process.env.NODE_ENV = "test";
 process.env.TEST_DATABASE_URL = testDatabaseUrl;
 process.env.DATABASE_URL = testDatabaseUrl;
 
-const platform = await import("../src/lib/server/platform.ts");
 const repository = await import("../src/lib/billing/repository.ts");
 const sql = postgres(testDatabaseUrl, { idle_timeout: 1, max: 6 });
 const INVOICE_INSERT_LOCK_KEY = 741_012;
@@ -102,7 +102,7 @@ async function removeInsertGate() {
 }
 
 test.before(async () => {
-  await platform.ensurePlatformReady();
+  await migratePlatformDatabase(testDatabaseUrl);
 });
 
 test.after(async () => {

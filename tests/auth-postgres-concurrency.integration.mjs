@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import postgres from "postgres";
 import { closeNeonPostgresShim } from "./support/neon-postgres-shim.mjs";
+import { migratePlatformDatabase } from "./support/migrate-platform-database.mjs";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 
@@ -22,7 +23,6 @@ const [platformModule, passwordModule] = await Promise.all([
 
 const {
   consumePasswordResetToken,
-  ensurePlatformReady,
   findUserById,
   inviteWorkspaceMember,
   issuePasswordResetToken,
@@ -190,7 +190,7 @@ async function unlock(key) {
 }
 
 test.before(async () => {
-  await ensurePlatformReady();
+  await migratePlatformDatabase(testDatabaseUrl);
 });
 
 test.after(async () => {

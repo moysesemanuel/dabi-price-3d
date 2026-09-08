@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import postgres from "postgres";
 import { closeNeonPostgresShim } from "./support/neon-postgres-shim.mjs";
+import { migratePlatformDatabase } from "./support/migrate-platform-database.mjs";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 
@@ -18,7 +19,6 @@ process.env.DATABASE_URL = testDatabaseUrl;
 const platformModule = await import("../src/lib/server/platform.ts");
 const { hashPassword } = await import("../src/lib/auth/password.ts");
 const {
-  ensurePlatformReady,
   removeWorkspaceMember,
   updateWorkspaceMemberRole,
 } = platformModule;
@@ -200,7 +200,7 @@ async function unlockOwnershipGate() {
 }
 
 test.before(async () => {
-  await ensurePlatformReady();
+  await migratePlatformDatabase(testDatabaseUrl);
   await removeTransferGate();
   await removeWorkspaceFailureGate();
 });

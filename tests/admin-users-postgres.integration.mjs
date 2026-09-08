@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import postgres from "postgres";
 import { closeNeonPostgresShim } from "./support/neon-postgres-shim.mjs";
+import { migratePlatformDatabase } from "./support/migrate-platform-database.mjs";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 if (!testDatabaseUrl) {
@@ -16,7 +17,6 @@ const platform = await import("../src/lib/server/platform.ts");
 const { hashPassword } = await import("../src/lib/auth/password.ts");
 const {
   deletePlatformUser,
-  ensurePlatformReady,
   findPlatformUserById,
   listPlatformUserMemberships,
   revokePlatformUserSessions,
@@ -68,7 +68,7 @@ async function cleanup({ users = [], workspaces = [] }) {
 }
 
 test.before(async () => {
-  await ensurePlatformReady();
+  await migratePlatformDatabase(testDatabaseUrl);
 });
 
 test.after(async () => {
