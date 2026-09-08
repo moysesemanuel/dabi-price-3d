@@ -1,6 +1,6 @@
 # ADR-001: Modelo de concorrência do billing
 
-**Status:** Proposta
+**Status:** Aceita em 08/09/2026 (PR #69)
 **Data:** 07/09/2026
 **Decisor:** responsável técnico do DaBi Price
 **Fase relacionada:** Fase 6 do `docs/PLANO-FINAL-DABI-PRICE-100.md`
@@ -162,8 +162,9 @@ atomicamente. Se aparecer um, ele exige revisitar este ADR — não improvisar.
 
 ## Itens de ação
 
-1. [ ] Aceitar este ADR e marcar `Transações`, `Locking` e
+1. [x] Aceitar este ADR e marcar `Transações`, `Locking` e
        `SELECT ... FOR UPDATE ou equivalente` na Fase 6 referenciando-o.
+       Feito em 08/09/2026.
 2. [ ] Adicionar coluna de versão em `BillingSubscription`, incrementada em toda
        mutação, com `WHERE version = ?` nas releituras feitas dentro do claim —
        fecha `Optimistic concurrency`.
