@@ -610,6 +610,9 @@ Eliminar condições de corrida capazes de produzir estado comercial inválido.
 > transição de status, e fechá-lo pede coluna de versão em
 > `BillingSubscription`. O ADR também registra que o lease não tem fencing
 > token — o furo mais provável do modelo hoje.
+>
+> O desenho dos dois, mais a recuperação do efeito de pagamento, está em
+> `docs/architecture/W2_CONCORRENCIA_DESIGN.md`, em estado de proposta.
 
 Onde necessário:
 
