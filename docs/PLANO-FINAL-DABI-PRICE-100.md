@@ -599,20 +599,26 @@ Eliminar condições de corrida capazes de produzir estado comercial inválido.
 ## Hardening
 
 > Os itens `Transações`, `Locking` e `SELECT ... FOR UPDATE ou equivalente`
-> dependem de uma decisão registrada, não de implementação: o driver HTTP do
-> Neon não oferece transação interativa, e o billing resolve exclusão mútua por
-> statement atômico e claim durável. Ver
-> `docs/architecture/ADR-001-CONCORRENCIA-BILLING.md`, em estado de proposta.
-> Enquanto o ADR não for aceito, os três seguem desmarcados.
+> estão marcados por decisão registrada, não por implementação: o driver HTTP
+> do Neon não oferece transação interativa, e o billing resolve exclusão mútua
+> por statement atômico e claim durável — compare-and-set com `expectedStatus`,
+> claims com lease e token de posse, e unicidade no banco. A decisão está em
+> `docs/architecture/ADR-001-CONCORRENCIA-BILLING.md`, aceita em 08/09/2026
+> pela PR #69.
+>
+> `Optimistic concurrency` segue aberto de propósito: hoje existe só para
+> transição de status, e fechá-lo pede coluna de versão em
+> `BillingSubscription`. O ADR também registra que o lease não tem fencing
+> token — o furo mais provável do modelo hoje.
 
 Onde necessário:
 
-- [ ] Transações.
-- [ ] Locking.
+- [x] Transações.
+- [x] Locking.
 - [x] Atomicidade.
 - [x] Unique constraints.
 - [ ] Optimistic concurrency.
-- [ ] `SELECT ... FOR UPDATE` ou equivalente.
+- [x] `SELECT ... FOR UPDATE` ou equivalente.
 - [x] Idempotency keys.
 - [x] Retries seguros.
 
