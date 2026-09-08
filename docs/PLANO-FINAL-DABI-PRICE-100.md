@@ -128,7 +128,12 @@ observado, não o que se espera que exista.
 
    A decisão de produto foi confirmada: **o Max continua no catálogo** e passa
    a ser vendido mais adiante, quando o ERP e o site estiverem completos.
-   Qualquer reaproveitamento daquela branch precisa manter o Max na página.
+
+   A branch já faz exatamente isso, apesar do que o título do commit sugere:
+   o Max continua listado na página e na tabela comparativa, marcado como
+   `Em breve`, e só perde o botão de assinatura. O mapa `purchasablePlans`
+   controla isso, com a regra escrita no próprio arquivo — não comercializar
+   antes de as automações e o ERP existirem.
 7. **O plano estava atrasado em relação ao produto.** Entre 04/09 e 06/09
    entraram landing premium, adoção da marca, Termos e Privacidade com aceite
    no cadastro, identidade da empresa editável no admin com trilha e a
