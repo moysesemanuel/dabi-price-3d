@@ -486,11 +486,15 @@ test("retomada do Pix de ciclo e webhook pago não aplicam mudança duas vezes",
  * Ela revela uma consequência do desenho que vale ficar registrada em teste: o
  * webhook marca a invoice como paga **antes** de disputar o claim da
  * assinatura. Se perder a disputa, a transição já aconteceu, e a reentrega
- * seguinte é tratada como duplicata — sem aplicar efeito comercial nenhum.
- * Quem recupera o pagamento é a reconciliação, que procura invoices pagas com
- * claim de efeito incompleto. Ou seja: o retry do provider não basta, e a
- * janela entre a falha e a próxima execução do cron é o tempo em que o cliente
- * pagou e não tem acesso.
+ * seguinte cai no caminho de duplicata (`invoice_already_transitioned`).
+ *
+ * A partir da Camada 1 da Parte 3 do W2 (docs/architecture/W2_CONCORRENCIA_DESIGN.md),
+ * esse caminho de duplicata verifica se o claim de efeito ficou incompleto e,
+ * se ficou, recupera na hora — reusando a mesma rotina da reconciliação. A
+ * reconciliação continua sendo a rede de segurança para os casos em que a
+ * própria reentrega não chega (provider desiste) ou perde a corrida do claim
+ * de efeito para uma reconciliação já em andamento (caso coberto no teste
+ * seguinte).
  */
 
 test("reconciliação primeiro: a reentrega do webhook não duplica o efeito", async () => {
@@ -537,7 +541,7 @@ test("reconciliação primeiro: a reentrega do webhook não duplica o efeito", a
   assert.equal(state.workspaceEffects, 1);
 });
 
-test("pagamento que chega durante o cancelamento só é aplicado pela reconciliação", async () => {
+test("pagamento que chega durante o cancelamento é recuperado pela reentrega do webhook", async () => {
   const state = createState({
     subscription: { status: "active" },
     invoice: { type: "renewal" },
@@ -591,19 +595,78 @@ test("pagamento que chega durante o cancelamento só é aplicado pela reconcilia
   await cancellationPromise;
   assert.equal(state.providerCancels, 1);
 
-  // A reentrega do provider nao recupera nada: para o webhook e duplicata.
+  // A reentrega do provider agora recupera o proprio efeito: nao depende mais
+  // do cron para o cliente recuperar o acesso.
   await createWebhookService(state)
     .processEvent(manualPaymentEvent(state.invoice.id))
     .catch(() => null);
-  assert.equal(state.renewals, 0);
-
-  // Quem recupera e a reconciliacao, uma unica vez.
-  await createReconciliationService(state).reconcileInvoice(state.invoice.id);
   assert.equal(state.renewals, 1);
   assert.equal(state.workspaceEffects, 1);
 
+  // A reconciliacao, se rodar depois, encontra o efeito ja concluido e nao
+  // reaplica: o efeito acontece uma unica vez.
   await createReconciliationService(state).reconcileInvoice(state.invoice.id);
   assert.equal(state.renewals, 1);
+  assert.equal(state.workspaceEffects, 1);
+});
+
+test("duplicata com efeito já concluído não reaplica", async () => {
+  const state = createState({
+    subscription: { status: "active" },
+    invoice: { status: "paid", type: "renewal", paidAt: "2026-08-14T12:15:00.000Z" },
+  });
+  state.invoiceEffectCompleted = true;
+
+  const webhookResult = await createWebhookService(state).processEvent(
+    manualPaymentEvent(state.invoice.id),
+  );
+
+  // O claim de efeito acusa concluído no primeiro UPSERT: nenhuma outra
+  // leitura ou escrita é tentada.
+  assert.equal(webhookResult.body.duplicate, true);
+  assert.equal(webhookResult.body.effectApplied, false);
+  assert.equal(state.renewals, 0);
+  assert.equal(state.workspaceEffects, 0);
+  assert.equal(state.subscriptionOperationActive, false);
+});
+
+test("duas reentregas simultâneas do webhook aplicam o efeito uma única vez", async () => {
+  const state = createState({
+    subscription: { status: "active" },
+    invoice: { status: "paid", type: "renewal", paidAt: "2026-08-14T12:15:00.000Z" },
+  });
+  const firstEntered = deferred();
+  const releaseFirst = deferred();
+  let holdFirst = true;
+  state.onSubscriptionClaim = async () => {
+    if (holdFirst) {
+      firstEntered.resolve();
+      await releaseFirst.promise;
+    }
+  };
+
+  const firstPromise = createWebhookService(state).processEvent(
+    manualPaymentEvent(state.invoice.id),
+  );
+
+  await firstEntered.promise;
+
+  // A segunda reentrega chega enquanto a primeira ainda segura o claim de
+  // efeito: perde a corrida no UPSERT atômico e sai como duplicata, sem
+  // tentar a operação de assinatura.
+  const secondResult = await createWebhookService(state).processEvent(
+    manualPaymentEvent(state.invoice.id),
+  );
+  assert.equal(secondResult.body.effectApplied, false);
+  assert.equal(state.renewals, 0);
+
+  holdFirst = false;
+  releaseFirst.resolve();
+  const firstResult = await firstPromise;
+
+  assert.equal(firstResult.body.effectApplied, true);
+  assert.equal(state.renewals, 1);
+  assert.equal(state.workspaceEffects, 1);
 });
 
 test("mudança agendada em execução bloqueia o webhook de renovação", async () => {

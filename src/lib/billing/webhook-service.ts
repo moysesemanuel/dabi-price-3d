@@ -4,6 +4,7 @@ import {
 } from "./manual-payment-status.ts";
 import { applyBillingSubscriptionCycleChange } from "./cycle-change-management.ts";
 import { applyBillingSubscriptionUpgrade } from "./upgrade-management.ts";
+import { recoverPaidInvoiceEffect } from "./invoice-effect-recovery.ts";
 import type { BillingPrice } from "./types.ts";
 import type { BillingService } from "./service.ts";
 import type {
@@ -1068,7 +1069,7 @@ export class BillingWebhookService {
     });
 
     if (!transitionedInvoice.applied) {
-      return this.createInvoiceAlreadyTransitionedOutcome({
+      return this.recoverAlreadyTransitionedInvoiceEffect({
         normalizedEvent,
         invoiceId: invoice.id,
         subscriptionId: subscription.id,
@@ -1209,7 +1210,7 @@ export class BillingWebhookService {
     });
 
     if (!transitionedInvoice.applied) {
-      return this.createInvoiceAlreadyTransitionedOutcome({
+      return this.recoverAlreadyTransitionedInvoiceEffect({
         normalizedEvent,
         invoiceId: invoice.id,
         subscriptionId: subscription.id,
@@ -1505,6 +1506,67 @@ export class BillingWebhookService {
     return paidEffect.value;
   }
 
+  /**
+   * The invoice was already out of `pending` by the time we tried to
+   * transition it — a provider retry landed after the first delivery (or a
+   * concurrent one) won the race. That first delivery may have marked the
+   * invoice paid and then lost the subscription operation claim, leaving the
+   * commercial effect unapplied until the reconciliation cron swept it up.
+   * Recover it here instead: same claim, same routine, just triggered by the
+   * retry itself rather than by the next cron run.
+   */
+  private async recoverAlreadyTransitionedInvoiceEffect(input: {
+    normalizedEvent: Extract<
+      BillingWebhookNormalizedEvent,
+      { kind: "authorized_payment" | "manual_payment" }
+    >;
+    invoiceId: string;
+    subscriptionId: string;
+  }): Promise<BillingWebhookProcessOutcome> {
+    const { normalizedEvent, invoiceId, subscriptionId } = input;
+    const currentInvoice = await this.dependencies.getInvoiceById(invoiceId);
+
+    if (!currentInvoice || currentInvoice.status !== "paid") {
+      return this.createInvoiceAlreadyTransitionedOutcome({
+        normalizedEvent,
+        invoiceId,
+        subscriptionId,
+      });
+    }
+
+    const recovery = await recoverPaidInvoiceEffect(this.dependencies, currentInvoice);
+
+    if (recovery.changed === 0) {
+      return this.createInvoiceAlreadyTransitionedOutcome({
+        normalizedEvent,
+        invoiceId,
+        subscriptionId,
+        recoveryFindingCodes: recovery.findings.map((finding) => finding.code),
+      });
+    }
+
+    return {
+      status: 200,
+      logLevel: "info",
+      event: "billing_webhook.invoice_effect_recovered",
+      details: {
+        provider: normalizedEvent.provider,
+        providerEventId: normalizedEvent.providerEventId,
+        eventType: normalizedEvent.eventType,
+        resourceId: normalizedEvent.resourceId,
+        invoiceId,
+        subscriptionId,
+      },
+      body: {
+        handled: true,
+        duplicate: true,
+        invoiceId,
+        subscriptionId,
+        effectApplied: true,
+      },
+    };
+  }
+
   private createInvoiceAlreadyTransitionedOutcome(input: {
     normalizedEvent: Extract<
       BillingWebhookNormalizedEvent,
@@ -1512,6 +1574,7 @@ export class BillingWebhookService {
     >;
     invoiceId: string;
     subscriptionId: string;
+    recoveryFindingCodes?: string[];
   }): BillingWebhookProcessOutcome {
     return {
       status: 200,
@@ -1524,6 +1587,9 @@ export class BillingWebhookService {
         resourceId: input.normalizedEvent.resourceId,
         invoiceId: input.invoiceId,
         subscriptionId: input.subscriptionId,
+        ...(input.recoveryFindingCodes?.length
+          ? { recoveryFindingCodes: input.recoveryFindingCodes }
+          : {}),
       },
       body: {
         handled: true,
