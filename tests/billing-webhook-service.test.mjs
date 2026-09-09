@@ -1865,7 +1865,30 @@ test("authorized payment com invoice já transicionada retorna curto-circuito id
       return null;
     },
     async getInvoiceById() {
-      throw new Error("not used");
+      // A invoice perdeu a corrida para outra transição que não é pagamento
+      // (ex.: expirou em paralelo): nada para o webhook recuperar.
+      return {
+        id: "inv-existing-16",
+        subscriptionId: "sub-16",
+        workspaceId: "workspace-16",
+        priceId: "price-growth-monthly",
+        type: "renewal",
+        status: "expired",
+        amountCents: 14900,
+        currency: "BRL",
+        periodStart: "2026-08-14T13:15:00.000Z",
+        periodEnd: "2026-09-14T13:15:00.000Z",
+        paymentMethod: "pix_automatic",
+        provider: "mercado_pago",
+        providerPaymentId: "pay-16",
+        providerAuthorizedPaymentId: "auth-pay-7",
+        paymentExpiresAt: null,
+        paidAt: null,
+        failedAt: "2026-08-14T13:15:30.000Z",
+        refundedAt: null,
+        createdAt: "2026-08-14T13:15:00.000Z",
+        updatedAt: "2026-08-14T13:15:30.000Z",
+      };
     },
     async findInvoiceByProviderPaymentId() {
       throw new Error("not used");
