@@ -173,6 +173,12 @@ justifique.
 quantas vezes a disputa é realmente perdida em produção. Se a resposta for zero,
 a Camada 1 basta e as outras duas são otimização de um problema que não existe.
 
+**Resultado, em 10/09/2026: zero eventos em 90 dias** — bem além da semana
+mínima proposta. A disputa nunca foi perdida em produção nesse período.
+Camadas 2 e 3 descartadas por enquanto: não há problema medido que as
+justifique. Reabrir se `billing.claim_lost` (ou o `billing.fencing_violation`
+da Parte 1) passar a aparecer.
+
 ---
 
 ## Ordem de execução
@@ -199,5 +205,7 @@ schema resultante.
    contexto quando houver consumidor real.
 4. [x] Guarda de posse e versão nas escritas, em modo permissivo.
 5. [x] Recuperação de efeito no caminho de duplicata do webhook. PR #76.
-6. [ ] Revisar `billing.claim_lost` no Sentry após uma semana.
-7. [ ] Decidir sobre a separação da varredura e o aviso dirigido, com número.
+6. [x] Revisar `billing.claim_lost` no Sentry após uma semana. Zero eventos em 90 dias
+   (revisado em 10/09/2026).
+7. [x] Decidir sobre a separação da varredura e o aviso dirigido, com número. Descartadas por
+   enquanto — zero disputas perdidas não justificam Camadas 2 e 3. Reabrir se o número mudar.

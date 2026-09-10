@@ -610,8 +610,9 @@ Eliminar condições de corrida capazes de produzir estado comercial inválido.
 > (migração `0003`), guardada em `updateBillingSubscription` junto com o
 > fencing do claim de posse (`AsyncLocalStorage`, modo permissivo). Parte 1 e
 > Parte 2 de `docs/architecture/W2_CONCORRENCIA_DESIGN.md`, aceito em
-> 09/09/2026. Da Parte 3, só a Camada 1 está implementada — as Camadas 2 e 3
-> ficam em aberto até haver número do Sentry que as justifique.
+> 09/09/2026. Da Parte 3, só a Camada 1 foi implementada — Camadas 2 e 3
+> descartadas em 10/09/2026 por falta de número que as justifique (zero
+> disputas de claim perdidas em 90 dias no Sentry).
 
 Onde necessário:
 
