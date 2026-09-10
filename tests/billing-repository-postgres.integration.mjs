@@ -3,6 +3,10 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import postgres from "postgres";
 import { closeNeonPostgresShim } from "./support/neon-postgres-shim.mjs";
+import {
+  runInBillingSubscriptionOperationContext,
+  setBillingFencingViolationReporter,
+} from "../src/lib/billing/subscription-operation-context.ts";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 
@@ -204,6 +208,7 @@ test("updateBillingSubscription aplica patch parcial e mantem os campos nao info
       provider: "mercado_pago",
       providerSubscriptionId: `mp-${randomUUID()}`,
     });
+    assert.equal(created.version, 1);
 
     const updated = await updateBillingSubscription(created.id, {
       status: "active",
@@ -220,10 +225,134 @@ test("updateBillingSubscription aplica patch parcial e mantem os campos nao info
     assert.equal(updated.autoRenew, false);
     assert.equal(updated.provider, "mercado_pago");
     assert.equal(updated.providerSubscriptionId, created.providerSubscriptionId);
+    assert.equal(updated.version, 2);
 
     const missing = await updateBillingSubscription(randomUUID(), { status: "active" });
     assert.equal(missing, null);
   } finally {
+    await cleanupWorkspace(workspace);
+  }
+});
+
+test("updateBillingSubscription recusa escrita com versao desatualizada (optimistic concurrency)", async () => {
+  const workspace = await createWorkspace("sub-version-conflict");
+  try {
+    const created = await createBillingSubscription({
+      workspaceId: workspace.workspaceId,
+      planId: "starter",
+      billingCycle: "monthly",
+      status: "pending",
+      autoRenew: false,
+      provider: "mercado_pago",
+      providerSubscriptionId: `mp-${randomUUID()}`,
+    });
+    const staleVersion = created.version;
+
+    // Uma escrita legitima acontece primeiro (outro request, outro webhook),
+    // avancando a versao.
+    const updatedElsewhere = await updateBillingSubscription(created.id, {
+      status: "active",
+    });
+    assert.equal(updatedElsewhere.version, staleVersion + 1);
+
+    // updateBillingSubscription sempre releh a versao mais recente antes de
+    // escrever, entao nao ha como, so pela API publica, forcar uma segunda
+    // chamada a carregar a versao ja obsoleta sem depender de timing de rede.
+    // Para provar a guarda do jeito que ela existe de verdade (a mesma
+    // condicao WHERE do UPDATE real), reproduzimos aqui a escrita de quem leu
+    // a assinatura ANTES dessa mudanca (versao stale).
+    const staleWrite = await controlSql`
+      UPDATE billing_subscriptions
+      SET status = 'paused', version = version + 1, updated_at = NOW()
+      WHERE id = ${created.id} AND version = ${staleVersion}
+      RETURNING id
+    `;
+    assert.equal(staleWrite.length, 0);
+
+    const finalState = await getBillingSubscriptionById(created.id);
+    assert.equal(finalState.status, "active");
+    assert.equal(finalState.version, staleVersion + 1);
+  } finally {
+    await cleanupWorkspace(workspace);
+  }
+});
+
+test("sem contexto de posse, updateBillingSubscription continua escrevendo em modo permissivo (padrao)", async () => {
+  const workspace = await createWorkspace("fencing-permissivo");
+  try {
+    const created = await createActiveSubscriptionFixture(workspace.workspaceId);
+
+    // Nenhum claim de operacao ativo, nenhum contexto — o cenario que o modo
+    // restritivo recusaria. Permissivo (padrao, sem BILLING_FENCING_ENFORCED)
+    // continua aplicando, igual ao comportamento de antes desta mudanca.
+    const updated = await updateBillingSubscription(created.id, { status: "paused" });
+    assert.ok(updated);
+    assert.equal(updated.status, "paused");
+  } finally {
+    await cleanupWorkspace(workspace);
+  }
+});
+
+test("modo permissivo reporta a divergencia de posse sem bloquear a escrita", async () => {
+  const workspace = await createWorkspace("fencing-report");
+  const reported = [];
+  setBillingFencingViolationReporter((event) => {
+    reported.push(event);
+  });
+  try {
+    const created = await createActiveSubscriptionFixture(workspace.workspaceId);
+    await claimBillingSubscriptionOperation(created.id);
+
+    // Claim ativo no banco, mas a escrita acontece fora de
+    // runInBillingSubscriptionOperationContext — o caminho que hoje (fencing
+    // ainda nao existia) e o unico que roda em producao.
+    const updated = await updateBillingSubscription(created.id, { status: "paused" });
+    assert.ok(updated);
+    assert.equal(updated.status, "paused");
+
+    assert.deepEqual(reported, [
+      { subscriptionId: created.id, reason: "context_missing" },
+    ]);
+  } finally {
+    setBillingFencingViolationReporter(null);
+    await cleanupWorkspace(workspace);
+  }
+});
+
+test("com BILLING_FENCING_ENFORCED=true, so a escrita com o token do claim ativo e aplicada", async () => {
+  const workspace = await createWorkspace("fencing-restritivo");
+  const previousEnforced = process.env.BILLING_FENCING_ENFORCED;
+  process.env.BILLING_FENCING_ENFORCED = "true";
+  try {
+    const created = await createActiveSubscriptionFixture(workspace.workspaceId);
+    const claimToken = await claimBillingSubscriptionOperation(created.id);
+    assert.ok(claimToken);
+
+    const withoutContext = await updateBillingSubscription(created.id, { status: "paused" });
+    assert.equal(withoutContext, null);
+
+    const withWrongToken = await runInBillingSubscriptionOperationContext(
+      { claimToken: "token-errado" },
+      () => updateBillingSubscription(created.id, { status: "paused" }),
+    );
+    assert.equal(withWrongToken, null);
+
+    const withCorrectToken = await runInBillingSubscriptionOperationContext(
+      { claimToken },
+      () => updateBillingSubscription(created.id, { status: "paused" }),
+    );
+    assert.ok(withCorrectToken);
+    assert.equal(withCorrectToken.status, "paused");
+    assert.equal(withCorrectToken.version, created.version + 1);
+
+    const finalState = await getBillingSubscriptionById(created.id);
+    assert.equal(finalState.status, "paused");
+  } finally {
+    if (previousEnforced === undefined) {
+      delete process.env.BILLING_FENCING_ENFORCED;
+    } else {
+      process.env.BILLING_FENCING_ENFORCED = previousEnforced;
+    }
     await cleanupWorkspace(workspace);
   }
 });

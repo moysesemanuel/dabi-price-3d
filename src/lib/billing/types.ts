@@ -123,6 +123,7 @@ export type BillingSubscription = {
   accessUntil: BillingIsoDateTimeString | null;
   provider: BillingProviderName | null;
   providerSubscriptionId: string | null;
+  version: number;
   createdAt: BillingIsoDateTimeString;
   updatedAt: BillingIsoDateTimeString;
 };

@@ -4,6 +4,11 @@ import { randomUUID } from "node:crypto";
 import { getSql } from "@/lib/server/neon";
 import { ensurePlatformReady } from "@/lib/server/platform";
 import {
+  getBillingSubscriptionOperationContext,
+  isBillingSubscriptionFencingEnforced,
+  reportBillingFencingViolation,
+} from "./subscription-operation-context";
+import {
   currentBillingSubscriptionStatuses,
   type BillingInvoice,
   type BillingPrice,
@@ -72,6 +77,7 @@ type BillingSubscriptionRow = {
   access_until: string | null;
   provider: BillingProviderName | null;
   provider_subscription_id: string | null;
+  version: number;
   created_at: string;
   updated_at: string;
 };
@@ -189,6 +195,7 @@ export async function findCurrentBillingSubscriptionForWorkspace(
       access_until,
       provider,
       provider_subscription_id,
+      version,
       created_at,
       updated_at
     FROM billing_subscriptions
@@ -226,6 +233,7 @@ export async function listBillingSubscriptionsForExpiration(asOf: string) {
       access_until,
       provider,
       provider_subscription_id,
+      version,
       created_at,
       updated_at
     FROM billing_subscriptions
@@ -261,6 +269,7 @@ export async function listBillingSubscriptionsForGracePeriodEnd(asOf: string) {
       access_until,
       provider,
       provider_subscription_id,
+      version,
       created_at,
       updated_at
     FROM billing_subscriptions
@@ -295,6 +304,7 @@ export async function listBillingSubscriptionsForScheduledCancellation(asOf: str
       access_until,
       provider,
       provider_subscription_id,
+      version,
       created_at,
       updated_at
     FROM billing_subscriptions
@@ -331,6 +341,7 @@ export async function listBillingSubscriptionsForProviderReconciliation(
       access_until,
       provider,
       provider_subscription_id,
+      version,
       created_at,
       updated_at
     FROM billing_subscriptions
@@ -368,6 +379,7 @@ export async function findBillingSubscriptionByProviderSubscriptionId(input: {
       access_until,
       provider,
       provider_subscription_id,
+      version,
       created_at,
       updated_at
     FROM billing_subscriptions
@@ -401,6 +413,7 @@ export async function getBillingSubscriptionById(subscriptionId: string) {
       access_until,
       provider,
       provider_subscription_id,
+      version,
       created_at,
       updated_at
     FROM billing_subscriptions
@@ -489,6 +502,7 @@ export async function createBillingSubscription(input: {
       access_until,
       provider,
       provider_subscription_id,
+      version,
       created_at,
       updated_at
   `) as BillingSubscriptionRow[];
@@ -507,6 +521,10 @@ export async function updateBillingSubscription(
   if (!currentSubscription) {
     return null;
   }
+
+  const context = getBillingSubscriptionOperationContext();
+  const claimToken = context?.claimToken ?? null;
+  const fencingEnforced = isBillingSubscriptionFencingEnforced();
 
   const sql = getSql();
   const rows = (await sql`
@@ -558,8 +576,18 @@ export async function updateBillingSubscription(
         "providerSubscriptionId",
         currentSubscription.providerSubscriptionId,
       )},
+      version = ${currentSubscription.version + 1},
       updated_at = NOW()
     WHERE id = ${subscriptionId}
+      AND version = ${currentSubscription.version}
+      AND (
+        ${fencingEnforced} = FALSE
+        OR EXISTS (
+          SELECT 1 FROM billing_subscription_operation_claims
+          WHERE subscription_id = ${subscriptionId}
+            AND claim_token = ${claimToken}
+        )
+      )
     RETURNING
       id,
       workspace_id,
@@ -577,11 +605,30 @@ export async function updateBillingSubscription(
       access_until,
       provider,
       provider_subscription_id,
+      version,
       created_at,
-      updated_at
-  `) as BillingSubscriptionRow[];
+      updated_at,
+      EXISTS (
+        SELECT 1 FROM billing_subscription_operation_claims
+        WHERE subscription_id = ${subscriptionId}
+          AND claim_token = ${claimToken}
+      ) AS fencing_matched
+  `) as Array<BillingSubscriptionRow & { fencing_matched: boolean }>;
 
-  return rows[0] ? mapBillingSubscriptionRow(rows[0]) : null;
+  const updated = rows[0] ?? null;
+
+  // Em modo permissivo a guarda acima não bloqueia nada (o `OR` a torna sempre
+  // verdadeira), então uma divergência só aparece aqui, no flag calculado à
+  // parte — a escrita já aconteceu, isto é só o sinal para quem for investigar
+  // depois de ligar `BILLING_FENCING_ENFORCED`.
+  if (updated && !fencingEnforced && !updated.fencing_matched) {
+    reportBillingFencingViolation({
+      subscriptionId,
+      reason: claimToken ? "claim_token_mismatch" : "context_missing",
+    });
+  }
+
+  return updated ? mapBillingSubscriptionRow(updated) : null;
 }
 
 export async function listAbandonedPendingBillingSubscriptions(input: {
@@ -1897,6 +1944,7 @@ function mapBillingSubscriptionRow(row: BillingSubscriptionRow): BillingSubscrip
     accessUntil: row.access_until,
     provider: row.provider,
     providerSubscriptionId: row.provider_subscription_id,
+    version: row.version,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

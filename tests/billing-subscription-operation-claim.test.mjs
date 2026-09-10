@@ -5,6 +5,7 @@ import {
   BillingSubscriptionOperationInProgressError,
   runWithBillingSubscriptionOperationClaim,
 } from "../src/lib/billing/subscription-operation-claim.ts";
+import { getBillingSubscriptionOperationContext } from "../src/lib/billing/subscription-operation-context.ts";
 
 test("claim de operação executa apenas uma mutação concorrente por assinatura", async () => {
   let claimAvailable = true;
@@ -167,4 +168,55 @@ test("sem reporter registrado a liberação falha em silêncio, como antes", asy
     },
     async operation() {},
   });
+});
+
+test("o token do claim fica disponível no contexto durante a operação, e some depois", async () => {
+  assert.equal(getBillingSubscriptionOperationContext(), null);
+
+  let contextDuringOperation;
+
+  await runWithBillingSubscriptionOperationClaim({
+    subscriptionId: "sub-claim-8",
+    async claimSubscriptionOperation() {
+      return "claim-8";
+    },
+    async releaseSubscriptionOperationClaim() {
+      return true;
+    },
+    async operation() {
+      contextDuringOperation = getBillingSubscriptionOperationContext();
+    },
+  });
+
+  assert.deepEqual(contextDuringOperation, { claimToken: "claim-8" });
+  assert.equal(getBillingSubscriptionOperationContext(), null);
+});
+
+test("cada claim concorrente carrega o próprio token no contexto, sem vazar entre as duas", async () => {
+  const seenTokens = [];
+  let claimCounter = 0;
+  const operation = () =>
+    runWithBillingSubscriptionOperationClaim({
+      subscriptionId: "sub-claim-9",
+      async claimSubscriptionOperation() {
+        claimCounter += 1;
+        return `claim-9-${claimCounter}`;
+      },
+      async releaseSubscriptionOperationClaim() {
+        return true;
+      },
+      async operation() {
+        const before = getBillingSubscriptionOperationContext();
+        await new Promise((resolve) => setImmediate(resolve));
+        const after = getBillingSubscriptionOperationContext();
+        seenTokens.push({ before, after });
+      },
+    });
+
+  await Promise.all([operation(), operation()]);
+
+  for (const { before, after } of seenTokens) {
+    assert.deepEqual(before, after);
+  }
+  assert.notDeepEqual(seenTokens[0].before, seenTokens[1].before);
 });
