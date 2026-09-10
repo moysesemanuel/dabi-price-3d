@@ -1,4 +1,5 @@
 import type { BillingClaimLostEvent } from "../observability/billing-claim.ts";
+import { runInBillingSubscriptionOperationContext } from "./subscription-operation-context.ts";
 
 export class BillingSubscriptionOperationInProgressError extends Error {
   constructor(subscriptionId: string) {
@@ -24,7 +25,10 @@ export async function runWithBillingSubscriptionOperationClaim<T>(input: {
   }
 
   try {
-    return await input.operation();
+    return await runInBillingSubscriptionOperationContext(
+      { claimToken },
+      () => input.operation(),
+    );
   } finally {
     const released = await input
       .releaseSubscriptionOperationClaim({

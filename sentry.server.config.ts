@@ -1,5 +1,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { registerSentryRouteErrorReporter } from "./src/lib/observability/route-error-reporter";
+import { createBillingFencingViolationReporter } from "./src/lib/observability/billing-fencing";
+import { setBillingFencingViolationReporter } from "./src/lib/billing/subscription-operation-context";
 import {
   createSentryOptions,
   sanitizeSentryEvent,
@@ -19,4 +21,7 @@ if (sentryOptions) {
   });
 
   registerSentryRouteErrorReporter();
+  setBillingFencingViolationReporter(
+    createBillingFencingViolationReporter(Sentry.captureMessage),
+  );
 }
