@@ -196,6 +196,6 @@ schema resultante.
 2. [ ] Migração `0003` com `version` em `billing_subscriptions`.
 3. [ ] Contexto de operação (`AsyncLocalStorage`) com `claimToken` e `requestId`.
 4. [ ] Guarda de posse e versão nas escritas, em modo permissivo.
-5. [ ] Recuperação de efeito no caminho de duplicata do webhook.
+5. [x] Recuperação de efeito no caminho de duplicata do webhook. PR #76.
 6. [ ] Revisar `billing.claim_lost` no Sentry após uma semana.
 7. [ ] Decidir sobre a separação da varredura e o aviso dirigido, com número.
