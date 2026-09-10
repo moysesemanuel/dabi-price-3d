@@ -609,9 +609,9 @@ Eliminar condições de corrida capazes de produzir estado comercial inválido.
 > `Optimistic concurrency` fechado: coluna `version` em `billing_subscriptions`
 > (migração `0003`), guardada em `updateBillingSubscription` junto com o
 > fencing do claim de posse (`AsyncLocalStorage`, modo permissivo). Parte 1 e
-> Parte 2 de `docs/architecture/W2_CONCORRENCIA_DESIGN.md`, que segue em
-> estado de proposta para a Parte 3 (Camadas 2 e 3, ainda por decidir com
-> número do Sentry).
+> Parte 2 de `docs/architecture/W2_CONCORRENCIA_DESIGN.md`, aceito em
+> 09/09/2026. Da Parte 3, só a Camada 1 está implementada — as Camadas 2 e 3
+> ficam em aberto até haver número do Sentry que as justifique.
 
 Onde necessário:
 

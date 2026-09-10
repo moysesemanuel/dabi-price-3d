@@ -1,6 +1,6 @@
 # W2 — Desenho: posse de operação, versão de linha e recuperação de efeito
 
-**Status:** Proposta
+**Status:** Aceito (09/09/2026)
 **Data:** 08/09/2026
 **Decisor:** responsável técnico do DaBi Price
 **Depende de:** `ADR-001-CONCORRENCIA-BILLING.md` (aceito em 08/09/2026)
@@ -192,7 +192,7 @@ schema resultante.
 
 ## Itens de ação
 
-1. [ ] Aceitar este desenho.
+1. [x] Aceitar este desenho. Aceito em 09/09/2026.
 2. [x] Migração `0003` com `version` em `billing_subscriptions`.
 3. [ ] Contexto de operação (`AsyncLocalStorage`) com `claimToken` e `requestId`. `claimToken`
    feito; `requestId` adiado — hoje nada em código de billing o consome, entra fácil no mesmo
