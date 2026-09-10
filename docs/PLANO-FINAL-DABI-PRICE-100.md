@@ -606,13 +606,12 @@ Eliminar condições de corrida capazes de produzir estado comercial inválido.
 > `docs/architecture/ADR-001-CONCORRENCIA-BILLING.md`, aceita em 08/09/2026
 > pela PR #69.
 >
-> `Optimistic concurrency` segue aberto de propósito: hoje existe só para
-> transição de status, e fechá-lo pede coluna de versão em
-> `BillingSubscription`. O ADR também registra que o lease não tem fencing
-> token — o furo mais provável do modelo hoje.
->
-> O desenho dos dois, mais a recuperação do efeito de pagamento, está em
-> `docs/architecture/W2_CONCORRENCIA_DESIGN.md`, em estado de proposta.
+> `Optimistic concurrency` fechado: coluna `version` em `billing_subscriptions`
+> (migração `0003`), guardada em `updateBillingSubscription` junto com o
+> fencing do claim de posse (`AsyncLocalStorage`, modo permissivo). Parte 1 e
+> Parte 2 de `docs/architecture/W2_CONCORRENCIA_DESIGN.md`, que segue em
+> estado de proposta para a Parte 3 (Camadas 2 e 3, ainda por decidir com
+> número do Sentry).
 
 Onde necessário:
 
@@ -620,7 +619,7 @@ Onde necessário:
 - [x] Locking.
 - [x] Atomicidade.
 - [x] Unique constraints.
-- [ ] Optimistic concurrency.
+- [x] Optimistic concurrency.
 - [x] `SELECT ... FOR UPDATE` ou equivalente.
 - [x] Idempotency keys.
 - [x] Retries seguros.
